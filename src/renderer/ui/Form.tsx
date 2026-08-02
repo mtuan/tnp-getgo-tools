@@ -22,7 +22,7 @@ interface FieldBase {
 }
 
 export type FormField =
-  | (FieldBase & { type: "text" | "email" | "url" | "tel" | "search"; placeholder?: string })
+  | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search"; placeholder?: string; autoComplete?: string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string })
@@ -128,7 +128,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "number") return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null ? "" : Number(value)} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />
-  return <input name={field.name} type={field.type} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
+  return <input name={field.name} type={field.type} autoComplete={field.autoComplete} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
 }
 
 function Field({ field, values, errors, onChange, autoFocus }: { field: FormField; values: FormValues; errors: FormErrors; onChange(name: string, value: unknown): void; autoFocus: boolean }) {
@@ -141,6 +141,19 @@ function Field({ field, values, errors, onChange, autoFocus }: { field: FormFiel
 }
 
 export function Form({ fields, values, errors = {}, onChange, autoFocus = true, autoSelectSingleOption = true }: { fields: FormSchema[]; values: FormValues; errors?: FormErrors; onChange(name: string, value: unknown): void; autoFocus?: boolean; autoSelectSingleOption?: boolean }) {
+  const formRootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const parentForm = formRootRef.current?.closest("form")
+    if (!parentForm) return
+    const focusFirstError = () => window.requestAnimationFrame(() => {
+      const control = formRootRef.current?.querySelector<HTMLElement>(".schema-field.invalid input:not([disabled]), .schema-field.invalid textarea:not([disabled]), .schema-field.invalid select:not([disabled]), .schema-field.invalid button:not([disabled]), .schema-field.invalid [tabindex]:not([tabindex='-1'])")
+      if (!control) return
+      control.focus({ preventScroll: true })
+      control.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" })
+    })
+    parentForm.addEventListener("submit", focusFirstError)
+    return () => parentForm.removeEventListener("submit", focusFirstError)
+  }, [])
   useEffect(() => {
     if (!autoSelectSingleOption) return
     for (const field of flattenSchema(fields, values)) {
@@ -162,7 +175,7 @@ export function Form({ fields, values, errors = {}, onChange, autoFocus = true, 
     if (!rowFields.length) return null
     return <div className={rowFields.length > 1 ? "schema-row" : "schema-row single"} key={key}>{rowFields.map(renderField)}</div>
   }
-  return <div className="schema-form">{fields.map((entry, index) => isSection(entry)
+  return <div className="schema-form" ref={formRootRef}>{fields.map((entry, index) => isSection(entry)
     ? (!entry.when || entry.when(values)) && <section className="schema-section" key={index}><header><h3>{entry.section}</h3>{entry.description && <p>{entry.description}</p>}</header>{entry.fields.map((row, rowIndex) => renderRow(row, `${index}-${rowIndex}`))}</section>
     : renderRow(entry, String(index)))}</div>
 }
