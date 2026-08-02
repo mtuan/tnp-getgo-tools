@@ -7,6 +7,7 @@ import { Button } from "./ui/Button"
 import { PageHeader } from "./ui/PageHeader"
 import { Panel } from "./ui/Panel"
 import { SummaryCard } from "./ui/SummaryCard"
+import { useToast } from "./ui/Toast"
 
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
 
@@ -31,6 +32,7 @@ function EmptyFeature({ title, detail }: { title: string; detail: string }) {
 }
 
 export function App() {
+  const toast = useToast()
   const [initialRoute] = useState(readLastRoute)
   const [view, setView] = useState<View>(() => viewFromRoute(initialRoute))
   const [settings, setSettings] = useState<AppSettings>({ repositoryPath: null, environment: "staging" })
@@ -40,18 +42,18 @@ export function App() {
   const [currentRoute, setCurrentRoute] = useState(initialRoute)
   const [routeCopied, setRouteCopied] = useState(false)
 
-  async function scan(path?: string) {
+  async function scan(path?: string, announce = false) {
     setLoading(true); setError(null)
-    try { setSnapshot(await window.getgo.scanRepository(path)) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+    try { setSnapshot(await window.getgo.scanRepository(path)); if (announce) toast.show({ title: "Repository refreshed", description: "Local contests and quizzes are up to date." }) }
+    catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setError(message); if (announce) toast.show({ title: "Refresh failed", description: message, variant: "error" }) }
     finally { setLoading(false) }
   }
   async function choose() {
     setError(null)
     try {
       const result = await window.getgo.chooseRepository()
-      if (result) { setSnapshot(result); setSettings((s) => ({ ...s, repositoryPath: result.repositoryPath })) }
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+      if (result) { setSnapshot(result); setSettings((s) => ({ ...s, repositoryPath: result.repositoryPath })); toast.show({ title: "Repository connected", description: result.repositoryPath }) }
+    } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setError(message); toast.show({ title: "Could not connect repository", description: message, variant: "error" }) }
   }
   useEffect(() => {
     window.getgo.getSettings().then((value) => {
@@ -100,10 +102,10 @@ export function App() {
       <header className="topbar">
         <button className="repository" onClick={choose}><span>Repository</span><strong>{settings.repositoryPath?.split(/[\\/]/).pop() ?? "Choose folder"}</strong></button>
         <div className="top-actions">
-          <select className={settings.environment === "production" ? "production" : ""} value={settings.environment} onChange={async (event) => setSettings(await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]))}>
+          <select className={settings.environment === "production" ? "production" : ""} value={settings.environment} onChange={async (event) => { const next = await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]); setSettings(next); toast.show({ title: "Environment changed", description: `Now using ${next.environment}.`, variant: "info" }) }}>
             <option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option>
           </select>
-          <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan()} title="Rescan" aria-label="Rescan repository"><RefreshCw size={17} /></button>
+          <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan(undefined, true)} title="Rescan" aria-label="Rescan repository"><RefreshCw size={17} /></button>
         </div>
       </header>
       <div className="content">
@@ -125,7 +127,7 @@ export function App() {
         {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onChangeRepository={choose} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
-        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label><select value={settings.environment} onChange={async (event) => setSettings(await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]))}><option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option></select></div></section>}
+        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label><select value={settings.environment} onChange={async (event) => { const next = await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]); setSettings(next); toast.show({ title: "Environment changed", description: `Now using ${next.environment}.`, variant: "info" }) }}><option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option></select></div></section>}
         </PageTransition>
       </div>
     </main>
