@@ -6,6 +6,9 @@ import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { SettingsStore } from "./settings.js"
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
+const appIconPath = app.isPackaged
+  ? path.join(currentDirectory, "../renderer/icons/getgo-icon-blue.png")
+  : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-icon-blue.png")
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
@@ -15,6 +18,7 @@ function createWindow(): void {
     minWidth: 1000,
     minHeight: 680,
     title: "GetGo Tools",
+    icon: appIconPath,
     backgroundColor: "#f4f5f2",
     webPreferences: {
       preload: path.join(currentDirectory, "../preload/preload.cjs"),
@@ -29,6 +33,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {

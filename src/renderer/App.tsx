@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { CloudUpload, FolderOpen, LayoutDashboard, Library, RefreshCw, Settings, Sparkles, Workflow, X, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, QuizSummary, RepositorySnapshot } from "../core/models"
+import { GetGoIcon } from "./GetGoIcon"
 import { PageTransition } from "./PageTransition"
 
 type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "settings"
@@ -65,7 +66,7 @@ export function App() {
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><div className="brand-mark">G</div><div><strong>GetGo</strong><span>TOOLS</span></div></div>
+      <div className="brand"><div className="brand-mark"><GetGoIcon size={38} /></div><div><strong>GetGo</strong><span>TOOLS</span></div></div>
       <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><i><Icon size={18} strokeWidth={1.8} /></i>{item.label}</button> })}</nav>
       <div className="sidebar-footer"><span className="status-dot" />Local workspace<strong>v0.1.0</strong></div>
     </aside>
@@ -82,7 +83,7 @@ export function App() {
       <div className="content">
         <PageTransition trigger={[view, settings.repositoryPath]}>
         {error && <div className="error-banner"><strong>Could not scan repository</strong><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
-        {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark">G</div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><button className="primary" onClick={choose}>Choose repository</button></section> : null}
+        {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><button className="primary" onClick={choose}>Choose repository</button></section> : null}
         {settings.repositoryPath && view === "dashboard" && <>
           <div className="page-heading"><div><span className="eyebrow">Workspace overview</span><h1>Quiz operations</h1><p>Local repository health and publishing readiness.</p></div><button className="primary" onClick={() => setView("quizzes")}>Browse quizzes</button></div>
           <section className="metrics">

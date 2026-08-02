@@ -46,6 +46,7 @@
       "output": "release"
     },
     "mac": {
+      "icon": "src/renderer/public/icons/getgo-icon-blue.png",
       "target": [
         "dmg",
         "zip"
@@ -53,6 +54,7 @@
       "category": "public.app-category.developer-tools"
     },
     "win": {
+      "icon": "src/renderer/public/icons/getgo-icon-blue.png",
       "target": [
         "nsis"
       ]
