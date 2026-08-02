@@ -23,6 +23,8 @@ export function AccordionSection({ title, description, expanded, onExpandedChang
       </button>
       {expanded && actions && <div className="ui-accordion-actions">{actions}</div>}
     </div>
-    {expanded && <div className="ui-accordion-content" id={contentId}>{children}</div>}
+    <div className="ui-accordion-region" aria-hidden={!expanded} inert={!expanded}>
+      <div className="ui-accordion-region-inner"><div className="ui-accordion-content" id={contentId}>{children}</div></div>
+    </div>
   </section>
 }
