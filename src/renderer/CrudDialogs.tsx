@@ -13,16 +13,17 @@ interface DialogFrameProps {
   onSubmit(event: FormEvent): void
   onDelete?: () => Promise<void>
   presentation?: "drawer" | "modal"
+  submitLabel?: string
 }
 
-export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer" }: DialogFrameProps) {
+export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer", submitLabel = "Save" }: DialogFrameProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  return createPortal(<div className={`crud-backdrop ${presentation}`} onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose() }}>
-    <section className={`crud-dialog ${presentation}`} role="dialog" aria-modal="true" aria-labelledby="crud-title">
+  return createPortal(<div className={`crud-backdrop presentation-${presentation}`} onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose() }}>
+    <section className={`crud-dialog presentation-${presentation}`} role="dialog" aria-modal="true" aria-labelledby="crud-title">
       <header><h2 id="crud-title">{title}</h2><button type="button" onClick={onClose} disabled={busy} aria-label="Close"><X /></button></header>
       <form onSubmit={onSubmit}>
         <div className="crud-body">{error && <div className="crud-error"><AlertTriangle />{error}</div>}{children}</div>
-        <footer>{onDelete && <div className="delete-action">{confirmingDelete ? <><span>Move this item to Trash?</span><button type="button" className="danger" disabled={busy} onClick={() => void onDelete()}>Move to Trash</button><button type="button" className="text-button" onClick={() => setConfirmingDelete(false)}>Cancel</button></> : <button type="button" className="danger ghost" disabled={busy} onClick={() => setConfirmingDelete(true)}><Trash2 />Delete</button>}</div>}<button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : "Save"}</button></footer>
+        <footer>{onDelete && <div className="delete-action">{confirmingDelete ? <><span>Move this item to Trash?</span><button type="button" className="danger" disabled={busy} onClick={() => void onDelete()}>Move to Trash</button><button type="button" className="text-button" onClick={() => setConfirmingDelete(false)}>Cancel</button></> : <button type="button" className="danger ghost" disabled={busy} onClick={() => setConfirmingDelete(true)}><Trash2 />Delete</button>}</div>}<button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button></footer>
       </form>
     </section>
   </div>, document.body)
@@ -91,7 +92,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted }: {
     })
   }
   async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; setBusy(true); try { await onSaved({ ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), grade: input.grade?.trim() || null, round: input.round?.trim() || null, year: input.year?.trim() || null }) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
-  return <DialogFrame presentation="modal" title={quiz ? "Edit quiz" : "Create quiz"} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
+  return <DialogFrame title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save" : "Create"} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}
   </DialogFrame>
