@@ -18,7 +18,7 @@ export function AuthDialog({ onClose, onSignedIn }: { onClose(): void; onSignedI
     try { onSignedIn(await window.getgo.signInWithProvider(provider)) }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) }
   }
-  return <DialogFrame title="Sign in to GetGo" submitLabel="Sign in" busy={busy} error={error} onClose={onClose} onSubmit={submit}>
+  return <DialogFrame presentation="modal" className="auth-dialog" title="Sign in to GetGo" submitLabel="Sign in" busy={busy} error={error} onClose={onClose} onSubmit={submit}>
     <div className="auth-intro"><LogIn /><div><strong>Connect your Firebase account</strong><span>Use your GetGo admin account for AI assistance, Firestore status, and publishing.</span></div></div>
     <div className="auth-divider"><span>Sign in with</span></div>
     <div className="auth-providers">

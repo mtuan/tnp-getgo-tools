@@ -15,11 +15,12 @@ interface DialogFrameProps {
   presentation?: "drawer" | "modal" | "embedded"
   submitLabel?: string
   embeddedFooter?: boolean
+  className?: string
 }
 
-export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer", submitLabel = "Save", embeddedFooter = false }: DialogFrameProps) {
+export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer", submitLabel = "Save", embeddedFooter = false, className = "" }: DialogFrameProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const dialog = <section className={`crud-dialog presentation-${presentation}`} role={presentation === "embedded" ? undefined : "dialog"} aria-modal={presentation === "embedded" ? undefined : "true"} aria-labelledby="crud-title">
+  const dialog = <section className={`crud-dialog presentation-${presentation} ${className}`.trim()} role={presentation === "embedded" ? undefined : "dialog"} aria-modal={presentation === "embedded" ? undefined : "true"} aria-labelledby="crud-title">
       <header><h2 id="crud-title">{title}</h2>{presentation !== "embedded" && <button type="button" onClick={onClose} disabled={busy} aria-label="Close"><X /></button>}</header>
       <form onSubmit={onSubmit}>
         <div className="crud-body">{error && <div className="crud-error"><AlertTriangle />{error}</div>}{children}</div>

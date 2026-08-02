@@ -18,6 +18,19 @@ const appIconPath = app.isPackaged
   ? path.join(currentDirectory, "../renderer/icons/getgo-app-icon.png")
   : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-app-icon.png")
 let mainWindow: BrowserWindow | null = null
+let firebaseAuth: FirebaseAuthService | null = null
+let pendingProtocolUrl: string | null = null
+
+if (process.defaultApp) app.setAsDefaultProtocolClient("getgo-tools", process.execPath, [app.getAppPath()])
+else app.setAsDefaultProtocolClient("getgo-tools")
+app.on("open-url", (event, url) => { event.preventDefault(); if (!firebaseAuth?.handleOAuthCallback(url)) pendingProtocolUrl = url })
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock) app.quit()
+else app.on("second-instance", (_event, argv) => {
+  const url = argv.find(value => value.startsWith("getgo-tools://"))
+  if (url) firebaseAuth?.handleOAuthCallback(url)
+  if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus() }
+})
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -43,22 +56,23 @@ function createWindow(): void {
 app.whenReady().then(() => {
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
-  const firebaseAuth = new FirebaseAuthService(app.getPath("userData"))
-  ipcMain.handle("auth:state", () => firebaseAuth.state())
+  firebaseAuth = new FirebaseAuthService(app.getPath("userData"))
+  if (pendingProtocolUrl) { firebaseAuth.handleOAuthCallback(pendingProtocolUrl); pendingProtocolUrl = null }
+  ipcMain.handle("auth:state", () => firebaseAuth!.state())
   ipcMain.handle("auth:sign-in", (_event, email: unknown, password: unknown) => {
     if (typeof email !== "string" || typeof password !== "string" || !email.includes("@") || password.length < 1) throw new Error("Enter a valid email and password.")
-    return firebaseAuth.signIn(email.trim(), password)
+    return firebaseAuth!.signIn(email.trim(), password)
   })
-  ipcMain.handle("auth:sign-out", () => firebaseAuth.signOut())
+  ipcMain.handle("auth:sign-out", () => firebaseAuth!.signOut())
   ipcMain.handle("auth:provider", (_event, provider: unknown) => {
     if (!(["google", "facebook", "apple"] as unknown[]).includes(provider)) throw new Error("Unsupported sign-in provider.")
-    return firebaseAuth.signInWithProvider(provider as "google" | "facebook" | "apple")
+    return firebaseAuth!.signInWithProvider(provider as "google" | "facebook" | "apple")
   })
   ipcMain.handle("ai:dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI request.")
     const value = input as Record<string, unknown>
     if (![value.contestId, value.quizId, value.questionId].every(item => typeof item === "string" && item.length > 0)) throw new Error("Invalid AI request identifiers.")
-    return firebaseAuth.createProposal(value as { contestId: string; quizId: string; questionId: string; instructions?: string })
+    return firebaseAuth!.createProposal(value as { contestId: string; quizId: string; questionId: string; instructions?: string })
   })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {
