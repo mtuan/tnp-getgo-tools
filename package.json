@@ -19,6 +19,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@tnp/getgo-logics": "file:vendor/tnp-getgo-logics-0.7.3.tgz",
     "@vitejs/plugin-react": "^4.4.1",
+    "dotenv": "^16.6.1",
     "lucide-react": "^0.577.0",
     "monaco-editor": "^0.56.0",
     "react": "^19.1.0",

@@ -1,3 +1,4 @@
+import "dotenv/config"
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron"
 import { promises as fs } from "node:fs"
 import path from "node:path"
@@ -19,16 +20,9 @@ const appIconPath = app.isPackaged
   : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-app-icon.png")
 let mainWindow: BrowserWindow | null = null
 let firebaseAuth: FirebaseAuthService | null = null
-let pendingProtocolUrl: string | null = null
-
-if (process.defaultApp) app.setAsDefaultProtocolClient("getgo-tools", process.execPath, [app.getAppPath()])
-else app.setAsDefaultProtocolClient("getgo-tools")
-app.on("open-url", (event, url) => { event.preventDefault(); if (!firebaseAuth?.handleOAuthCallback(url)) pendingProtocolUrl = url })
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) app.quit()
-else app.on("second-instance", (_event, argv) => {
-  const url = argv.find(value => value.startsWith("getgo-tools://"))
-  if (url) firebaseAuth?.handleOAuthCallback(url)
+else app.on("second-instance", () => {
   if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus() }
 })
 
@@ -57,7 +51,6 @@ app.whenReady().then(() => {
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
   firebaseAuth = new FirebaseAuthService(app.getPath("userData"))
-  if (pendingProtocolUrl) { firebaseAuth.handleOAuthCallback(pendingProtocolUrl); pendingProtocolUrl = null }
   ipcMain.handle("auth:state", () => firebaseAuth!.state())
   ipcMain.handle("auth:sign-in", (_event, email: unknown, password: unknown) => {
     if (typeof email !== "string" || typeof password !== "string" || !email.includes("@") || password.length < 1) throw new Error("Enter a valid email and password.")

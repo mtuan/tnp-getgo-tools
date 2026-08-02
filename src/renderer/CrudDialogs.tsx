@@ -16,15 +16,16 @@ interface DialogFrameProps {
   submitLabel?: string
   embeddedFooter?: boolean
   className?: string
+  hideFooter?: boolean
 }
 
-export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer", submitLabel = "Save", embeddedFooter = false, className = "" }: DialogFrameProps) {
+export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer", submitLabel = "Save", embeddedFooter = false, className = "", hideFooter = false }: DialogFrameProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const dialog = <section className={`crud-dialog presentation-${presentation} ${className}`.trim()} role={presentation === "embedded" ? undefined : "dialog"} aria-modal={presentation === "embedded" ? undefined : "true"} aria-labelledby="crud-title">
       <header><h2 id="crud-title">{title}</h2>{presentation !== "embedded" && <button type="button" onClick={onClose} disabled={busy} aria-label="Close"><X /></button>}</header>
       <form onSubmit={onSubmit}>
         <div className="crud-body">{error && <div className="crud-error"><AlertTriangle />{error}</div>}{children}</div>
-        {(presentation !== "embedded" || embeddedFooter) && <footer>{onDelete && <div className="delete-action">{confirmingDelete ? <><span>Move this item to Trash?</span><button type="button" className="danger" disabled={busy} onClick={() => void onDelete()}>Move to Trash</button><button type="button" className="text-button" onClick={() => setConfirmingDelete(false)}>Cancel</button></> : <button type="button" className="danger ghost" disabled={busy} onClick={() => setConfirmingDelete(true)}><Trash2 />Delete</button>}</div>}{presentation !== "embedded" && <button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancel</button>}<button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button></footer>}
+        {!hideFooter && (presentation !== "embedded" || embeddedFooter) && <footer>{onDelete && <div className="delete-action">{confirmingDelete ? <><span>Move this item to Trash?</span><button type="button" className="danger" disabled={busy} onClick={() => void onDelete()}>Move to Trash</button><button type="button" className="text-button" onClick={() => setConfirmingDelete(false)}>Cancel</button></> : <button type="button" className="danger ghost" disabled={busy} onClick={() => setConfirmingDelete(true)}><Trash2 />Delete</button>}</div>}{presentation !== "embedded" && <button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancel</button>}<button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button></footer>}
       </form>
     </section>
   if (presentation === "embedded") return dialog

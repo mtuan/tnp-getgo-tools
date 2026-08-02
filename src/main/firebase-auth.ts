@@ -1,6 +1,7 @@
 import { safeStorage, shell } from "electron"
 import { promises as fs } from "node:fs"
-import { randomBytes } from "node:crypto"
+import { createHash, randomBytes } from "node:crypto"
+import http from "node:http"
 import path from "node:path"
 import type { AuthState, AuthUser, DynamicQuestionProposalResult } from "../core/models.js"
 
@@ -28,7 +29,6 @@ async function postJson(url: string, body: unknown, headers: Record<string, stri
 export class FirebaseAuthService {
   private session: Session | null = null
   private readonly filePath: string
-  private oauthPending: { state: string; resolve(code: string): void; reject(error: Error): void } | null = null
   constructor(userDataPath: string) { this.filePath = path.join(userDataPath, "firebase-session.bin") }
 
   private async persist(refreshToken: string | null) {
@@ -72,33 +72,60 @@ export class FirebaseAuthService {
     return { user }
   }
   async signInWithProvider(provider: "google" | "facebook" | "apple"): Promise<AuthState> {
-    if (this.oauthPending) throw new Error("A sign-in request is already in progress.")
-    const state = randomBytes(32).toString("hex")
-    const codePromise = new Promise<string>((resolve, reject) => { this.oauthPending = { state, resolve, reject } })
-    const timeout = setTimeout(() => { this.oauthPending?.reject(new Error("Sign-in timed out.")); this.oauthPending = null }, 5 * 60_000)
+    if (provider === "apple") throw new Error("Apple ID requires a signed macOS build with the Sign in with Apple entitlement. Configure the Apple Service ID in Settings, then package and sign the app.")
+    const clientId = provider === "google" ? process.env.GETGO_GOOGLE_DESKTOP_CLIENT_ID?.trim() : process.env.GETGO_FACEBOOK_APP_ID?.trim()
+    if (!clientId) throw new Error(`Configure the ${provider === "google" ? "Google Desktop client ID" : "Facebook App ID"} in Settings first.`)
+    const state = randomBytes(24).toString("hex")
+    let complete!: (params: URLSearchParams) => void
+    let fail!: (error: Error) => void
+    const callbackResult = new Promise<URLSearchParams>((resolve, reject) => { complete = resolve; fail = reject })
+    const server = http.createServer((request, response) => {
+      const url = new URL(request.url ?? "/", "http://localhost")
+      if (request.method === "POST" && url.pathname === "/complete") { let body = ""; request.setEncoding("utf8"); request.on("data", chunk => { body += chunk }); request.on("end", () => { response.writeHead(200, { "content-type": "text/html" }).end("<h2>Signed in to GetGo Tools</h2><p>You can close this window.</p>"); complete(new URLSearchParams(body)) }); return }
+      if (request.method === "GET" && url.pathname === "/callback") {
+        if (url.searchParams.has("code") || url.searchParams.has("error")) { response.writeHead(200, { "content-type": "text/html" }).end("<h2>Signed in to GetGo Tools</h2><p>You can close this window.</p>"); complete(url.searchParams); return }
+        response.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" }).end("<!doctype html><meta charset=utf-8><title>GetGo Tools</title><p>Completing sign-in…</p><script>fetch('/complete',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams(location.hash.slice(1))}).then(()=>document.body.innerHTML='<h2>Signed in to GetGo Tools</h2><p>You can close this window.</p>')</script>"); return
+      }
+      response.writeHead(404).end()
+    })
+    server.on("error", fail)
+    await new Promise<void>((resolve, reject) => server.listen(provider === "facebook" ? 53682 : 0, "127.0.0.1", resolve).once("error", reject))
+    const address = server.address(); if (!address || typeof address === "string") { server.close(); throw new Error("Could not start the OAuth callback.") }
+    const redirectUri = `http://localhost:${address.port}/callback`
+    const timeout = setTimeout(() => fail(new Error("Sign-in timed out.")), 5 * 60_000)
     try {
-      const query = new URLSearchParams({ app: "getgo", returnUrl: "/getgo", desktopState: state, desktopProvider: provider })
-      await shell.openExternal(`https://tnp-getgo.web.app/auth?${query}`)
-      const code = await codePromise
-      const handoff = await postJson(`https://asia-southeast1-${projectId}.cloudfunctions.net/exchangeGetGoDesktopAuthHandoff`, { data: { code, state } }) as { result?: { customToken?: string }; data?: { customToken?: string } }
-      const customToken = (handoff.result ?? handoff.data)?.customToken
-      if (!customToken) throw new Error("The desktop sign-in handoff was invalid.")
-      const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`, { token: customToken, returnSecureToken: true }) as Record<string, unknown>
+      let providerToken: string
+      if (provider === "google") {
+        const clientSecret = process.env.GETGO_GOOGLE_DESKTOP_CLIENT_SECRET?.trim()
+        if (!clientSecret) throw new Error("Google sign-in is not configured in this build. The application developer must provide its Desktop OAuth credentials.")
+        const verifier = randomBytes(48).toString("base64url")
+        const challenge = createHash("sha256").update(verifier).digest("base64url")
+        const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
+        authUrl.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", scope: "openid email profile", state, code_challenge: challenge, code_challenge_method: "S256", prompt: "select_account" }).toString()
+        await shell.openExternal(authUrl.toString())
+        const params = await callbackResult
+        if (params.get("state") !== state) throw new Error("OAuth state validation failed.")
+        if (!params.get("code")) throw new Error(params.get("error_description") ?? "Google sign-in was cancelled.")
+        const tokenResponse = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code: params.get("code")!, code_verifier: verifier, redirect_uri: redirectUri, grant_type: "authorization_code" }) })
+        const tokens = await tokenResponse.json() as { id_token?: string; error_description?: string }
+        if (!tokenResponse.ok || !tokens.id_token) throw new Error(tokens.error_description ?? "Google token exchange failed.")
+        providerToken = `id_token=${encodeURIComponent(tokens.id_token)}`
+      } else {
+        const authUrl = new URL("https://www.facebook.com/v23.0/dialog/oauth")
+        authUrl.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "token", scope: "email,public_profile", state }).toString()
+        await shell.openExternal(authUrl.toString())
+        const params = await callbackResult
+        if (params.get("state") !== state) throw new Error("OAuth state validation failed.")
+        if (!params.get("access_token")) throw new Error(params.get("error_description") ?? "Facebook sign-in was cancelled.")
+        providerToken = `access_token=${encodeURIComponent(params.get("access_token")!)}`
+      }
+      const providerId = `${provider}.com`
+      const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${apiKey}`, { requestUri: redirectUri, postBody: `${providerToken}&providerId=${providerId}`, returnSecureToken: true }) as Record<string, unknown>
       const user = this.userFromResponse(result)
       this.session = { user, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
       await this.persist(this.session.refreshToken)
       return { user }
-    } finally { clearTimeout(timeout); this.oauthPending = null }
-  }
-  handleOAuthCallback(value: string): boolean {
-    try {
-      const url = new URL(value)
-      if (url.protocol !== "getgo-tools:" || url.hostname !== "auth" || url.pathname !== "/callback") return false
-      const code = url.searchParams.get("code")
-      if (!this.oauthPending || !code || !/^[a-f0-9]{64}$/.test(code)) return false
-      this.oauthPending.resolve(code)
-      return true
-    } catch { return false }
+    } finally { clearTimeout(timeout); server.close() }
   }
   async signOut(): Promise<AuthState> { this.session = null; await this.persist(null); return { user: null } }
   async createProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult> {
