@@ -1,5 +1,6 @@
-import { safeStorage } from "electron"
+import { safeStorage, shell } from "electron"
 import { promises as fs } from "node:fs"
+import http from "node:http"
 import path from "node:path"
 import type { AuthState, AuthUser, DynamicQuestionProposalResult } from "../core/models.js"
 
@@ -68,6 +69,46 @@ export class FirebaseAuthService {
     this.session = { user, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
     await this.persist(this.session.refreshToken)
     return { user }
+  }
+  async signInWithProvider(provider: "google" | "facebook" | "apple"): Promise<AuthState> {
+    const providerId = `${provider === "apple" ? "apple" : provider}.com`
+    const callback = await new Promise<{ callbackUrl: string; result: Promise<URLSearchParams>; close(): void }>((resolve, reject) => {
+      let finish!: (value: URLSearchParams) => void
+      let fail!: (reason: Error) => void
+      const result = new Promise<URLSearchParams>((next, no) => { finish = next; fail = no })
+      const server = http.createServer((request, response) => {
+        const url = new URL(request.url ?? "/", "http://localhost")
+        if (request.method === "GET" && url.pathname === "/callback") {
+          response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" })
+          response.end(`<!doctype html><meta charset="utf-8"><title>GetGo Tools sign-in</title><style>body{font:16px system-ui;display:grid;place-items:center;min-height:90vh;color:#334155}main{text-align:center}span{display:inline-block;width:24px;height:24px;border:3px solid #c7d2fe;border-top-color:#4f46e5;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style><main><span></span><p>Completing sign-in to GetGo Tools…</p></main><script>const p=new URLSearchParams(location.hash.slice(1));fetch('/complete',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:p}).then(()=>{document.querySelector('main').innerHTML='<h2>Signed in</h2><p>You can close this window and return to GetGo Tools.</p>'}).catch(()=>{document.querySelector('p').textContent='Sign-in could not be completed.'})</script>`)
+          return
+        }
+        if (request.method === "POST" && (url.pathname === "/complete" || url.pathname === "/callback")) {
+          let body = ""; request.setEncoding("utf8"); request.on("data", chunk => { body += chunk }); request.on("end", () => { response.writeHead(204).end(); finish(new URLSearchParams(body)) }); return
+        }
+        response.writeHead(404).end()
+      })
+      server.on("error", error => { fail(error); reject(error) })
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address()
+        if (!address || typeof address === "string") { server.close(); reject(new Error("Could not start the secure sign-in callback.")); return }
+        resolve({ callbackUrl: `http://localhost:${address.port}/callback`, result, close: () => server.close() })
+      })
+    })
+    const timeout = setTimeout(() => callback.close(), 5 * 60_000)
+    try {
+      const authUriResult = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=${apiKey}`, { providerId, continueUri: callback.callbackUrl, customParameter: provider === "google" ? { prompt: "select_account" } : undefined }) as { authUri?: string; sessionId?: string }
+      if (!authUriResult.authUri) throw new Error(`Firebase ${provider} sign-in is not configured.`)
+      await shell.openExternal(authUriResult.authUri)
+      const params = await Promise.race([callback.result, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Sign-in timed out.")), 5 * 60_000))])
+      if (params.get("error")) throw new Error(params.get("error_description") ?? `${provider} sign-in was cancelled.`)
+      const postBody = new URLSearchParams(params); postBody.set("providerId", providerId)
+      const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${apiKey}`, { requestUri: callback.callbackUrl, postBody: postBody.toString(), sessionId: authUriResult.sessionId, returnSecureToken: true, returnIdpCredential: true }) as Record<string, unknown>
+      const user = this.userFromResponse(result)
+      this.session = { user, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
+      await this.persist(this.session.refreshToken)
+      return { user }
+    } finally { clearTimeout(timeout); callback.close() }
   }
   async signOut(): Promise<AuthState> { this.session = null; await this.persist(null); return { user: null } }
   async createProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult> {

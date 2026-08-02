@@ -164,6 +164,7 @@ export interface DesktopApi {
   deleteQuiz(manifestPath: string): Promise<RepositorySnapshot>
   getAuthState(): Promise<AuthState>
   signIn(email: string, password: string): Promise<AuthState>
+  signInWithProvider(provider: "google" | "facebook" | "apple"): Promise<AuthState>
   signOut(): Promise<AuthState>
   createDynamicQuestionProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult>
 }

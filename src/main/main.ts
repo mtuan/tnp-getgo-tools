@@ -50,6 +50,10 @@ app.whenReady().then(() => {
     return firebaseAuth.signIn(email.trim(), password)
   })
   ipcMain.handle("auth:sign-out", () => firebaseAuth.signOut())
+  ipcMain.handle("auth:provider", (_event, provider: unknown) => {
+    if (!(["google", "facebook", "apple"] as unknown[]).includes(provider)) throw new Error("Unsupported sign-in provider.")
+    return firebaseAuth.signInWithProvider(provider as "google" | "facebook" | "apple")
+  })
   ipcMain.handle("ai:dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI request.")
     const value = input as Record<string, unknown>
