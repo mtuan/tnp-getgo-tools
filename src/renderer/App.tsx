@@ -3,6 +3,10 @@ import { Check, CloudUpload, Copy, LayoutDashboard, Library, RefreshCw, Settings
 import type { AppSettings, ContentStatus, DeploymentStatus, RepositorySnapshot } from "../core/models"
 import { GetGoIcon } from "./GetGoIcon"
 import { PageTransition } from "./PageTransition"
+import { Button } from "./ui/Button"
+import { PageHeader } from "./ui/PageHeader"
+import { Panel } from "./ui/Panel"
+import { SummaryCard } from "./ui/SummaryCard"
 
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
 
@@ -76,6 +80,14 @@ export function App() {
   const contests = snapshot?.contests.length ?? 0
 
   return <div className="app-shell">
+    <div className="routebar">
+      <div className="route-address" onClick={() => void copyCurrentRoute()} title="Copy route">
+        <span className="route-value">{currentRoute}</span>
+        <button type="button" onClick={(event) => { event.stopPropagation(); void copyCurrentRoute() }} aria-label={routeCopied ? "Route copied" : "Copy route"} title={routeCopied ? "Copied" : "Copy route"}>
+          {routeCopied ? <Check size={16} /> : <Copy size={16} />}
+        </button>
+      </div>
+    </div>
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><GetGoIcon size={38} /></div><div><strong>GetGo</strong><span>TOOLS</span></div></div>
       <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><i><Icon size={18} strokeWidth={1.8} /></i>{item.label}</button> })}</nav>
@@ -91,30 +103,21 @@ export function App() {
           <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan()} title="Rescan" aria-label="Rescan repository"><RefreshCw size={17} /></button>
         </div>
       </header>
-      <div className="routebar">
-        <span>Route</span>
-        <div className="route-address">
-          <input aria-label="Current route" readOnly value={currentRoute} onFocus={(event) => event.currentTarget.select()} />
-          <button type="button" onClick={() => void copyCurrentRoute()} aria-label={routeCopied ? "Route copied" : "Copy route"} title={routeCopied ? "Copied" : "Copy route"}>
-            {routeCopied ? <Check size={16} /> : <Copy size={16} />}
-          </button>
-        </div>
-      </div>
       <div className="content">
         <PageTransition trigger={[view, settings.repositoryPath]}>
         {error && <div className="error-banner"><strong>Could not scan repository</strong><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
-        {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><button className="primary" onClick={choose}>Choose repository</button></section> : null}
+        {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><Button variant="primary" onClick={choose}>Choose repository</Button></section> : null}
         {settings.repositoryPath && view === "dashboard" && <>
-          <div className="page-heading"><div><span className="eyebrow">Workspace overview</span><h1>Quiz operations</h1><p>Local repository health and publishing readiness.</p></div><button className="primary" onClick={() => setView("quizzes")}>Browse quizzes</button></div>
+          <PageHeader eyebrow="Workspace overview" title="Quiz operations" description="Local repository health and publishing readiness." actions={<Button variant="primary" onClick={() => setView("quizzes")}>Browse quizzes</Button>} />
           <section className="metrics">
-            <article><span>Total quizzes</span><strong>{quizzes.length}</strong><small>across {contests} contests</small></article>
-            <article><span>Ready to publish</span><strong>{ready}</strong><small>reviewed or validated</small></article>
-            <article><span>Local builds</span><strong>{built}</strong><small>{quizzes.length - built} require a build</small></article>
-            <article className={snapshot?.issues.length ? "warn" : ""}><span>Scan issues</span><strong>{snapshot?.issues.length ?? 0}</strong><small>{snapshot?.issues.length ? "manifests need attention" : "repository looks healthy"}</small></article>
+            <SummaryCard label="Total quizzes" value={quizzes.length} detail={`across ${contests} contests`} />
+            <SummaryCard label="Ready to publish" value={ready} detail="reviewed or validated" />
+            <SummaryCard label="Local builds" value={built} detail={`${quizzes.length - built} require a build`} />
+            <SummaryCard className={snapshot?.issues.length ? "warn" : ""} label="Scan issues" value={snapshot?.issues.length ?? 0} detail={snapshot?.issues.length ? "manifests need attention" : "repository looks healthy"} />
           </section>
-          <section className="panel"><div className="panel-heading"><div><h2>Lifecycle distribution</h2><p>Current manifest status across the repository</p></div><span>Scanned {snapshot ? new Date(snapshot.scannedAt).toLocaleTimeString() : "—"}</span></div>
+          <Panel title="Lifecycle distribution" description="Current manifest status across the repository" meta={<>Scanned {snapshot ? new Date(snapshot.scannedAt).toLocaleTimeString() : "—"}</>}>
             <div className="lifecycle">{["imported", "normalized", "generated", "reviewed", "validated", "published"].map((status) => { const count = quizzes.filter((q) => q.contentStatus === status).length; return <div key={status}><div><span>{status}</span><strong>{count}</strong></div><progress max={Math.max(quizzes.length, 1)} value={count} /></div> })}</div>
-          </section>
+          </Panel>
         </>}
         {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} onChangeRepository={choose} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
@@ -123,6 +126,7 @@ export function App() {
         </PageTransition>
       </div>
     </main>
+    {routeCopied && <div className="copy-toast" role="status" aria-live="polite"><Check size={16} />Route copied</div>}
     {loading && <div className="loading"><span />Scanning repository…</div>}
   </div>
 }

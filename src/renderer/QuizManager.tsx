@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowLeft, Bot, Check, ChevronRight, Code2, ExternalLink, FileCode2, FolderOpen, Pencil, Plus, Save, Search, Sparkles } from "lucide-react"
+import { ArrowLeft, Bot, Check, ChevronRight, Code2, ExternalLink, FileCode2, FolderOpen, Pencil, Plus, Save, Search, Sparkles, Trash2 } from "lucide-react"
 import type { ContestSummary, QuizCrudInput, QuizSummary, RepositorySnapshot } from "../core/models"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
 import { QuizCodeEditor } from "./QuizCodeEditor"
+import { Breadcrumbs } from "./ui/Breadcrumbs"
+import { Button } from "./ui/Button"
+import { PageHeader } from "./ui/PageHeader"
+import { SummaryStrip } from "./ui/SummaryCard"
+import { Tabs } from "./ui/Tabs"
 
 interface QuizManagerProps {
   snapshot: RepositorySnapshot
@@ -29,6 +34,7 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, on
   const [aiInstructions, setAiInstructions] = useState("")
   const [contestDialog, setContestDialog] = useState<ContestSummary | "create" | null>(null)
   const [quizDialog, setQuizDialog] = useState<QuizSummary | "create" | null>(null)
+  const [contestTab, setContestTab] = useState<"info" | "quizzes">("info")
   const dirty = source !== savedSource
 
   const contests = useMemo(() => {
@@ -115,19 +121,9 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, on
     const quizContest = snapshot.contests.find(contest => contest.id === quiz.contest)
     const webAdminUrl = `https://tnp-getgo.web.app/getgo/admin/contests/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}`
     return <section className="manager editor-page">
-      <div className="manager-breadcrumbs"><button onClick={() => { if (!dirty || window.confirm("Discard the unsaved changes to quiz.ts?")) setPage({ kind: "contests" }) }}>Contests</button><ChevronRight /><button onClick={goBack}>{quiz.contest.toUpperCase()}</button><ChevronRight /><span>{quiz.id}</span></div>
-      <div className="editor-heading">
-        <div><button className="back-button" onClick={goBack} aria-label="Back to contest"><ArrowLeft /></button><div><span className="eyebrow">Quiz detail</span><h1>{quiz.title}</h1><p>{quiz.id} · {[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}</p></div></div>
-        <div className="editor-actions">
-          <button className="secondary" onClick={() => window.getgo.showInFolder(quiz.manifestPath)}><FolderOpen size={15} />Files</button>
-          <button className="secondary" onClick={() => setQuizDialog(quiz)}><Pencil size={15} />Edit</button>
-          <button className="secondary ai-button" onClick={() => setAiOpen(value => !value)}><Sparkles size={15} />AI assist</button>
-          <button className="primary" disabled={!dirty || saving || sourceLoading} onClick={() => void saveSource()}>{saving ? <span className="mini-spinner" /> : dirty ? <Save size={15} /> : <Check size={15} />}{saving ? "Saving…" : dirty ? "Save" : "Saved"}</button>
-        </div>
-      </div>
-      <div className="quiz-facts">
-        <span><strong>Status</strong>{quiz.contentStatus}</span><span><strong>QuizBuilder API</strong>{quiz.quizBuilderApiVersion ?? "—"}</span><span><strong>Questions</strong>{quiz.questionCount ?? "—"}</span><span><strong>Artifact</strong>{quiz.hasGeneratedArtifact ? "Built" : "Not built"}</span>
-      </div>
+      <Breadcrumbs items={[{ label: "Contests", onClick: () => { if (!dirty || window.confirm("Discard the unsaved changes to quiz.ts?")) setPage({ kind: "contests" }) } }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.id }]} />
+      <PageHeader variant="editor" eyebrow="Quiz detail" title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} leading={<button className="back-button" onClick={goBack} aria-label="Back to contest"><ArrowLeft /></button>} actions={<><Button onClick={() => window.getgo.showInFolder(quiz.manifestPath)}><FolderOpen size={15} />Files</Button><Button onClick={() => setQuizDialog(quiz)}><Pencil size={15} />Edit</Button><Button className="ai-button" onClick={() => setAiOpen(value => !value)}><Sparkles size={15} />AI assist</Button><Button variant="primary" disabled={!dirty || saving || sourceLoading} onClick={() => void saveSource()}>{saving ? <span className="mini-spinner" /> : dirty ? <Save size={15} /> : <Check size={15} />}{saving ? "Saving…" : dirty ? "Save" : "Saved"}</Button></>} />
+      <SummaryStrip items={[{ label: "Status", value: quiz.contentStatus }, { label: "QuizBuilder API", value: quiz.quizBuilderApiVersion ?? "—" }, { label: "Questions", value: quiz.questionCount ?? "—" }, { label: "Artifact", value: quiz.hasGeneratedArtifact ? "Built" : "Not built" }]} />
       {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
       {aiOpen && <div className="ai-panel">
         <div className="ai-panel-icon"><Bot /></div><div className="ai-panel-copy"><strong>GetGo AI assistant</strong><span>AI generation uses the authenticated web-admin service. Continue there to generate or revise question code with the same quiz context.</span></div>
@@ -145,12 +141,14 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, on
 
   const isContest = page.kind === "contest"
   return <section className="manager">
-    {isContest && <div className="manager-breadcrumbs"><button onClick={() => setPage({ kind: "contests" })}>Contests</button><ChevronRight /><span>{page.contest.toUpperCase()}</span></div>}
-    <div className="page-heading manager-heading"><div>{isContest && <button className="back-button" onClick={goBack}><ArrowLeft /></button>}<div><span className="eyebrow">Quiz manager</span><h1>{isContest ? selectedContest?.title ?? page.contest.toUpperCase() : "Contests"}</h1><p>{isContest ? `${selectedContest?.quizzes.length ?? 0} quizzes in this contest` : `${contests.length} contests across the local repository`}</p></div></div><div className="manager-actions">{isContest && selectedContest && <button className="secondary" onClick={() => setContestDialog(selectedContest)}><Pencil size={15} />Edit contest</button>}<button className="primary" onClick={() => isContest ? setQuizDialog("create") : setContestDialog("create")}><Plus size={15} />{isContest ? "Create quiz" : "Create contest"}</button><button className="secondary" onClick={onChangeRepository}>Change repository</button></div></div>
-    <div className="manager-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search contests…"} /></div>
+    {isContest && <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: page.contest.toUpperCase() }]} />}
+    <PageHeader className="manager-heading" eyebrow="Quiz manager" title={isContest ? selectedContest?.title ?? page.contest.toUpperCase() : "Contests"} description={isContest ? `${selectedContest?.quizzes.length ?? 0} quizzes in this contest` : `${contests.length} contests across the local repository`} leading={isContest ? <button className="back-button" onClick={goBack}><ArrowLeft /></button> : undefined} actions={<>{(!isContest || contestTab === "quizzes") && <Button variant="solid" onClick={() => isContest ? setQuizDialog("create") : setContestDialog("create")}><Plus size={15} />{isContest ? "Create quiz" : "Create contest"}</Button>}{isContest && contestTab === "info" && selectedContest && <Button variant="solid" color="danger" onClick={async () => { if (!window.confirm(`Delete ${selectedContest.title}? This will move the contest folder to Trash.`)) return; const next = await window.getgo.deleteContest(selectedContest.id); onSnapshotChange(next); setPage({ kind: "contests" }) }}><Trash2 size={15} />Delete contest</Button>}<Button onClick={onChangeRepository}>Change repository</Button></>} />
+    {isContest && <Tabs<"info" | "quizzes"> className="contest-detail-tabs" ariaLabel="Contest detail" value={contestTab} onChange={setContestTab} items={[{ id: "info", label: "Info" }, { id: "quizzes", label: "Quizzes", badge: selectedContest?.quizzes.length ?? 0 }]} />}
+    {isContest && contestTab === "info" && selectedContest && <ContestSettingsDialog embedded contest={selectedContest} onClose={() => undefined} onSaved={async settings => { const next = await window.getgo.updateContest(selectedContest.id, settings); onSnapshotChange(next) }} />}
+    {(!isContest || contestTab === "quizzes") && <><div className="manager-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search contests…"} /></div>
     <div className="manager-table"><table><thead><tr>{isContest ? <><th>Quiz</th><th>Grade</th><th>Year / round</th><th>Questions</th><th>Status</th><th /></> : <><th>Contest</th><th>Quizzes</th><th>Ready</th><th>Builds</th><th /></>}</tr></thead><tbody>
-      {isContest ? visibleQuizzes.map(quiz => <tr key={quiz.key} onClick={() => setPage({ kind: "quiz", quiz })}><td><strong>{quiz.title}</strong><span>{quiz.id}</span></td><td>{quiz.grade ?? "—"}</td><td><strong>{quiz.year ?? "—"}</strong><span>{quiz.round ?? "No round"}</span></td><td>{quiz.questionCount ?? "—"}</td><td><span className={`badge badge-${quiz.contentStatus}`}>{quiz.contentStatus}</span></td><td><ChevronRight size={16} /></td></tr>) : visibleContests.map(contest => { const ready = contest.quizzes.filter(quiz => ["reviewed", "validated", "published"].includes(quiz.contentStatus)).length; const builds = contest.quizzes.filter(quiz => quiz.hasGeneratedArtifact).length; return <tr key={contest.id} onClick={() => { setPage({ kind: "contest", contest: contest.id }); setQuery("") }}><td><strong>{contest.title}</strong><span>{contest.description || contest.id.toUpperCase()}</span></td><td>{contest.quizzes.length}</td><td>{ready}</td><td>{builds}</td><td><ChevronRight size={16} /></td></tr> })}
-    </tbody></table>{(isContest ? visibleQuizzes : visibleContests).length === 0 && <div className="no-results">No matching {isContest ? "quizzes" : "contests"}.</div>}</div>
+      {isContest ? visibleQuizzes.map(quiz => <tr key={quiz.key} onClick={() => setPage({ kind: "quiz", quiz })}><td><strong>{quiz.title}</strong><span>{quiz.id}</span></td><td>{quiz.grade ?? "—"}</td><td><strong>{quiz.year ?? "—"}</strong><span>{quiz.round ?? "No round"}</span></td><td>{quiz.questionCount ?? "—"}</td><td><span className={`badge badge-${quiz.contentStatus}`}>{quiz.contentStatus}</span></td><td><ChevronRight size={16} /></td></tr>) : visibleContests.map(contest => { const ready = contest.quizzes.filter(quiz => ["reviewed", "validated", "published"].includes(quiz.contentStatus)).length; const builds = contest.quizzes.filter(quiz => quiz.hasGeneratedArtifact).length; return <tr key={contest.id} onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("info"); setQuery("") }}><td><strong>{contest.title}</strong><span>{contest.description || contest.id.toUpperCase()}</span></td><td>{contest.quizzes.length}</td><td>{ready}</td><td>{builds}</td><td><ChevronRight size={16} /></td></tr> })}
+    </tbody></table>{(isContest ? visibleQuizzes : visibleContests).length === 0 && <div className="no-results">No matching {isContest ? "quizzes" : "contests"}.</div>}</div></>}
     {contestDialog && <ContestSettingsDialog contest={contestDialog === "create" ? undefined : contestDialog} onClose={() => setContestDialog(null)} onSaved={async settings => { const next = contestDialog === "create" ? await window.getgo.createContest(settings) : await window.getgo.updateContest(contestDialog.id, settings); onSnapshotChange(next); setContestDialog(null) }} onDeleted={contestDialog !== "create" ? async () => { const next = await window.getgo.deleteContest(contestDialog.id); onSnapshotChange(next); setContestDialog(null); setPage({ kind: "contests" }) } : undefined} />}
     {quizDialog === "create" && isContest && selectedContest && <QuizCrudDialog contest={selectedContest} onClose={() => setQuizDialog(null)} onSaved={async (input: QuizCrudInput) => { const next = await window.getgo.createQuiz(page.contest, { ...input, status: "imported" }); onSnapshotChange(next); setQuizDialog(null) }} />}
   </section>
