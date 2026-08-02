@@ -1,0 +1,26 @@
+import assert from "node:assert/strict"
+import { promises as fs } from "node:fs"
+import os from "node:os"
+import path from "node:path"
+import test from "node:test"
+import { scanQuizRepository } from "../src/repositories/quiz-repository.js"
+
+test("scans valid quizzes and reports malformed manifests", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-tools-"))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const valid = path.join(root, "quizzes", "seamo", "legacy-1")
+  const invalid = path.join(root, "quizzes", "seamo", "legacy-2")
+  await fs.mkdir(valid, { recursive: true }); await fs.mkdir(invalid, { recursive: true })
+  await fs.writeFile(path.join(valid, "manifest.json"), JSON.stringify({
+    schemaVersion: 1, id: "quiz-1", legacyId: "legacy-1", contest: "seamo", status: "reviewed",
+    source: { format: "portal-client-v1", rawJsonSha256: "hash", quizTsSha256: "hash" },
+  }))
+  await fs.writeFile(path.join(valid, "quiz.ts"), "export {}")
+  await fs.writeFile(path.join(invalid, "manifest.json"), "{}")
+  const result = await scanQuizRepository(root)
+  assert.equal(result.quizzes.length, 1)
+  assert.equal(result.quizzes[0].id, "quiz-1")
+  assert.equal(result.quizzes[0].hasQuizTs, true)
+  assert.equal(result.quizzes[0].deploymentStatus, "not-built")
+  assert.equal(result.issues.length, 1)
+})
