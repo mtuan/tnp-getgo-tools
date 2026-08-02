@@ -103,18 +103,6 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange }: 
     else setPage({ kind: "contests" })
   }
 
-  async function syncGradeMapping(contest: ContestSummary, input: QuizCrudInput) {
-    if (!input.grade || !input.grades?.length) return
-    const grades = contest.settings.grades.map(item => ({ ...item }))
-    const index = grades.findIndex(item => item.gradeName === input.grade)
-    const mapping = { gradeName: input.grade, grades: input.grades }
-    if (index >= 0) grades[index] = { ...grades[index], ...mapping }
-    else grades.push(mapping)
-    const previous = index >= 0 && Array.isArray(contest.settings.grades[index]?.grades) ? contest.settings.grades[index].grades : []
-    if (index >= 0 && JSON.stringify(previous) === JSON.stringify(input.grades)) return
-    await window.getgo.updateContest(contest.id, { ...contest.settings, grades })
-  }
-
   if (page.kind === "quiz") {
     const { quiz } = page
     const quizContest = snapshot.contests.find(contest => contest.id === quiz.contest)
@@ -144,7 +132,7 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange }: 
         <div className="code-editor">{sourceLoading ? <div className="editor-loading"><span />Loading quiz source…</div> : sourceError && !source ? <div className="editor-empty">quiz.ts could not be opened.</div> : <QuizCodeEditor value={source} path={`${quiz.relativePath}/quiz.ts`} onChange={setSource} onSave={() => void saveSource()} />}</div>
         <div className="editor-statusbar"><span>TypeScript</span><span>UTF-8</span><span>{source.split("\n").length} lines</span><span>{dirty ? "Modified" : "Saved"}</span></div>
       </div>
-      {quizDialog === quiz && quizContest && <QuizCrudDialog quiz={quiz} contest={quizContest} onClose={() => setQuizDialog(null)} onSaved={async input => { await syncGradeMapping(quizContest, input); const next = await window.getgo.updateQuiz(quiz.manifestPath, { title: input.title, grade: input.grade, round: input.round, year: input.year, status: input.status, quizBuilderApiVersion: input.quizBuilderApiVersion }); onSnapshotChange(next); setQuizDialog(null); const updated = next.quizzes.find(item => item.key === quiz.key); if (updated) setPage({ kind: "quiz", quiz: updated }) }} onDeleted={async () => { const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setQuizDialog(null); setPage({ kind: "contest", contest: quiz.contest }) }} />}
+      {quizDialog === quiz && quizContest && <QuizCrudDialog quiz={quiz} contest={quizContest} onClose={() => setQuizDialog(null)} onSaved={async input => { const next = await window.getgo.updateQuiz(quiz.manifestPath, { title: input.title, grade: input.grade, round: input.round, year: input.year, status: input.status, quizBuilderApiVersion: input.quizBuilderApiVersion }); onSnapshotChange(next); setQuizDialog(null); const updated = next.quizzes.find(item => item.key === quiz.key); if (updated) setPage({ kind: "quiz", quiz: updated }) }} onDeleted={async () => { const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setQuizDialog(null); setPage({ kind: "contest", contest: quiz.contest }) }} />}
     </section>
   }
 
@@ -157,6 +145,6 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange }: 
       {isContest ? visibleQuizzes.map(quiz => <tr key={quiz.key} onClick={() => setPage({ kind: "quiz", quiz })}><td><strong>{quiz.title}</strong><span>{quiz.id}</span></td><td>{quiz.grade ?? "—"}</td><td><strong>{quiz.year ?? "—"}</strong><span>{quiz.round ?? "No round"}</span></td><td>{quiz.questionCount ?? "—"}</td><td><span className={`badge badge-${quiz.contentStatus}`}>{quiz.contentStatus}</span></td><td><ChevronRight size={16} /></td></tr>) : visibleContests.map(contest => { const ready = contest.quizzes.filter(quiz => ["reviewed", "validated", "published"].includes(quiz.contentStatus)).length; const builds = contest.quizzes.filter(quiz => quiz.hasGeneratedArtifact).length; return <tr key={contest.id} onClick={() => { setPage({ kind: "contest", contest: contest.id }); setQuery("") }}><td><strong>{contest.title}</strong><span>{contest.description || contest.id.toUpperCase()}</span></td><td>{contest.quizzes.length}</td><td>{ready}</td><td>{builds}</td><td><ChevronRight size={16} /></td></tr> })}
     </tbody></table>{(isContest ? visibleQuizzes : visibleContests).length === 0 && <div className="no-results">No matching {isContest ? "quizzes" : "contests"}.</div>}</div>
     {contestDialog && <ContestSettingsDialog contest={contestDialog === "create" ? undefined : contestDialog} onClose={() => setContestDialog(null)} onSaved={async settings => { const next = contestDialog === "create" ? await window.getgo.createContest(settings) : await window.getgo.updateContest(contestDialog.id, settings); onSnapshotChange(next); setContestDialog(null) }} onDeleted={contestDialog !== "create" ? async () => { const next = await window.getgo.deleteContest(contestDialog.id); onSnapshotChange(next); setContestDialog(null); setPage({ kind: "contests" }) } : undefined} />}
-    {quizDialog === "create" && isContest && selectedContest && <QuizCrudDialog contest={selectedContest} onClose={() => setQuizDialog(null)} onSaved={async (input: QuizCrudInput) => { await syncGradeMapping(selectedContest, input); const next = await window.getgo.createQuiz(page.contest, { ...input, status: "imported" }); onSnapshotChange(next); setQuizDialog(null) }} />}
+    {quizDialog === "create" && isContest && selectedContest && <QuizCrudDialog contest={selectedContest} onClose={() => setQuizDialog(null)} onSaved={async (input: QuizCrudInput) => { const next = await window.getgo.createQuiz(page.contest, { ...input, status: "imported" }); onSnapshotChange(next); setQuizDialog(null) }} />}
   </section>
 }

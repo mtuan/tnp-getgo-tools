@@ -69,23 +69,22 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
 export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void> }) {
   const gradeMappings = useMemo(() => contest.settings.grades.map(item => ({ name: String(item.gradeName ?? ""), grades: Array.isArray(item.grades) ? item.grades.filter(value => typeof value === "number") as number[] : [] })).filter(item => item.name), [contest])
   const initialGrade = quiz?.grade ?? gradeMappings[0]?.name ?? ""
-  const [input, setInput] = useState<QuizCrudInput>({ id: quiz?.id ?? "", title: quiz?.title ?? "", grade: initialGrade, grades: gradeMappings.find(item => item.name === initialGrade)?.grades ?? [], round: quiz?.round ?? String(contest.settings.rounds[0]?.roundCode ?? ""), year: quiz?.year ?? "", status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] })
+  const [input, setInput] = useState<QuizCrudInput>({ id: quiz?.id ?? "", title: quiz?.title ?? "", grade: initialGrade, round: quiz?.round ?? String(contest.settings.rounds[0]?.roundCode ?? ""), year: quiz?.year ?? "", status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const fields = useMemo<FormSchema[]>(() => [
     { type: "text", name: "id", label: "Quiz ID", required: true, readOnly: Boolean(quiz), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
     { type: "text", name: "title", label: "Title", required: true },
-    [{ type: "text", name: "grade", label: "Grade name", required: true, placeholder: "E.g. Ecolier" }, { type: "multi-select", name: "grades", label: "School grades", required: true, options: Array.from({ length: 13 }, (_, grade) => ({ value: String(grade), label: grade === 0 ? "Kindergarten" : `Grade ${grade}` })) }],
+    { type: "select", name: "grade", label: "Grade", required: true, options: gradeMappings.map(item => ({ value: item.name, label: `${item.name} · ${item.grades.map(grade => grade === 0 ? "K" : grade).join(", ")}` })) },
     [{ type: "number", name: "year", label: "Year", min: 1900, max: 2100, step: 1, rules: { validate: value => !Number.isInteger(Number(value)) ? "Year must be a whole number." : Number(value) < 1900 || Number(value) > 2100 ? "Year must be between 1900 and 2100." : null } }, { type: "select", name: "round", label: "Round", options: contest.settings.rounds.map(item => ({ value: String(item.roundCode ?? ""), label: String(item.roundName ?? item.roundCode ?? "") })).filter(item => item.value) }],
     ...(quiz ? [[{ type: "select", name: "status", label: "Content status", options: ["imported", "normalized", "generated", "reviewed", "validated", "published"].map(value => ({ value, label: value })) }, { type: "select", name: "quizBuilderApiVersion", label: "QuizBuilder API version", options: supportedQuizBuilderApiVersions.map(version => ({ value: String(version), label: `Version ${version}` })) }]] as FormSchema[] : [{ type: "select", name: "quizBuilderApiVersion", label: "QuizBuilder API version", options: supportedQuizBuilderApiVersions.map(version => ({ value: String(version), label: `Version ${version}` })) } as FormSchema]),
   ], [contest, gradeMappings, quiz])
-  const values: FormValues = { ...input, grades: input.grades?.map(String) ?? [], year: input.year ? Number(input.year) : undefined, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0]) }
+  const values: FormValues = { ...input, year: input.year ? Number(input.year) : undefined, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0]) }
   const change = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     setInput(current => {
       if (name === "grade") return { ...current, grade: String(value) }
-      if (name === "grades") return { ...current, grades: (value as string[]).map(Number).sort((a, b) => a - b) }
       if (name === "year") return { ...current, year: value === undefined ? null : String(value) }
       if (name === "quizBuilderApiVersion") return { ...current, quizBuilderApiVersion: Number(value) }
       return { ...current, [name]: value } as QuizCrudInput

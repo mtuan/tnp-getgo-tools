@@ -89,8 +89,6 @@ export interface QuizCrudInput {
   year: string | null
   status?: ContentStatus
   quizBuilderApiVersion?: number
-  /** Numeric grade mapping stored in the parent contest settings, not the quiz manifest. */
-  grades?: number[]
 }
 
 export const supportedQuizBuilderApiVersions = [1] as const
