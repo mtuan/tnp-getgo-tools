@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { Check, ChevronDown, X } from "lucide-react"
 
 export interface SelectOption { value: string; label: ReactNode }
@@ -56,16 +57,26 @@ const ruleMessage = <T,>(rule: T | { value: T; message: string }, fallback: stri
 function useDropdown() {
   const [open, setOpen] = useState(false)
   const [openUp, setOpenUp] = useState(false)
+  const [position, setPosition] = useState({ left: 0, width: 0, top: 0, bottom: 0 })
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
-    const rect = ref.current?.getBoundingClientRect()
-    setOpenUp(Boolean(rect && window.innerHeight - rect.bottom < 240 && rect.top > 240))
-    const close = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node)) setOpen(false) }
+    const place = () => {
+      const rect = ref.current?.getBoundingClientRect()
+      if (!rect) return
+      const upward = window.innerHeight - rect.bottom < 240 && rect.top > 240
+      setOpenUp(upward)
+      setPosition({ left: rect.left, width: rect.width, top: rect.bottom + 6, bottom: window.innerHeight - rect.top + 6 })
+    }
+    place()
+    const close = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setOpen(false) }
     document.addEventListener("mousedown", close)
-    return () => document.removeEventListener("mousedown", close)
+    window.addEventListener("resize", place)
+    document.addEventListener("scroll", place, true)
+    return () => { document.removeEventListener("mousedown", close); window.removeEventListener("resize", place); document.removeEventListener("scroll", place, true) }
   }, [open])
-  return { open, openUp, ref, setOpen }
+  return { open, openUp, position, ref, menuRef, setOpen }
 }
 
 function SelectControl({ field, value, disabled, onChange }: { field: Extract<FormField, { type: "select" }>; value: unknown; disabled: boolean; onChange(value: string): void }) {
@@ -73,7 +84,7 @@ function SelectControl({ field, value, disabled, onChange }: { field: Extract<Fo
   const selected = field.options.find(option => option.value === String(value ?? ""))
   return <div className={`schema-select ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
     <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={!selected ? "placeholder" : ""}>{selected?.label ?? field.placeholder ?? "Select…"}</span><ChevronDown /></button>
-    {dropdown.open && <div className="schema-select-menu" role="listbox">{field.options.map(option => <button type="button" role="option" aria-selected={option.value === String(value ?? "")} className={option.value === String(value ?? "") ? "selected" : ""} onClick={() => { onChange(option.value); dropdown.setOpen(false) }} key={option.value}><span>{option.label}</span>{option.value === String(value ?? "") && <Check />}</button>)}</div>}
+    {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="schema-select-menu schema-select-portal" style={{ left: dropdown.position.left, width: dropdown.position.width, top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }} role="listbox">{field.options.map(option => <button type="button" role="option" aria-selected={option.value === String(value ?? "")} className={option.value === String(value ?? "") ? "selected" : ""} onClick={() => { onChange(option.value); dropdown.setOpen(false) }} key={option.value}><span>{option.label}</span>{option.value === String(value ?? "") && <Check />}</button>)}</div>, document.body)}
   </div>
 }
 
@@ -83,7 +94,7 @@ function MultiSelectControl({ field, value, disabled, onChange }: { field: Extra
   const toggle = (option: string) => onChange(selected.includes(option) ? selected.filter(item => item !== option) : [...selected, option])
   return <div className={`schema-select schema-multi ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
     <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={selected.length ? "schema-selected-values" : "placeholder"}>{selected.length ? selected.map(item => <i key={item}>{field.options.find(option => option.value === item)?.label ?? item}<X onClick={event => { event.stopPropagation(); toggle(item) }} /></i>) : "Select grades…"}</span><ChevronDown /></button>
-    {dropdown.open && <div className="schema-select-menu multi" role="listbox" aria-multiselectable="true">{field.options.map(option => { const checked = selected.includes(option.value); return <button type="button" role="option" aria-selected={checked} className={checked ? "selected" : ""} onClick={() => toggle(option.value)} key={option.value}><span className="option-check">{checked && <Check />}</span><span>{option.label}</span></button> })}</div>}
+    {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="schema-select-menu schema-select-portal multi" style={{ left: dropdown.position.left, width: dropdown.position.width, top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }} role="listbox" aria-multiselectable="true">{field.options.map(option => { const checked = selected.includes(option.value); return <button type="button" role="option" aria-selected={checked} className={checked ? "selected" : ""} onClick={() => toggle(option.value)} key={option.value}><span className="option-check">{checked && <Check />}</span><span>{option.label}</span></button> })}</div>, document.body)}
   </div>
 }
 
