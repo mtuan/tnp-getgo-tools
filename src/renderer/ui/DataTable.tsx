@@ -14,8 +14,9 @@ export interface DataTableProps<T> {
   ariaLabel: string
   emptyText?: string
   footer?: ReactNode
+  onRowClick?(row: T, index: number): void
 }
 
-export function DataTable<T>({ rows, columns, rowKey, ariaLabel, emptyText = "No rows yet.", footer }: DataTableProps<T>) {
-  return <div className="ui-data-table"><div className="ui-data-table-scroll"><table aria-label={ariaLabel}><thead><tr>{columns.map(column => <th style={{ width: column.width }} key={column.key}>{column.title}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={rowKey(row, index)}>{columns.map(column => <td key={column.key}>{column.render(row, index)}</td>)}</tr>)}{!rows.length && <tr><td className="ui-data-table-empty" colSpan={columns.length}>{emptyText}</td></tr>}</tbody></table></div>{footer}</div>
+export function DataTable<T>({ rows, columns, rowKey, ariaLabel, emptyText = "No rows yet.", footer, onRowClick }: DataTableProps<T>) {
+  return <div className="ui-data-table"><div className="ui-data-table-scroll"><table aria-label={ariaLabel}><thead><tr>{columns.map(column => <th style={{ width: column.width }} key={column.key}>{column.title}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr className={onRowClick ? "clickable" : ""} onClick={onRowClick ? () => onRowClick(row, index) : undefined} key={rowKey(row, index)}>{columns.map(column => <td key={column.key}>{column.render(row, index)}</td>)}</tr>)}{!rows.length && <tr><td className="ui-data-table-empty" colSpan={columns.length}>{emptyText}</td></tr>}</tbody></table></div>{footer}</div>
 }

@@ -91,6 +91,22 @@ export interface QuizCrudInput {
   quizBuilderApiVersion?: number
 }
 
+export interface QuizQuestionRecord extends Record<string, unknown> {
+  question_no: number | string
+  category?: string
+  text_en?: unknown
+  text_vn?: unknown
+  verified?: boolean
+  authoringMode?: string
+  advancedDynamic?: {
+    paramsGeneratorTs: string
+    questionGeneratorTs: string
+    originParamsTs: string
+    explanationGeneratorTs: string
+    [key: string]: unknown
+  }
+}
+
 export const supportedQuizBuilderApiVersions = [1] as const
 
 export interface AppSettings {
@@ -106,6 +122,8 @@ export interface DesktopApi {
   showInFolder(path: string): Promise<void>
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
+  loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>
+  saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<void>
   openExternal(url: string): Promise<void>
   copyText(text: string): Promise<void>
   createContest(settings: ContestSettings): Promise<RepositorySnapshot>

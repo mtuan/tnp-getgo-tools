@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowLeft, Bot, Check, ChevronRight, Code2, ExternalLink, FileCode2, FolderOpen, Plus, Save, Search, Sparkles, Trash2 } from "lucide-react"
-import type { ContestSummary, QuizCrudInput, QuizSummary, RepositorySnapshot } from "../core/models"
+import { ArrowLeft, Bot, Check, ChevronRight, ExternalLink, FolderOpen, Plus, Save, Search, Sparkles, Trash2, Zap } from "lucide-react"
+import type { ContestSummary, QuizCrudInput, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
 import { QuizCodeEditor } from "./QuizCodeEditor"
@@ -23,23 +23,17 @@ type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary }
 
-interface QuestionListItem { number: string; category: string; prompt: string }
+interface QuestionListItem { number: string; category: string; prompt: string; dynamic: boolean; reviewed: boolean; record: QuizQuestionRecord }
 
-function extractQuestions(source: string, fallbackCount: number | null): QuestionListItem[] {
-  const matches = [...source.matchAll(/question_no\s*:\s*([^,\n}]+)/g)]
-  if (matches.length) return matches.map((match, index) => {
-    const segment = source.slice(match.index ?? 0, matches[index + 1]?.index ?? source.length)
-    const clean = (value?: string) => value?.trim().replace(/^['"`]|['"`]$/g, "") ?? ""
-    return { number: clean(match[1]) || String(index + 1), category: clean(segment.match(/category\s*:\s*([^,\n}]+)/)?.[1]) || "—", prompt: clean(segment.match(/text_en\s*:\s*([^,\n}]+)/)?.[1]) || "Defined in quiz.ts" }
-  })
-  return Array.from({ length: fallbackCount ?? 0 }, (_, index) => ({ number: String(index + 1), category: "—", prompt: "Defined in generated quiz data" }))
+function questionPrompt(value: unknown): string {
+  if (typeof value === "string") return value
+  if (Array.isArray(value)) return value.filter(item => typeof item === "string").join(" ")
+  return "Question content"
 }
 
 export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, onRouteChange }: QuizManagerProps) {
   const [page, setPage] = useState<ManagerPage>({ kind: "contests" })
   const [query, setQuery] = useState("")
-  const [source, setSource] = useState("")
-  const [savedSource, setSavedSource] = useState("")
   const [sourceLoading, setSourceLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [sourceError, setSourceError] = useState<string | null>(null)
@@ -49,7 +43,9 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, on
   const [quizDialog, setQuizDialog] = useState<QuizSummary | "create" | null>(null)
   const [contestTab, setContestTab] = useState<"info" | "quizzes">("info")
   const [quizTab, setQuizTab] = useState<"info" | "questions">("info")
-  const dirty = source !== savedSource
+  const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null)
+  const [questionRecords, setQuestionRecords] = useState<QuizQuestionRecord[]>([])
+  const [questionDraftRecord, setQuestionDraftRecord] = useState<QuizQuestionRecord | null>(null)
 
   const contests = useMemo(() => {
     return snapshot.contests.map(contest => ({ ...contest, quizzes: snapshot.quizzes.filter(quiz => quiz.contest === contest.id) }))
@@ -72,59 +68,15 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, on
     let active = true
     setSourceLoading(true)
     setSourceError(null)
-    window.getgo.readQuizSource(page.quiz.manifestPath).then(value => {
-      if (!active) return
-      setSource(value)
-      setSavedSource(value)
+    window.getgo.loadQuizQuestions(page.quiz.manifestPath).then(records => {
+      if (active) setQuestionRecords(records)
     }).catch(cause => {
       if (active) setSourceError(cause instanceof Error ? cause.message : String(cause))
     }).finally(() => { if (active) setSourceLoading(false) })
     return () => { active = false }
   }, [page])
 
-  useEffect(() => {
-    if (page.kind !== "quiz" || source === savedSource) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return
-      event.preventDefault()
-      void saveSource()
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  })
-
-  useEffect(() => {
-    if (page.kind !== "quiz" || !dirty) return
-    const beforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
-    const guardAppNavigation = (event: MouseEvent) => {
-      const target = event.target as Element | null
-      if (!target?.closest("nav button, .repository")) return
-      if (window.confirm("Discard the unsaved changes to quiz.ts?")) return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-    }
-    window.addEventListener("beforeunload", beforeUnload)
-    document.addEventListener("click", guardAppNavigation, true)
-    return () => {
-      window.removeEventListener("beforeunload", beforeUnload)
-      document.removeEventListener("click", guardAppNavigation, true)
-    }
-  }, [dirty, page])
-
-  async function saveSource() {
-    if (page.kind !== "quiz" || saving || source === savedSource) return
-    setSaving(true)
-    setSourceError(null)
-    try {
-      await window.getgo.saveQuizSource(page.quiz.manifestPath, source)
-      setSavedSource(source)
-    } catch (cause) {
-      setSourceError(cause instanceof Error ? cause.message : String(cause))
-    } finally { setSaving(false) }
-  }
-
   function goBack() {
-    if (dirty && !window.confirm("Discard the unsaved changes to quiz.ts?")) return
     setQuery("")
     if (page.kind === "quiz") setPage({ kind: "contest", contest: page.quiz.contest })
     else setPage({ kind: "contests" })
@@ -134,15 +86,45 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, on
     const { quiz } = page
     const quizContest = snapshot.contests.find(contest => contest.id === quiz.contest)
     const webAdminUrl = `https://tnp-getgo.web.app/getgo/admin/contests/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}`
-    const questions = extractQuestions(source, quiz.questionCount)
+    const questions: QuestionListItem[] = questionRecords.map(record => ({
+      number: String(record.question_no),
+      category: typeof record.category === "string" ? record.category : "—",
+      prompt: questionPrompt(record.text_en ?? record.text_vn),
+      dynamic: record.authoringMode === "advanced-dynamic" || record.authoringMode === "simple-dynamic",
+      reviewed: record.verified === true,
+      record,
+    }))
     const questionColumns: DataColumn<QuestionListItem>[] = [
       { key: "number", title: "Question", width: 100, render: item => <strong>#{item.number}</strong> },
       { key: "category", title: "Category", width: "24%", render: item => item.category },
-      { key: "prompt", title: "Prompt / source", render: item => item.prompt },
+      { key: "prompt", title: "Question text", render: item => <span className="question-text">{item.prompt}{item.dynamic && <Zap aria-label="Dynamic question" />}</span> },
+      { key: "reviewed", title: "Reviewed", width: 110, render: item => { const reviewed = item.reviewed || ["reviewed", "validated", "published"].includes(quiz.contentStatus); return <span className={`badge ${reviewed ? "badge-reviewed" : ""}`}>{reviewed ? "Reviewed" : "Pending"}</span> } },
     ]
+    const activeQuestion = selectedQuestion === null ? null : questions[selectedQuestion]
+    if (activeQuestion) {
+      const backToQuestions = () => { setSelectedQuestion(null); onRouteChange(`/quizzes/contests/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}`) }
+      const saveQuestion = async () => {
+        if (!questionDraftRecord?.advancedDynamic) return
+        setSaving(true); setSourceError(null)
+        try {
+          await window.getgo.saveQuizQuestion(quiz.manifestPath, questionDraftRecord)
+          setQuestionRecords(current => current.map(item => String(item.question_no) === String(questionDraftRecord.question_no) ? questionDraftRecord : item))
+        }
+        catch (cause) { setSourceError(cause instanceof Error ? cause.message : String(cause)) }
+        finally { setSaving(false) }
+      }
+      return <section className="manager editor-page question-detail-page">
+        <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }, { label: `Question ${activeQuestion.number}` }]} />
+        <PageHeader variant="editor" eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} actions={<Button variant="solid" disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>{saving ? <span className="mini-spinner" /> : <Save size={15} />}{saving ? "Saving…" : "Save question"}</Button>} />
+        {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
+        <div className="advanced-question-editors">{questionDraftRecord?.advancedDynamic && ([
+          ["Parameters generator", "paramsGeneratorTs"], ["Question generator", "questionGeneratorTs"], ["Original parameters", "originParamsTs"], ["Explanation generator", "explanationGeneratorTs"],
+        ] as const).map(([label, key]) => <section className="advanced-question-field" key={key}><strong>{label}</strong><div className="question-code-workspace"><QuizCodeEditor value={questionDraftRecord.advancedDynamic?.[key] ?? ""} path={`${quiz.relativePath}/questions/q${activeQuestion.number}.${key}.ts`} onChange={value => setQuestionDraftRecord(current => current?.advancedDynamic ? { ...current, advancedDynamic: { ...current.advancedDynamic, [key]: value } } : current)} onSave={() => void saveQuestion()} /></div></section>)}</div>
+      </section>
+    }
     return <section className="manager editor-page">
-      <Breadcrumbs items={[{ label: "Contests", onClick: () => { if (!dirty || window.confirm("Discard the unsaved changes to quiz.ts?")) setPage({ kind: "contests" }) } }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.id }]} />
-      <PageHeader variant="editor" eyebrow="Quiz detail" title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} leading={<button className="back-button" onClick={goBack} aria-label="Back to contest"><ArrowLeft /></button>} actions={quizTab === "info" ? <Button variant="solid" color="danger" onClick={async () => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }) }}><Trash2 size={15} />Delete quiz</Button> : <><Button onClick={() => window.getgo.showInFolder(quiz.manifestPath)}><FolderOpen size={15} />Files</Button><Button className="ai-button" onClick={() => setAiOpen(value => !value)}><Sparkles size={15} />AI assist</Button><Button variant="solid" disabled={!dirty || saving || sourceLoading} onClick={() => void saveSource()}>{saving ? <span className="mini-spinner" /> : dirty ? <Save size={15} /> : <Check size={15} />}{saving ? "Saving…" : dirty ? "Save source" : "Saved"}</Button></>} />
+      <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.id }]} />
+      <PageHeader variant="editor" eyebrow="Quiz detail" title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} leading={<button className="back-button" onClick={goBack} aria-label="Back to contest"><ArrowLeft /></button>} actions={quizTab === "info" ? <Button variant="solid" color="danger" onClick={async () => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }) }}><Trash2 size={15} />Delete quiz</Button> : <><Button onClick={() => window.getgo.showInFolder(quiz.manifestPath)}><FolderOpen size={15} />Files</Button><Button className="ai-button" onClick={() => setAiOpen(value => !value)}><Sparkles size={15} />AI assist</Button></>} />
       <SummaryStrip items={[{ label: "Status", value: quiz.contentStatus }, { label: "QuizBuilder API", value: quiz.quizBuilderApiVersion ?? "—" }, { label: "Questions", value: quiz.questionCount ?? "—" }, { label: "Artifact", value: quiz.hasGeneratedArtifact ? "Built" : "Not built" }]} />
       <Tabs<"info" | "questions"> variant="underline" className="contest-detail-tabs" ariaLabel="Quiz detail" value={quizTab} onChange={setQuizTab} items={[{ id: "info", label: "Info" }, { id: "questions", label: "Questions", badge: questions.length || quiz.questionCount || 0 }]} />
       {quizTab === "info" && quizContest && <QuizCrudDialog embedded quiz={quiz} contest={quizContest} onClose={() => undefined} onSaved={async input => { const next = await window.getgo.updateQuiz(quiz.manifestPath, { title: input.title, grade: input.grade, round: input.round, year: input.year, status: input.status, quizBuilderApiVersion: input.quizBuilderApiVersion }); onSnapshotChange(next); const updated = next.quizzes.find(item => item.key === quiz.key); if (updated) setPage({ kind: "quiz", quiz: updated }) }} />}
@@ -152,12 +134,7 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, on
         <textarea value={aiInstructions} onChange={event => setAiInstructions(event.target.value)} placeholder="Describe the question or change you want…" aria-label="AI instructions" />
         <Button variant="solid" onClick={() => void window.getgo.openExternal(webAdminUrl)}><ExternalLink size={15} />Open authenticated AI editor</Button>
       </div>}
-      <DataTable ariaLabel="Quiz questions" rows={questions} columns={questionColumns} rowKey={(item, index) => `${item.number}-${index}`} emptyText={sourceLoading ? "Loading questions…" : "No questions found in quiz.ts."} />
-      <div className="code-workspace">
-        <div className="code-tabbar"><span className="active"><FileCode2 size={14} />quiz.ts{dirty && <i />}</span><div><Code2 size={14} />TypeScript · QuizBuilder IntelliSense</div></div>
-        <div className="code-editor">{sourceLoading ? <div className="editor-loading"><span />Loading quiz source…</div> : sourceError && !source ? <div className="editor-empty">quiz.ts could not be opened.</div> : <QuizCodeEditor value={source} path={`${quiz.relativePath}/quiz.ts`} onChange={setSource} onSave={() => void saveSource()} />}</div>
-        <div className="editor-statusbar"><span>TypeScript</span><span>UTF-8</span><span>{source.split("\n").length} lines</span><span>{dirty ? "Modified" : "Saved"}</span></div>
-      </div></>}
+      <DataTable ariaLabel="Quiz questions" rows={questions} columns={questionColumns} rowKey={(item, index) => `${item.number}-${index}`} emptyText={sourceLoading ? "Loading questions…" : "No questions found in questions/ or raw.json."} onRowClick={(item, index) => { setSelectedQuestion(index); setQuestionDraftRecord(structuredClone(item.record)); onRouteChange(`/quizzes/contests/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}/questions/${encodeURIComponent(item.number)}`) }} /></>}
     </section>
   }
 

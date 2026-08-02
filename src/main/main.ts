@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import type { AppSettings } from "../core/models.js"
 import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
+import { loadQuizQuestions, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { SettingsStore } from "./settings.js"
 
 const productName = "GetGo Tools"
@@ -103,6 +104,15 @@ app.whenReady().then(() => {
     if (typeof source !== "string") throw new Error("Invalid quiz source")
     await resolveQuizSource(manifestPath)
     await updateQuizSource(manifestPath as string, source)
+  })
+  ipcMain.handle("quiz-questions:load", async (_event, manifestPath: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    return loadQuizQuestions(manifest)
+  })
+  ipcMain.handle("quiz-questions:save", async (_event, manifestPath: unknown, question: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    if (!question || typeof question !== "object") throw new Error("Invalid question")
+    await saveQuizQuestion(manifest, question as Parameters<typeof saveQuizQuestion>[1])
   })
   ipcMain.handle("crud:contest:create", async (_event, contestSettings: unknown) => {
     if (!contestSettings || typeof contestSettings !== "object") throw new Error("Invalid contest settings")
