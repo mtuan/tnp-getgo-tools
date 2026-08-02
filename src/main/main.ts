@@ -4,6 +4,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import type { AppSettings } from "../core/models.js"
 import { scanQuizRepository } from "../repositories/quiz-repository.js"
+import { createContestDirectory, createQuizFiles, renameContestDirectory, updateQuizManifest, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { SettingsStore } from "./settings.js"
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
@@ -78,12 +79,59 @@ app.whenReady().then(() => {
     if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Quiz is outside the selected repository")
     return path.join(path.dirname(manifestPath), "quiz.ts")
   }
+  const repositoryRoot = async (): Promise<string> => {
+    const current = await settings.read()
+    if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
+    return current.repositoryPath
+  }
+  const resolveManifest = async (manifestPath: unknown): Promise<string> => {
+    await resolveQuizSource(manifestPath)
+    return manifestPath as string
+  }
   ipcMain.handle("quiz-source:read", async (_event, manifestPath: unknown) => {
     return fs.readFile(await resolveQuizSource(manifestPath), "utf8")
   })
   ipcMain.handle("quiz-source:save", async (_event, manifestPath: unknown, source: unknown) => {
     if (typeof source !== "string") throw new Error("Invalid quiz source")
     await fs.writeFile(await resolveQuizSource(manifestPath), source, "utf8")
+  })
+  ipcMain.handle("crud:contest:create", async (_event, id: unknown) => {
+    if (typeof id !== "string") throw new Error("Invalid contest ID")
+    const root = await repositoryRoot()
+    await createContestDirectory(root, id)
+    return scanQuizRepository(root)
+  })
+  ipcMain.handle("crud:contest:rename", async (_event, currentId: unknown, nextId: unknown) => {
+    if (typeof currentId !== "string" || typeof nextId !== "string") throw new Error("Invalid contest ID")
+    const root = await repositoryRoot()
+    await renameContestDirectory(root, currentId, nextId)
+    return scanQuizRepository(root)
+  })
+  ipcMain.handle("crud:contest:delete", async (_event, requestedId: unknown) => {
+    if (typeof requestedId !== "string") throw new Error("Invalid contest ID")
+    const root = await repositoryRoot()
+    const id = validateRepositoryId(requestedId, "Contest ID")
+    const directory = path.join(root, "quizzes", id)
+    await fs.access(directory)
+    await shell.trashItem(directory)
+    return scanQuizRepository(root)
+  })
+  ipcMain.handle("crud:quiz:create", async (_event, contest: unknown, input: unknown) => {
+    if (typeof contest !== "string" || !input || typeof input !== "object") throw new Error("Invalid quiz details")
+    const root = await repositoryRoot()
+    await createQuizFiles(root, contest, input as Parameters<typeof createQuizFiles>[2])
+    return scanQuizRepository(root)
+  })
+  ipcMain.handle("crud:quiz:update", async (_event, manifestPath: unknown, input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("Invalid quiz details")
+    const manifest = await resolveManifest(manifestPath)
+    await updateQuizManifest(manifest, input as Parameters<typeof updateQuizManifest>[1])
+    return scanQuizRepository(await repositoryRoot())
+  })
+  ipcMain.handle("crud:quiz:delete", async (_event, manifestPath: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    await shell.trashItem(path.dirname(manifest))
+    return scanQuizRepository(await repositoryRoot())
   })
   createWindow()
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })

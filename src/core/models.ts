@@ -10,6 +10,7 @@ export interface QuizManifest {
   id: string
   legacyId: string
   contest: string
+  title?: string
   grade?: string | null
   round?: string | null
   year?: string | null
@@ -25,6 +26,7 @@ export interface QuizSummary {
   id: string
   legacyId: string
   contest: string
+  title: string
   grade: string | null
   round: string | null
   year: string | null
@@ -48,8 +50,17 @@ export interface ScanIssue {
 export interface RepositorySnapshot {
   repositoryPath: string
   scannedAt: string
+  contests: string[]
   quizzes: QuizSummary[]
   issues: ScanIssue[]
+}
+
+export interface QuizCrudInput {
+  id: string
+  title: string
+  grade: string | null
+  round: string | null
+  year: string | null
 }
 
 export interface AppSettings {
@@ -66,4 +77,10 @@ export interface DesktopApi {
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
   openExternal(url: string): Promise<void>
+  createContest(id: string): Promise<RepositorySnapshot>
+  renameContest(currentId: string, nextId: string): Promise<RepositorySnapshot>
+  deleteContest(id: string): Promise<RepositorySnapshot>
+  createQuiz(contest: string, input: QuizCrudInput): Promise<RepositorySnapshot>
+  updateQuiz(manifestPath: string, input: Omit<QuizCrudInput, "id">): Promise<RepositorySnapshot>
+  deleteQuiz(manifestPath: string): Promise<RepositorySnapshot>
 }

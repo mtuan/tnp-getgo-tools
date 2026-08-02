@@ -19,6 +19,7 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
   await fs.writeFile(path.join(invalid, "manifest.json"), "{}")
   const result = await scanQuizRepository(root)
   assert.equal(result.quizzes.length, 1)
+  assert.deepEqual(result.contests, ["seamo"])
   assert.equal(result.quizzes[0].id, "quiz-1")
   assert.equal(result.quizzes[0].hasQuizTs, true)
   assert.equal(result.quizzes[0].deploymentStatus, "not-built")

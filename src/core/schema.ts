@@ -6,6 +6,7 @@ export const quizManifestSchema = z.object({
   id: z.string().min(1),
   legacyId: z.string().min(1),
   contest: z.string().min(1),
+  title: z.string().min(1).optional(),
   grade: z.string().nullable().optional(),
   round: z.string().nullable().optional(),
   year: z.string().nullable().optional(),

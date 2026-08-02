@@ -79,6 +79,7 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
     id: manifest.id,
     legacyId: manifest.legacyId,
     contest: manifest.contest,
+    title: manifest.title ?? manifest.id,
     grade: manifest.grade ?? null,
     round: manifest.round ?? null,
     year: manifest.year ?? null,
@@ -105,6 +106,10 @@ export async function scanQuizRepository(repositoryPath: string): Promise<Reposi
     throw new Error("This folder does not contain a quizzes directory.")
   }
   const manifests = await findManifests(root)
+  const contests = (await fs.readdir(path.join(root, "quizzes"), { withFileTypes: true }))
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort()
   const quizzes: QuizSummary[] = []
   const issues: ScanIssue[] = []
   for (const manifestPath of manifests) {
@@ -116,5 +121,5 @@ export async function scanQuizRepository(repositoryPath: string): Promise<Reposi
       })
     }
   }
-  return { repositoryPath: root, scannedAt: new Date().toISOString(), quizzes, issues }
+  return { repositoryPath: root, scannedAt: new Date().toISOString(), contests, quizzes, issues }
 }
