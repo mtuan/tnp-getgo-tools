@@ -9,6 +9,7 @@ interface QuizManagerProps {
   snapshot: RepositorySnapshot
   onChangeRepository(): void
   onSnapshotChange(snapshot: RepositorySnapshot): void
+  onRouteChange(route: string): void
 }
 
 type ManagerPage =
@@ -16,7 +17,7 @@ type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary }
 
-export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange }: QuizManagerProps) {
+export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange, onRouteChange }: QuizManagerProps) {
   const [page, setPage] = useState<ManagerPage>({ kind: "contests" })
   const [query, setQuery] = useState("")
   const [source, setSource] = useState("")
@@ -39,6 +40,12 @@ export function QuizManager({ snapshot, onChangeRepository, onSnapshotChange }: 
   const visibleContests = contests.filter(contest => !normalizedQuery || `${contest.id} ${contest.title} ${contest.description}`.toLowerCase().includes(normalizedQuery))
   const visibleQuizzes = (selectedContest?.quizzes ?? []).filter((quiz) => !normalizedQuery ||
     `${quiz.id} ${quiz.legacyId} ${quiz.grade ?? ""} ${quiz.round ?? ""} ${quiz.year ?? ""}`.toLowerCase().includes(normalizedQuery))
+
+  useEffect(() => {
+    if (page.kind === "contests") onRouteChange("/quizzes/contests")
+    if (page.kind === "contest") onRouteChange(`/quizzes/contests/${encodeURIComponent(page.contest)}`)
+    if (page.kind === "quiz") onRouteChange(`/quizzes/contests/${encodeURIComponent(page.quiz.contest)}/quizzes/${encodeURIComponent(page.quiz.id)}`)
+  }, [onRouteChange, page])
 
   useEffect(() => {
     if (page.kind !== "quiz") return

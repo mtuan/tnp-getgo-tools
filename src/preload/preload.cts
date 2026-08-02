@@ -10,6 +10,7 @@ const api: DesktopApi = {
   readQuizSource: (manifestPath) => ipcRenderer.invoke("quiz-source:read", manifestPath) as Promise<string>,
   saveQuizSource: (manifestPath, source) => ipcRenderer.invoke("quiz-source:save", manifestPath, source) as Promise<void>,
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url) as Promise<void>,
+  copyText: (text) => ipcRenderer.invoke("clipboard:write", text) as Promise<void>,
   createContest: (settings) => ipcRenderer.invoke("crud:contest:create", settings) as Promise<RepositorySnapshot>,
   updateContest: (id, settings) => ipcRenderer.invoke("crud:contest:update", id, settings) as Promise<RepositorySnapshot>,
   renameContest: (currentId, nextId) => ipcRenderer.invoke("crud:contest:rename", currentId, nextId) as Promise<RepositorySnapshot>,

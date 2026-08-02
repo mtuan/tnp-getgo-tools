@@ -107,6 +107,7 @@ export interface DesktopApi {
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
   openExternal(url: string): Promise<void>
+  copyText(text: string): Promise<void>
   createContest(settings: ContestSettings): Promise<RepositorySnapshot>
   updateContest(id: string, settings: ContestSettings): Promise<RepositorySnapshot>
   renameContest(currentId: string, nextId: string): Promise<RepositorySnapshot>
