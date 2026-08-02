@@ -118,7 +118,7 @@ export function validateSchema(schema: FormSchema[], values: FormValues): FormEr
   return errors
 }
 
-function Control({ field, values, onChange, autoFocus }: { field: FormField; values: FormValues; onChange(name: string, value: unknown): void; autoFocus: boolean }) {
+export function FormControl({ field, values, onChange, autoFocus = false }: { field: FormField; values: FormValues; onChange(name: string, value: unknown): void; autoFocus?: boolean }) {
   const value = values[field.name]
   const disabled = typeof field.disabled === "function" ? field.disabled(values) : Boolean(field.disabled)
   if (field.type === "custom") return field.render({ value, values, disabled, onChange: next => onChange(field.name, next) })
@@ -135,7 +135,7 @@ function Field({ field, values, errors, onChange, autoFocus }: { field: FormFiel
   const inlineLabel = field.type === "checkbox"
   return <div className={`schema-field ${errors[field.name] ? "invalid" : ""}`}>
     {!inlineLabel && field.label && <label>{field.label}{field.required && <b>*</b>}</label>}
-    <Control field={field} values={values} onChange={onChange} autoFocus={autoFocus} />
+    <FormControl field={field} values={values} onChange={onChange} autoFocus={autoFocus} />
     {errors[field.name] ? <small className="field-error">{errors[field.name]}</small> : field.helper ? <small>{field.helper}</small> : null}
   </div>
 }
