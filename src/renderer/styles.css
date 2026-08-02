@@ -239,8 +239,6 @@ tbody tr:hover { background: #eef2ff80; }
   :root { color: #f8fafc; background: #020617; color-scheme: dark; }
   body { color: #f8fafc; background: #020617; }
   .topbar { border-color: #ffffff1a; background: rgba(15,23,42,.9); }
-  .ui-tabs { background: #0f172a; }
-  .ui-tabs button.active { color: #c7d2fe; background: #1e293b; box-shadow: none; }
   .ui-tabs button:hover { color: #c7d2fe; }
   .secondary.button-color-danger { color: #fda4af; border-color: #e11d4866; background: #e11d4822; }
   .secondary.button-color-success { color: #6ee7b7; border-color: #05966966; background: #05966922; }
@@ -281,11 +279,18 @@ tbody tr:hover { background: #eef2ff80; }
 .manager-search { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 0 13px; border: 1px solid #e2e8f0; border-radius: 11px; color: #94a3b8; background: white; transition: border-color .2s, box-shadow .2s; }
 .manager-search:focus-within { color: #6366f1; border-color: #818cf8; box-shadow: 0 0 0 3px #6366f11f; }
 .manager-search input { width: 100%; height: 42px; border: 0; outline: 0; color: #334155; background: transparent; }
-.ui-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 11px; background: #eef2f7; }
+.ui-tabs { display: flex; gap: 4px; }
+.ui-tabs-segmented { padding: 4px; border-radius: 11px; background: #eef2f7; }
 .contest-detail-tabs { margin: -10px 0 20px; }
 .ui-tabs button { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 120px; padding: 9px 16px; border: 0; border-radius: 8px; color: #64748b; background: transparent; font-size: 12px; font-weight: 700; transition: color .18s ease, background-color .18s ease, box-shadow .18s ease; }
 .ui-tabs button:hover { color: #4338ca; }
-.ui-tabs button.active { color: #4338ca; background: white; box-shadow: 0 2px 8px #0f172a12; }
+.ui-tabs-segmented button.active { color: #4338ca; background: white; box-shadow: 0 2px 8px #0f172a12; }
+.ui-tabs-underline { gap: 20px; border-bottom: 1px solid #e2e8f0; }
+.ui-tabs-underline button { position: relative; min-width: 0; padding: 11px 2px 12px; border-radius: 0; }
+.ui-tabs-underline button::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 4px; border-radius: 4px 4px 0 0; background: transparent; transform: scaleX(.55); transition: background-color .18s ease, transform .2s var(--ease-out); }
+.ui-tabs-underline button:hover::after { background: #c7d2fe; transform: scaleX(1); }
+.ui-tabs-underline button.active { color: #4338ca; }
+.ui-tabs-underline button.active::after { background: #4f46e5; transform: scaleX(1); }
 .ui-tab-badge { min-width: 19px; padding: 2px 6px; border-radius: 10px; color: #6366f1; background: #eef2ff; font-size: 9px; }
 .manager-table { border: 1px solid #e2e8f0; border-radius: 12px; background: white; box-shadow: 0 4px 14px #0f172a0d; overflow: hidden; }
 .manager-table td:last-child { width: 42px; color: #94a3b8; text-align: right; }
@@ -525,6 +530,13 @@ button.danger svg { width: 14px; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.975); } }
 
 @media (prefers-color-scheme: dark) {
+  .ui-tabs-segmented { background: #0f172a; }
+  .ui-tabs-segmented button.active { color: #c7d2fe; background: #1e293b; box-shadow: none; }
+  .ui-tabs button:hover { color: #c7d2fe; }
+  .ui-tabs-underline { border-color: #ffffff1a; }
+  .ui-tabs-underline button.active { color: #c7d2fe; }
+  .ui-tabs-underline button:hover::after { background: #6366f166; }
+  .ui-tabs-underline button.active::after { background: #818cf8; }
   .ui-accordion-panel { border-color: #ffffff1a; background: #1e293b; box-shadow: none; }
   .ui-accordion-panel.open .ui-accordion-header { background: #1e293b; }
   .ui-accordion-panel .ui-accordion-content { border-color: #ffffff12; background: #0f172a99; box-shadow: inset 0 1px #ffffff08; }
