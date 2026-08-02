@@ -50,6 +50,12 @@
     "directories": {
       "output": "release"
     },
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ],
     "mac": {
       "icon": "src/renderer/public/icons/getgo-app-icon.png",
       "target": [

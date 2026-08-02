@@ -7,6 +7,7 @@ interface AuthApi {
   state: AuthState
   loading: boolean
   requestLogin(): void
+  refresh(): Promise<void>
   signOut(): Promise<void>
   requireAuth(action: () => void | Promise<void>): void
 }
@@ -22,6 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void window.getgo.getAuthState().then(setState).finally(() => setLoading(false)) }, [])
   const requestLogin = useCallback(() => { pendingAction.current = null; setLoginOpen(true) }, [])
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try { setState(await window.getgo.getAuthState()) }
+    finally { setLoading(false) }
+  }, [])
   const requireAuth = useCallback((action: () => void | Promise<void>) => {
     if (state.user) { void action(); return }
     pendingAction.current = action
@@ -31,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(await window.getgo.signOut())
     toast.show({ title: "Signed out", description: "The Firebase session was removed from this device.", variant: "info" })
   }, [toast])
-  const value = useMemo(() => ({ state, loading, requestLogin, signOut, requireAuth }), [state, loading, requestLogin, signOut, requireAuth])
+  const value = useMemo(() => ({ state, loading, requestLogin, refresh, signOut, requireAuth }), [state, loading, requestLogin, refresh, signOut, requireAuth])
 
   return <AuthContext.Provider value={value}>{children}{loginOpen && <AuthDialog onClose={() => { pendingAction.current = null; setLoginOpen(false) }} onSignedIn={next => {
     setState(next); setLoginOpen(false)

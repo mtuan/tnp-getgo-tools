@@ -5,8 +5,8 @@ import http from "node:http"
 import path from "node:path"
 import type { AuthState, AuthUser, DynamicQuestionProposalResult } from "../core/models.js"
 
-const apiKey = "AIzaSyDsJpKpfdXPYSySUA61oqQnIgY7p_BzspU"
-const projectId = "tnp-getgo"
+type GetGoEnvironment = "development" | "staging" | "production"
+type FirebaseEnvironmentConfig = { apiKey: string; projectId: string }
 type Session = { refreshToken: string; idToken: string; expiresAt: number; user: AuthUser }
 
 function firebaseError(payload: unknown): Error {
@@ -28,50 +28,78 @@ async function postJson(url: string, body: unknown, headers: Record<string, stri
 
 export class FirebaseAuthService {
   private session: Session | null = null
-  private readonly filePath: string
-  constructor(userDataPath: string) { this.filePath = path.join(userDataPath, "firebase-session.bin") }
+  private sessionEnvironment: GetGoEnvironment | null = null
+  constructor(
+    private readonly userDataPath: string,
+    private readonly getEnvironment: () => Promise<GetGoEnvironment>,
+  ) {}
 
-  private async persist(refreshToken: string | null) {
-    if (!refreshToken) { await fs.rm(this.filePath, { force: true }); return }
-    if (!safeStorage.isEncryptionAvailable()) throw new Error("Secure credential storage is not available on this device.")
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true })
-    await fs.writeFile(this.filePath, safeStorage.encryptString(refreshToken), { mode: 0o600 })
+  private async config(): Promise<{ environment: GetGoEnvironment; firebase: FirebaseEnvironmentConfig }> {
+    const environment = await this.getEnvironment()
+    const prefix = `GETGO_FIREBASE_${environment.toUpperCase()}`
+    const apiKey = process.env[`${prefix}_API_KEY`]?.trim()
+    const projectId = process.env[`${prefix}_PROJECT_ID`]?.trim()
+    if (!apiKey || !projectId) {
+      throw new Error(`Firebase is not configured for ${environment}. Set ${prefix}_API_KEY and ${prefix}_PROJECT_ID in .env.`)
+    }
+    return { environment, firebase: { apiKey, projectId } }
   }
-  private async savedRefreshToken() {
-    try { return safeStorage.decryptString(await fs.readFile(this.filePath)) } catch { return null }
+
+  private filePath(environment: GetGoEnvironment): string {
+    return path.join(this.userDataPath, `firebase-session-${environment}.bin`)
+  }
+
+  private async persist(environment: GetGoEnvironment, refreshToken: string | null) {
+    const filePath = this.filePath(environment)
+    if (!refreshToken) { await fs.rm(filePath, { force: true }); return }
+    if (!safeStorage.isEncryptionAvailable()) throw new Error("Secure credential storage is not available on this device.")
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(filePath, safeStorage.encryptString(refreshToken), { mode: 0o600 })
+  }
+  private async savedRefreshToken(environment: GetGoEnvironment) {
+    try { return safeStorage.decryptString(await fs.readFile(this.filePath(environment))) } catch { return null }
   }
   private userFromResponse(value: Record<string, unknown>): AuthUser {
     return { uid: String(value.localId ?? value.user_id ?? ""), email: String(value.email ?? ""), displayName: value.displayName ? String(value.displayName) : null, emailVerified: Boolean(value.emailVerified) }
   }
-  private async lookup(idToken: string): Promise<AuthUser> {
+  private async lookup(apiKey: string, idToken: string): Promise<AuthUser> {
     const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, { idToken }) as { users?: Array<Record<string, unknown>> }
     if (!result.users?.[0]) throw new Error("Firebase account could not be loaded.")
     return this.userFromResponse(result.users[0])
   }
-  private async refresh(refreshToken: string): Promise<Session> {
+  private async refresh(environment: GetGoEnvironment, apiKey: string, refreshToken: string): Promise<Session> {
     const result = await postJson(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, { grant_type: "refresh_token", refresh_token: refreshToken }) as Record<string, unknown>
     const idToken = String(result.id_token)
     const nextRefreshToken = String(result.refresh_token)
-    const user = await this.lookup(idToken)
+    const user = await this.lookup(apiKey, idToken)
     this.session = { idToken, refreshToken: nextRefreshToken, expiresAt: Date.now() + Number(result.expires_in ?? 3600) * 1000, user }
-    await this.persist(nextRefreshToken)
+    this.sessionEnvironment = environment
+    await this.persist(environment, nextRefreshToken)
     return this.session
   }
   private async activeSession() {
+    const { environment, firebase } = await this.config()
+    if (this.sessionEnvironment !== environment) this.session = null
     if (this.session && this.session.expiresAt > Date.now() + 60_000) return this.session
-    const refreshToken = this.session?.refreshToken ?? await this.savedRefreshToken()
+    const refreshToken = this.session?.refreshToken ?? await this.savedRefreshToken(environment)
     if (!refreshToken) return null
-    try { return await this.refresh(refreshToken) } catch { this.session = null; await this.persist(null); return null }
+    try { return await this.refresh(environment, firebase.apiKey, refreshToken) } catch { this.session = null; await this.persist(environment, null); return null }
   }
-  async state(): Promise<AuthState> { return { user: (await this.activeSession())?.user ?? null } }
+  async state(): Promise<AuthState> {
+    try { return { user: (await this.activeSession())?.user ?? null } }
+    catch { return { user: null } }
+  }
   async signIn(email: string, password: string): Promise<AuthState> {
+    const { environment, firebase: { apiKey } } = await this.config()
     const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, { email, password, returnSecureToken: true }) as Record<string, unknown>
     const user = this.userFromResponse(result)
     this.session = { user, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
-    await this.persist(this.session.refreshToken)
+    this.sessionEnvironment = environment
+    await this.persist(environment, this.session.refreshToken)
     return { user }
   }
   async signInWithProvider(provider: "google" | "facebook" | "apple"): Promise<AuthState> {
+    const { environment, firebase: { apiKey } } = await this.config()
     if (provider === "apple") throw new Error("Apple ID requires a signed macOS build with the Sign in with Apple entitlement. Configure the Apple Service ID in Settings, then package and sign the app.")
     const clientId = provider === "google" ? process.env.GETGO_GOOGLE_DESKTOP_CLIENT_ID?.trim() : process.env.GETGO_FACEBOOK_APP_ID?.trim()
     if (!clientId) throw new Error(`Configure the ${provider === "google" ? "Google Desktop client ID" : "Facebook App ID"} in Settings first.`)
@@ -123,23 +151,26 @@ export class FirebaseAuthService {
       const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${apiKey}`, { requestUri: redirectUri, postBody: `${providerToken}&providerId=${providerId}`, returnSecureToken: true }) as Record<string, unknown>
       const user = this.userFromResponse(result)
       this.session = { user, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
-      await this.persist(this.session.refreshToken)
+      this.sessionEnvironment = environment
+      await this.persist(environment, this.session.refreshToken)
       return { user }
     } finally { clearTimeout(timeout); server.close() }
   }
-  async signOut(): Promise<AuthState> { this.session = null; await this.persist(null); return { user: null } }
+  async signOut(): Promise<AuthState> { const { environment } = await this.config(); this.session = null; this.sessionEnvironment = null; await this.persist(environment, null); return { user: null } }
   async changePassword(password: string): Promise<void> {
     const session = await this.activeSession()
     if (!session) throw new Error("Sign in again before changing your password.")
+    const { environment, firebase: { apiKey } } = await this.config()
     const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`, { idToken: session.idToken, password, returnSecureToken: true }) as Record<string, unknown>
     if (result.idToken && result.refreshToken) {
       this.session = { ...session, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
-      await this.persist(this.session.refreshToken)
+      await this.persist(environment, this.session.refreshToken)
     }
   }
   async createProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult> {
     const session = await this.activeSession()
     if (!session) throw new Error("Sign in with a GetGo admin account to use AI support.")
+    const { firebase: { projectId } } = await this.config()
     const result = await postJson(`https://asia-southeast1-${projectId}.cloudfunctions.net/createGetGoDynamicQuestionProposal`, { data: input }, { authorization: `Bearer ${session.idToken}` }) as { result?: DynamicQuestionProposalResult; data?: DynamicQuestionProposalResult }
     const value = result.result ?? result.data
     if (!value?.proposal) throw new Error("The AI service returned an invalid proposal.")

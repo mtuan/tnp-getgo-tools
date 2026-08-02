@@ -1,5 +1,5 @@
-import "dotenv/config"
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron"
+import { config as loadEnvironment } from "dotenv"
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -9,6 +9,8 @@ import { createContestDirectory, createQuizFiles, renameContestDirectory, update
 import { loadQuizQuestions, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
+
+loadEnvironment({ path: app.isPackaged ? path.join(process.resourcesPath, ".env") : path.join(app.getAppPath(), ".env") })
 
 const productName = "GetGo Tools"
 app.setName(productName)
@@ -50,7 +52,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
-  firebaseAuth = new FirebaseAuthService(app.getPath("userData"))
+  firebaseAuth = new FirebaseAuthService(app.getPath("userData"), async () => (await settings.read()).environment)
   ipcMain.handle("auth:state", () => firebaseAuth!.state())
   ipcMain.handle("auth:sign-in", (_event, email: unknown, password: unknown) => {
     if (typeof email !== "string" || typeof password !== "string" || !email.includes("@") || password.length < 1) throw new Error("Enter a valid email and password.")
