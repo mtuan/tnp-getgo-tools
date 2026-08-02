@@ -84,7 +84,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted }: {
   const change = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     setInput(current => {
-      if (name === "grade") return { ...current, grade: String(value), grades: gradeMappings.find(item => item.name === value)?.grades ?? [] }
+      if (name === "grade") return { ...current, grade: String(value) }
       if (name === "grades") return { ...current, grades: (value as string[]).map(Number).sort((a, b) => a - b) }
       if (name === "year") return { ...current, year: value === undefined ? null : String(value) }
       if (name === "quizBuilderApiVersion") return { ...current, quizBuilderApiVersion: Number(value) }
