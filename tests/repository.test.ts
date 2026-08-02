@@ -11,6 +11,11 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
   const valid = path.join(root, "quizzes", "seamo", "legacy-1")
   const invalid = path.join(root, "quizzes", "seamo", "legacy-2")
   await fs.mkdir(valid, { recursive: true }); await fs.mkdir(invalid, { recursive: true })
+  await fs.writeFile(path.join(root, "quizzes", "seamo", "settings.json"), JSON.stringify({
+    book: { code: "seamo", title: "SEAMO", subject: 1, isActive: true },
+    rounds: [{ roundCode: "MAIN", roundName: "Main" }],
+    grades: [{ gradeName: "1", grades: [1] }], categories: [], quizRules: [],
+  }))
   await fs.writeFile(path.join(valid, "manifest.json"), JSON.stringify({
     schemaVersion: 1, id: "quiz-1", legacyId: "legacy-1", contest: "seamo", status: "reviewed",
     source: { format: "portal-client-v1", rawJsonSha256: "hash", quizTsSha256: "hash" },
@@ -19,7 +24,8 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
   await fs.writeFile(path.join(invalid, "manifest.json"), "{}")
   const result = await scanQuizRepository(root)
   assert.equal(result.quizzes.length, 1)
-  assert.deepEqual(result.contests, ["seamo"])
+  assert.equal(result.contests[0].id, "seamo")
+  assert.equal(result.contests[0].title, "SEAMO")
   assert.equal(result.quizzes[0].id, "quiz-1")
   assert.equal(result.quizzes[0].hasQuizTs, true)
   assert.equal(result.quizzes[0].deploymentStatus, "not-built")

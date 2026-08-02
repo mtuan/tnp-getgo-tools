@@ -54,7 +54,7 @@ export function App() {
   const quizzes = snapshot?.quizzes ?? []
   const built = quizzes.filter((q) => q.hasGeneratedArtifact).length
   const ready = quizzes.filter((q) => ["reviewed", "validated", "published"].includes(q.contentStatus)).length
-  const contests = new Set(quizzes.map((q) => q.contest)).size
+  const contests = snapshot?.contests.length ?? 0
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -88,7 +88,7 @@ export function App() {
             <div className="lifecycle">{["imported", "normalized", "generated", "reviewed", "validated", "published"].map((status) => { const count = quizzes.filter((q) => q.contentStatus === status).length; return <div key={status}><div><span>{status}</span><strong>{count}</strong></div><progress max={Math.max(quizzes.length, 1)} value={count} /></div> })}</div>
           </section>
         </>}
-        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} onChangeRepository={choose} /></Suspense>}
+        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} onChangeRepository={choose} onSnapshotChange={setSnapshot} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label><select value={settings.environment} onChange={async (event) => setSettings(await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]))}><option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option></select></div></section>}

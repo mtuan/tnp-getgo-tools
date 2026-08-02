@@ -50,9 +50,35 @@ export interface ScanIssue {
 export interface RepositorySnapshot {
   repositoryPath: string
   scannedAt: string
-  contests: string[]
+  contests: ContestSummary[]
   quizzes: QuizSummary[]
   issues: ScanIssue[]
+}
+
+export interface ContestSettings {
+  $schema?: string
+  $comment?: string
+  book: {
+    code: string
+    title: string
+    description?: string
+    subject: number
+    isActive?: boolean
+  }
+  rounds: Array<Record<string, unknown>>
+  grades: Array<Record<string, unknown>>
+  categories?: Array<Record<string, unknown>>
+  quizRules?: Array<Record<string, unknown>>
+}
+
+export interface ContestSummary {
+  id: string
+  title: string
+  description: string
+  subject: number
+  isActive: boolean
+  settingsPath: string
+  settings: ContestSettings
 }
 
 export interface QuizCrudInput {
@@ -61,6 +87,8 @@ export interface QuizCrudInput {
   grade: string | null
   round: string | null
   year: string | null
+  status?: ContentStatus
+  quizBuilderApiVersion?: number
 }
 
 export interface AppSettings {
@@ -77,7 +105,8 @@ export interface DesktopApi {
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
   openExternal(url: string): Promise<void>
-  createContest(id: string): Promise<RepositorySnapshot>
+  createContest(settings: ContestSettings): Promise<RepositorySnapshot>
+  updateContest(id: string, settings: ContestSettings): Promise<RepositorySnapshot>
   renameContest(currentId: string, nextId: string): Promise<RepositorySnapshot>
   deleteContest(id: string): Promise<RepositorySnapshot>
   createQuiz(contest: string, input: QuizCrudInput): Promise<RepositorySnapshot>

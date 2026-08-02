@@ -4,7 +4,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import type { AppSettings } from "../core/models.js"
 import { scanQuizRepository } from "../repositories/quiz-repository.js"
-import { createContestDirectory, createQuizFiles, renameContestDirectory, updateQuizManifest, validateRepositoryId } from "../repositories/quiz-crud.js"
+import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { SettingsStore } from "./settings.js"
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
@@ -93,12 +93,19 @@ app.whenReady().then(() => {
   })
   ipcMain.handle("quiz-source:save", async (_event, manifestPath: unknown, source: unknown) => {
     if (typeof source !== "string") throw new Error("Invalid quiz source")
-    await fs.writeFile(await resolveQuizSource(manifestPath), source, "utf8")
+    await resolveQuizSource(manifestPath)
+    await updateQuizSource(manifestPath as string, source)
   })
-  ipcMain.handle("crud:contest:create", async (_event, id: unknown) => {
-    if (typeof id !== "string") throw new Error("Invalid contest ID")
+  ipcMain.handle("crud:contest:create", async (_event, contestSettings: unknown) => {
+    if (!contestSettings || typeof contestSettings !== "object") throw new Error("Invalid contest settings")
     const root = await repositoryRoot()
-    await createContestDirectory(root, id)
+    await createContestDirectory(root, contestSettings as Parameters<typeof createContestDirectory>[1])
+    return scanQuizRepository(root)
+  })
+  ipcMain.handle("crud:contest:update", async (_event, id: unknown, contestSettings: unknown) => {
+    if (typeof id !== "string" || !contestSettings || typeof contestSettings !== "object") throw new Error("Invalid contest settings")
+    const root = await repositoryRoot()
+    await updateContestSettings(root, id, contestSettings as Parameters<typeof updateContestSettings>[2])
     return scanQuizRepository(root)
   })
   ipcMain.handle("crud:contest:rename", async (_event, currentId: unknown, nextId: unknown) => {

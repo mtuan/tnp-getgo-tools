@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import type { QuizManifest, QuizSummary, RepositorySnapshot, ScanIssue } from "../core/models.js"
-import { quizManifestSchema } from "../core/schema.js"
+import type { ContestSummary, QuizManifest, QuizSummary, RepositorySnapshot, ScanIssue } from "../core/models.js"
+import { contestSettingsSchema, quizManifestSchema } from "../core/schema.js"
 import { deriveDeploymentStatus } from "../core/status.js"
 
 async function exists(filePath: string): Promise<boolean> {
@@ -72,6 +72,14 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
   const generated = await readGenerated(root, manifest)
   const stat = await fs.stat(manifestPath)
   const relativePath = path.relative(root, directory)
+  let title = manifest.title ?? manifest.id
+  if (!manifest.title) {
+    try {
+      const source = await fs.readFile(path.join(directory, "quiz.ts"), "utf8")
+      const match = source.match(/^\s*title\s*:\s*(["'])(.*?)\1\s*,/m)
+      if (match?.[2]) title = match[2]
+    } catch { /* The file-presence flags below report a missing quiz.ts. */ }
+  }
   return {
     key: `${manifest.contest}/${manifest.id}`,
     relativePath,
@@ -79,7 +87,7 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
     id: manifest.id,
     legacyId: manifest.legacyId,
     contest: manifest.contest,
-    title: manifest.title ?? manifest.id,
+    title,
     grade: manifest.grade ?? null,
     round: manifest.round ?? null,
     year: manifest.year ?? null,
@@ -100,18 +108,43 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
   }
 }
 
+async function mapContest(root: string, id: string): Promise<ContestSummary> {
+  const settingsPath = path.join(root, "quizzes", id, "settings.json")
+  const settings = contestSettingsSchema.parse(JSON.parse(await fs.readFile(settingsPath, "utf8")))
+  if (settings.book.code !== id) throw new Error(`Book code “${settings.book.code}” does not match directory “${id}”.`)
+  return {
+    id,
+    title: settings.book.title,
+    description: settings.book.description ?? "",
+    subject: settings.book.subject,
+    isActive: settings.book.isActive !== false,
+    settingsPath,
+    settings,
+  }
+}
+
 export async function scanQuizRepository(repositoryPath: string): Promise<RepositorySnapshot> {
   const root = path.resolve(repositoryPath)
   if (!(await exists(path.join(root, "quizzes")))) {
     throw new Error("This folder does not contain a quizzes directory.")
   }
   const manifests = await findManifests(root)
-  const contests = (await fs.readdir(path.join(root, "quizzes"), { withFileTypes: true }))
+  const contestIds = (await fs.readdir(path.join(root, "quizzes"), { withFileTypes: true }))
     .filter(entry => entry.isDirectory())
     .map(entry => entry.name)
     .sort()
+  const contests: ContestSummary[] = []
   const quizzes: QuizSummary[] = []
   const issues: ScanIssue[] = []
+  for (const id of contestIds) {
+    try { contests.push(await mapContest(root, id)) }
+    catch (error) {
+      issues.push({
+        path: path.join("quizzes", id, "settings.json"),
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
   for (const manifestPath of manifests) {
     try { quizzes.push(await mapQuiz(root, manifestPath)) }
     catch (error) {
