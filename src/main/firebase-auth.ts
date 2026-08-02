@@ -3,10 +3,10 @@ import { promises as fs } from "node:fs"
 import { createHash, randomBytes } from "node:crypto"
 import http from "node:http"
 import path from "node:path"
-import type { AuthState, AuthUser, DynamicQuestionProposalResult } from "../core/models.js"
+import type { AuthState, AuthUser, DynamicQuestionProposalResult, EnvironmentReadiness, EnvironmentReadinessCheck } from "../core/models.js"
 
 type GetGoEnvironment = "development" | "staging" | "production"
-type FirebaseEnvironmentConfig = { apiKey: string; projectId: string }
+type FirebaseEnvironmentConfig = { apiKey: string; projectId: string; projectNumber?: string }
 type Session = { refreshToken: string; idToken: string; expiresAt: number; user: AuthUser }
 
 function firebaseError(payload: unknown): Error {
@@ -39,10 +39,67 @@ export class FirebaseAuthService {
     const prefix = `GETGO_FIREBASE_${environment.toUpperCase()}`
     const apiKey = process.env[`${prefix}_API_KEY`]?.trim()
     const projectId = process.env[`${prefix}_PROJECT_ID`]?.trim()
+    const projectNumber = process.env[`${prefix}_PROJECT_NUMBER`]?.trim() || undefined
     if (!apiKey || !projectId) {
       throw new Error(`Firebase is not configured for ${environment}. Set ${prefix}_API_KEY and ${prefix}_PROJECT_ID in .env.`)
     }
-    return { environment, firebase: { apiKey, projectId } }
+    return { environment, firebase: { apiKey, projectId, projectNumber } }
+  }
+
+  async checkReadiness(): Promise<EnvironmentReadiness> {
+    const environment = await this.getEnvironment()
+    let configured: { environment: GetGoEnvironment; firebase: FirebaseEnvironmentConfig }
+    try { configured = await this.config() }
+    catch (cause) {
+      return {
+        environment,
+        projectId: null,
+        ready: false,
+        checks: [{ id: "configuration", ready: false, message: cause instanceof Error ? cause.message : String(cause) }],
+      }
+    }
+
+    const { apiKey, projectId, projectNumber } = configured.firebase
+    const checks: EnvironmentReadinessCheck[] = [
+      { id: "configuration", ready: true, message: `Configured for ${projectId}.` },
+    ]
+    const request = async (url: string, init?: RequestInit) => fetch(url, { ...init, signal: AbortSignal.timeout(8_000) })
+
+    const [authenticationCheck, functionsCheck] = await Promise.all([
+      (async (): Promise<EnvironmentReadinessCheck> => {
+        try {
+          const response = await request(`https://identitytoolkit.googleapis.com/v1/projects?key=${encodeURIComponent(apiKey)}`)
+          const payload = await response.json().catch(() => ({})) as { projectId?: string; error?: { message?: string } }
+          const matchesProject = response.ok && (!projectNumber || payload.projectId === projectNumber)
+          return {
+            id: "authentication",
+            ready: matchesProject,
+            message: matchesProject
+              ? "Firebase Authentication is available."
+              : payload.projectId && projectNumber
+                ? `The API key belongs to project number ${payload.projectId}, not ${projectNumber}.`
+                : payload.error?.message ?? `Firebase Authentication returned HTTP ${response.status}.`,
+          }
+        } catch (cause) {
+          return { id: "authentication", ready: false, message: `Firebase Authentication is unreachable: ${cause instanceof Error ? cause.message : String(cause)}` }
+        }
+      })(),
+      (async (): Promise<EnvironmentReadinessCheck> => {
+        try {
+          const response = await request(
+            `https://asia-southeast1-${projectId}.cloudfunctions.net/createGetGoDynamicQuestionProposal`,
+            { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: {} }) },
+          )
+          const exists = response.status !== 404
+          return { id: "functions", ready: exists, message: exists ? "GetGo Cloud Functions are deployed." : "GetGo Cloud Functions have not been deployed." }
+        } catch (cause) {
+          return { id: "functions", ready: false, message: `GetGo Cloud Functions are unreachable: ${cause instanceof Error ? cause.message : String(cause)}` }
+        }
+      })(),
+    ])
+    checks.push(authenticationCheck, functionsCheck)
+
+    return { environment, projectId, ready: checks.every(check => check.ready), checks }
   }
 
   private filePath(environment: GetGoEnvironment): string {

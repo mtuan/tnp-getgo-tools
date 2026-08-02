@@ -125,6 +125,19 @@ export interface AuthState {
   user: AuthUser | null
 }
 
+export interface EnvironmentReadinessCheck {
+  id: "configuration" | "authentication" | "functions"
+  ready: boolean
+  message: string
+}
+
+export interface EnvironmentReadiness {
+  environment: AppSettings["environment"]
+  projectId: string | null
+  ready: boolean
+  checks: EnvironmentReadinessCheck[]
+}
+
 export interface DynamicQuestionProposal {
   paramsGeneratorTs: string
   questionGeneratorTs: string
@@ -148,6 +161,7 @@ export interface DesktopApi {
   chooseRepository(): Promise<RepositorySnapshot | null>
   scanRepository(path?: string): Promise<RepositorySnapshot>
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>
+  checkEnvironmentReadiness(): Promise<EnvironmentReadiness>
   showInFolder(path: string): Promise<void>
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>

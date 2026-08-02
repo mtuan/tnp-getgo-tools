@@ -2,7 +2,7 @@
 
 GetGo Tools selects its Firebase backend from the environment selector in the app. Each backend has an independent encrypted login session.
 
-Copy `.env.example` to `.env`, then fill in the Firebase Web API key for each project:
+Copy `.env.example` to `.env`, then fill in the Firebase Web API key and numeric project number (`messagingSenderId` in the Web app configuration) for each project:
 
 | App environment | Firebase project |
 | --- | --- |

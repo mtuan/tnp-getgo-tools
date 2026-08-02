@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react"
-import { Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, RefreshCw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
-import type { AppSettings, ContentStatus, DeploymentStatus, RepositorySnapshot } from "../core/models"
+import { lazy, Suspense, useEffect, useRef, useState } from "react"
+import { Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
+import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
 import { AccountMenu } from "./AccountMenu"
 import { GetGoIcon } from "./GetGoIcon"
@@ -9,6 +9,7 @@ import { Button } from "./ui/Button"
 import { PageHeader } from "./ui/PageHeader"
 import { Panel } from "./ui/Panel"
 import { SummaryCard } from "./ui/SummaryCard"
+import { Select, type SelectOption } from "./ui/Select"
 import { useToast } from "./ui/Toast"
 
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
@@ -23,6 +24,11 @@ const nav: { id: View; label: string; icon: LucideIcon }[] = [
   { id: "jobs", label: "Jobs", icon: Workflow },
   { id: "publishing", label: "Publishing", icon: CloudUpload },
   { id: "settings", label: "Settings", icon: Settings },
+]
+const environmentOptions: SelectOption[] = [
+  { value: "development", label: "Development" },
+  { value: "staging", label: "Staging" },
+  { value: "production", label: "Production" },
 ]
 
 function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
@@ -44,6 +50,9 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [currentRoute, setCurrentRoute] = useState(initialRoute)
   const [routeCopied, setRouteCopied] = useState(false)
+  const [environmentReadiness, setEnvironmentReadiness] = useState<EnvironmentReadiness | null>(null)
+  const [checkingEnvironment, setCheckingEnvironment] = useState(false)
+  const environmentCheckId = useRef(0)
 
   async function scan(path?: string, announce = false) {
     setLoading(true); setError(null)
@@ -61,12 +70,36 @@ export function App() {
   async function changeEnvironment(environment: AppSettings["environment"]) {
     const next = await window.getgo.setEnvironment(environment)
     setSettings(next)
-    await auth.refresh()
-    toast.show({ title: "Environment changed", description: `Now using ${next.environment}.`, variant: "info" })
+    setEnvironmentReadiness(null)
+    setCheckingEnvironment(true)
+    const checkId = ++environmentCheckId.current
+    const readinessCheck = window.getgo.checkEnvironmentReadiness
+    if (typeof readinessCheck !== "function") {
+      await auth.refresh()
+      if (checkId === environmentCheckId.current) setCheckingEnvironment(false)
+      toast.show({ title: "Restart required", description: "Restart GetGo Tools to load environment readiness checks.", variant: "info" })
+      return
+    }
+    let readiness: EnvironmentReadiness
+    try { [, readiness] = await Promise.all([auth.refresh(), readinessCheck()]) }
+    finally { if (checkId === environmentCheckId.current) setCheckingEnvironment(false) }
+    if (checkId !== environmentCheckId.current) return
+    setEnvironmentReadiness(readiness)
+    if (readiness.ready) {
+      toast.show({ title: "Environment ready", description: `${next.environment} is connected to ${readiness.projectId}.` })
+      return
+    }
+    const issues = readiness.checks.filter(check => !check.ready).map(check => check.message)
+    toast.show({ title: `${next.environment} is not ready`, description: issues.join(" "), variant: "error" })
   }
   useEffect(() => {
     window.getgo.getSettings().then((value) => {
       setSettings(value)
+      if (typeof window.getgo.checkEnvironmentReadiness === "function") {
+        const checkId = ++environmentCheckId.current
+        setCheckingEnvironment(true)
+        void window.getgo.checkEnvironmentReadiness().then(readiness => { if (checkId === environmentCheckId.current) setEnvironmentReadiness(readiness) }).finally(() => { if (checkId === environmentCheckId.current) setCheckingEnvironment(false) })
+      }
       if (value.repositoryPath) return scan(value.repositoryPath)
       setLoading(false)
     }).catch((cause) => { setError(String(cause)); setLoading(false) })
@@ -88,6 +121,22 @@ export function App() {
   }
   function navigate(view: View) { setView(view); setCurrentRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`) }
 
+  function environmentSwitcher(className?: string) {
+    const failedChecks = environmentReadiness?.checks.filter(check => !check.ready).map(check => check.message).join(" ")
+    const statusLabel = checkingEnvironment
+      ? `Checking ${settings.environment}`
+      : environmentReadiness?.ready
+        ? `${settings.environment} is ready`
+        : environmentReadiness
+          ? `${settings.environment} is not ready. ${failedChecks}`
+          : `${settings.environment} status is unknown`
+    const readinessClass = checkingEnvironment ? "environment-checking" : environmentReadiness?.ready ? "environment-ready" : environmentReadiness ? "environment-not-ready" : "environment-unknown"
+    const selectColor = environmentReadiness?.ready ? "success" : environmentReadiness ? "danger" : "normal"
+    return <div className={["environment-switcher", className].filter(Boolean).join(" ")}>
+      <Select title={statusLabel} color={selectColor} className={readinessClass} value={settings.environment} options={environmentOptions} disabled={checkingEnvironment} onValueChange={value => void changeEnvironment(value as AppSettings["environment"])} />
+    </div>
+  }
+
   const quizzes = snapshot?.quizzes ?? []
   const built = quizzes.filter((q) => q.hasGeneratedArtifact).length
   const ready = quizzes.filter((q) => ["reviewed", "validated", "published"].includes(q.contentStatus)).length
@@ -108,13 +157,10 @@ export function App() {
       <div className="sidebar-footer"><span className="status-dot" />Local workspace<strong>v0.1.0</strong></div>
     </aside>
     <main>
-      <header className="topbar">
+      <header className={`topbar ${settings.environment === "production" ? "production-header" : ""}`}>
         <button className="repository" onClick={choose}><span>Repository</span><strong>{settings.repositoryPath?.split(/[\\/]/).pop() ?? "Choose folder"}</strong></button>
         <div className="top-actions">
-          <select className={settings.environment === "production" ? "production" : ""} value={settings.environment} onChange={(event) => void changeEnvironment(event.target.value as AppSettings["environment"])}>
-            <option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option>
-          </select>
-          <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan(undefined, true)} title="Rescan" aria-label="Rescan repository"><RefreshCw size={17} /></button>
+          {environmentSwitcher("compact")}
           {auth.state.user ? <AccountMenu user={auth.state.user} onSignOut={auth.signOut} /> : <Button disabled={auth.loading} onClick={auth.requestLogin}><LogIn size={15} />Sign in</Button>}
         </div>
       </header>
@@ -137,7 +183,7 @@ export function App() {
         {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onChangeRepository={choose} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
-        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label><select value={settings.environment} onChange={(event) => void changeEnvironment(event.target.value as AppSettings["environment"])}><option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option></select></div></section>}
+        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}</div></section>}
         </PageTransition>
       </div>
     </main>

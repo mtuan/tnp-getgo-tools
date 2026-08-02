@@ -54,6 +54,7 @@ app.whenReady().then(() => {
   const settings = new SettingsStore(app.getPath("userData"))
   firebaseAuth = new FirebaseAuthService(app.getPath("userData"), async () => (await settings.read()).environment)
   ipcMain.handle("auth:state", () => firebaseAuth!.state())
+  ipcMain.handle("environment:readiness", () => firebaseAuth!.checkReadiness())
   ipcMain.handle("auth:sign-in", (_event, email: unknown, password: unknown) => {
     if (typeof email !== "string" || typeof password !== "string" || !email.includes("@") || password.length < 1) throw new Error("Enter a valid email and password.")
     return firebaseAuth!.signIn(email.trim(), password)

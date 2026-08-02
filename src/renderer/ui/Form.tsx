@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Check, ChevronDown, X } from "lucide-react"
+import { Select, useSelectDropdown, type SelectOption } from "./Select"
 
-export interface SelectOption { value: string; label: ReactNode }
+export type { SelectOption } from "./Select"
 export interface FieldRules {
   pattern?: RegExp | { value: RegExp; message: string }
   minLength?: number | { value: number; message: string }
@@ -54,42 +55,12 @@ export function flattenSchema(schema: FormSchema[], values?: FormValues): FormFi
 const ruleValue = <T,>(rule: T | { value: T; message: string }) => typeof rule === "object" && rule !== null && "value" in rule ? rule.value : rule
 const ruleMessage = <T,>(rule: T | { value: T; message: string }, fallback: string) => typeof rule === "object" && rule !== null && "message" in rule ? rule.message : fallback
 
-function useDropdown() {
-  const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
-  const [position, setPosition] = useState({ left: 0, width: 0, top: 0, bottom: 0 })
-  const ref = useRef<HTMLDivElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const place = () => {
-      const rect = ref.current?.getBoundingClientRect()
-      if (!rect) return
-      const upward = window.innerHeight - rect.bottom < 240 && rect.top > 240
-      setOpenUp(upward)
-      setPosition({ left: rect.left, width: rect.width, top: rect.bottom + 6, bottom: window.innerHeight - rect.top + 6 })
-    }
-    place()
-    const close = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setOpen(false) }
-    document.addEventListener("mousedown", close)
-    window.addEventListener("resize", place)
-    document.addEventListener("scroll", place, true)
-    return () => { document.removeEventListener("mousedown", close); window.removeEventListener("resize", place); document.removeEventListener("scroll", place, true) }
-  }, [open])
-  return { open, openUp, position, ref, menuRef, setOpen }
-}
-
 function SelectControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "select" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
-  const dropdown = useDropdown()
-  const selected = field.options.find(option => option.value === String(value ?? ""))
-  return <div className={`schema-select ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
-    <button type="button" disabled={disabled} autoFocus={autoFocus} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={!selected ? "placeholder" : ""}>{selected?.label ?? field.placeholder ?? "Select…"}</span><ChevronDown /></button>
-    {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="schema-select-menu schema-select-portal" style={{ left: dropdown.position.left, width: dropdown.position.width, top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }} role="listbox">{field.options.map(option => <button type="button" role="option" aria-selected={option.value === String(value ?? "")} className={option.value === String(value ?? "") ? "selected" : ""} onClick={() => { onChange(option.value); dropdown.setOpen(false) }} key={option.value}><span>{option.label}</span>{option.value === String(value ?? "") && <Check />}</button>)}</div>, document.body)}
-  </div>
+  return <Select value={String(value ?? "")} options={field.options} disabled={disabled} autoFocus={autoFocus} placeholder={field.placeholder} onValueChange={onChange} />
 }
 
 function MultiSelectControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "multi-select" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string[]): void }) {
-  const dropdown = useDropdown()
+  const dropdown = useSelectDropdown()
   const selected = Array.isArray(value) ? value.map(String) : []
   const toggle = (option: string) => onChange(selected.includes(option) ? selected.filter(item => item !== option) : [...selected, option])
   return <div className={`schema-select schema-multi ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
