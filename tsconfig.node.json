@@ -9,5 +9,5 @@
     "rootDir": "src",
     "types": ["node"]
   },
-  "include": ["src/main/**/*.ts", "src/preload/**/*.ts", "src/core/**/*.ts", "src/repositories/**/*.ts"]
+  "include": ["src/main/**/*.ts", "src/preload/**/*.cts", "src/core/**/*.ts", "src/repositories/**/*.ts"]
 }

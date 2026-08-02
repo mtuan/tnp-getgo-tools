@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
+import { CloudUpload, FolderOpen, LayoutDashboard, Library, RefreshCw, Settings, Sparkles, Workflow, X, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, QuizSummary, RepositorySnapshot } from "../core/models"
+import { PageTransition } from "./PageTransition"
 
 type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "settings"
-const nav: { id: View; label: string; icon: string }[] = [
-  { id: "dashboard", label: "Dashboard", icon: "⌂" },
-  { id: "quizzes", label: "Quizzes", icon: "▤" },
-  { id: "jobs", label: "Jobs", icon: "↻" },
-  { id: "publishing", label: "Publishing", icon: "↑" },
-  { id: "settings", label: "Settings", icon: "⚙" },
+const nav: { id: View; label: string; icon: LucideIcon }[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "quizzes", label: "Quizzes", icon: Library },
+  { id: "jobs", label: "Jobs", icon: Workflow },
+  { id: "publishing", label: "Publishing", icon: CloudUpload },
+  { id: "settings", label: "Settings", icon: Settings },
 ]
 
 function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
@@ -15,7 +17,7 @@ function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
 }
 
 function EmptyFeature({ title, detail }: { title: string; detail: string }) {
-  return <section className="empty-feature"><div className="empty-icon">◇</div><h2>{title}</h2><p>{detail}</p><span>Planned for the next implementation phase</span></section>
+  return <section className="empty-feature"><div className="empty-icon"><Sparkles /></div><h2>{title}</h2><p>{detail}</p><span>Planned for the next implementation phase</span></section>
 }
 
 export function App() {
@@ -64,7 +66,7 @@ export function App() {
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark">G</div><div><strong>GetGo</strong><span>TOOLS</span></div></div>
-      <nav>{nav.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><i>{item.icon}</i>{item.label}</button>)}</nav>
+      <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><i><Icon size={18} strokeWidth={1.8} /></i>{item.label}</button> })}</nav>
       <div className="sidebar-footer"><span className="status-dot" />Local workspace<strong>v0.1.0</strong></div>
     </aside>
     <main>
@@ -74,10 +76,11 @@ export function App() {
           <select className={settings.environment === "production" ? "production" : ""} value={settings.environment} onChange={async (event) => setSettings(await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]))}>
             <option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option>
           </select>
-          <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan()} title="Rescan">↻</button>
+          <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan()} title="Rescan" aria-label="Rescan repository"><RefreshCw size={17} /></button>
         </div>
       </header>
       <div className="content">
+        <PageTransition trigger={[view, settings.repositoryPath]}>
         {error && <div className="error-banner"><strong>Could not scan repository</strong><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
         {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark">G</div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><button className="primary" onClick={choose}>Choose repository</button></section> : null}
         {settings.repositoryPath && view === "dashboard" && <>
@@ -100,9 +103,10 @@ export function App() {
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label><select value={settings.environment} onChange={async (event) => setSettings(await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]))}><option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option></select></div></section>}
+        </PageTransition>
       </div>
     </main>
     {loading && <div className="loading"><span />Scanning repository…</div>}
-    {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><aside className="drawer" onClick={(e) => e.stopPropagation()}><button className="drawer-close" onClick={() => setSelected(null)}>×</button><span className="eyebrow">{selected.contest}</span><h2>{selected.id}</h2><p className="muted">{selected.relativePath}</p><div className="drawer-badges"><Badge value={selected.contentStatus} /><Badge value={selected.deploymentStatus} /></div><dl><div><dt>Legacy ID</dt><dd>{selected.legacyId}</dd></div><div><dt>Grade / round</dt><dd>{[selected.grade, selected.round].filter(Boolean).join(" / ") || "—"}</dd></div><div><dt>Year</dt><dd>{selected.year || "—"}</dd></div><div><dt>QuizBuilder API</dt><dd>{selected.quizBuilderApiVersion ?? "—"}</dd></div><div><dt>Generated artifact</dt><dd>{selected.hasGeneratedArtifact ? "Available" : "Not built"}</dd></div><div><dt>Artifact hash</dt><dd className="hash">{selected.artifactHash?.slice(0, 16) ?? "—"}</dd></div></dl><h3>Canonical inputs</h3><div className="input-list"><span className={selected.hasSourcePdf ? "present" : ""}>source.pdf</span><span className={selected.hasRawJson ? "present" : ""}>raw.json</span><span className={selected.hasQuizTs ? "present" : ""}>quiz.ts</span></div><button className="secondary full" onClick={() => window.getgo.showInFolder(selected.manifestPath)}>Show in folder</button></aside></div>}
+    {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><aside className="drawer" onClick={(e) => e.stopPropagation()}><button className="drawer-close" onClick={() => setSelected(null)} aria-label="Close quiz details"><X size={21} /></button><span className="eyebrow">{selected.contest}</span><h2>{selected.id}</h2><p className="muted">{selected.relativePath}</p><div className="drawer-badges"><Badge value={selected.contentStatus} /><Badge value={selected.deploymentStatus} /></div><dl><div><dt>Legacy ID</dt><dd>{selected.legacyId}</dd></div><div><dt>Grade / round</dt><dd>{[selected.grade, selected.round].filter(Boolean).join(" / ") || "—"}</dd></div><div><dt>Year</dt><dd>{selected.year || "—"}</dd></div><div><dt>QuizBuilder API</dt><dd>{selected.quizBuilderApiVersion ?? "—"}</dd></div><div><dt>Generated artifact</dt><dd>{selected.hasGeneratedArtifact ? "Available" : "Not built"}</dd></div><div><dt>Artifact hash</dt><dd className="hash">{selected.artifactHash?.slice(0, 16) ?? "—"}</dd></div></dl><h3>Canonical inputs</h3><div className="input-list"><span className={selected.hasSourcePdf ? "present" : ""}>source.pdf</span><span className={selected.hasRawJson ? "present" : ""}>raw.json</span><span className={selected.hasQuizTs ? "present" : ""}>quiz.ts</span></div><button className="secondary full folder-button" onClick={() => window.getgo.showInFolder(selected.manifestPath)}><FolderOpen size={15} />Show in folder</button></aside></div>}
   </div>
 }

@@ -17,7 +17,7 @@ function createWindow(): void {
     title: "GetGo Tools",
     backgroundColor: "#f4f5f2",
     webPreferences: {
-      preload: path.join(currentDirectory, "../preload/preload.js"),
+      preload: path.join(currentDirectory, "../preload/preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
