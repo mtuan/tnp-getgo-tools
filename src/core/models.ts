@@ -123,7 +123,7 @@ export interface DesktopApi {
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>
-  saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<void>
+  saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord>
   openExternal(url: string): Promise<void>
   copyText(text: string): Promise<void>
   createContest(settings: ContestSettings): Promise<RepositorySnapshot>

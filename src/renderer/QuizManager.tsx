@@ -127,8 +127,9 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
         if (!questionDraftRecord?.advancedDynamic) return
         setSaving(true); setSourceError(null)
         try {
-          await window.getgo.saveQuizQuestion(quiz.manifestPath, questionDraftRecord)
-          setQuestionRecords(current => current.map(item => String(item.question_no) === String(questionDraftRecord.question_no) ? questionDraftRecord : item))
+          const savedQuestion = await window.getgo.saveQuizQuestion(quiz.manifestPath, questionDraftRecord)
+          setQuestionDraftRecord(savedQuestion)
+          setQuestionRecords(current => current.map(item => String(item.question_no) === String(savedQuestion.question_no) ? savedQuestion : item))
         }
         catch (cause) { setSourceError(cause instanceof Error ? cause.message : String(cause)) }
         finally { setSaving(false) }

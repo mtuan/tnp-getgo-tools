@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
+import { QuizTsService } from "@tnp/getgo-logics/authoring"
 
 export interface QuizQuestionRecord extends Record<string, unknown> {
   question_no: number | string
@@ -85,6 +86,30 @@ function normalizeQuestion(question: Record<string, unknown>, index: number): Qu
   }
 }
 
+async function formatQuestionCode(question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
+  if (!question.advancedDynamic) return question
+  const source = QuizTsService.composeTemplateSource(question.advancedDynamic)
+  const synchronized = QuizTsService.syncQuestionGeneratorSignature(source)
+  const fields = QuizTsService.extractTemplateSourceFields(synchronized)
+  const formatField = async (value: string | undefined): Promise<string> => value?.trim() ? (await QuizTsService.formatSnippet(value)).trim().replace(/^;(?=\s*(?:\(|function\b))/, "") : ""
+  const [paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs] = await Promise.all([
+    formatField(fields.paramsGeneratorTs),
+    formatField(fields.questionGeneratorTs),
+    formatField(fields.originParamsTs),
+    formatField(fields.explanationGeneratorTs),
+  ])
+  const formattedFields = { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs }
+  const formatted = await QuizTsService.formatSnippet(QuizTsService.composeTemplateSource(formattedFields))
+  return {
+    ...question,
+    advancedDynamic: {
+      ...question.advancedDynamic,
+      ...formattedFields,
+      draftSourceTs: formatted,
+    },
+  }
+}
+
 function questionNumber(fileName: string): number {
   return Number(fileName.match(/^q(\d+)\.json$/i)?.[1] ?? Number.MAX_SAFE_INTEGER)
 }
@@ -104,17 +129,19 @@ export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuest
     const value = rawQuestions[index]
     if (!value || typeof value !== "object") continue
     const withAssets = await extractImages(value as Record<string, unknown>, index, path.join(quizDirectory, "assets"))
-    const record = normalizeQuestion(withAssets, index)
+    const record = await formatQuestionCode(normalizeQuestion(withAssets, index))
     await fs.writeFile(path.join(questionsDirectory, `q${record.question_no}.json`), `${JSON.stringify(record, null, 2)}\n`, "utf8")
     records.push(record)
   }
   return records
 }
 
-export async function saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<void> {
+export async function saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
   const questionNo = String(question.question_no)
   if (!/^\d+$/.test(questionNo)) throw new Error("Invalid question number")
   const questionsDirectory = path.join(path.dirname(manifestPath), "questions")
   await fs.mkdir(questionsDirectory, { recursive: true })
-  await fs.writeFile(path.join(questionsDirectory, `q${questionNo}.json`), `${JSON.stringify(question, null, 2)}\n`, "utf8")
+  const formatted = await formatQuestionCode(question)
+  await fs.writeFile(path.join(questionsDirectory, `q${questionNo}.json`), `${JSON.stringify(formatted, null, 2)}\n`, "utf8")
+  return formatted
 }

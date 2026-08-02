@@ -112,7 +112,7 @@ app.whenReady().then(() => {
   ipcMain.handle("quiz-questions:save", async (_event, manifestPath: unknown, question: unknown) => {
     const manifest = await resolveManifest(manifestPath)
     if (!question || typeof question !== "object") throw new Error("Invalid question")
-    await saveQuizQuestion(manifest, question as Parameters<typeof saveQuizQuestion>[1])
+    return saveQuizQuestion(manifest, question as Parameters<typeof saveQuizQuestion>[1])
   })
   ipcMain.handle("crud:contest:create", async (_event, contestSettings: unknown) => {
     if (!contestSettings || typeof contestSettings !== "object") throw new Error("Invalid contest settings")

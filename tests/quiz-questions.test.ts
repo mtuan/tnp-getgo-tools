@@ -31,4 +31,5 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   await fs.writeFile(path.join(directory, "raw.json"), JSON.stringify({ questions: [] }))
   const loaded = await loadQuizQuestions(manifestPath)
   assert.equal(loaded[0].category, "updated")
+  assert.equal(loaded[0].advancedDynamic?.explanationGeneratorTs, "({}) => {\n  return { en: '', vi: '' }\n}")
 })
