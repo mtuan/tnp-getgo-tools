@@ -63,4 +63,7 @@ export interface DesktopApi {
   scanRepository(path?: string): Promise<RepositorySnapshot>
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>
   showInFolder(path: string): Promise<void>
+  readQuizSource(manifestPath: string): Promise<string>
+  saveQuizSource(manifestPath: string, source: string): Promise<void>
+  openExternal(url: string): Promise<void>
 }
