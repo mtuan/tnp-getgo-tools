@@ -79,21 +79,21 @@ function useDropdown() {
   return { open, openUp, position, ref, menuRef, setOpen }
 }
 
-function SelectControl({ field, value, disabled, onChange }: { field: Extract<FormField, { type: "select" }>; value: unknown; disabled: boolean; onChange(value: string): void }) {
+function SelectControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "select" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
   const dropdown = useDropdown()
   const selected = field.options.find(option => option.value === String(value ?? ""))
   return <div className={`schema-select ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
-    <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={!selected ? "placeholder" : ""}>{selected?.label ?? field.placeholder ?? "Select…"}</span><ChevronDown /></button>
+    <button type="button" disabled={disabled} autoFocus={autoFocus} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={!selected ? "placeholder" : ""}>{selected?.label ?? field.placeholder ?? "Select…"}</span><ChevronDown /></button>
     {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="schema-select-menu schema-select-portal" style={{ left: dropdown.position.left, width: dropdown.position.width, top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }} role="listbox">{field.options.map(option => <button type="button" role="option" aria-selected={option.value === String(value ?? "")} className={option.value === String(value ?? "") ? "selected" : ""} onClick={() => { onChange(option.value); dropdown.setOpen(false) }} key={option.value}><span>{option.label}</span>{option.value === String(value ?? "") && <Check />}</button>)}</div>, document.body)}
   </div>
 }
 
-function MultiSelectControl({ field, value, disabled, onChange }: { field: Extract<FormField, { type: "multi-select" }>; value: unknown; disabled: boolean; onChange(value: string[]): void }) {
+function MultiSelectControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "multi-select" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string[]): void }) {
   const dropdown = useDropdown()
   const selected = Array.isArray(value) ? value.map(String) : []
   const toggle = (option: string) => onChange(selected.includes(option) ? selected.filter(item => item !== option) : [...selected, option])
   return <div className={`schema-select schema-multi ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
-    <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={selected.length ? "schema-selected-values" : "placeholder"}>{selected.length ? selected.map(item => <i key={item}>{field.options.find(option => option.value === item)?.label ?? item}<X onClick={event => { event.stopPropagation(); toggle(item) }} /></i>) : "Select grades…"}</span><ChevronDown /></button>
+    <button type="button" disabled={disabled} autoFocus={autoFocus} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={selected.length ? "schema-selected-values" : "placeholder"}>{selected.length ? selected.map(item => <i key={item}>{field.options.find(option => option.value === item)?.label ?? item}<X onClick={event => { event.stopPropagation(); toggle(item) }} /></i>) : "Select grades…"}</span><ChevronDown /></button>
     {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="schema-select-menu schema-select-portal multi" style={{ left: dropdown.position.left, width: dropdown.position.width, top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }} role="listbox" aria-multiselectable="true">{field.options.map(option => { const checked = selected.includes(option.value); return <button type="button" role="option" aria-selected={checked} className={checked ? "selected" : ""} onClick={() => toggle(option.value)} key={option.value}><span className="option-check">{checked && <Check />}</span><span>{option.label}</span></button> })}</div>, document.body)}
   </div>
 }
@@ -122,11 +122,11 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   const value = values[field.name]
   const disabled = typeof field.disabled === "function" ? field.disabled(values) : Boolean(field.disabled)
   if (field.type === "custom") return field.render({ value, values, disabled, onChange: next => onChange(field.name, next) })
-  if (field.type === "toggle") return <div className="schema-toggle-control"><label className="getgo-toggle"><input name={field.name} type="checkbox" role="switch" aria-label={String(field.label ?? field.name)} checked={Boolean(value)} disabled={disabled} onChange={event => onChange(field.name, event.target.checked)} /><i aria-hidden="true" /></label></div>
-  if (field.type === "checkbox") return <label className="schema-checkbox"><input name={field.name} type="checkbox" checked={Boolean(value)} disabled={disabled} onChange={event => onChange(field.name, event.target.checked)} /><span>{field.label}</span></label>
+  if (field.type === "toggle") return <div className="schema-toggle-control"><label className="getgo-toggle"><input name={field.name} type="checkbox" role="switch" aria-label={String(field.label ?? field.name)} checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><i aria-hidden="true" /></label></div>
+  if (field.type === "checkbox") return <label className="schema-checkbox"><input name={field.name} type="checkbox" checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><span>{field.label}</span></label>
   if (field.type === "textarea") return <textarea name={field.name} rows={field.rows} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
-  if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} onChange={next => onChange(field.name, next)} />
-  if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} onChange={next => onChange(field.name, next)} />
+  if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
+  if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "number") return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null ? "" : Number(value)} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />
   return <input name={field.name} type={field.type} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
 }
@@ -140,7 +140,16 @@ function Field({ field, values, errors, onChange, autoFocus }: { field: FormFiel
   </div>
 }
 
-export function Form({ fields, values, errors = {}, onChange, autoFocus = true }: { fields: FormSchema[]; values: FormValues; errors?: FormErrors; onChange(name: string, value: unknown): void; autoFocus?: boolean }) {
+export function Form({ fields, values, errors = {}, onChange, autoFocus = true, autoSelectSingleOption = true }: { fields: FormSchema[]; values: FormValues; errors?: FormErrors; onChange(name: string, value: unknown): void; autoFocus?: boolean; autoSelectSingleOption?: boolean }) {
+  useEffect(() => {
+    if (!autoSelectSingleOption) return
+    for (const field of flattenSchema(fields, values)) {
+      if (field.type !== "select" || !field.required || field.options.length !== 1) continue
+      const disabled = typeof field.disabled === "function" ? field.disabled(values) : field.disabled
+      const current = values[field.name]
+      if (!disabled && (current === undefined || current === null || current === "")) onChange(field.name, field.options[0].value)
+    }
+  }, [autoSelectSingleOption, fields, onChange, values])
   let focused = false
   const renderField = (field: FormField) => {
     if (!visible(field, values)) return null
