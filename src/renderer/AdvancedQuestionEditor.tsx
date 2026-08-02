@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { History, Zap } from "lucide-react"
 import { QuizTsService, createDynamicQuestionBuildService } from "@tnp/getgo-logics/authoring"
 import { QuizBuilder, QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder"
@@ -11,6 +11,7 @@ const builder = createDynamicQuestionBuildService({ createBuilder: () => new Qui
 
 interface RuntimeQuestion extends Record<string, unknown> { question_no: number; category?: string; text_en: unknown; text_vn?: unknown; image_datas?: string[]; answer: { type: string; correct: string | number | string[]; choices?: Record<string, unknown>; unit?: string } }
 const text = (value: unknown) => Array.isArray(value) ? value.join(" ") : String(value ?? "")
+const formatStandaloneField = async (value: string) => value.trim() ? (await QuizTsService.formatSnippet(value)).trim().replace(/^;(?=\s*(?:\(|function\b))/, "") : ""
 
 function QuestionPreview({ question, params, both }: { question: RuntimeQuestion; params: Record<string, unknown>; both: boolean }) {
   const choices = Object.entries(question.answer?.choices ?? {})
@@ -30,20 +31,7 @@ export function AdvancedQuestionEditor({ record, path, onChange, onSave }: { rec
   const [errors, setErrors] = useState<string[]>([])
   const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>({ question: record as unknown as RuntimeQuestion, params: { __dynamic: true } })
   const [bothLanguages, setBothLanguages] = useState(true)
-  const sections = useMemo(() => { try { return QuizTsService.getTemplateEditorSections(source) } catch { try { return QuizTsService.getTemplateEditorSectionsRecovering(source) } catch { return [] } } }, [source])
-  const updateSource = (next: string) => { try { const fields = QuizTsService.extractTemplateSourceFields(next); onChange({ ...record, advancedDynamic: { ...record.advancedDynamic!, paramsGeneratorTs: fields.paramsGeneratorTs.trim(), questionGeneratorTs: fields.questionGeneratorTs.trim(), originParamsTs: fields.originParamsTs?.trim() ?? "", explanationGeneratorTs: fields.explanationGeneratorTs?.trim() ?? "" } }) } catch { /* Retain the last structurally valid callback document while typing. */ } }
   const updateField = (key: "paramsGeneratorTs" | "questionGeneratorTs" | "explanationGeneratorTs" | "originParamsTs", value: string) => onChange({ ...record, advancedDynamic: { ...record.advancedDynamic!, [key]: value } })
-  useEffect(() => {
-    let active = true
-    const advanced = record.advancedDynamic!
-    void Promise.all((["paramsGeneratorTs", "questionGeneratorTs", "explanationGeneratorTs", "originParamsTs"] as const).map(async key => [key, advanced[key].trim() ? (await QuizTsService.formatSnippet(advanced[key])).trim().replace(/^;(?=\s*(?:\(|function\b))/, "") : ""] as const)).then(entries => {
-      if (!active) return
-      const formatted = { ...advanced, ...Object.fromEntries(entries) }
-      if (JSON.stringify(formatted) !== JSON.stringify(advanced)) onChange({ ...record, advancedDynamic: formatted })
-    }).catch(() => { /* Preserve invalid drafts so the editor can report them. */ })
-    return () => { active = false }
-  }, [path])
-  useEffect(() => { const timeout = window.setTimeout(() => { try { const next = QuizTsService.syncQuestionGeneratorSignature(source); if (next !== source) updateSource(next) } catch { /* incomplete source */ } }, 400); return () => window.clearTimeout(timeout) })
   const generate = async (original = false) => { try { const generated = original ? await builder.generateOriginal(source) : await builder.generate(source); if (generated) { setPreview(generated as { question: RuntimeQuestion; params: Record<string, unknown> }); setErrors([]) } } catch (cause) { setErrors([cause instanceof Error ? cause.message : String(cause)]) } }
   const hasBilingualContent = text(preview.question.text_en).trim().length > 0 && text(preview.question.text_vn).trim().length > 0
   const labels = { params: "Parameters generator", question: "Question generator", explanation: "Explanation generator", origin: "Original parameters" }
@@ -51,14 +39,23 @@ export function AdvancedQuestionEditor({ record, path, onChange, onSave }: { rec
     ["params", "paramsGeneratorTs"], ["question", "questionGeneratorTs"], ["explanation", "explanationGeneratorTs"], ["origin", "originParamsTs"],
   ] as const).map(([id, key]) => {
     const value = record.advancedDynamic?.[key] ?? ""
-    const section = sections.find(item => item.id === id)
+    let section
+    try {
+      const isolatedSource = QuizTsService.composeTemplateSource({
+        paramsGeneratorTs: key === "paramsGeneratorTs" ? value : "() => {\n  return {}\n}",
+        questionGeneratorTs: key === "questionGeneratorTs" ? value : "({}) => {\n  return {} as never\n}",
+        explanationGeneratorTs: key === "explanationGeneratorTs" ? value : "({}) => {\n  return { en: '', vi: '' }\n}",
+        originParamsTs: key === "originParamsTs" ? value : "{}",
+      })
+      section = QuizTsService.getTemplateEditorSections(isolatedSource).find(item => item.id === id)
+    } catch { /* An invalid field must not affect any other editor. */ }
     const lineCount = Math.max(1, value.split("\n").length)
     const editableLineRange = section?.editableStartLineNumber != null && section.editableEndLineNumber != null
       ? { startLineNumber: section.editableStartLineNumber - section.startLineNumber + 1, endLineNumber: section.editableEndLineNumber - section.startLineNumber + 1 }
       : undefined
     return { id, key, value, lineCount, editableLineRange }
   })
-  return <div className="advanced-question-layout"><div className="advanced-question-editors">{editorFields.map(field => <section className="advanced-question-field" key={field.id}><strong>{labels[field.id]}</strong><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} relativeLineNumbers onChange={value => updateField(field.key, value)} onSave={onSave} onBlur={field.id === "params" ? () => { try { updateSource(QuizTsService.syncQuestionGeneratorSignature(QuizTsService.composeTemplateSource({ ...record.advancedDynamic!, paramsGeneratorTs: field.value }))) } catch { /* incomplete source */ } } : undefined} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></section>)}</div>
+  return <div className="advanced-question-layout"><div className="advanced-question-editors">{editorFields.map(field => <section className="advanced-question-field" key={field.id}><strong>{labels[field.id]}</strong><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} relativeLineNumbers formatOnMount={formatStandaloneField} onChange={value => updateField(field.key, value)} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></section>)}</div>
     <Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions">{hasBilingualContent && <button className="preview-language-toggle" aria-pressed={bothLanguages} aria-label="Preview language" title="Preview language" onClick={() => setBothLanguages(value => !value)}>{bothLanguages ? "EN + VI" : "EN"}</button>}<button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} both={bothLanguages} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel>
   </div>
 }

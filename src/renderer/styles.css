@@ -526,7 +526,8 @@ button.danger svg { width: 14px; }
 .question-code-workspace { height: calc(100vh - 250px); min-height: 480px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
 .advanced-question-editors { display: grid; gap: 18px; padding-bottom: 32px; }
 .advanced-question-field { display: grid; gap: 8px; }
-.advanced-question-field .question-code-workspace { height: auto; min-height: 0; }
+.advanced-question-field .question-code-workspace { height: auto; min-height: 0; overflow: visible; }
+.advanced-question-field .monaco-editor, .advanced-question-field .monaco-editor-background { border-radius: 12px; }
 .advanced-question-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .8fr); gap: 20px; align-items: start; }
 .question-preview-panel { position: sticky; top: 54px; background: white; }
 .question-preview-panel > .panel-heading { padding: 18px; background: white; }

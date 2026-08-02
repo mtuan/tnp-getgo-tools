@@ -88,15 +88,12 @@ function normalizeQuestion(question: Record<string, unknown>, index: number): Qu
 
 async function formatQuestionCode(question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
   if (!question.advancedDynamic) return question
-  const source = QuizTsService.composeTemplateSource(question.advancedDynamic)
-  const synchronized = QuizTsService.syncQuestionGeneratorSignature(source)
-  const fields = QuizTsService.extractTemplateSourceFields(synchronized)
   const formatField = async (value: string | undefined): Promise<string> => value?.trim() ? (await QuizTsService.formatSnippet(value)).trim().replace(/^;(?=\s*(?:\(|function\b))/, "") : ""
   const [paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs] = await Promise.all([
-    formatField(fields.paramsGeneratorTs),
-    formatField(fields.questionGeneratorTs),
-    formatField(fields.originParamsTs),
-    formatField(fields.explanationGeneratorTs),
+    formatField(question.advancedDynamic.paramsGeneratorTs),
+    formatField(question.advancedDynamic.questionGeneratorTs),
+    formatField(question.advancedDynamic.originParamsTs),
+    formatField(question.advancedDynamic.explanationGeneratorTs),
   ])
   const formattedFields = { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs }
   const formatted = await QuizTsService.formatSnippet(QuizTsService.composeTemplateSource(formattedFields))
