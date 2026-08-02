@@ -1,6 +1,7 @@
 export * from "./Accordion"
 export * from "./Breadcrumbs"
 export * from "./Button"
+export * from "./DataTable"
 export * from "./EditTable"
 export * from "./Form"
 export * from "./PageHeader"

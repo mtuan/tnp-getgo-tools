@@ -355,6 +355,8 @@ tbody tr:hover { background: #eef2ff80; }
 .ui-accordion-panel.open .ui-accordion-toggle > svg { color: #4338ca; border-color: #c7d2fe; background: #eef2ff; }
 .ui-accordion-panel .ui-accordion-content { padding: 20px 24px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc; box-shadow: inset 0 1px #ffffff; animation: none; }
 .ui-accordion-panel .ui-accordion-content, .ui-accordion-panel .ui-accordion-content * { animation: none !important; }
+.ui-accordion-panel .ui-accordion-content:has(> .edit-table), .ui-accordion-panel .ui-accordion-content:has(> .ui-data-table) { padding: 0; }
+.ui-accordion-panel .ui-accordion-content > .edit-table, .ui-accordion-panel .ui-accordion-content > .ui-data-table { border: 0; border-radius: 0; background: transparent; }
 .ui-accordion-header { min-height: 68px; display: flex; align-items: center; gap: 12px; }
 .ui-accordion-toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; padding: 12px 2px; border: 0; color: #334155; background: transparent; text-align: left; }
 .ui-accordion-toggle > svg { width: 18px; color: #64748b; transition: transform .2s var(--ease-out); }
@@ -363,11 +365,12 @@ tbody tr:hover { background: #eef2ff80; }
 .ui-accordion-toggle strong { font-size: 13px; }
 .ui-accordion-toggle small { color: #94a3b8; font-size: 10px; font-weight: 500; }
 .ui-accordion-actions { flex: 0 0 auto; }
+.settings-section-actions { display: flex; align-items: center; gap: 7px; }
+.settings-section-actions button { display: flex; align-items: center; gap: 6px; padding: 8px 12px; }
+.settings-section-actions svg { width: 14px; }
 .ui-accordion-region { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows .3s var(--ease-out), visibility 0s linear .3s; }
 .ui-accordion.open .ui-accordion-region { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows .3s var(--ease-out), visibility 0s; }
 .ui-accordion-region-inner { min-height: 0; overflow: hidden; }
-.settings-section-save { display: flex; align-items: center; gap: 6px; padding: 8px 12px; }
-.settings-section-save svg { width: 14px; }
 .ui-accordion-content { padding: 4px 30px 26px; animation: settings-tab-in .22s var(--ease-out) both; }
 .ui-accordion-content > .section-heading:first-child:not(:has(button)), .ui-accordion-content > .schema-section > header { display: none; }
 .crud-dialog > header { height: 64px; display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 0 24px; border-bottom: 1px solid #e2e8f0; }
@@ -504,6 +507,20 @@ button.danger svg { width: 14px; }
 .edit-table-add { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border: 0; border-top: 1px dashed #dbe2ea; color: #4f46e5; background: #f8fafc80; font-size: 10px; font-weight: 600; }
 .edit-table-add:hover { background: #eef2ff; }
 .edit-table-add svg { width: 14px; }
+.ui-data-table { border: 1px solid #e2e8f0; border-radius: 12px; background: white; overflow: hidden; }
+.ui-data-table-scroll { overflow-x: auto; }
+.ui-data-table table { min-width: 680px; table-layout: fixed; }
+.ui-data-table th { height: 38px; padding: 9px 11px; }
+.ui-data-table td { height: 54px; padding: 8px 11px; }
+.ui-data-table tbody tr { cursor: default; }
+.ui-data-table-empty { height: 100px !important; color: #94a3b8; text-align: center; }
+.ui-data-table-add { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border: 0; border-top: 1px dashed #dbe2ea; color: #4f46e5; background: #f8fafc80; font-size: 10px; font-weight: 600; }
+.ui-data-table-add:hover { background: #eef2ff; }
+.ui-data-table-add svg, .ui-row-actions svg { width: 14px; }
+.ui-row-actions { display: flex; justify-content: flex-end; gap: 4px; }
+.ui-row-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; color: #64748b; background: transparent; }
+.ui-row-actions button:hover { color: #4f46e5; background: #eef2ff; }
+.ui-row-actions button:last-child:hover { color: #e11d48; background: #fff1f2; }
 @keyframes settings-tab-in { from { opacity: 0; transform: translateY(5px); } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.975); } }
 
@@ -530,6 +547,10 @@ button.danger svg { width: 14px; }
   .section-heading h3, .settings-item-header strong, .settings-empty strong { color: #e2e8f0; }
   .settings-item, .settings-empty { border-color: #ffffff1a; background: #0f172a66; }
   .edit-table { border-color: #ffffff1a; background: #0f172a66; }
+  .ui-data-table { border-color: #ffffff1a; background: #0f172a66; }
+  .ui-data-table th, .ui-data-table-add { color: #94a3b8; border-color: #ffffff1a; background: #0f172a; }
+  .ui-data-table td { border-color: #ffffff12; }
+  .ui-row-actions button:hover { color: #c7d2fe; background: #4f46e526; }
   .edit-table th, .edit-table-add { color: #94a3b8; border-color: #ffffff1a; background: #0f172a; }
   .edit-table td { border-color: #ffffff12; }
   .edit-table tbody tr:hover { background: #ffffff08; }
