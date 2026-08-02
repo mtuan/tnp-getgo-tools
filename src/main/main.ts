@@ -7,10 +7,14 @@ import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { SettingsStore } from "./settings.js"
 
+const productName = "GetGo Tools"
+app.setName(productName)
+process.title = productName
+
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
 const appIconPath = app.isPackaged
-  ? path.join(currentDirectory, "../renderer/icons/getgo-icon-blue.png")
-  : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-icon-blue.png")
+  ? path.join(currentDirectory, "../renderer/icons/getgo-app-icon.png")
+  : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-app-icon.png")
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
@@ -19,7 +23,7 @@ function createWindow(): void {
     height: 900,
     minWidth: 1000,
     minHeight: 680,
-    title: "GetGo Tools",
+    title: productName,
     icon: appIconPath,
     backgroundColor: "#f4f5f2",
     webPreferences: {
