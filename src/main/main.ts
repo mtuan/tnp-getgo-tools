@@ -7,6 +7,7 @@ import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { loadQuizQuestions, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { SettingsStore } from "./settings.js"
+import { FirebaseAuthService } from "./firebase-auth.js"
 
 const productName = "GetGo Tools"
 app.setName(productName)
@@ -42,6 +43,19 @@ function createWindow(): void {
 app.whenReady().then(() => {
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
+  const firebaseAuth = new FirebaseAuthService(app.getPath("userData"))
+  ipcMain.handle("auth:state", () => firebaseAuth.state())
+  ipcMain.handle("auth:sign-in", (_event, email: unknown, password: unknown) => {
+    if (typeof email !== "string" || typeof password !== "string" || !email.includes("@") || password.length < 1) throw new Error("Enter a valid email and password.")
+    return firebaseAuth.signIn(email.trim(), password)
+  })
+  ipcMain.handle("auth:sign-out", () => firebaseAuth.signOut())
+  ipcMain.handle("ai:dynamic-question", (_event, input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("Invalid AI request.")
+    const value = input as Record<string, unknown>
+    if (![value.contestId, value.quizId, value.questionId].every(item => typeof item === "string" && item.length > 0)) throw new Error("Invalid AI request identifiers.")
+    return firebaseAuth.createProposal(value as { contestId: string; quizId: string; questionId: string; instructions?: string })
+  })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { properties: ["openDirectory"] })

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react"
-import { Check, CloudUpload, Copy, LayoutDashboard, Library, RefreshCw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
-import type { AppSettings, ContentStatus, DeploymentStatus, RepositorySnapshot } from "../core/models"
+import { Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, LogOut, RefreshCw, Settings, Sparkles, UserRound, Workflow, type LucideIcon } from "lucide-react"
+import type { AppSettings, AuthState, ContentStatus, DeploymentStatus, RepositorySnapshot } from "../core/models"
+import { AuthDialog } from "./AuthDialog"
 import { GetGoIcon } from "./GetGoIcon"
 import { PageTransition } from "./PageTransition"
 import { Button } from "./ui/Button"
@@ -41,6 +42,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [currentRoute, setCurrentRoute] = useState(initialRoute)
   const [routeCopied, setRouteCopied] = useState(false)
+  const [auth, setAuth] = useState<AuthState>({ user: null })
+  const [authOpen, setAuthOpen] = useState(false)
 
   async function scan(path?: string, announce = false) {
     setLoading(true); setError(null)
@@ -56,6 +59,7 @@ export function App() {
     } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setError(message); toast.show({ title: "Could not connect repository", description: message, variant: "error" }) }
   }
   useEffect(() => {
+    void window.getgo.getAuthState().then(setAuth).catch(() => undefined)
     window.getgo.getSettings().then((value) => {
       setSettings(value)
       if (value.repositoryPath) return scan(value.repositoryPath)
@@ -106,6 +110,7 @@ export function App() {
             <option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option>
           </select>
           <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan(undefined, true)} title="Rescan" aria-label="Rescan repository"><RefreshCw size={17} /></button>
+          {auth.user ? <button className="account-button" title={auth.user.email} onClick={async () => { setAuth(await window.getgo.signOut()); toast.show({ title: "Signed out", description: "The Firebase session was removed from this device.", variant: "info" }) }}><UserRound size={16} /><span>{auth.user.displayName || auth.user.email}</span><LogOut size={14} /></button> : <Button onClick={() => setAuthOpen(true)}><LogIn size={15} />Sign in</Button>}
         </div>
       </header>
       <div className="content">
@@ -133,5 +138,6 @@ export function App() {
     </main>
     {routeCopied && <div className="copy-toast" role="status" aria-live="polite"><Check size={16} />Route copied</div>}
     {loading && <div className="loading"><span />Scanning repository…</div>}
+    {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSignedIn={state => { setAuth(state); setAuthOpen(false); toast.show({ title: "Signed in", description: `Connected as ${state.user?.email}.` }) }} />}
   </div>
 }

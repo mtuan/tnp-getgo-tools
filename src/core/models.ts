@@ -114,6 +114,35 @@ export interface AppSettings {
   environment: "development" | "staging" | "production"
 }
 
+export interface AuthUser {
+  uid: string
+  email: string
+  displayName: string | null
+  emailVerified: boolean
+}
+
+export interface AuthState {
+  user: AuthUser | null
+}
+
+export interface DynamicQuestionProposal {
+  paramsGeneratorTs: string
+  questionGeneratorTs: string
+  originParamsTs: string
+  explanationGeneratorTs: string
+  explanation: string
+  assumptions: string[]
+  warnings: string[]
+  confidence: number
+  [key: string]: unknown
+}
+
+export interface DynamicQuestionProposalResult {
+  proposal: DynamicQuestionProposal
+  model?: string
+  usage?: Record<string, unknown>
+}
+
 export interface DesktopApi {
   getSettings(): Promise<AppSettings>
   chooseRepository(): Promise<RepositorySnapshot | null>
@@ -133,4 +162,8 @@ export interface DesktopApi {
   createQuiz(contest: string, input: QuizCrudInput): Promise<RepositorySnapshot>
   updateQuiz(manifestPath: string, input: Omit<QuizCrudInput, "id">): Promise<RepositorySnapshot>
   deleteQuiz(manifestPath: string): Promise<RepositorySnapshot>
+  getAuthState(): Promise<AuthState>
+  signIn(email: string, password: string): Promise<AuthState>
+  signOut(): Promise<AuthState>
+  createDynamicQuestionProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult>
 }

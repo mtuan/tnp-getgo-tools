@@ -20,6 +20,10 @@ const api: DesktopApi = {
   createQuiz: (contest, input) => ipcRenderer.invoke("crud:quiz:create", contest, input) as Promise<RepositorySnapshot>,
   updateQuiz: (manifestPath, input) => ipcRenderer.invoke("crud:quiz:update", manifestPath, input) as Promise<RepositorySnapshot>,
   deleteQuiz: (manifestPath) => ipcRenderer.invoke("crud:quiz:delete", manifestPath) as Promise<RepositorySnapshot>,
+  getAuthState: () => ipcRenderer.invoke("auth:state"),
+  signIn: (email, password) => ipcRenderer.invoke("auth:sign-in", email, password),
+  signOut: () => ipcRenderer.invoke("auth:sign-out"),
+  createDynamicQuestionProposal: (input) => ipcRenderer.invoke("ai:dynamic-question", input),
 }
 
 contextBridge.exposeInMainWorld("getgo", api)

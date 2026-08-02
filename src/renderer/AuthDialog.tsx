@@ -1,0 +1,22 @@
+import { useState, type FormEvent } from "react"
+import { LogIn } from "lucide-react"
+import type { AuthState } from "../core/models"
+import { DialogFrame } from "./CrudDialogs"
+
+export function AuthDialog({ onClose, onSignedIn }: { onClose(): void; onSignedIn(state: AuthState): void }) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError(null)
+    try { onSignedIn(await window.getgo.signIn(email.trim(), password)) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) }
+  }
+  return <DialogFrame title="Sign in to GetGo" submitLabel="Sign in" busy={busy} error={error} onClose={onClose} onSubmit={submit}>
+    <div className="auth-intro"><LogIn /><div><strong>Connect your Firebase account</strong><span>Use your GetGo admin account for AI assistance, Firestore status, and publishing.</span></div></div>
+    <label>Email<input autoFocus type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} /></label>
+    <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} /></label>
+    <p className="form-note">Your password is sent directly to Firebase Authentication and is never stored. The session token is encrypted using this device’s secure credential store.</p>
+  </DialogFrame>
+}
