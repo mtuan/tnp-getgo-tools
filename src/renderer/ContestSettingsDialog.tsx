@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react"
 import { BookOpen, Layers3, Pencil, Plus, RotateCcw, Save, Settings2, Tags, Trash2, UsersRound } from "lucide-react"
 import type { ContestSettings, ContestSummary } from "../core/models"
-import { DialogFrame } from "./CrudDialogs"
+import { DialogFrame } from "./ui/DialogFrame"
 import { Form, validateSchema, type FormErrors, type FormSchema, type FormValues } from "./ui/Form"
 import { EditTable, type EditColumnDef } from "./ui/EditTable"
 import { AccordionSection } from "./ui/Accordion"

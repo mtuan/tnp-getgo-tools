@@ -128,6 +128,15 @@ export class FirebaseAuthService {
     } finally { clearTimeout(timeout); server.close() }
   }
   async signOut(): Promise<AuthState> { this.session = null; await this.persist(null); return { user: null } }
+  async changePassword(password: string): Promise<void> {
+    const session = await this.activeSession()
+    if (!session) throw new Error("Sign in again before changing your password.")
+    const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`, { idToken: session.idToken, password, returnSecureToken: true }) as Record<string, unknown>
+    if (result.idToken && result.refreshToken) {
+      this.session = { ...session, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
+      await this.persist(this.session.refreshToken)
+    }
+  }
   async createProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult> {
     const session = await this.activeSession()
     if (!session) throw new Error("Sign in with a GetGo admin account to use AI support.")

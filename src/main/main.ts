@@ -57,6 +57,10 @@ app.whenReady().then(() => {
     return firebaseAuth!.signIn(email.trim(), password)
   })
   ipcMain.handle("auth:sign-out", () => firebaseAuth!.signOut())
+  ipcMain.handle("auth:change-password", (_event, password: unknown) => {
+    if (typeof password !== "string" || password.length < 8 || password.length > 256) throw new Error("Password must contain at least 8 characters.")
+    return firebaseAuth!.changePassword(password)
+  })
   ipcMain.handle("auth:provider", (_event, provider: unknown) => {
     if (!(["google", "facebook", "apple"] as unknown[]).includes(provider)) throw new Error("Unsupported sign-in provider.")
     return firebaseAuth!.signInWithProvider(provider as "google" | "facebook" | "apple")

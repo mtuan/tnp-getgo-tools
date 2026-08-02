@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react"
 import { LogIn } from "lucide-react"
 import type { AuthState } from "../core/models"
-import { DialogFrame } from "./CrudDialogs"
+import { DialogFrame } from "./ui/DialogFrame"
 import { Button } from "./ui/Button"
 
 export function AuthDialog({ onClose, onSignedIn }: { onClose(): void; onSignedIn(state: AuthState): void }) {

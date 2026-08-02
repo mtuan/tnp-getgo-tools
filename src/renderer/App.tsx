@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react"
-import { Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, LogOut, RefreshCw, Settings, Sparkles, UserRound, Workflow, type LucideIcon } from "lucide-react"
+import { Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, RefreshCw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
+import { AccountMenu } from "./AccountMenu"
 import { GetGoIcon } from "./GetGoIcon"
 import { PageTransition } from "./PageTransition"
 import { Button } from "./ui/Button"
@@ -108,7 +109,7 @@ export function App() {
             <option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option>
           </select>
           <button className="icon-button" disabled={!settings.repositoryPath || loading} onClick={() => scan(undefined, true)} title="Rescan" aria-label="Rescan repository"><RefreshCw size={17} /></button>
-          {auth.state.user ? <Button className="account-button" title={auth.state.user.email} onClick={() => void auth.signOut()}><UserRound size={16} /><span>{auth.state.user.displayName || auth.state.user.email}</span><LogOut size={14} /></Button> : <Button disabled={auth.loading} onClick={auth.requestLogin}><LogIn size={15} />Sign in</Button>}
+          {auth.state.user ? <AccountMenu user={auth.state.user} onSignOut={auth.signOut} /> : <Button disabled={auth.loading} onClick={auth.requestLogin}><LogIn size={15} />Sign in</Button>}
         </div>
       </header>
       <div className="content">

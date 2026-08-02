@@ -24,6 +24,7 @@ const api: DesktopApi = {
   signIn: (email, password) => ipcRenderer.invoke("auth:sign-in", email, password),
   signInWithProvider: (provider) => ipcRenderer.invoke("auth:provider", provider),
   signOut: () => ipcRenderer.invoke("auth:sign-out"),
+  changePassword: (password) => ipcRenderer.invoke("auth:change-password", password),
   createDynamicQuestionProposal: (input) => ipcRenderer.invoke("ai:dynamic-question", input),
 }
 
