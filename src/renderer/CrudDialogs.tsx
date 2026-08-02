@@ -14,15 +14,16 @@ interface DialogFrameProps {
   onDelete?: () => Promise<void>
   presentation?: "drawer" | "modal" | "embedded"
   submitLabel?: string
+  embeddedFooter?: boolean
 }
 
-export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer", submitLabel = "Save" }: DialogFrameProps) {
+export function DialogFrame({ title, busy, error, children, onClose, onSubmit, onDelete, presentation = "drawer", submitLabel = "Save", embeddedFooter = false }: DialogFrameProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const dialog = <section className={`crud-dialog presentation-${presentation}`} role={presentation === "embedded" ? undefined : "dialog"} aria-modal={presentation === "embedded" ? undefined : "true"} aria-labelledby="crud-title">
       <header><h2 id="crud-title">{title}</h2>{presentation !== "embedded" && <button type="button" onClick={onClose} disabled={busy} aria-label="Close"><X /></button>}</header>
       <form onSubmit={onSubmit}>
         <div className="crud-body">{error && <div className="crud-error"><AlertTriangle />{error}</div>}{children}</div>
-        {presentation !== "embedded" && <footer>{onDelete && <div className="delete-action">{confirmingDelete ? <><span>Move this item to Trash?</span><button type="button" className="danger" disabled={busy} onClick={() => void onDelete()}>Move to Trash</button><button type="button" className="text-button" onClick={() => setConfirmingDelete(false)}>Cancel</button></> : <button type="button" className="danger ghost" disabled={busy} onClick={() => setConfirmingDelete(true)}><Trash2 />Delete</button>}</div>}<button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button></footer>}
+        {(presentation !== "embedded" || embeddedFooter) && <footer>{onDelete && <div className="delete-action">{confirmingDelete ? <><span>Move this item to Trash?</span><button type="button" className="danger" disabled={busy} onClick={() => void onDelete()}>Move to Trash</button><button type="button" className="text-button" onClick={() => setConfirmingDelete(false)}>Cancel</button></> : <button type="button" className="danger ghost" disabled={busy} onClick={() => setConfirmingDelete(true)}><Trash2 />Delete</button>}</div>}{presentation !== "embedded" && <button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancel</button>}<button type="submit" className="primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button></footer>}
       </form>
     </section>
   if (presentation === "embedded") return dialog
@@ -66,7 +67,7 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
   </DialogFrame>
 }
 
-export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void> }) {
+export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, embedded = false }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean }) {
   const gradeMappings = useMemo(() => contest.settings.grades.map(item => ({ name: String(item.gradeName ?? ""), grades: Array.isArray(item.grades) ? item.grades.filter(value => typeof value === "number") as number[] : [] })).filter(item => item.name), [contest])
   const initialGrade = quiz?.grade ?? gradeMappings[0]?.name ?? ""
   const [input, setInput] = useState<QuizCrudInput>({ id: quiz?.id ?? "", title: quiz?.title ?? "", grade: initialGrade, round: quiz?.round ?? String(contest.settings.rounds[0]?.roundCode ?? ""), year: quiz?.year ?? "", status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] })
@@ -90,8 +91,8 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted }: {
       return { ...current, [name]: value } as QuizCrudInput
     })
   }
-  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; setBusy(true); try { await onSaved({ ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), grade: input.grade?.trim() || null, round: input.round?.trim() || null, year: input.year?.trim() || null }) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
-  return <DialogFrame title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save" : "Create"} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
+  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; setBusy(true); try { await onSaved({ ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), grade: input.grade?.trim() || null, round: input.round?.trim() || null, year: input.year?.trim() || null }); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
+  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} embeddedFooter={embedded} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}
   </DialogFrame>

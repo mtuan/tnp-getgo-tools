@@ -514,6 +514,7 @@ button.danger svg { width: 14px; }
 .edit-table-add svg { width: 14px; }
 .ui-data-table { border: 1px solid #e2e8f0; border-radius: 12px; background: white; overflow: hidden; }
 .ui-data-table-scroll { overflow-x: auto; }
+.editor-page > .ui-data-table { margin-bottom: 14px; }
 .ui-data-table table { min-width: 680px; table-layout: fixed; }
 .ui-data-table th { height: 38px; padding: 9px 11px; }
 .ui-data-table td { height: 54px; padding: 8px 11px; }
