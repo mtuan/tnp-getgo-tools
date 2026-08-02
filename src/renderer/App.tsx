@@ -11,6 +11,9 @@ import { SummaryCard } from "./ui/SummaryCard"
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
 
 type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "settings"
+const lastRouteKey = "getgo-tools:last-route"
+const readLastRoute = () => { try { return localStorage.getItem(lastRouteKey) || "/dashboard" } catch { return "/dashboard" } }
+const viewFromRoute = (route: string): View => route.startsWith("/quizzes") ? "quizzes" : (["dashboard", "jobs", "publishing", "settings"].includes(route.slice(1)) ? route.slice(1) as View : "dashboard")
 const nav: { id: View; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "quizzes", label: "Quizzes", icon: Library },
@@ -28,12 +31,13 @@ function EmptyFeature({ title, detail }: { title: string; detail: string }) {
 }
 
 export function App() {
-  const [view, setView] = useState<View>("dashboard")
+  const [initialRoute] = useState(readLastRoute)
+  const [view, setView] = useState<View>(() => viewFromRoute(initialRoute))
   const [settings, setSettings] = useState<AppSettings>({ repositoryPath: null, environment: "staging" })
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentRoute, setCurrentRoute] = useState("/dashboard")
+  const [currentRoute, setCurrentRoute] = useState(initialRoute)
   const [routeCopied, setRouteCopied] = useState(false)
 
   async function scan(path?: string) {
@@ -56,9 +60,7 @@ export function App() {
       setLoading(false)
     }).catch((cause) => { setError(String(cause)); setLoading(false) })
   }, [])
-  useEffect(() => {
-    setCurrentRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`)
-  }, [view])
+  useEffect(() => { try { localStorage.setItem(lastRouteKey, currentRoute) } catch { /* Storage can be unavailable in hardened renderer sessions. */ } }, [currentRoute])
   useEffect(() => {
     if (!routeCopied) return
     const timeout = window.setTimeout(() => setRouteCopied(false), 1400)
@@ -73,6 +75,7 @@ export function App() {
       setError(cause instanceof Error ? cause.message : String(cause))
     }
   }
+  function navigate(view: View) { setView(view); setCurrentRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`) }
 
   const quizzes = snapshot?.quizzes ?? []
   const built = quizzes.filter((q) => q.hasGeneratedArtifact).length
@@ -90,7 +93,7 @@ export function App() {
     </div>
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><GetGoIcon size={38} /></div><div><strong>GetGo</strong><span>TOOLS</span></div></div>
-      <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><i><Icon size={18} strokeWidth={1.8} /></i>{item.label}</button> })}</nav>
+      <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><i><Icon size={18} strokeWidth={1.8} /></i>{item.label}</button> })}</nav>
       <div className="sidebar-footer"><span className="status-dot" />Local workspace<strong>v0.1.0</strong></div>
     </aside>
     <main>
@@ -108,7 +111,7 @@ export function App() {
         {error && <div className="error-banner"><strong>Could not scan repository</strong><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
         {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><Button variant="primary" onClick={choose}>Choose repository</Button></section> : null}
         {settings.repositoryPath && view === "dashboard" && <>
-          <PageHeader eyebrow="Workspace overview" title="Quiz operations" description="Local repository health and publishing readiness." actions={<Button variant="primary" onClick={() => setView("quizzes")}>Browse quizzes</Button>} />
+          <PageHeader eyebrow="Workspace overview" title="Quiz operations" description="Local repository health and publishing readiness." actions={<Button variant="primary" onClick={() => navigate("quizzes")}>Browse quizzes</Button>} />
           <section className="metrics">
             <SummaryCard label="Total quizzes" value={quizzes.length} detail={`across ${contests} contests`} />
             <SummaryCard label="Ready to publish" value={ready} detail="reviewed or validated" />
@@ -119,7 +122,7 @@ export function App() {
             <div className="lifecycle">{["imported", "normalized", "generated", "reviewed", "validated", "published"].map((status) => { const count = quizzes.filter((q) => q.contentStatus === status).length; return <div key={status}><div><span>{status}</span><strong>{count}</strong></div><progress max={Math.max(quizzes.length, 1)} value={count} /></div> })}</div>
           </Panel>
         </>}
-        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} onChangeRepository={choose} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
+        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onChangeRepository={choose} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label><select value={settings.environment} onChange={async (event) => setSettings(await window.getgo.setEnvironment(event.target.value as AppSettings["environment"]))}><option value="development">Development</option><option value="staging">Staging</option><option value="production">Production</option></select></div></section>}
