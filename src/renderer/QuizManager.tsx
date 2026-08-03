@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Bot, Check, ChevronRight, ExternalLink, FolderOpen, Plus, RotateCcw, Save, Search, Sparkles, Trash2, Zap } from "lucide-react"
 import type { ContestSummary, QuizCrudInput, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
+import { questionHasDynamicParams } from "../core/question-dynamics"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
 import { AdvancedQuestionEditor } from "./AdvancedQuestionEditor"
@@ -124,7 +125,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
       number: String(record.question_no),
       category: typeof record.category === "string" ? record.category : "—",
       prompt: questionPrompt(record.text_en ?? record.text_vn),
-      dynamic: record.authoringMode === "advanced-dynamic" || record.authoringMode === "simple-dynamic",
+      dynamic: questionHasDynamicParams(record.advancedDynamic),
       reviewed: record.verified === true,
       record,
     }))

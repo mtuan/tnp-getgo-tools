@@ -656,6 +656,9 @@ button.danger svg { width: 14px; }
 .ai-generator-processing .mini-spinner { width: 24px; height: 24px; }
 .ai-generator-processing time { padding: 5px 10px; border-radius: 999px; color: #4338ca; background: #eef2ff; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; }
 .ai-generator-diagnostics { color: #b45309; font-size: 11px; }
+.ai-generator-panel.is-disabled .ai-generator-form { background: #f8fafc; }
+.ai-generator-panel.is-disabled textarea { color: #64748b; background: #f1f5f9; cursor: not-allowed; }
+.ai-generator-disabled-reason { color: #b45309; font-size: 11px; line-height: 1.45; }
 .monaco-readonly-code { opacity: .62; }
 .ai-response-accordion { display: grid; min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: 0 3px 12px #0f172a0a; overflow: hidden; }
 .ai-response-accordion .ui-accordion-panel { margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
