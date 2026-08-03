@@ -22,7 +22,16 @@ export function DynamicQuestionAi({ record, context, diagnostics, onApply }: { r
     setBusy(true)
     try {
       if (mode === "generate") { const result = await window.getgo.createDynamicQuestionProposal({ question: record, context, instructions: instructions.trim() || undefined }); await applyGenerated(result); toast.show({ title: "AI proposal applied", description: result.proposal.warnings[0] ?? result.proposal.explanation }) }
-      else { const result = await window.getgo.fixDynamicQuestion({ currentCode: record.advancedDynamic!, context, diagnostics, instructions: instructions.trim() }); const changed = Object.fromEntries(await Promise.all(result.changes.map(async change => [change.field, await formatSource(change.field, change.source)]))); onApply({ ...record, verified: false, advancedDynamic: { ...record.advancedDynamic!, ...changed }, aiFixHistory: [...(Array.isArray(record.aiFixHistory) ? record.aiFixHistory : []), { ...result, generatedAt: new Date().toISOString() }] }); toast.show({ title: "AI fix applied", description: result.warnings[0] ?? result.explanation }) }
+      else {
+        const history = Array.isArray(record.aiFixHistory) ? record.aiFixHistory : []
+        const currentProposal = history.at(-1)?.proposal ?? record.aiResponse!.proposal
+        const currentSummary = { parameterizedValues: currentProposal.parameterizedValues, explanation: currentProposal.explanation, assumptions: currentProposal.assumptions, warnings: currentProposal.warnings, confidence: currentProposal.confidence }
+        const result = await window.getgo.fixDynamicQuestion({ currentCode: record.advancedDynamic!, currentSummary, context, diagnostics, instructions: instructions.trim() })
+        const changed = Object.fromEntries(await Promise.all(result.changes.map(async change => [change.field, await formatSource(change.field, change.source)])))
+        const proposal = { ...currentProposal, ...record.advancedDynamic!, ...changed, ...result.summary }
+        onApply({ ...record, verified: false, advancedDynamic: { ...record.advancedDynamic!, ...changed }, aiFixHistory: [...history, { ...result, proposal, generatedAt: new Date().toISOString() }] })
+        toast.show({ title: "AI fix applied", description: result.summary.warnings[0] ?? result.explanation })
+      }
       setInstructions("")
     } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); toast.show({ title: `AI ${mode} failed`, description: message, variant: "error" }) } finally { setBusy(false) }
   }

@@ -85,8 +85,9 @@ app.whenReady().then(() => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI fix request.")
     const value = input as Record<string, unknown>
     if (!value.currentCode || typeof value.currentCode !== "object" || Array.isArray(value.currentCode)) throw new Error("Current question code is required.")
+    if (!value.currentSummary || typeof value.currentSummary !== "object" || Array.isArray(value.currentSummary)) throw new Error("Current AI summary is required.")
     if (typeof value.instructions !== "string" || !value.instructions.trim()) throw new Error("Fix instructions are required.")
-    return localAi.fixDynamicQuestion(value as { currentCode: NonNullable<import("../core/models.js").QuizQuestionRecord["advancedDynamic"]>; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string })
+    return localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0])
   })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {

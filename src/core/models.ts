@@ -106,6 +106,7 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
     [key: string]: unknown
   }
   aiResponse?: DynamicQuestionProposalResult & { generatedAt: string }
+  aiFixHistory?: Array<DynamicQuestionFixResult & { generatedAt: string; proposal: DynamicQuestionProposal }>
 }
 
 export const supportedQuizBuilderApiVersions = [1] as const
@@ -170,10 +171,11 @@ export interface DesktopApi {
   signOut(): Promise<AuthState>
   changePassword(password: string): Promise<void>
   createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult>
-  fixDynamicQuestion(input: { currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult>
+  fixDynamicQuestion(input: { currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; currentSummary: GetGoDynamicQuestionSummary; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult>
 }
 import type {
   GetGoDynamicQuestionProposal,
   GetGoDynamicQuestionProposalResult,
   GetGoDynamicQuestionFixResult,
+  GetGoDynamicQuestionSummary,
 } from "@tnp/getgo-logics/authoring"
