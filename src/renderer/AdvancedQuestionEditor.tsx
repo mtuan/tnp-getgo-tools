@@ -36,8 +36,28 @@ export function AdvancedQuestionEditor({ record, path, context, onChange, onSave
   const [errors, setErrors] = useState<string[]>([])
   const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>({ question: record as unknown as RuntimeQuestion, params: { __dynamic: true } })
   const generatedQuestionRef = useRef<string | number | null>(null)
+  const latestRecordRef = useRef(record)
+  latestRecordRef.current = record
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false)
   const updateField = (key: "paramsGeneratorTs" | "questionGeneratorTs" | "explanationGeneratorTs" | "originParamsTs", value: string) => onChange({ ...record, advancedDynamic: { ...record.advancedDynamic!, [key]: value } })
+  const synchronizeDependentSignatures = () => {
+    const latest = latestRecordRef.current
+    if (!latest.advancedDynamic) return
+    try {
+      const currentSource = QuizTsService.composeTemplateSource(latest.advancedDynamic)
+      const synchronizedSource = QuizTsService.syncQuestionGeneratorSignature(currentSource)
+      if (synchronizedSource === currentSource) return
+      const fields = QuizTsService.extractTemplateSourceFields(synchronizedSource)
+      const questionGeneratorTs = fields.questionGeneratorTs
+      const explanationGeneratorTs = fields.explanationGeneratorTs ?? latest.advancedDynamic.explanationGeneratorTs
+      if (questionGeneratorTs === latest.advancedDynamic.questionGeneratorTs && explanationGeneratorTs === latest.advancedDynamic.explanationGeneratorTs) return
+      onChange({ ...latest, advancedDynamic: { ...latest.advancedDynamic, questionGeneratorTs, explanationGeneratorTs } })
+    } catch { /* Incomplete TypeScript is normal while typing; the next edit or blur retries. */ }
+  }
+  useEffect(() => {
+    const timeout = window.setTimeout(synchronizeDependentSignatures, 400)
+    return () => window.clearTimeout(timeout)
+  }, [record.advancedDynamic?.paramsGeneratorTs])
   const generate = async (original = false) => { try { const generated = original ? await builder.generateOriginal(source) : await builder.generate(source); if (generated) { setPreview(generated as { question: RuntimeQuestion; params: Record<string, unknown> }); setErrors([]) } } catch (cause) { setErrors([cause instanceof Error ? cause.message : String(cause)]) } }
   useEffect(() => {
     if (generatedQuestionRef.current === record.question_no) return
@@ -68,9 +88,9 @@ export function AdvancedQuestionEditor({ record, path, context, onChange, onSave
     const editableLineRange = section?.editableStartLineNumber != null && section.editableEndLineNumber != null
       ? { startLineNumber: section.editableStartLineNumber - section.startLineNumber + 1, endLineNumber: section.editableEndLineNumber - section.startLineNumber + 1 }
       : undefined
-    return { id, key, value, lineCount, editableLineRange, expressionContext: id === "origin" }
+    return { id, key, value, lineCount, editableLineRange, expressionContext: id === "origin", onBlur: id === "params" ? synchronizeDependentSignatures : undefined }
   })
-  return <><div className="advanced-question-layout"><div className="advanced-question-editors"><DynamicQuestionAi record={record} context={context} diagnostics={errors} onApply={onChange} onHistoryOpen={() => setAiHistoryOpen(true)} />{editorFields.map(field => <Panel className="advanced-question-editor-panel" title={panelCopy[field.id].title} description={panelCopy[field.id].description} key={field.id}><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} expressionContext={field.expressionContext} relativeLineNumbers formatOnMount={formatStandaloneField} onChange={value => updateField(field.key, value)} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></Panel>)}</div>
+  return <><div className="advanced-question-layout"><div className="advanced-question-editors"><DynamicQuestionAi record={record} context={context} diagnostics={errors} onApply={onChange} onHistoryOpen={() => setAiHistoryOpen(true)} />{editorFields.map(field => <Panel className="advanced-question-editor-panel" title={panelCopy[field.id].title} description={panelCopy[field.id].description} key={field.id}><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} expressionContext={field.expressionContext} relativeLineNumbers formatOnMount={formatStandaloneField} onChange={value => updateField(field.key, value)} onBlur={field.onBlur} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></Panel>)}</div>
     <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions"><button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel></div>
   </div>{aiHistoryOpen && record.aiResponse && <AiHistoryDrawer record={record} onClose={() => setAiHistoryOpen(false)} />}</>
 }
