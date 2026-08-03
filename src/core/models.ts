@@ -105,6 +105,7 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
     explanationGeneratorTs: string
     [key: string]: unknown
   }
+  aiResponse?: DynamicQuestionProposalResult & { generatedAt: string }
 }
 
 export const supportedQuizBuilderApiVersions = [1] as const

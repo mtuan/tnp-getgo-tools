@@ -26,10 +26,23 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   await fs.access(path.join(directory, "assets", "question-1.png"))
   await fs.access(path.join(directory, "assets", "question-1-A.jpg"))
 
-  const changed = { ...converted[0], category: "updated" }
+  const changed = { ...converted[0], category: "updated", aiResponse: {
+    generatedAt: "2026-08-03T00:00:00.000Z",
+    model: "test-model",
+    proposal: {
+      paramsGeneratorTs: "() => ({})",
+      questionGeneratorTs: "({}) => ({})",
+      originParamsTs: "{ a: 2, d: 3 }",
+      explanationGeneratorTs: "({}) => ({ en: '' })",
+      parameterizedValues: [], explanation: "Test explanation", assumptions: [], warnings: [], confidence: 1,
+    },
+    usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3, cachedInputTokens: 0, cacheWriteTokens: 0 },
+  } }
   await saveQuizQuestion(manifestPath, changed)
   await fs.writeFile(path.join(directory, "raw.json"), JSON.stringify({ questions: [] }))
   const loaded = await loadQuizQuestions(manifestPath)
   assert.equal(loaded[0].category, "updated")
+  assert.equal(loaded[0].aiResponse?.model, "test-model")
+  assert.equal(loaded[0].aiResponse?.proposal.originParamsTs, "{ a: 2, d: 3 }")
   assert.equal(loaded[0].advancedDynamic?.explanationGeneratorTs, "({}) => {\n  return { en: '', vi: '' }\n}")
 })

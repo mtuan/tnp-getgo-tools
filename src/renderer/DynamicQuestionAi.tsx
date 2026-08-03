@@ -28,7 +28,13 @@ export function DynamicQuestionAi({ record, onApply }: { record: QuizQuestionRec
   }
   async function applyProposal(result: DynamicQuestionProposalResult) {
     const formatted = await Promise.all(sourceKeys.map(async key => [key, await formatGeneratedSource(key, String(result.proposal[key] ?? ""))] as const))
-    onApply({ ...record, verified: false, authoringMode: "advanced-dynamic", advancedDynamic: { ...record.advancedDynamic!, ...Object.fromEntries(formatted) } })
+    onApply({
+      ...record,
+      verified: false,
+      authoringMode: "advanced-dynamic",
+      advancedDynamic: { ...record.advancedDynamic!, ...Object.fromEntries(formatted) },
+      aiResponse: { ...result, generatedAt: new Date().toISOString() },
+    })
   }
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -47,5 +53,5 @@ export function DynamicQuestionAi({ record, onApply }: { record: QuizQuestionRec
     <label>Instructions<textarea autoFocus rows={7} value={instructions} placeholder="Describe the dynamic behavior or changes you want. Leave blank for a general conversion." onChange={event => setInstructions(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} /></label>
     <p className="form-note">Generating replaces the four editor fields in the unsaved draft. Review editor diagnostics and preview, then use Save to persist it.</p>
     <Button type="submit" variant="solid" className="ai-generate-action"><Sparkles size={15} />Generate</Button>
-  </DialogFrame>}<ProcessingOverlay open={busy} title="Generating question code…" description="The generated fields will be applied to your unsaved draft." /></>
+  </DialogFrame>}<ProcessingOverlay open={busy} showElapsed title="Generating question code…" description="The generated fields will be applied to your unsaved draft." /></>
 }
