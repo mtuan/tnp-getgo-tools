@@ -72,7 +72,7 @@ export class LocalAiService {
     this.service = new GetGoDynamicQuestionAiService(new LocalOpenAiProvider(configuration))
   }
 
-  async createDynamicQuestionProposal(input: { question: QuizQuestionRecord; instructions?: string }): Promise<DynamicQuestionProposalResult> {
-    return this.service.createProposal({ question: toAiQuestion(input.question), instructions: input.instructions })
+  async createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult> {
+    return this.service.createProposal({ question: toAiQuestion(input.question), context: input.context, instructions: input.instructions })
   }
 }

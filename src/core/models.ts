@@ -167,7 +167,7 @@ export interface DesktopApi {
   signInWithProvider(provider: "google" | "facebook" | "apple"): Promise<AuthState>
   signOut(): Promise<AuthState>
   changePassword(password: string): Promise<void>
-  createDynamicQuestionProposal(input: { question: QuizQuestionRecord; instructions?: string }): Promise<DynamicQuestionProposalResult>
+  createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult>
 }
 import type {
   GetGoDynamicQuestionProposal,

@@ -9,7 +9,7 @@ import { useToast } from "./ui/Toast"
 
 const sourceKeys = ["paramsGeneratorTs", "questionGeneratorTs", "explanationGeneratorTs", "originParamsTs"] as const
 
-export function DynamicQuestionAi({ record, onApply }: { record: QuizQuestionRecord; onApply(record: QuizQuestionRecord): void }) {
+export function DynamicQuestionAi({ record, context, onApply }: { record: QuizQuestionRecord; context: Record<string, unknown>; onApply(record: QuizQuestionRecord): void }) {
   const toast = useToast()
   const [open, setOpen] = useState(false)
   const [instructions, setInstructions] = useState("")
@@ -41,7 +41,7 @@ export function DynamicQuestionAi({ record, onApply }: { record: QuizQuestionRec
     if (busy) return
     setOpen(false); setBusy(true)
     try {
-      const result = await window.getgo.createDynamicQuestionProposal({ question: record, instructions: instructions.trim() || undefined })
+      const result = await window.getgo.createDynamicQuestionProposal({ question: record, context, instructions: instructions.trim() || undefined })
       await applyProposal(result)
       setInstructions("")
       toast.show({ title: "AI proposal applied", description: result.proposal.warnings[0] ?? result.proposal.explanation })

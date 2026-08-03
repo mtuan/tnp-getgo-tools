@@ -77,8 +77,9 @@ app.whenReady().then(() => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI request.")
     const value = input as Record<string, unknown>
     if (!value.question || typeof value.question !== "object" || Array.isArray(value.question)) throw new Error("A local question record is required.")
+    if (value.context !== undefined && (!value.context || typeof value.context !== "object" || Array.isArray(value.context))) throw new Error("AI context must be an object.")
     if (value.instructions !== undefined && typeof value.instructions !== "string") throw new Error("AI instructions must be text.")
-    return localAi.createDynamicQuestionProposal(value as { question: import("../core/models.js").QuizQuestionRecord; instructions?: string })
+    return localAi.createDynamicQuestionProposal(value as { question: import("../core/models.js").QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string })
   })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {

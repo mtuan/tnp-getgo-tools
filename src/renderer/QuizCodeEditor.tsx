@@ -16,33 +16,43 @@ interface QuizCodeEditorProps {
   autoHeight?: boolean; minHeight?: number; visibleLineRange?: EditorLineRange
   editableLineRange?: EditorLineRange; relativeLineNumbers?: boolean; onValidate?: OnValidate; onBlur?: () => void
   formatOnMount?: (value: string) => string | Promise<string>
+  expressionContext?: boolean
 }
 
-export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = false, minHeight = 120, visibleLineRange, editableLineRange, relativeLineNumbers = false, onValidate, onBlur, formatOnMount }: QuizCodeEditorProps) {
+export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = false, minHeight = 120, visibleLineRange, editableLineRange, relativeLineNumbers = false, onValidate, onBlur, formatOnMount, expressionContext = false }: QuizCodeEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const lockedRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null)
   const saveRef = useRef(onSave); saveRef.current = onSave
   const changeRef = useRef(onChange); changeRef.current = onChange
   const blurRef = useRef(onBlur); blurRef.current = onBlur
-  const editableRef = useRef(editableLineRange); editableRef.current = editableLineRange
+  const editableRef = useRef<EditorLineRange | undefined>(editableLineRange)
   const [height, setHeight] = useState(minHeight)
+  const contextOffset = expressionContext ? 1 : 0
+  const modelValue = expressionContext ? `const __getgoExpression = (\n${value}\n)` : value
+  const modelVisibleRange = expressionContext
+    ? { startLineNumber: 2, endLineNumber: value.split("\n").length + 1 }
+    : visibleLineRange
+  const modelEditableRange = editableLineRange && expressionContext
+    ? { startLineNumber: editableLineRange.startLineNumber + contextOffset, endLineNumber: editableLineRange.endLineNumber + contextOffset }
+    : editableLineRange
+  editableRef.current = modelEditableRange
   const beforeMount = useCallback(() => {
     monacoTypeScript.typescriptDefaults.setCompilerOptions({ allowNonTsExtensions: true, strict: true, noEmit: true, target: monacoTypeScript.ScriptTarget.ESNext, moduleResolution: monacoTypeScript.ModuleResolutionKind.NodeJs, module: monacoTypeScript.ModuleKind.ESNext, lib: ["es2022", "dom"] })
-    monacoTypeScript.typescriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false })
+    monacoTypeScript.typescriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false, diagnosticCodesToIgnore: [7006, 7031] })
     for (const library of quizBuilderTypes.libraries) monacoTypeScript.typescriptDefaults.addExtraLib(library.content, library.filePath)
   }, [])
   const applyRanges = useCallback(() => {
     const editor = editorRef.current; const model = editor?.getModel(); if (!editor || !model) return
     const hidden: monaco.Range[] = []
-    if (visibleLineRange) {
-      if (visibleLineRange.startLineNumber > 1) hidden.push(new monaco.Range(1, 1, visibleLineRange.startLineNumber - 1, 1))
-      if (visibleLineRange.endLineNumber < model.getLineCount()) hidden.push(new monaco.Range(visibleLineRange.endLineNumber + 1, 1, model.getLineCount(), model.getLineMaxColumn(model.getLineCount())))
+    if (modelVisibleRange) {
+      if (modelVisibleRange.startLineNumber > 1) hidden.push(new monaco.Range(1, 1, modelVisibleRange.startLineNumber - 1, 1))
+      if (modelVisibleRange.endLineNumber < model.getLineCount()) hidden.push(new monaco.Range(modelVisibleRange.endLineNumber + 1, 1, model.getLineCount(), model.getLineMaxColumn(model.getLineCount())))
     }
     ;(editor as typeof editor & { setHiddenAreas(ranges: monaco.IRange[]): void }).setHiddenAreas(hidden)
     const decorations: monaco.editor.IModelDeltaDecoration[] = []
-    if (visibleLineRange && editableLineRange) for (const [start, end] of [[visibleLineRange.startLineNumber, editableLineRange.startLineNumber - 1], [editableLineRange.endLineNumber + 1, visibleLineRange.endLineNumber]]) for (let line = start; line <= end; line += 1) decorations.push({ range: new monaco.Range(line, 1, line, model.getLineMaxColumn(line)), options: { inlineClassName: "monaco-readonly-code" } })
+    if (modelVisibleRange && modelEditableRange) for (const [start, end] of [[modelVisibleRange.startLineNumber, modelEditableRange.startLineNumber - 1], [modelEditableRange.endLineNumber + 1, modelVisibleRange.endLineNumber]]) for (let line = start; line <= end; line += 1) decorations.push({ range: new monaco.Range(line, 1, line, model.getLineMaxColumn(line)), options: { inlineClassName: "monaco-readonly-code" } })
     lockedRef.current ? lockedRef.current.set(decorations) : lockedRef.current = editor.createDecorationsCollection(decorations)
-  }, [editableLineRange, visibleLineRange])
+  }, [modelEditableRange, modelVisibleRange])
   const onMount = useCallback<OnMount>(editor => {
     editorRef.current = editor; applyRanges(); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
     if (autoHeight) { const update = () => setHeight(Math.max(minHeight, editor.getContentHeight())); update(); editor.onDidContentSizeChange(update) }
@@ -52,5 +62,10 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
     if (formatOnMount) void Promise.resolve(formatOnMount(value)).then(formatted => { if (formatted !== value) changeRef.current(formatted) }).catch(() => { /* Invalid drafts remain editable. */ })
   }, [applyRanges, autoHeight, formatOnMount, minHeight, value])
   useEffect(() => { applyRanges() }, [applyRanges, value])
-  return <Editor beforeMount={beforeMount} onMount={onMount} value={value} onChange={next => onChange(next ?? "")} onValidate={onValidate} language="typescript" path={`file:///${path.replaceAll("\\", "/")}`} height={autoHeight ? height : "100%"} theme={window.matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "light"} loading={<div className="editor-loading"><span />Loading editor and IntelliSense…</div>} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, fixedOverflowWidgets: true, fontSize: 13, fontFamily: "SFMono-Regular, Consolas, 'Liberation Mono', monospace", minimap: { enabled: false }, lineNumbers: relativeLineNumbers && visibleLineRange ? line => String(line - visibleLineRange.startLineNumber + 1) : "on", padding: { top: 12, bottom: 12 }, readOnlyMessage: { value: "Only the function body can be edited." }, scrollBeyondLastLine: false, scrollbar: autoHeight ? { vertical: "hidden", verticalScrollbarSize: 0, handleMouseWheel: false } : undefined, tabSize: 2, wordWrap: "on" }} />
+  const handleChange = (next = "") => {
+    if (!expressionContext) { onChange(next); return }
+    const lines = next.split("\n")
+    onChange(lines.slice(1, -1).join("\n"))
+  }
+  return <Editor beforeMount={beforeMount} onMount={onMount} value={modelValue} onChange={handleChange} onValidate={onValidate} language="typescript" path={`file:///${path.replaceAll("\\", "/")}`} height={autoHeight ? height : "100%"} theme={window.matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "light"} loading={<div className="editor-loading"><span />Loading editor and IntelliSense…</div>} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, fixedOverflowWidgets: true, overflowWidgetsDomNode: document.body, fontSize: 13, fontFamily: "SFMono-Regular, Consolas, 'Liberation Mono', monospace", minimap: { enabled: false }, lineNumbers: relativeLineNumbers && modelVisibleRange ? line => String(line - modelVisibleRange.startLineNumber + 1) : "on", padding: { top: 12, bottom: 12 }, readOnlyMessage: { value: "Only the function body can be edited." }, scrollBeyondLastLine: false, scrollbar: autoHeight ? { vertical: "hidden", verticalScrollbarSize: 0, handleMouseWheel: false } : undefined, tabSize: 2, wordWrap: "on" }} />
 }
