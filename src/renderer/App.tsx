@@ -30,6 +30,10 @@ const environmentOptions: SelectOption[] = [
   { value: "staging", label: "Staging" },
   { value: "production", label: "Production" },
 ]
+const aiProfileOptions: SelectOption[] = [
+  { value: "thorough", label: "Thorough" },
+  { value: "fast", label: "Fast" },
+]
 
 function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
   return <span className={`badge badge-${value}`}>{value.replace("-", " ")}</span>
@@ -44,7 +48,7 @@ export function App() {
   const auth = useAuth()
   const [initialRoute] = useState(readLastRoute)
   const [view, setView] = useState<View>(() => viewFromRoute(initialRoute))
-  const [settings, setSettings] = useState<AppSettings>({ repositoryPath: null, environment: "staging" })
+  const [settings, setSettings] = useState<AppSettings>({ repositoryPath: null, environment: "staging", aiProfile: "thorough" })
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [choosingRepository, setChoosingRepository] = useState(false)
@@ -53,6 +57,7 @@ export function App() {
   const [routeCopied, setRouteCopied] = useState(false)
   const [environmentReadiness, setEnvironmentReadiness] = useState<EnvironmentReadiness | null>(null)
   const [checkingEnvironment, setCheckingEnvironment] = useState(false)
+  const [savingAiProfile, setSavingAiProfile] = useState(false)
   const environmentCheckId = useRef(0)
 
   async function scan(path?: string, announce = false) {
@@ -93,6 +98,16 @@ export function App() {
     }
     const issues = readiness.checks.filter(check => !check.ready).map(check => check.message)
     toast.show({ title: `${next.environment} is not ready`, description: issues.join(" "), variant: "error" })
+  }
+  async function changeAiProfile(profile: AppSettings["aiProfile"]) {
+    setSavingAiProfile(true)
+    try {
+      const next = await window.getgo.setAiProfile(profile)
+      setSettings(next)
+      toast.show({ title: "AI profile updated", description: profile === "fast" ? "Fast uses a compact prompt and low reasoning." : "Thorough uses the full reference and medium reasoning." })
+    } catch (cause) {
+      toast.show({ title: "Could not update AI profile", description: cause instanceof Error ? cause.message : String(cause), variant: "error" })
+    } finally { setSavingAiProfile(false) }
   }
   useEffect(() => {
     window.getgo.getSettings().then((value) => {
@@ -185,7 +200,7 @@ export function App() {
         {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onChangeRepository={choose} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
-        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}</div></section>}
+        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /></div></section>}
         </PageTransition>
       </div>
     </main>

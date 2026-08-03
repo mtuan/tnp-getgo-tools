@@ -114,6 +114,7 @@ export const supportedQuizBuilderApiVersions = [1] as const
 export interface AppSettings {
   repositoryPath: string | null
   environment: "development" | "staging" | "production"
+  aiProfile: "thorough" | "fast"
 }
 
 export interface AuthUser {
@@ -149,6 +150,7 @@ export interface DesktopApi {
   chooseRepository(): Promise<RepositorySnapshot | null>
   scanRepository(path?: string): Promise<RepositorySnapshot>
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>
+  setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>
   showInFolder(path: string): Promise<void>
   readQuizSource(manifestPath: string): Promise<string>

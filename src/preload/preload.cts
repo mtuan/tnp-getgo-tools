@@ -6,6 +6,7 @@ const api: DesktopApi = {
   chooseRepository: () => ipcRenderer.invoke("repository:choose") as Promise<RepositorySnapshot | null>,
   scanRepository: (path?: string) => ipcRenderer.invoke("repository:scan", path) as Promise<RepositorySnapshot>,
   setEnvironment: (environment) => ipcRenderer.invoke("settings:environment", environment) as Promise<AppSettings>,
+  setAiProfile: (profile) => ipcRenderer.invoke("settings:ai-profile", profile) as Promise<AppSettings>,
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
   showInFolder: (path) => ipcRenderer.invoke("shell:show", path) as Promise<void>,
   readQuizSource: (manifestPath) => ipcRenderer.invoke("quiz-source:read", manifestPath) as Promise<string>,

@@ -50,13 +50,15 @@ function createWindow(): void {
   else void mainWindow.loadFile(path.join(currentDirectory, "../renderer/index.html"))
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
+  const initialSettings = await settings.read()
   firebaseAuth = new FirebaseAuthService(app.getPath("userData"), async () => (await settings.read()).environment)
   const localAi = new LocalAiService({
     apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
     model: process.env.GETGO_AI_OPENAI_MODEL,
+    profile: initialSettings.aiProfile,
   })
   ipcMain.handle("auth:state", () => firebaseAuth!.state())
   ipcMain.handle("environment:readiness", () => firebaseAuth!.checkReadiness())
@@ -111,6 +113,12 @@ app.whenReady().then(() => {
       throw new Error("Invalid environment")
     }
     return settings.update({ environment })
+  })
+  ipcMain.handle("settings:ai-profile", async (_event, profile: AppSettings["aiProfile"]) => {
+    if (!["thorough", "fast"].includes(profile)) throw new Error("Invalid AI profile")
+    const next = await settings.update({ aiProfile: profile })
+    localAi.setProfile(profile)
+    return next
   })
   ipcMain.handle("shell:show", async (_event, filePath: string) => {
     if (typeof filePath !== "string" || !path.isAbsolute(filePath)) throw new Error("Invalid path")
