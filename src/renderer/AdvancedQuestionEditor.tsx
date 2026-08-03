@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { History, Zap } from "lucide-react"
 import { QuizTsService, createDynamicQuestionBuildService } from "@tnp/getgo-logics/authoring"
 import { QuizBuilder, QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder"
@@ -35,8 +35,14 @@ export function AdvancedQuestionEditor({ record, path, context, onChange, onSave
   const source = useMemo(() => QuizTsService.composeTemplateSource(record.advancedDynamic!), [record.advancedDynamic])
   const [errors, setErrors] = useState<string[]>([])
   const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>({ question: record as unknown as RuntimeQuestion, params: { __dynamic: true } })
+  const generatedQuestionRef = useRef<string | number | null>(null)
   const updateField = (key: "paramsGeneratorTs" | "questionGeneratorTs" | "explanationGeneratorTs" | "originParamsTs", value: string) => onChange({ ...record, advancedDynamic: { ...record.advancedDynamic!, [key]: value } })
   const generate = async (original = false) => { try { const generated = original ? await builder.generateOriginal(source) : await builder.generate(source); if (generated) { setPreview(generated as { question: RuntimeQuestion; params: Record<string, unknown> }); setErrors([]) } } catch (cause) { setErrors([cause instanceof Error ? cause.message : String(cause)]) } }
+  useEffect(() => {
+    if (generatedQuestionRef.current === record.question_no) return
+    generatedQuestionRef.current = record.question_no
+    void generate()
+  }, [record.question_no])
   const labels = { params: "Parameters generator", question: "Question generator", explanation: "Explanation generator", origin: "Original parameters" }
   const editorFields = ([
     ["params", "paramsGeneratorTs"], ["question", "questionGeneratorTs"], ["explanation", "explanationGeneratorTs"], ["origin", "originParamsTs"],
