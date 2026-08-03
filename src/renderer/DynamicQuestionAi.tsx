@@ -17,14 +17,15 @@ export function DynamicQuestionAi({ record, context, diagnostics, onApply, onHis
   useEffect(() => { if (!busy) { setElapsed(0); return }; const startedAt = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 250); return () => window.clearInterval(timer) }, [busy])
   useEffect(() => { const input = instructionsRef.current; if (!input) return; input.style.height = "auto"; const contentHeight = input.scrollHeight; input.style.height = `${Math.min(contentHeight, 76)}px`; input.style.overflowY = contentHeight > 76 ? "auto" : "hidden" }, [instructions])
   async function formatSource(key: typeof sourceKeys[number], source: string) { try { const formatted = (await QuizTsService.formatSnippet(key === "originParamsTs" ? `(${source})` : source)).trim().replace(/^;\s*/, ""); return key === "originParamsTs" ? formatted.replace(/^\(\s*/, "").replace(/\s*\)$/, "") : formatted } catch { return source.trim() } }
-  async function applyGenerated(result: DynamicQuestionProposalResult) { const fields = Object.fromEntries(await Promise.all(sourceKeys.map(async key => [key, await formatSource(key, String(result.proposal[key] ?? ""))]))); onApply({ ...record, verified: false, authoringMode: "advanced-dynamic", advancedDynamic: { ...record.advancedDynamic!, ...fields }, aiResponse: { ...result, generatedAt: new Date().toISOString() } }) }
+  async function applyGenerated(result: DynamicQuestionProposalResult, startedAt: number, version: number) { const fields = Object.fromEntries(await Promise.all(sourceKeys.map(async key => [key, await formatSource(key, String(result.proposal[key] ?? ""))]))); if (version !== requestVersion.current) return; onApply({ ...record, verified: false, authoringMode: "advanced-dynamic", advancedDynamic: { ...record.advancedDynamic!, ...fields }, aiResponse: { ...result, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt } }) }
   async function submit(event: FormEvent) {
     event.preventDefault(); if (busy) return
     if (mode === "fix" && !instructions.trim()) { toast.show({ title: "Fix instructions required", description: "Describe what the AI should repair.", variant: "error" }); return }
     const version = ++requestVersion.current
+    const startedAt = Date.now()
     setBusy(true)
     try {
-      if (mode === "generate") { const result = await window.getgo.createDynamicQuestionProposal({ question: record, context, instructions: instructions.trim() || undefined }); if (version !== requestVersion.current) return; await applyGenerated(result); if (version !== requestVersion.current) return; toast.show({ title: "AI proposal applied", description: result.proposal.warnings[0] ?? result.proposal.explanation }) }
+      if (mode === "generate") { const result = await window.getgo.createDynamicQuestionProposal({ question: record, context, instructions: instructions.trim() || undefined }); if (version !== requestVersion.current) return; await applyGenerated(result, startedAt, version); if (version !== requestVersion.current) return; toast.show({ title: "AI proposal applied", description: result.proposal.warnings[0] ?? result.proposal.explanation }) }
       else {
         const history = Array.isArray(record.aiFixHistory) ? record.aiFixHistory : []
         const currentProposal = history.at(-1)?.proposal ?? record.aiResponse!.proposal
@@ -34,7 +35,7 @@ export function DynamicQuestionAi({ record, context, diagnostics, onApply, onHis
         const changed = Object.fromEntries(await Promise.all(result.changes.map(async change => [change.field, await formatSource(change.field, change.source)])))
         if (version !== requestVersion.current) return
         const proposal = { ...currentProposal, ...record.advancedDynamic!, ...changed, ...result.summary }
-        onApply({ ...record, verified: false, advancedDynamic: { ...record.advancedDynamic!, ...changed }, aiFixHistory: [...history, { ...result, proposal, generatedAt: new Date().toISOString() }] })
+        onApply({ ...record, verified: false, advancedDynamic: { ...record.advancedDynamic!, ...changed }, aiFixHistory: [...history, { ...result, proposal, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt }] })
         toast.show({ title: "AI fix applied", description: result.summary.warnings[0] ?? result.explanation })
       }
       setInstructions("")

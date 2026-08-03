@@ -28,6 +28,7 @@ test("converts raw questions, extracts inline images, and then prefers q files",
 
   const changed = { ...converted[0], category: "updated", aiResponse: {
     generatedAt: "2026-08-03T00:00:00.000Z",
+    processingTimeMs: 12_345,
     model: "test-model",
     proposal: {
       paramsGeneratorTs: "() => ({})",
@@ -43,6 +44,7 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   const loaded = await loadQuizQuestions(manifestPath)
   assert.equal(loaded[0].category, "updated")
   assert.equal(loaded[0].aiResponse?.model, "test-model")
+  assert.equal(loaded[0].aiResponse?.processingTimeMs, 12_345)
   assert.equal(loaded[0].aiResponse?.proposal.originParamsTs, "{ a: 2, d: 3 }")
   assert.equal(loaded[0].advancedDynamic?.explanationGeneratorTs, "({}) => {\n  return { en: '', vi: '' }\n}")
 
