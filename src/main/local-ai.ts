@@ -9,14 +9,15 @@ import type { DynamicQuestionFixResult, DynamicQuestionProposalResult, QuizQuest
 const FAST_GENERATION_PROMPT = `You generate a GetGo QuizBuilder dynamic question from the supplied saved question. Preserve its meaning, correct answer, locales, and original values while introducing only safe, useful variation.
 
 Return exactly the strict JSON schema. The four TypeScript strings are independent fragments, never a QB.template call:
-- paramsGeneratorTs: () => { ... return { namedParams, answer } }
-- questionGeneratorTs: ({ namedParams, answer }) => { return completeQuestion }
+- paramsGeneratorTs: () => { ... return generated values and answer as top-level properties }
+- questionGeneratorTs: destructures those top-level properties and returns the complete question
 - originParamsTs: { exactOriginalParams, answer }
-- explanationGeneratorTs: ({ namedParams, answer }) => { return { en, vi } }
+- explanationGeneratorTs: destructures the same top-level properties and returns the localized explanation
 
 Rules:
 - Use block callbacks and explicit return statements. Keep signatures aligned.
 - paramsGeneratorTs owns randomized raw values and the core answer. Return only consumed values plus answer.
+- Return every generated parameter directly at the top level beside answer. Never group parameters under a wrapper property such as namedParams, params, values, data, or context.
 - questionGeneratorTs preserves question_no/category/text, uses generated params, and reuses answer. Presentation-only answer metadata may use QB.answer.extend.
 - originParamsTs must reproduce the saved question exactly and match the params return keys.
 - explanationGeneratorTs explains the solution in English and Vietnamese when both are supported.
