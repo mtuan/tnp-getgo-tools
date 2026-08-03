@@ -12,6 +12,7 @@ const api: DesktopApi = {
   saveQuizSource: (manifestPath, source) => ipcRenderer.invoke("quiz-source:save", manifestPath, source) as Promise<void>,
   loadQuizQuestions: (manifestPath) => ipcRenderer.invoke("quiz-questions:load", manifestPath),
   saveQuizQuestion: (manifestPath, question) => ipcRenderer.invoke("quiz-questions:save", manifestPath, question),
+  resetQuizQuestion: (manifestPath, question) => ipcRenderer.invoke("quiz-questions:reset", manifestPath, question),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url) as Promise<void>,
   copyText: (text) => ipcRenderer.invoke("clipboard:write", text) as Promise<void>,
   createContest: (settings) => ipcRenderer.invoke("crud:contest:create", settings) as Promise<RepositorySnapshot>,
@@ -27,6 +28,7 @@ const api: DesktopApi = {
   signOut: () => ipcRenderer.invoke("auth:sign-out"),
   changePassword: (password) => ipcRenderer.invoke("auth:change-password", password),
   createDynamicQuestionProposal: (input) => ipcRenderer.invoke("ai:dynamic-question", input),
+  fixDynamicQuestion: (input) => ipcRenderer.invoke("ai:fix-dynamic-question", input),
 }
 
 contextBridge.exposeInMainWorld("getgo", api)

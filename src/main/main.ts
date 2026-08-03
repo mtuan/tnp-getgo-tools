@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import type { AppSettings } from "../core/models.js"
 import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
-import { loadQuizQuestions, saveQuizQuestion } from "../repositories/quiz-questions.js"
+import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
 import { LocalAiService } from "./local-ai.js"
@@ -81,6 +81,13 @@ app.whenReady().then(() => {
     if (value.instructions !== undefined && typeof value.instructions !== "string") throw new Error("AI instructions must be text.")
     return localAi.createDynamicQuestionProposal(value as { question: import("../core/models.js").QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string })
   })
+  ipcMain.handle("ai:fix-dynamic-question", (_event, input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("Invalid AI fix request.")
+    const value = input as Record<string, unknown>
+    if (!value.currentCode || typeof value.currentCode !== "object" || Array.isArray(value.currentCode)) throw new Error("Current question code is required.")
+    if (typeof value.instructions !== "string" || !value.instructions.trim()) throw new Error("Fix instructions are required.")
+    return localAi.fixDynamicQuestion(value as { currentCode: NonNullable<import("../core/models.js").QuizQuestionRecord["advancedDynamic"]>; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string })
+  })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { properties: ["openDirectory"] })
@@ -152,6 +159,11 @@ app.whenReady().then(() => {
     const manifest = await resolveManifest(manifestPath)
     if (!question || typeof question !== "object") throw new Error("Invalid question")
     return saveQuizQuestion(manifest, question as Parameters<typeof saveQuizQuestion>[1])
+  })
+  ipcMain.handle("quiz-questions:reset", async (_event, manifestPath: unknown, question: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    if (!question || typeof question !== "object") throw new Error("Invalid question")
+    return resetQuizQuestion(manifest, question as Parameters<typeof resetQuizQuestion>[1])
   })
   ipcMain.handle("crud:contest:create", async (_event, contestSettings: unknown) => {
     if (!contestSettings || typeof contestSettings !== "object") throw new Error("Invalid contest settings")

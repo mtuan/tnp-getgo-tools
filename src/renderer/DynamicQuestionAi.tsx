@@ -1,57 +1,28 @@
-import { useState, type FormEvent } from "react"
-import { Sparkles } from "lucide-react"
-import type { DynamicQuestionProposalResult, QuizQuestionRecord } from "../core/models"
+import { useEffect, useState, type FormEvent } from "react"
+import { Sparkles, Wrench } from "lucide-react"
 import { QuizTsService } from "@tnp/getgo-logics/authoring"
-import { DialogFrame } from "./ui/DialogFrame"
+import type { DynamicQuestionProposalResult, QuizQuestionRecord } from "../core/models"
 import { Button } from "./ui/Button"
-import { ProcessingOverlay } from "./ui/ProcessingOverlay"
+import { Panel } from "./ui/Panel"
 import { useToast } from "./ui/Toast"
 
 const sourceKeys = ["paramsGeneratorTs", "questionGeneratorTs", "explanationGeneratorTs", "originParamsTs"] as const
+const elapsedLabel = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
 
-export function DynamicQuestionAi({ record, context, onApply }: { record: QuizQuestionRecord; context: Record<string, unknown>; onApply(record: QuizQuestionRecord): void }) {
-  const toast = useToast()
-  const [open, setOpen] = useState(false)
-  const [instructions, setInstructions] = useState("")
-  const [busy, setBusy] = useState(false)
-  async function formatGeneratedSource(key: typeof sourceKeys[number], source: string) {
-    try {
-      const candidate = key === "originParamsTs" ? `(${source})` : source
-      const formatted = (await QuizTsService.formatSnippet(candidate)).trim()
-      if (key !== "originParamsTs") return formatted.replace(/^;(?=\s*(?:\(|function\b))/, "")
-      return formatted.replace(/^;\s*/, "").replace(/^\(\s*/, "").replace(/\s*\)$/, "")
-    } catch {
-      // AI output belongs in the draft even when it is incomplete. The editor,
-      // preview, and explicit save/build flow own code diagnostics.
-      return source.trim()
-    }
-  }
-  async function applyProposal(result: DynamicQuestionProposalResult) {
-    const formatted = await Promise.all(sourceKeys.map(async key => [key, await formatGeneratedSource(key, String(result.proposal[key] ?? ""))] as const))
-    onApply({
-      ...record,
-      verified: false,
-      authoringMode: "advanced-dynamic",
-      advancedDynamic: { ...record.advancedDynamic!, ...Object.fromEntries(formatted) },
-      aiResponse: { ...result, generatedAt: new Date().toISOString() },
-    })
-  }
+export function DynamicQuestionAi({ record, context, diagnostics, onApply }: { record: QuizQuestionRecord; context: Record<string, unknown>; diagnostics: string[]; onApply(record: QuizQuestionRecord): void }) {
+  const toast = useToast(); const mode = record.aiResponse ? "fix" : "generate"; const [instructions, setInstructions] = useState(""); const [busy, setBusy] = useState(false); const [elapsed, setElapsed] = useState(0)
+  useEffect(() => { if (!busy) { setElapsed(0); return }; const startedAt = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 250); return () => window.clearInterval(timer) }, [busy])
+  async function formatSource(key: typeof sourceKeys[number], source: string) { try { const formatted = (await QuizTsService.formatSnippet(key === "originParamsTs" ? `(${source})` : source)).trim().replace(/^;\s*/, ""); return key === "originParamsTs" ? formatted.replace(/^\(\s*/, "").replace(/\s*\)$/, "") : formatted } catch { return source.trim() } }
+  async function applyGenerated(result: DynamicQuestionProposalResult) { const fields = Object.fromEntries(await Promise.all(sourceKeys.map(async key => [key, await formatSource(key, String(result.proposal[key] ?? ""))]))); onApply({ ...record, verified: false, authoringMode: "advanced-dynamic", advancedDynamic: { ...record.advancedDynamic!, ...fields }, aiResponse: { ...result, generatedAt: new Date().toISOString() } }) }
   async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (busy) return
-    setOpen(false); setBusy(true)
+    event.preventDefault(); if (busy) return
+    if (mode === "fix" && !instructions.trim()) { toast.show({ title: "Fix instructions required", description: "Describe what the AI should repair.", variant: "error" }); return }
+    setBusy(true)
     try {
-      const result = await window.getgo.createDynamicQuestionProposal({ question: record, context, instructions: instructions.trim() || undefined })
-      await applyProposal(result)
+      if (mode === "generate") { const result = await window.getgo.createDynamicQuestionProposal({ question: record, context, instructions: instructions.trim() || undefined }); await applyGenerated(result); toast.show({ title: "AI proposal applied", description: result.proposal.warnings[0] ?? result.proposal.explanation }) }
+      else { const result = await window.getgo.fixDynamicQuestion({ currentCode: record.advancedDynamic!, context, diagnostics, instructions: instructions.trim() }); const changed = Object.fromEntries(await Promise.all(result.changes.map(async change => [change.field, await formatSource(change.field, change.source)]))); onApply({ ...record, verified: false, advancedDynamic: { ...record.advancedDynamic!, ...changed }, aiFixHistory: [...(Array.isArray(record.aiFixHistory) ? record.aiFixHistory : []), { ...result, generatedAt: new Date().toISOString() }] }); toast.show({ title: "AI fix applied", description: result.warnings[0] ?? result.explanation }) }
       setInstructions("")
-      toast.show({ title: "AI proposal applied", description: result.proposal.warnings[0] ?? result.proposal.explanation })
-    } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); toast.show({ title: "AI generation failed", description: message, variant: "error" }) }
-    finally { setBusy(false) }
+    } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); toast.show({ title: `AI ${mode} failed`, description: message, variant: "error" }) } finally { setBusy(false) }
   }
-  return <><Button variant="solid" disabled={busy} onClick={() => setOpen(true)}><Sparkles size={15} />{busy ? "Generating…" : "AI assist"}</Button>{open && <DialogFrame title="GetGo AI assistant" hideFooter busy={false} error={null} onClose={() => setOpen(false)} onSubmit={submit}>
-    <div className="auth-intro"><Sparkles /><div><strong>Generate all four independent fields locally</strong><span>GetGo Tools sends this local question directly to the configured AI API. Firebase and Firestore are not used.</span></div></div>
-    <label>Instructions<textarea autoFocus rows={7} value={instructions} placeholder="Describe the dynamic behavior or changes you want. Leave blank for a general conversion." onChange={event => setInstructions(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} /></label>
-    <p className="form-note">Generating replaces the four editor fields in the unsaved draft. Review editor diagnostics and preview, then use Save to persist it.</p>
-    <Button type="submit" variant="solid" className="ai-generate-action"><Sparkles size={15} />Generate</Button>
-  </DialogFrame>}<ProcessingOverlay open={busy} showElapsed title="Generating question code…" description="The generated fields will be applied to your unsaved draft." /></>
+  return <Panel className={`ai-generator-panel ${busy ? "is-processing" : ""}`} title={mode === "generate" ? "AI generator" : "AI code fix"} description={mode === "generate" ? "Generate a complete dynamic question draft." : "Repair only the necessary current code fields."}><form className="ai-generator-form" onSubmit={submit}>{busy ? <div className="ai-generator-processing"><span className="mini-spinner" /><strong>{mode === "generate" ? "Generating question code…" : "Fixing question code…"}</strong><time>{elapsedLabel(elapsed)}</time></div> : <><label>Instructions<textarea autoFocus={mode === "fix"} rows={5} value={instructions} placeholder={mode === "generate" ? "Optional: describe the dynamic behavior you want." : "Required: describe the problem and expected correction."} onChange={event => setInstructions(event.target.value)} /></label>{mode === "fix" && diagnostics.length > 0 && <span className="ai-generator-diagnostics">{diagnostics.length} editor diagnostic{diagnostics.length === 1 ? "" : "s"} will be included.</span>}<Button type="submit" variant="solid">{mode === "generate" ? <Sparkles size={15} /> : <Wrench size={15} />}{mode === "generate" ? "Generate" : "Fix code"}</Button></>}</form></Panel>
 }

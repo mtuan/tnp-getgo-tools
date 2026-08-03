@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowLeft, Bot, Check, ChevronRight, ExternalLink, FolderOpen, Plus, Save, Search, Sparkles, Trash2, Zap } from "lucide-react"
+import { ArrowLeft, Bot, Check, ChevronRight, ExternalLink, FolderOpen, Plus, RotateCcw, Save, Search, Sparkles, Trash2, Zap } from "lucide-react"
 import type { ContestSummary, QuizCrudInput, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
 import { AdvancedQuestionEditor } from "./AdvancedQuestionEditor"
-import { DynamicQuestionAi } from "./DynamicQuestionAi"
 import { Breadcrumbs } from "./ui/Breadcrumbs"
 import { Button } from "./ui/Button"
 import { PageHeader } from "./ui/PageHeader"
@@ -138,11 +137,22 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
         catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setSourceError(message); toast.show({ title: "Could not save question", description: message, variant: "error" }) }
         finally { setSaving(false) }
       }
+      const resetQuestion = async () => {
+        if (!questionDraftRecord || !window.confirm("Reset this question to its default generated TypeScript? This will remove all AI-generated code and AI response history.")) return
+        setSaving(true); setSourceError(null)
+        try {
+          const reset = await window.getgo.resetQuizQuestion(quiz.manifestPath, questionDraftRecord)
+          setQuestionDraftRecord(reset)
+          setQuestionRecords(current => current.map(item => String(item.question_no) === String(reset.question_no) ? reset : item))
+          toast.show({ title: `Question ${reset.question_no} reset`, description: "Default TypeScript was restored and AI data was removed." })
+        } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setSourceError(message); toast.show({ title: "Could not reset question", description: message, variant: "error" }) }
+        finally { setSaving(false) }
+      }
       return <section className="manager editor-page question-detail-page">
         <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }, { label: `Question ${activeQuestion.number}` }]} />
-        <PageHeader variant="editor" eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} actions={<>{questionDraftRecord?.advancedDynamic && <DynamicQuestionAi record={questionDraftRecord} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onApply={setQuestionDraftRecord} />}<Button variant="solid" disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>{saving ? <span className="mini-spinner" /> : <Save size={15} />}{saving ? "Saving…" : "Save"}</Button></>} />
+        <PageHeader variant="editor" eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} actions={<><Button disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}><RotateCcw size={15} />Reset</Button><Button variant="solid" disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>{saving ? <span className="mini-spinner" /> : <Save size={15} />}{saving ? "Saving…" : "Save"}</Button></>} />
         {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
-        {questionDraftRecord?.advancedDynamic && <AdvancedQuestionEditor record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
+        {questionDraftRecord?.advancedDynamic && <AdvancedQuestionEditor record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
       </section>
     }
     return <section className="manager editor-page">

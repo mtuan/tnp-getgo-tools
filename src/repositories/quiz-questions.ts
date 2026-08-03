@@ -146,3 +146,9 @@ export async function saveQuizQuestion(manifestPath: string, question: QuizQuest
   await fs.writeFile(path.join(questionsDirectory, `q${questionNo}.json`), `${JSON.stringify(formatted, null, 2)}\n`, "utf8")
   return formatted
 }
+
+export async function resetQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
+  const { advancedDynamic: _advancedDynamic, aiResponse: _aiResponse, aiFixHistory: _aiFixHistory, generatorBuild: _generatorBuild, ...sourceQuestion } = question
+  const reset = normalizeQuestion({ ...sourceQuestion, authoringMode: undefined, verified: false }, Math.max(0, Number(question.question_no) - 1))
+  return saveQuizQuestion(manifestPath, reset)
+}

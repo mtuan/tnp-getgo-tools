@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { loadQuizQuestions, saveQuizQuestion } from "../src/repositories/quiz-questions.js"
+import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../src/repositories/quiz-questions.js"
 
 test("converts raw questions, extracts inline images, and then prefers q files", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-"))
@@ -45,4 +45,19 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   assert.equal(loaded[0].aiResponse?.model, "test-model")
   assert.equal(loaded[0].aiResponse?.proposal.originParamsTs, "{ a: 2, d: 3 }")
   assert.equal(loaded[0].advancedDynamic?.explanationGeneratorTs, "({}) => {\n  return { en: '', vi: '' }\n}")
+
+  const reset = await resetQuizQuestion(manifestPath, {
+    ...loaded[0],
+    aiFixHistory: [{ generatedAt: "2026-08-03T00:01:00.000Z" } as never],
+  })
+  assert.equal(reset.aiResponse, undefined)
+  assert.equal(reset.aiFixHistory, undefined)
+  assert.equal(reset.verified, false)
+  assert.equal(reset.authoringMode, "advanced-dynamic")
+  assert.equal(reset.advancedDynamic?.paramsGeneratorTs, "() => {\n  return {}\n}")
+  assert.match(reset.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.choice/)
+
+  const reloadedReset = await loadQuizQuestions(manifestPath)
+  assert.equal(reloadedReset[0].aiResponse, undefined)
+  assert.equal(reloadedReset[0].aiFixHistory, undefined)
 })

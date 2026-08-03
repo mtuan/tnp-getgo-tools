@@ -3,7 +3,7 @@ import {
   type GetGoStructuredAiRequest,
   type GetGoStructuredAiResponse,
 } from "@tnp/getgo-logics/authoring"
-import type { DynamicQuestionProposalResult, QuizQuestionRecord } from "../core/models.js"
+import type { DynamicQuestionFixResult, DynamicQuestionProposalResult, QuizQuestionRecord } from "../core/models.js"
 
 function outputText(payload: Record<string, unknown>): string {
   if (typeof payload.output_text === "string") return payload.output_text
@@ -74,5 +74,10 @@ export class LocalAiService {
 
   async createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult> {
     return this.service.createProposal({ question: toAiQuestion(input.question), context: input.context, instructions: input.instructions })
+  }
+
+  async fixDynamicQuestion(input: { currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult> {
+    const { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs } = input.currentCode
+    return this.service.fixProposal({ currentCode: { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs }, context: input.context, diagnostics: input.diagnostics, instructions: input.instructions })
   }
 }

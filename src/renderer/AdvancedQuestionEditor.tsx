@@ -5,6 +5,7 @@ import { QuizBuilder, QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder
 import type { QuizQuestionRecord } from "../core/models"
 import { QuizCodeEditor } from "./QuizCodeEditor"
 import { AiResponsePanel } from "./AiResponsePanel"
+import { DynamicQuestionAi } from "./DynamicQuestionAi"
 import { Panel } from "./ui/Panel"
 
 async function sha256(source: string): Promise<string> { const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source)); return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("") }
@@ -27,7 +28,7 @@ function QuestionPreview({ question, params, both }: { question: RuntimeQuestion
   </div>
 }
 
-export function AdvancedQuestionEditor({ record, path, onChange, onSave }: { record: QuizQuestionRecord; path: string; onChange(record: QuizQuestionRecord): void; onSave(): void }) {
+export function AdvancedQuestionEditor({ record, path, context, onChange, onSave }: { record: QuizQuestionRecord; path: string; context: Record<string, unknown>; onChange(record: QuizQuestionRecord): void; onSave(): void }) {
   const source = useMemo(() => QuizTsService.composeTemplateSource(record.advancedDynamic!), [record.advancedDynamic])
   const [errors, setErrors] = useState<string[]>([])
   const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>({ question: record as unknown as RuntimeQuestion, params: { __dynamic: true } })
@@ -57,6 +58,6 @@ export function AdvancedQuestionEditor({ record, path, onChange, onSave }: { rec
     return { id, key, value, lineCount, editableLineRange, expressionContext: id === "origin" }
   })
   return <div className="advanced-question-layout"><div className="advanced-question-editors">{editorFields.map(field => <section className="advanced-question-field" key={field.id}><strong>{labels[field.id]}</strong><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} expressionContext={field.expressionContext} relativeLineNumbers formatOnMount={formatStandaloneField} onChange={value => updateField(field.key, value)} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></section>)}</div>
-    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions">{hasBilingualContent && <button className="preview-language-toggle" aria-pressed={bothLanguages} aria-label="Preview language" title="Preview language" onClick={() => setBothLanguages(value => !value)}>{bothLanguages ? "EN + VI" : "EN"}</button>}<button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} both={bothLanguages} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel>{record.aiResponse && <AiResponsePanel response={record.aiResponse} />}</div>
+    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions">{hasBilingualContent && <button className="preview-language-toggle" aria-pressed={bothLanguages} aria-label="Preview language" title="Preview language" onClick={() => setBothLanguages(value => !value)}>{bothLanguages ? "EN + VI" : "EN"}</button>}<button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} both={bothLanguages} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel><DynamicQuestionAi record={record} context={context} diagnostics={errors} onApply={onChange} />{record.aiResponse && <AiResponsePanel response={record.aiResponse} />}</div>
   </div>
 }
