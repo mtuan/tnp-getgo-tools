@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Check, ChevronDown, X } from "lucide-react"
 import { Select, useSelectDropdown, type SelectOption } from "./Select"
+import { Toggle } from "./Toggle"
 
 export type { SelectOption } from "./Select"
 export interface FieldRules {
@@ -93,7 +94,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   const value = values[field.name]
   const disabled = typeof field.disabled === "function" ? field.disabled(values) : Boolean(field.disabled)
   if (field.type === "custom") return field.render({ value, values, disabled, onChange: next => onChange(field.name, next) })
-  if (field.type === "toggle") return <div className="schema-toggle-control"><label className="getgo-toggle"><input name={field.name} type="checkbox" role="switch" aria-label={String(field.label ?? field.name)} checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><i aria-hidden="true" /></label></div>
+  if (field.type === "toggle") return <div className="schema-toggle-control"><Toggle name={field.name} ariaLabel={String(field.label ?? field.name)} checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onCheckedChange={checked => onChange(field.name, checked)} /></div>
   if (field.type === "checkbox") return <label className="schema-checkbox"><input name={field.name} type="checkbox" checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><span>{field.label}</span></label>
   if (field.type === "textarea") return <textarea name={field.name} rows={field.rows} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />

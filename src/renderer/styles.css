@@ -667,16 +667,14 @@ button.danger svg { width: 14px; }
 .ai-history-drawer .crud-body { display: flex; min-height: 0; flex-direction: column; padding: 18px 20px 24px; overflow: hidden; }
 .ai-history-toolbar { flex: 0 0 auto; margin-bottom: 14px; }
 .ai-history-toolbar .schema-select { width: 100%; }
-.ai-history-tabs { flex: 0 0 auto; justify-content: flex-start; overflow-x: auto; }
+.ai-history-tabs { min-height: 48px; flex: 0 0 auto; justify-content: flex-start; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.ai-history-tabs::-webkit-scrollbar { display: none; }
 .ai-history-tabs button { min-width: max-content; }
-.ai-history-content { min-height: 0; flex: 1; margin-top: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; overflow: auto; }
-.ai-history-code { margin: -18px; overflow: hidden; border-radius: 11px; }
-.ai-history-json { min-height: 100%; margin: 0; color: #334155; font: 12px/1.55 SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-.ai-history-diffs { display: grid; gap: 18px; }
-.ai-history-diffs > section { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: white; }
-.ai-history-diffs > section > header { display: grid; gap: 3px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
-.ai-history-diffs > section > header strong { font-size: 12px; }
-.ai-history-diffs > section > header span { color: var(--muted); font-size: 10px; }
+.ai-history-content { min-height: 0; flex: 1; padding: 18px 2px 2px; overflow: auto; }
+.ai-history-code, .ai-history-code-diff { overflow: hidden; }
+.ai-history-code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
+.ai-history-code-toolbar > span { color: #334155; font-size: 13px; font-weight: 600; line-height: 1.45; }
+.ai-history-code-toggle { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; color: #64748b; font-size: 11px; font-weight: 600; }
 @media (max-width: 980px) { .advanced-question-layout { grid-template-columns: 1fr; } .advanced-question-sidebar { position: static; } }
 .ui-data-table-empty { height: 100px !important; color: #94a3b8; text-align: center; }
 .ui-data-table-add { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border: 0; border-top: 1px dashed #dbe2ea; color: #4f46e5; background: #f8fafc80; font-size: 10px; font-weight: 600; }
@@ -741,10 +739,7 @@ button.danger svg { width: 14px; }
   .ai-generator-processing time { color: #c7d2fe; background: #312e8138; }
   .ai-response-accordion { border-color: #ffffff1a; background: #1e293b; box-shadow: none; }
   .ai-response-accordion .ui-accordion-panel { border-bottom-color: #ffffff1a; }
-  .ai-history-content { border-color: #ffffff1a; background: #0f172a99; }
-  .ai-history-json { color: #cbd5e1; }
-  .ai-history-diffs > section { border-color: #ffffff1a; background: #1e293b; }
-  .ai-history-diffs > section > header { border-color: #ffffff12; }
+  .ai-history-code-toolbar > span { color: #e2e8f0; }
   .ai-response-code-viewer, .ai-response-code-viewer .monaco-editor, .ai-response-code-viewer .monaco-editor-background, .ai-response-code-viewer .monaco-editor .margin { background-color: #0f172a !important; }
   .question-preview-choices > div, .question-preview-answer, .question-preview-params { border-color: #ffffff12; background: #1e293b; }
   .question-preview-explanation { border-color: #ffffff12; }
