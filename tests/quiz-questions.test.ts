@@ -61,3 +61,31 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   assert.equal(reloadedReset[0].aiResponse, undefined)
   assert.equal(reloadedReset[0].aiFixHistory, undefined)
 })
+
+test("creates and resets question files from raw.ts before falling back to raw.json", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-ts-"))
+  const manifestPath = path.join(directory, "manifest.json")
+  await fs.writeFile(manifestPath, "{}")
+  await fs.writeFile(path.join(directory, "raw.json"), JSON.stringify({ questions: [{ question_no: 1, category: "json fallback", text_en: "JSON", answer: { correct: "JSON" } }] }))
+  await fs.writeFile(path.join(directory, "raw.ts"), `import QB from 'legacy-builder'
+export default { questions: [
+  QB.template(
+    { value: 4 },
+    () => ({ value: 5 }),
+    ({ value }) => ({ question_no: 1, category: 'TypeScript source', text_en: \`Value: \${value}\`, answer: QB.answer.input(value) }),
+  ),
+] }
+`)
+
+  const created = await loadQuizQuestions(manifestPath)
+  assert.equal(created[0].category, "TypeScript source")
+  assert.equal(created[0].text_en, "Value: 4")
+  assert.match(created[0].advancedDynamic?.paramsGeneratorTs ?? "", /value: 5/)
+  assert.match(created[0].advancedDynamic?.questionGeneratorTs ?? "", /Value:/)
+  assert.equal(created[0].advancedDynamic?.originParamsTs, "{ value: 4 }")
+
+  const reset = await resetQuizQuestion(manifestPath, { ...created[0], category: "edited", aiResponse: {} as never })
+  assert.equal(reset.category, "TypeScript source")
+  assert.equal(reset.aiResponse, undefined)
+  assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /value: 5/)
+})
