@@ -19,7 +19,8 @@ Rules:
 - paramsGeneratorTs owns randomized raw values and the core answer. Return only consumed values plus answer.
 - Return every generated parameter directly at the top level beside answer. Never group parameters under a wrapper property such as namedParams, params, values, data, or context.
 - questionGeneratorTs preserves question_no/category/text, uses generated params, and reuses answer. Presentation-only answer metadata may use QB.answer.extend.
-- originParamsTs must reproduce the saved question exactly and match the params return keys.
+- QB.answer.choice randomizes ordinary choices by default and recalculates the correct label. Never shuffle choices manually; otherChoice always remains last.
+- originParamsTs must reproduce the saved question exactly and match the params return keys. Use { fixed: true } with QB.answer.choice there to preserve the source option order and answer label.
 - explanationGeneratorTs explains the solution in English and Vietnamese when both are supported.
 - Never invent APIs, imports, exports, Markdown fences, QB.template, or code outside the four fragments.
 - Prefer safe bounds that preserve the original mathematical relationship and a unique correct choice.
