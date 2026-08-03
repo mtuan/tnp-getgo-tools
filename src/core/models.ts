@@ -161,6 +161,7 @@ export interface DesktopApi {
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>
   showInFolder(path: string): Promise<void>
+  showQuizQuestionInFolder(manifestPath: string, questionNo: number | string): Promise<void>
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>

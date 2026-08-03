@@ -138,6 +138,12 @@ app.whenReady().then(async () => {
     if (typeof filePath !== "string" || !path.isAbsolute(filePath)) throw new Error("Invalid path")
     shell.showItemInFolder(filePath)
   })
+  ipcMain.handle("shell:show-question", async (_event, manifestPath: unknown, questionNo: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    const normalizedQuestionNo = String(questionNo)
+    if (!/^\d+$/.test(normalizedQuestionNo)) throw new Error("Invalid question number")
+    shell.showItemInFolder(path.join(path.dirname(manifest), "questions", `q${normalizedQuestionNo}.json`))
+  })
   ipcMain.handle("clipboard:write", (_event, text: unknown) => {
     if (typeof text !== "string" || text.length > 2048) throw new Error("Invalid clipboard text")
     clipboard.writeText(text)
