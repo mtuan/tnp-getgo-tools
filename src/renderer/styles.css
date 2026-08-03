@@ -352,6 +352,9 @@ tbody tr:hover { background: #eef2ff80; }
 .manager-table { border: 1px solid #e2e8f0; border-radius: 12px; background: white; box-shadow: 0 4px 14px #0f172a0d; overflow: hidden; }
 .manager-table td:last-child { width: 42px; color: #94a3b8; text-align: right; }
 .manager-table tbody tr:hover td:last-child { color: #4f46e5; }
+.question-image-indicator { display: inline-flex; align-items: center; gap: 5px; color: #4f46e5; font-size: 11px; font-weight: 700; }
+.question-image-indicator svg { width: 14px; height: 14px; }
+.question-image-empty { color: #94a3b8; font-size: 11px; }
 .manager-actions { display: flex; align-items: center; gap: 8px; }
 .manager-actions button { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .editor-page { min-width: 0; }

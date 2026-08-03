@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Bot, Check, ChevronRight, ExternalLink, FolderOpen, Plus, RotateCcw, Save, Search, Sparkles, Trash2, Zap } from "lucide-react"
 import type { ContestSummary, QuizCrudInput, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
 import { questionHasDynamicParams } from "../core/question-dynamics"
+import { questionContainsImages } from "../core/question-images"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
 import { AdvancedQuestionEditor } from "./AdvancedQuestionEditor"
@@ -27,7 +28,7 @@ type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary }
 
-interface QuestionListItem { number: string; category: string; prompt: string; dynamic: boolean; reviewed: boolean; record: QuizQuestionRecord }
+interface QuestionListItem { number: string; category: string; prompt: string; dynamic: boolean; hasImages: boolean; reviewed: boolean; record: QuizQuestionRecord }
 
 function questionPrompt(value: unknown): string {
   if (typeof value === "string") return value
@@ -126,6 +127,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
       category: typeof record.category === "string" ? record.category : "—",
       prompt: questionPrompt(record.text_en ?? record.text_vn),
       dynamic: questionHasDynamicParams(record.advancedDynamic),
+      hasImages: questionContainsImages(record),
       reviewed: record.verified === true,
       record,
     }))
@@ -133,6 +135,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
       { key: "number", title: "Question", width: 100, render: item => <strong>#{item.number}</strong> },
       { key: "category", title: "Category", width: "24%", render: item => item.category },
       { key: "prompt", title: "Question text", render: item => <span className="question-text">{item.prompt}{item.dynamic && <Zap aria-label="Dynamic question" />}</span> },
+      { key: "images", title: "Images", width: 90, render: item => item.hasImages ? <span className="question-image-indicator" title="Contains images"><Check aria-label="Contains images" /></span> : <span className="question-image-empty" aria-label="No images">—</span> },
       { key: "reviewed", title: "Reviewed", width: 110, render: item => <span className={`badge ${item.reviewed ? "badge-reviewed" : ""}`}>{item.reviewed ? "Reviewed" : "Pending"}</span> },
     ]
     const activeQuestion = selectedQuestion === null ? null : questions[selectedQuestion]
