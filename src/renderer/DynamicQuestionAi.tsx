@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { Sparkles, Wrench } from "lucide-react"
+import { History, Sparkles, Wrench } from "lucide-react"
 import { QuizTsService } from "@tnp/getgo-logics/authoring"
 import type { DynamicQuestionProposalResult, QuizQuestionRecord } from "../core/models"
 import { Button } from "./ui/Button"
@@ -9,7 +9,7 @@ import { useToast } from "./ui/Toast"
 const sourceKeys = ["paramsGeneratorTs", "questionGeneratorTs", "explanationGeneratorTs", "originParamsTs"] as const
 const elapsedLabel = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
 
-export function DynamicQuestionAi({ record, context, diagnostics, onApply }: { record: QuizQuestionRecord; context: Record<string, unknown>; diagnostics: string[]; onApply(record: QuizQuestionRecord): void }) {
+export function DynamicQuestionAi({ record, context, diagnostics, onApply, onHistoryOpen }: { record: QuizQuestionRecord; context: Record<string, unknown>; diagnostics: string[]; onApply(record: QuizQuestionRecord): void; onHistoryOpen(): void }) {
   const toast = useToast(); const mode = record.aiResponse ? "fix" : "generate"; const [instructions, setInstructions] = useState(""); const [busy, setBusy] = useState(false); const [elapsed, setElapsed] = useState(0)
   const instructionsRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => { if (!busy) { setElapsed(0); return }; const startedAt = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 250); return () => window.clearInterval(timer) }, [busy])
@@ -35,5 +35,5 @@ export function DynamicQuestionAi({ record, context, diagnostics, onApply }: { r
       setInstructions("")
     } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); toast.show({ title: `AI ${mode} failed`, description: message, variant: "error" }) } finally { setBusy(false) }
   }
-  return <Panel className={`ai-generator-panel ai-generator-compact ${busy ? "is-processing" : ""}`}><form className="ai-generator-form" onSubmit={submit}>{busy ? <div className="ai-generator-processing"><span className="mini-spinner" /><strong>{mode === "generate" ? "Generating question code…" : "Fixing question code…"}</strong><time>{elapsedLabel(elapsed)}</time></div> : <><div className="ai-generator-input-row"><textarea ref={instructionsRef} aria-label="AI instructions" autoFocus={mode === "fix"} rows={1} value={instructions} placeholder={mode === "generate" ? "Describe the dynamic question you want…" : "Describe what the AI should fix…"} onChange={event => setInstructions(event.target.value)} /><Button type="submit" variant="solid">{mode === "generate" ? <Sparkles size={15} /> : <Wrench size={15} />}{mode === "generate" ? "Generate" : "Fix code"}</Button></div>{mode === "fix" && diagnostics.length > 0 && <span className="ai-generator-diagnostics">{diagnostics.length} editor diagnostic{diagnostics.length === 1 ? "" : "s"} will be included.</span>}</>}</form></Panel>
+  return <Panel className={`ai-generator-panel ai-generator-compact ${busy ? "is-processing" : ""}`}><form className="ai-generator-form" onSubmit={submit}>{busy ? <div className="ai-generator-processing"><span className="mini-spinner" /><strong>{mode === "generate" ? "Generating question code…" : "Fixing question code…"}</strong><time>{elapsedLabel(elapsed)}</time></div> : <><div className="ai-generator-input-row"><textarea ref={instructionsRef} aria-label="AI instructions" autoFocus={mode === "fix"} rows={1} value={instructions} placeholder={mode === "generate" ? "Describe the dynamic question you want…" : "Describe what the AI should fix…"} onChange={event => setInstructions(event.target.value)} /><Button type="submit" variant="solid">{mode === "generate" ? <Sparkles size={15} /> : <Wrench size={15} />}{mode === "generate" ? "Generate" : "Fix code"}</Button>{record.aiResponse && <Button className="ai-history-button" variant="icon" title="AI generation history" aria-label="Open AI generation history" onClick={onHistoryOpen}><History size={16} /></Button>}</div>{mode === "fix" && diagnostics.length > 0 && <span className="ai-generator-diagnostics">{diagnostics.length} editor diagnostic{diagnostics.length === 1 ? "" : "s"} will be included.</span>}</>}</form></Panel>
 }

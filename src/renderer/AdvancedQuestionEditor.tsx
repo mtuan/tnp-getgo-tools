@@ -4,7 +4,7 @@ import { QuizTsService, createDynamicQuestionBuildService } from "@tnp/getgo-log
 import { QuizBuilder, QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder"
 import type { QuizQuestionRecord } from "../core/models"
 import { QuizCodeEditor } from "./QuizCodeEditor"
-import { AiResponsePanel } from "./AiResponsePanel"
+import { AiHistoryDrawer } from "./AiHistoryDrawer"
 import { DynamicQuestionAi } from "./DynamicQuestionAi"
 import { Panel } from "./ui/Panel"
 
@@ -36,6 +36,7 @@ export function AdvancedQuestionEditor({ record, path, context, onChange, onSave
   const [errors, setErrors] = useState<string[]>([])
   const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>({ question: record as unknown as RuntimeQuestion, params: { __dynamic: true } })
   const generatedQuestionRef = useRef<string | number | null>(null)
+  const [aiHistoryOpen, setAiHistoryOpen] = useState(false)
   const updateField = (key: "paramsGeneratorTs" | "questionGeneratorTs" | "explanationGeneratorTs" | "originParamsTs", value: string) => onChange({ ...record, advancedDynamic: { ...record.advancedDynamic!, [key]: value } })
   const generate = async (original = false) => { try { const generated = original ? await builder.generateOriginal(source) : await builder.generate(source); if (generated) { setPreview(generated as { question: RuntimeQuestion; params: Record<string, unknown> }); setErrors([]) } } catch (cause) { setErrors([cause instanceof Error ? cause.message : String(cause)]) } }
   useEffect(() => {
@@ -69,7 +70,7 @@ export function AdvancedQuestionEditor({ record, path, context, onChange, onSave
       : undefined
     return { id, key, value, lineCount, editableLineRange, expressionContext: id === "origin" }
   })
-  return <div className="advanced-question-layout"><div className="advanced-question-editors"><DynamicQuestionAi record={record} context={context} diagnostics={errors} onApply={onChange} />{editorFields.map(field => <Panel className="advanced-question-editor-panel" title={panelCopy[field.id].title} description={panelCopy[field.id].description} key={field.id}><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} expressionContext={field.expressionContext} relativeLineNumbers formatOnMount={formatStandaloneField} onChange={value => updateField(field.key, value)} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></Panel>)}</div>
-    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions"><button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel>{record.aiResponse && <AiResponsePanel response={record.aiResponse} history={record.aiFixHistory ?? []} />}</div>
-  </div>
+  return <><div className="advanced-question-layout"><div className="advanced-question-editors"><DynamicQuestionAi record={record} context={context} diagnostics={errors} onApply={onChange} onHistoryOpen={() => setAiHistoryOpen(true)} />{editorFields.map(field => <Panel className="advanced-question-editor-panel" title={panelCopy[field.id].title} description={panelCopy[field.id].description} key={field.id}><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} expressionContext={field.expressionContext} relativeLineNumbers formatOnMount={formatStandaloneField} onChange={value => updateField(field.key, value)} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></Panel>)}</div>
+    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions"><button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel></div>
+  </div>{aiHistoryOpen && record.aiResponse && <AiHistoryDrawer record={record} onClose={() => setAiHistoryOpen(false)} />}</>
 }

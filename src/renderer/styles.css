@@ -636,6 +636,8 @@ button.danger svg { width: 14px; }
 .ai-generator-form textarea { display: block; width: 100%; min-width: 0; min-height: 38px; max-height: 76px; resize: none; overflow-y: hidden; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: white; font: inherit; font-weight: 400; line-height: 19px; outline: 0; }
 .ai-generator-form textarea:focus { border-color: #818cf8; box-shadow: 0 0 0 3px #6366f11f; }
 .ai-generator-input-row > .ui-button { flex: 0 0 auto; min-height: 38px; }
+.ai-generator-input-row > .ai-history-button { width: 38px; min-height: 38px; padding: 0; }
+.ai-generator-input-row > .ai-history-button:hover { transform: none; }
 .ai-generator-processing { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #475569; text-align: center; }
 .ai-generator-processing .mini-spinner { width: 24px; height: 24px; }
 .ai-generator-processing time { padding: 5px 10px; border-radius: 999px; color: #4338ca; background: #eef2ff; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; }
@@ -661,6 +663,20 @@ button.danger svg { width: 14px; }
 .ai-parameter-list p { grid-column: 1 / -1; margin: 0; color: var(--muted); }
 .ai-response-request p { margin: 0; }
 .ai-response-request > span { color: var(--muted); }
+.ai-history-drawer { width: min(960px, calc(100vw - 40px)); }
+.ai-history-drawer .crud-body { display: flex; min-height: 0; flex-direction: column; padding: 18px 20px 24px; overflow: hidden; }
+.ai-history-toolbar { flex: 0 0 auto; margin-bottom: 14px; }
+.ai-history-toolbar .schema-select { width: 100%; }
+.ai-history-tabs { flex: 0 0 auto; justify-content: flex-start; overflow-x: auto; }
+.ai-history-tabs button { min-width: max-content; }
+.ai-history-content { min-height: 0; flex: 1; margin-top: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; overflow: auto; }
+.ai-history-code { margin: -18px; overflow: hidden; border-radius: 11px; }
+.ai-history-json { min-height: 100%; margin: 0; color: #334155; font: 12px/1.55 SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ai-history-diffs { display: grid; gap: 18px; }
+.ai-history-diffs > section { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: white; }
+.ai-history-diffs > section > header { display: grid; gap: 3px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.ai-history-diffs > section > header strong { font-size: 12px; }
+.ai-history-diffs > section > header span { color: var(--muted); font-size: 10px; }
 @media (max-width: 980px) { .advanced-question-layout { grid-template-columns: 1fr; } .advanced-question-sidebar { position: static; } }
 .ui-data-table-empty { height: 100px !important; color: #94a3b8; text-align: center; }
 .ui-data-table-add { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border: 0; border-top: 1px dashed #dbe2ea; color: #4f46e5; background: #f8fafc80; font-size: 10px; font-weight: 600; }
@@ -725,6 +741,10 @@ button.danger svg { width: 14px; }
   .ai-generator-processing time { color: #c7d2fe; background: #312e8138; }
   .ai-response-accordion { border-color: #ffffff1a; background: #1e293b; box-shadow: none; }
   .ai-response-accordion .ui-accordion-panel { border-bottom-color: #ffffff1a; }
+  .ai-history-content { border-color: #ffffff1a; background: #0f172a99; }
+  .ai-history-json { color: #cbd5e1; }
+  .ai-history-diffs > section { border-color: #ffffff1a; background: #1e293b; }
+  .ai-history-diffs > section > header { border-color: #ffffff12; }
   .ai-response-code-viewer, .ai-response-code-viewer .monaco-editor, .ai-response-code-viewer .monaco-editor-background, .ai-response-code-viewer .monaco-editor .margin { background-color: #0f172a !important; }
   .question-preview-choices > div, .question-preview-answer, .question-preview-params { border-color: #ffffff12; background: #1e293b; }
   .question-preview-explanation { border-color: #ffffff12; }
