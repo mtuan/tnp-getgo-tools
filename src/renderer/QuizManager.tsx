@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowLeft, Bot, Check, ChevronRight, ExternalLink, FolderOpen, Plus, RotateCcw, Save, Search, Sparkles, Trash2, Zap } from "lucide-react"
-import type { ContestSummary, QuizCrudInput, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
+import { ArrowLeft, Bot, Check, ChevronRight, ExternalLink, FolderOpen, Plus, RefreshCw, RotateCcw, Save, Search, Sparkles, Trash2, Zap } from "lucide-react"
+import type { ContestSummary, QuizCrudInput, QuizMigrationResult, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
 import { questionHasDynamicParams } from "../core/question-dynamics"
 import { questionContainsImages } from "../core/question-images"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
 import { AdvancedQuestionEditor } from "./AdvancedQuestionEditor"
+import { MigrationResultsDrawer } from "./MigrationResultsDrawer"
 import { Breadcrumbs } from "./ui/Breadcrumbs"
 import { Button } from "./ui/Button"
 import { PageHeader } from "./ui/PageHeader"
@@ -18,7 +19,6 @@ import { useToast } from "./ui/Toast"
 interface QuizManagerProps {
   snapshot: RepositorySnapshot
   initialRoute?: string
-  onChangeRepository(): void
   onSnapshotChange(snapshot: RepositorySnapshot): void
   onRouteChange(route: string): void
 }
@@ -47,7 +47,7 @@ function restoredPage(snapshot: RepositorySnapshot, route?: string): { page: Man
   return { page: { kind: "quiz", quiz }, questionNo: parts[5] === "questions" && parts[6] ? parts[6] : null }
 }
 
-export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnapshotChange, onRouteChange }: QuizManagerProps) {
+export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteChange }: QuizManagerProps) {
   const toast = useToast()
   const [restored] = useState(() => restoredPage(snapshot, initialRoute))
   const [page, setPage] = useState<ManagerPage>(restored.page)
@@ -68,6 +68,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
   const [questionRecords, setQuestionRecords] = useState<QuizQuestionRecord[]>([])
   const [questionDraftRecord, setQuestionDraftRecord] = useState<QuizQuestionRecord | null>(null)
   const [pendingQuestionNo, setPendingQuestionNo] = useState(restored.questionNo)
+  const [migrationResults, setMigrationResults] = useState<{ result: QuizMigrationResult; attempted: number } | null>(null)
 
   const contests = useMemo(() => {
     return snapshot.contests.map(contest => ({ ...contest, quizzes: snapshot.quizzes.filter(quiz => quiz.contest === contest.id) }))
@@ -78,6 +79,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
   const visibleContests = contests.filter(contest => !normalizedQuery || `${contest.id} ${contest.title} ${contest.description}`.toLowerCase().includes(normalizedQuery))
   const visibleQuizzes = (selectedContest?.quizzes ?? []).filter((quiz) => !normalizedQuery ||
     `${quiz.id} ${quiz.legacyId} ${quiz.grade ?? ""} ${quiz.round ?? ""} ${quiz.year ?? ""}`.toLowerCase().includes(normalizedQuery))
+  const legacyQuizCount = selectedContest?.quizzes.filter(quiz => quiz.questionStorageVersion === "legacy").length ?? 0
 
   useEffect(() => {
     if (page.kind === "contests") { onRouteChange("/quizzes/contests"); if (pendingQuestionNo) setPendingQuestionNo(null) }
@@ -116,6 +118,22 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
     try { await action() }
     catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); toast.show({ title: "Operation failed", description: message, variant: "error" }) }
     finally { setButtonAction(null) }
+  }
+
+  async function migrateLegacyQuizzes() {
+    if (!selectedContest || !legacyQuizCount || !window.confirm(`Migrate ${legacyQuizCount} legacy quiz${legacyQuizCount === 1 ? "" : "zes"}? Questions will be extracted from raw.ts, falling back to raw.json. Existing source files will not be changed.`)) return
+    await runButtonAction("migrate-legacy", async () => {
+      const result = await window.getgo.migrateLegacyQuizzes(selectedContest.id)
+      onSnapshotChange(result.snapshot)
+      if (result.failures.length) {
+        const details = result.failures.map(failure => `${failure.quizId}: ${failure.message}`).join("\n")
+        console.error("[GetGo Tools][Quiz migration]", details)
+        setMigrationResults({ result, attempted: legacyQuizCount })
+        toast.show({ title: `Migrated ${result.migratedQuizIds.length} of ${legacyQuizCount} quizzes`, description: `${result.failures.length} quiz${result.failures.length === 1 ? "" : "zes"} failed. See migration results for details.`, variant: "error" })
+        return
+      }
+      toast.show({ title: `${result.migratedQuizIds.length} quiz${result.migratedQuizIds.length === 1 ? "" : "zes"} migrated`, description: "Questions were extracted into the new questions folder structure." })
+    })
   }
 
   if (page.kind === "quiz") {
@@ -206,14 +224,15 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
   const isContest = page.kind === "contest"
   return <section className="manager">
     {isContest && <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: page.contest.toUpperCase() }]} />}
-    <PageHeader className="manager-heading" eyebrow="Quiz manager" title={isContest ? selectedContest?.title ?? page.contest.toUpperCase() : "Contests"} description={isContest ? `${selectedContest?.quizzes.length ?? 0} quizzes in this contest` : `${contests.length} contests across the local repository`} leading={isContest ? <button className="back-button" onClick={goBack}><ArrowLeft /></button> : undefined} actions={<>{(!isContest || contestTab === "quizzes") && <Button icon={<Plus size={15} />} variant="solid" onClick={() => isContest ? setQuizDialog("create") : setContestDialog("create")}>{isContest ? "Create quiz" : "Create contest"}</Button>}{isContest && contestTab === "info" && selectedContest && <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-contest"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${selectedContest.title}? This will move the contest folder to Trash.`)) return; void runButtonAction("delete-contest", async () => { const next = await window.getgo.deleteContest(selectedContest.id); onSnapshotChange(next); setPage({ kind: "contests" }); toast.show({ title: "Contest deleted", description: `${selectedContest.title} was moved to Trash.` }) }) }}>Delete contest</Button>}<Button loading={buttonAction === "change-repository"} disabled={Boolean(buttonAction)} onClick={() => void runButtonAction("change-repository", async () => { await onChangeRepository() })}>Change repository</Button></>} />
+    <PageHeader className="manager-heading" eyebrow="Quiz manager" title={isContest ? selectedContest?.title ?? page.contest.toUpperCase() : "Contests"} description={isContest ? `${selectedContest?.quizzes.length ?? 0} quizzes in this contest` : `${contests.length} contests across the local repository`} leading={isContest ? <button className="back-button" onClick={goBack}><ArrowLeft /></button> : undefined} actions={<>{isContest && contestTab === "quizzes" && legacyQuizCount > 0 && <Button icon={<RefreshCw size={15} />} loading={buttonAction === "migrate-legacy"} variant="solid" color="warning" disabled={Boolean(buttonAction)} onClick={() => void migrateLegacyQuizzes()}>Migrate {legacyQuizCount}</Button>}{(!isContest || contestTab === "quizzes") && <Button icon={<Plus size={15} />} variant="solid" disabled={Boolean(buttonAction)} onClick={() => isContest ? setQuizDialog("create") : setContestDialog("create")}>{isContest ? "Create quiz" : "Create contest"}</Button>}{isContest && contestTab === "info" && selectedContest && <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-contest"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${selectedContest.title}? This will move the contest folder to Trash.`)) return; void runButtonAction("delete-contest", async () => { const next = await window.getgo.deleteContest(selectedContest.id); onSnapshotChange(next); setPage({ kind: "contests" }); toast.show({ title: "Contest deleted", description: `${selectedContest.title} was moved to Trash.` }) }) }}>Delete contest</Button>}</>} />
     {isContest && <Tabs<"info" | "quizzes"> variant="underline" className="contest-detail-tabs" ariaLabel="Contest detail" value={contestTab} onChange={setContestTab} items={[{ id: "quizzes", label: "Quizzes", badge: selectedContest?.quizzes.length ?? 0 }, { id: "info", label: "Info" }]} />}
     {isContest && contestTab === "info" && selectedContest && <ContestSettingsDialog embedded contest={selectedContest} onClose={() => undefined} onSaved={async settings => { const next = await window.getgo.updateContest(selectedContest.id, settings); onSnapshotChange(next); toast.show({ title: "Contest updated", description: `${settings.book.title} was saved.` }) }} />}
     {(!isContest || contestTab === "quizzes") && <><div className="manager-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search contests…"} /></div>
-    <div className="manager-table"><table><thead><tr>{isContest ? <><th>Quiz</th><th>Grade</th><th>Year / round</th><th>Questions</th><th>Status</th><th /></> : <><th>Contest</th><th>Quizzes</th><th>Ready</th><th>Builds</th><th /></>}</tr></thead><tbody>
-      {isContest ? visibleQuizzes.map(quiz => <tr key={quiz.key} onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab("questions") }}><td><strong>{quiz.title}</strong><span>{quiz.id}</span></td><td>{quiz.grade ?? "—"}</td><td><strong>{quiz.year ?? "—"}</strong><span>{quiz.round ?? "No round"}</span></td><td>{quiz.questionCount ?? "—"}</td><td><span className={`badge badge-${quiz.contentStatus}`}>{quiz.contentStatus}</span></td><td><ChevronRight size={16} /></td></tr>) : visibleContests.map(contest => { const ready = contest.quizzes.filter(quiz => ["reviewed", "validated", "published"].includes(quiz.contentStatus)).length; const builds = contest.quizzes.filter(quiz => quiz.hasGeneratedArtifact).length; return <tr key={contest.id} onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("quizzes"); setQuery("") }}><td><strong>{contest.title}</strong><span>{contest.description || contest.id.toUpperCase()}</span></td><td>{contest.quizzes.length}</td><td>{ready}</td><td>{builds}</td><td><ChevronRight size={16} /></td></tr> })}
+    <div className="manager-table"><table><thead><tr>{isContest ? <><th>Quiz</th><th>Version</th><th>Grade</th><th>Year / round</th><th>Questions</th><th>Status</th><th /></> : <><th>Contest</th><th>Quizzes</th><th>Ready</th><th>Builds</th><th /></>}</tr></thead><tbody>
+      {isContest ? visibleQuizzes.map(quiz => <tr key={quiz.key} onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab("questions") }}><td><strong>{quiz.title}</strong><span>{quiz.id}</span></td><td><span className={`badge quiz-version quiz-version-${quiz.questionStorageVersion}`}>{quiz.questionStorageVersion === "questions-v1" ? "Questions v1" : "Legacy"}</span></td><td>{quiz.grade ?? "—"}</td><td><strong>{quiz.year ?? "—"}</strong><span>{quiz.round ?? "No round"}</span></td><td>{quiz.questionCount ?? "—"}</td><td><span className={`badge badge-${quiz.contentStatus}`}>{quiz.contentStatus}</span></td><td><ChevronRight size={16} /></td></tr>) : visibleContests.map(contest => { const ready = contest.quizzes.filter(quiz => ["reviewed", "validated", "published"].includes(quiz.contentStatus)).length; const builds = contest.quizzes.filter(quiz => quiz.hasGeneratedArtifact).length; return <tr key={contest.id} onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("quizzes"); setQuery("") }}><td><strong>{contest.title}</strong><span>{contest.description || contest.id.toUpperCase()}</span></td><td>{contest.quizzes.length}</td><td>{ready}</td><td>{builds}</td><td><ChevronRight size={16} /></td></tr> })}
     </tbody></table>{(isContest ? visibleQuizzes : visibleContests).length === 0 && <div className="no-results">No matching {isContest ? "quizzes" : "contests"}.</div>}</div></>}
     {contestDialog && <ContestSettingsDialog contest={contestDialog === "create" ? undefined : contestDialog} onClose={() => setContestDialog(null)} onSaved={async settings => { const creating = contestDialog === "create"; const next = creating ? await window.getgo.createContest(settings) : await window.getgo.updateContest(contestDialog.id, settings); onSnapshotChange(next); setContestDialog(null); toast.show({ title: creating ? "Contest created" : "Contest updated", description: `${settings.book.title} was saved.` }) }} onDeleted={contestDialog !== "create" ? async () => { const title = contestDialog.title; const next = await window.getgo.deleteContest(contestDialog.id); onSnapshotChange(next); setContestDialog(null); setPage({ kind: "contests" }); toast.show({ title: "Contest deleted", description: `${title} was moved to Trash.` }) } : undefined} />}
     {quizDialog === "create" && isContest && selectedContest && <QuizCrudDialog contest={selectedContest} onClose={() => setQuizDialog(null)} onSaved={async (input: QuizCrudInput) => { const next = await window.getgo.createQuiz(page.contest, { ...input, status: "imported" }); onSnapshotChange(next); setQuizDialog(null); toast.show({ title: "Quiz created", description: `${input.title} is ready to edit.` }) }} />}
+    {migrationResults && <MigrationResultsDrawer result={migrationResults.result} attempted={migrationResults.attempted} onClose={() => setMigrationResults(null)} />}
   </section>
 }

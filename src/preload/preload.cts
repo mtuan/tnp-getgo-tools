@@ -12,6 +12,7 @@ const api: DesktopApi = {
   readQuizSource: (manifestPath) => ipcRenderer.invoke("quiz-source:read", manifestPath) as Promise<string>,
   saveQuizSource: (manifestPath, source) => ipcRenderer.invoke("quiz-source:save", manifestPath, source) as Promise<void>,
   loadQuizQuestions: (manifestPath) => ipcRenderer.invoke("quiz-questions:load", manifestPath),
+  migrateLegacyQuizzes: (contestId) => ipcRenderer.invoke("quiz-questions:migrate-legacy", contestId),
   saveQuizQuestion: (manifestPath, question) => ipcRenderer.invoke("quiz-questions:save", manifestPath, question),
   resetQuizQuestion: (manifestPath, question) => ipcRenderer.invoke("quiz-questions:reset", manifestPath, question),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url) as Promise<void>,

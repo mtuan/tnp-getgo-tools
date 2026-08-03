@@ -118,6 +118,25 @@ function questionNumber(fileName: string): number {
   return Number(fileName.match(/^q(\d+)\.json$/i)?.[1] ?? Number.MAX_SAFE_INTEGER)
 }
 
+/** Legacy quizzes sometimes stored the original parameters as `() => ({ ... })`
+ * or `() => { return { ... } }`. The current editor stores that field as the
+ * independently editable object expression itself. Normalize before formatting;
+ * otherwise object-expression formatting strips the callback's opening `(` and
+ * leaves invalid source beginning with `) =>`.
+ */
+export function normalizeLegacyOriginParamsSource(source: string | undefined): string {
+  const trimmed = source?.trim() || "{}"
+  const arrow = trimmed.match(/^\(\s*\)\s*(?::[^=]+)?=>\s*([\s\S]+)$/)
+  if (!arrow) return trimmed
+  let body = arrow[1].trim()
+  if (body.startsWith("(") && body.endsWith(")")) body = body.slice(1, -1).trim()
+  else {
+    const returned = body.match(/^\{\s*return\s+([\s\S]*?);?\s*\}$/)
+    if (returned) body = returned[1].trim().replace(/;$/, "").trim()
+  }
+  return body.startsWith("{") && body.endsWith("}") ? body : trimmed
+}
+
 async function questionsFromRawTs(quizDirectory: string): Promise<QuizQuestionRecord[] | null> {
   const rawTsPath = path.join(quizDirectory, "raw.ts")
   const source = await fs.readFile(rawTsPath, "utf8").catch((cause: NodeJS.ErrnoException) => {
@@ -137,7 +156,7 @@ async function questionsFromRawTs(quizDirectory: string): Promise<QuizQuestionRe
     const advancedDynamic = {
       paramsGeneratorTs: fields.paramsGeneratorTs,
       questionGeneratorTs: fields.questionGeneratorTs,
-      originParamsTs: fields.originParamsTs ?? "{}",
+      originParamsTs: normalizeLegacyOriginParamsSource(fields.originParamsTs),
       explanationGeneratorTs: fields.explanationGeneratorTs ?? "({}) => ({ en: '', vi: '' })",
     }
     const templateSource = QuizTsService.composeTemplateSource(advancedDynamic)

@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../src/repositories/quiz-questions.js"
+import { loadQuizQuestions, normalizeLegacyOriginParamsSource, resetQuizQuestion, saveQuizQuestion } from "../src/repositories/quiz-questions.js"
 
 test("converts raw questions, extracts inline images, and then prefers q files", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-"))
@@ -90,4 +90,10 @@ export default { questions: [
   assert.equal(reset.category, "TypeScript source")
   assert.equal(reset.aiResponse, undefined)
   assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /value: 5/)
+})
+
+test("normalizes legacy original-parameter callbacks into object expressions", () => {
+  assert.equal(normalizeLegacyOriginParamsSource("() => ({ pairs: 25, feet: 100 })"), "{ pairs: 25, feet: 100 }")
+  assert.equal(normalizeLegacyOriginParamsSource("() => { return { pairs: 25, feet: 100 }; }"), "{ pairs: 25, feet: 100 }")
+  assert.equal(normalizeLegacyOriginParamsSource("{ pairs: 25, feet: 100 }"), "{ pairs: 25, feet: 100 }")
 })

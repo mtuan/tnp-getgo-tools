@@ -28,6 +28,12 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
   assert.equal(result.contests[0].title, "SEAMO")
   assert.equal(result.quizzes[0].id, "quiz-1")
   assert.equal(result.quizzes[0].hasQuizTs, true)
+  assert.equal(result.quizzes[0].questionStorageVersion, "legacy")
   assert.equal(result.quizzes[0].deploymentStatus, "not-built")
   assert.equal(result.issues.length, 1)
+
+  await fs.mkdir(path.join(valid, "questions"))
+  await fs.writeFile(path.join(valid, "questions", "q1.json"), JSON.stringify({ question_no: 1 }))
+  const converted = await scanQuizRepository(root)
+  assert.equal(converted.quizzes[0].questionStorageVersion, "questions-v1")
 })

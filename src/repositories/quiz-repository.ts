@@ -9,6 +9,11 @@ async function exists(filePath: string): Promise<boolean> {
   try { await fs.access(filePath); return true } catch { return false }
 }
 
+async function hasQuestionFiles(directory: string): Promise<boolean> {
+  const entries = await fs.readdir(path.join(directory, "questions"), { withFileTypes: true }).catch(() => [])
+  return entries.some(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
+}
+
 async function findManifests(root: string): Promise<string[]> {
   const quizzesRoot = path.join(root, "quizzes")
   const found: string[] = []
@@ -100,6 +105,7 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
     hasSourcePdf: await exists(path.join(directory, "source.pdf")),
     hasRawJson: await exists(path.join(directory, "raw.json")),
     hasQuizTs: await exists(path.join(directory, "quiz.ts")),
+    questionStorageVersion: await hasQuestionFiles(directory) ? "questions-v1" : "legacy",
     hasGeneratedArtifact: generated.exists,
     artifactHash: generated.hash,
     questionCount: generated.questionCount,

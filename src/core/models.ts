@@ -4,6 +4,7 @@ export const contentStatuses = [
 
 export type ContentStatus = (typeof contentStatuses)[number]
 export type DeploymentStatus = "not-built" | "not-uploaded" | "uploaded" | "outdated" | "unknown"
+export type QuestionStorageVersion = "legacy" | "questions-v1"
 
 export interface QuizManifest {
   schemaVersion: number
@@ -35,6 +36,7 @@ export interface QuizSummary {
   hasSourcePdf: boolean
   hasRawJson: boolean
   hasQuizTs: boolean
+  questionStorageVersion: QuestionStorageVersion
   hasGeneratedArtifact: boolean
   artifactHash: string | null
   questionCount: number | null
@@ -53,6 +55,12 @@ export interface RepositorySnapshot {
   contests: ContestSummary[]
   quizzes: QuizSummary[]
   issues: ScanIssue[]
+}
+
+export interface QuizMigrationResult {
+  snapshot: RepositorySnapshot
+  migratedQuizIds: string[]
+  failures: Array<{ quizId: string; message: string }>
 }
 
 export interface ContestSettings {
@@ -156,6 +164,7 @@ export interface DesktopApi {
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>
+  migrateLegacyQuizzes(contestId: string): Promise<QuizMigrationResult>
   saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord>
   resetQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord>
   openExternal(url: string): Promise<void>

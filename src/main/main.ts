@@ -179,6 +179,25 @@ app.whenReady().then(async () => {
     const manifest = await resolveManifest(manifestPath)
     return loadQuizQuestions(manifest)
   })
+  ipcMain.handle("quiz-questions:migrate-legacy", async (_event, contestId: unknown) => {
+    if (typeof contestId !== "string" || !/^[a-z0-9_-]+$/i.test(contestId)) throw new Error("Invalid contest ID")
+    const root = await repositoryRoot()
+    const before = await scanQuizRepository(root)
+    if (!before.contests.some(contest => contest.id === contestId)) throw new Error(`Contest “${contestId}” was not found.`)
+    const legacy = before.quizzes.filter(quiz => quiz.contest === contestId && quiz.questionStorageVersion === "legacy")
+    const migratedQuizIds: string[] = []
+    const failures: Array<{ quizId: string; message: string }> = []
+    for (const quiz of legacy) {
+      try {
+        const questions = await loadQuizQuestions(quiz.manifestPath)
+        if (!questions.length) throw new Error("No questions could be extracted from raw.ts or raw.json.")
+        migratedQuizIds.push(quiz.id)
+      } catch (cause) {
+        failures.push({ quizId: quiz.id, message: cause instanceof Error ? cause.message : String(cause) })
+      }
+    }
+    return { snapshot: await scanQuizRepository(root), migratedQuizIds, failures }
+  })
   ipcMain.handle("quiz-questions:save", async (_event, manifestPath: unknown, question: unknown) => {
     const manifest = await resolveManifest(manifestPath)
     if (!question || typeof question !== "object") throw new Error("Invalid question")

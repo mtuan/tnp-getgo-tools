@@ -258,6 +258,15 @@ tbody tr:hover { background: #eef2ff80; }
 .badge-not-built { color: #be123c; background: #ffe4e6; }
 .badge-not-uploaded, .badge-unknown { color: #b45309; background: #fef3c7; }
 .badge-outdated { color: #c2410c; background: #ffedd5; }
+.quiz-version-questions-v1 { color: #047857; background: #d1fae5; }
+.quiz-version-legacy { color: #b45309; background: #fef3c7; }
+.migration-results-drawer { width: min(680px, 100vw); }
+.migration-results-summary { display: grid; gap: 5px; padding: 14px 16px; border: 1px solid #fecdd3; border-radius: 12px; background: #fff1f2; }
+.migration-results-summary strong { color: #9f1239; font-size: 15px; }
+.migration-results-summary span { color: #be123c; font-size: 12px; line-height: 1.5; }
+.migration-failure-list { display: grid; gap: 10px; }
+.migration-failure-error { margin: 0; align-items: start; }
+.migration-failure-error > span { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .file-dots i { color: #94a3b8; background: #f1f5f9; }
 .file-dots i.yes { color: #047857; background: #d1fae5; }
 .welcome, .empty-feature { min-height: calc(100vh - 180px); }
@@ -304,6 +313,9 @@ tbody tr:hover { background: #eef2ff80; }
   .topbar.production-header { border-color: #881337; background: #9f1239; }
   .app-toast { color: #e2e8f0; border-color: #ffffff1a; background: #1e293b; box-shadow: 0 14px 36px #02061780; }.app-toast span { color: #94a3b8; }.app-toast button:hover { color: #e2e8f0; background: #ffffff12; }
   .ui-error-frame { color: #fda4af; border-color: #e11d4866; background: #88133738; }
+  .migration-results-summary { border-color: #e11d4866; background: #88133738; }
+  .migration-results-summary strong { color: #fecdd3; }
+  .migration-results-summary span { color: #fda4af; }
   .ui-error-frame > button { color: #fda4af; }
   .ui-error-frame > button:hover { background: #e11d482e; }
   .repository strong, .page-heading h1, .settings-page h1, .welcome h1, .empty-feature h2, .metrics strong, .panel-heading h2, td strong, .drawer h2 { color: #f8fafc; }
