@@ -9,6 +9,7 @@ import { Button } from "./ui/Button"
 import { PageHeader } from "./ui/PageHeader"
 import { SummaryStrip } from "./ui/SummaryCard"
 import { Tabs } from "./ui/Tabs"
+import { Toggle } from "./ui/Toggle"
 import { DataTable, type DataColumn } from "./ui/DataTable"
 import { useToast } from "./ui/Toast"
 
@@ -51,6 +52,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
   const [query, setQuery] = useState("")
   const [sourceLoading, setSourceLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingVerification, setSavingVerification] = useState(false)
   const [questionOperation, setQuestionOperation] = useState<"save" | "reset" | null>(null)
   const [buttonAction, setButtonAction] = useState<string | null>(null)
   const [sourceError, setSourceError] = useState<string | null>(null)
@@ -136,7 +138,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
     if (activeQuestion) {
       const backToQuestions = () => { setSelectedQuestion(null); setPendingQuestionNo(null) }
       const saveQuestion = async () => {
-        if (!questionDraftRecord?.advancedDynamic) return
+        if (!questionDraftRecord?.advancedDynamic || saving || savingVerification) return
         setSaving(true); setQuestionOperation("save"); setSourceError(null)
         try {
           const savedQuestion = await window.getgo.saveQuizQuestion(quiz.manifestPath, questionDraftRecord)
@@ -148,7 +150,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
         finally { setSaving(false); setQuestionOperation(null) }
       }
       const resetQuestion = async () => {
-        if (!questionDraftRecord || !window.confirm("Reset this question to its default generated TypeScript? This will remove all AI-generated code and AI response history.")) return
+        if (!questionDraftRecord || saving || savingVerification || !window.confirm("Reset this question to its default generated TypeScript? This will remove all AI-generated code and AI response history.")) return
         setSaving(true); setQuestionOperation("reset"); setSourceError(null)
         try {
           const reset = await window.getgo.resetQuizQuestion(quiz.manifestPath, questionDraftRecord)
@@ -158,9 +160,25 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
         } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setSourceError(message); toast.show({ title: "Could not reset question", description: message, variant: "error" }) }
         finally { setSaving(false); setQuestionOperation(null) }
       }
+      const setQuestionVerified = async (verified: boolean) => {
+        if (!questionDraftRecord || saving || savingVerification) return
+        const previousVerified = questionDraftRecord.verified === true
+        setQuestionDraftRecord(current => current ? { ...current, verified } : current)
+        setSavingVerification(true)
+        try {
+          const savedQuestion = await window.getgo.saveQuizQuestion(quiz.manifestPath, { ...activeQuestion.record, verified })
+          setQuestionRecords(current => current.map(item => String(item.question_no) === String(savedQuestion.question_no) ? savedQuestion : item))
+          setQuestionDraftRecord(current => current ? { ...current, verified: savedQuestion.verified === true } : current)
+          toast.show({ title: verified ? "Question verified" : "Question marked unverified", description: `Question ${savedQuestion.question_no} review status was updated.` })
+        } catch (cause) {
+          const message = cause instanceof Error ? cause.message : String(cause)
+          setQuestionDraftRecord(current => current ? { ...current, verified: previousVerified } : current)
+          toast.show({ title: "Could not update verification", description: message, variant: "error" })
+        } finally { setSavingVerification(false) }
+      }
       return <section className="manager editor-page question-detail-page">
         <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }, { label: `Question ${activeQuestion.number}` }]} />
-        <PageHeader variant="editor" eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} actions={<><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>Save</Button></>} />
+        <PageHeader variant="editor" eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} actions={<><Toggle variant="button" checkedLabel="Verified" uncheckedLabel="Pending" ariaLabel="Mark question as verified" checked={questionDraftRecord?.verified === true} disabled={saving || savingVerification} onCheckedChange={verified => void setQuestionVerified(verified)} /><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>Save</Button></>} />
         {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
         {questionDraftRecord?.advancedDynamic && <AdvancedQuestionEditor record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
       </section>

@@ -513,6 +513,14 @@ tbody tr:hover { background: #eef2ff80; }
 .getgo-toggle input:checked ~ i { transform: translateX(16px); background: white; }
 .getgo-toggle:has(input:checked)::before { border-color: #6366f1; background: #4f46e5; }
 .getgo-toggle:has(input:focus-visible)::before { box-shadow: 0 0 0 3px #6366f12b; }
+.getgo-toggle-button { width: 112px; height: 38px; display: inline-flex !important; align-items: center; border-radius: 999px; color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.getgo-toggle-button::before { border-radius: 999px; background: #e2e8f0; }
+.getgo-toggle-button i { top: 5px; left: 5px; width: 28px; height: 28px; background: #64748b; box-shadow: none; }
+.getgo-toggle-button input:checked ~ i { transform: translateX(74px); background: white; }
+.getgo-toggle-button:has(input:checked) { color: white; }
+.getgo-toggle-button span { position: absolute; z-index: 1; top: 0; right: 8px; bottom: 0; left: 40px; display: grid; place-items: center; overflow: hidden; text-align: center; text-overflow: ellipsis; transition: right .22s var(--ease-out), left .22s var(--ease-out); }
+.getgo-toggle-button:has(input:checked) span { right: 40px; left: 8px; }
+.getgo-toggle-button:has(input:disabled) { cursor: default; opacity: .55; }
 .label-help { margin-left: 5px; color: #94a3b8; font-weight: 400; }
 .crud-body textarea.json-editor { min-height: 360px; color: #334155; background: #f8fafc; font: 11px/1.55 SFMono-Regular, Consolas, monospace; tab-size: 2; }
 .ui-error-frame { display: grid; grid-template-columns: 22px minmax(0, 1fr) 34px; align-items: center; gap: 11px; min-height: 58px; margin-bottom: 16px; padding: 11px 12px 11px 14px; border: 1px solid #fecdd3; border-radius: 11px; color: #be123c; background: #fff1f2; font-size: 13px; line-height: 1.5; }
@@ -724,6 +732,7 @@ button.danger svg { width: 14px; }
   .crud-body input:not([type="checkbox"]), .crud-body select, .crud-body textarea, .crud-body textarea.json-editor { color: #e2e8f0; border-color: #ffffff1a; background: #0f172a; }
   .toggle-form-field { color: #cbd5e1; }
   .getgo-toggle::before { border-color: #ffffff1a; background: #ffffff1a; }
+  .getgo-toggle-button { color: #cbd5e1; }
   .settings-tabs { background: #0f172a; }
   .settings-tabs button.active, .settings-tabs button:hover { color: #c7d2fe; background: #1e293b; }
   .section-heading h3, .settings-item-header strong, .settings-empty strong { color: #e2e8f0; }
