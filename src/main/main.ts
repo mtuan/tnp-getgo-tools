@@ -23,6 +23,20 @@ const appIconPath = app.isPackaged
   : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-app-icon.png")
 let mainWindow: BrowserWindow | null = null
 let firebaseAuth: FirebaseAuthService | null = null
+
+async function runAiIpc<T>(operation: "generate" | "fix", action: () => Promise<T>): Promise<T> {
+  try {
+    return await action()
+  } catch (cause) {
+    const error = cause instanceof Error ? cause : new Error(String(cause))
+    // The provider layer logs sanitized OpenAI diagnostics. This boundary also
+    // catches local schema, parsing, formatting, and proposal-validation errors.
+    console.error(`[GetGo Tools][AI IPC][${operation}] ${error.message}`)
+    if (error.stack) console.error(error.stack)
+    throw error
+  }
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) app.quit()
 else app.on("second-instance", () => {
@@ -81,7 +95,7 @@ app.whenReady().then(async () => {
     if (!value.question || typeof value.question !== "object" || Array.isArray(value.question)) throw new Error("A local question record is required.")
     if (value.context !== undefined && (!value.context || typeof value.context !== "object" || Array.isArray(value.context))) throw new Error("AI context must be an object.")
     if (value.instructions !== undefined && typeof value.instructions !== "string") throw new Error("AI instructions must be text.")
-    return localAi.createDynamicQuestionProposal(value as { question: import("../core/models.js").QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string })
+    return runAiIpc("generate", () => localAi.createDynamicQuestionProposal(value as { question: import("../core/models.js").QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }))
   })
   ipcMain.handle("ai:fix-dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI fix request.")
@@ -89,7 +103,7 @@ app.whenReady().then(async () => {
     if (!value.currentCode || typeof value.currentCode !== "object" || Array.isArray(value.currentCode)) throw new Error("Current question code is required.")
     if (!value.currentSummary || typeof value.currentSummary !== "object" || Array.isArray(value.currentSummary)) throw new Error("Current AI summary is required.")
     if (typeof value.instructions !== "string" || !value.instructions.trim()) throw new Error("Fix instructions are required.")
-    return localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0])
+    return runAiIpc("fix", () => localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0]))
   })
   ipcMain.handle("ai:cancel-dynamic-question", () => localAi.cancelDynamicQuestionAi())
   ipcMain.handle("settings:get", () => settings.read())

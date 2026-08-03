@@ -45,6 +45,33 @@ export interface LocalAiConfiguration {
   profile?: "thorough" | "fast"
 }
 
+type OpenAiErrorPayload = {
+  message?: unknown
+  type?: unknown
+  code?: unknown
+  param?: unknown
+}
+
+function printable(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim()) return value.trim()
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return undefined
+}
+
+function aiErrorMessage(title: string, details: Record<string, unknown>): string {
+  const lines = Object.entries(details)
+    .map(([label, value]) => [label, printable(value)] as const)
+    .filter((entry): entry is readonly [string, string] => Boolean(entry[1]))
+    .map(([label, value]) => `${label}: ${value}`)
+  return [title, ...lines].join("\n")
+}
+
+function logAiError(message: string, cause?: unknown): void {
+  // Never log the request headers, API key, full prompt, or question payload here.
+  console.error(`[GetGo Tools][Local AI]\n${message}`)
+  if (cause instanceof Error && cause.stack) console.error(cause.stack)
+}
+
 class LocalOpenAiProvider {
   private activeController: AbortController | null = null
   private profile: "thorough" | "fast"
@@ -59,8 +86,10 @@ class LocalOpenAiProvider {
     const model = this.configuration.model?.trim() || "gpt-5.6-terra"
     const fast = this.profile === "fast"
     const isFix = request.promptCacheKey.startsWith("getgo-qb-fix")
+    const operation = isFix ? "fix" : "generate"
     const controller = new AbortController()
     this.activeController = controller
+    const startedAt = Date.now()
     let response: Response
     try { response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -75,17 +104,72 @@ class LocalOpenAiProvider {
       }),
     }) } catch (cause) {
       if (controller.signal.aborted) throw new Error("AI request cancelled.")
-      throw cause
+      const message = aiErrorMessage("OpenAI request could not be completed.", {
+        "Reason": cause instanceof Error ? cause.message : String(cause),
+        "Model": model,
+        "Profile": this.profile,
+        "Operation": operation,
+        "Elapsed": `${Date.now() - startedAt} ms`,
+      })
+      logAiError(message, cause)
+      throw new Error(message, { cause })
     } finally { if (this.activeController === controller) this.activeController = null }
-    const payload = await response.json().catch(() => ({})) as Record<string, unknown>
+    const responseText = await response.text()
+    let payload: Record<string, unknown> = {}
+    if (responseText) {
+      try { payload = JSON.parse(responseText) as Record<string, unknown> }
+      catch (cause) {
+        const message = aiErrorMessage("OpenAI returned an unreadable response.", {
+          "HTTP status": `${response.status} ${response.statusText}`.trim(),
+          "Request ID": response.headers.get("x-request-id"),
+          "Content type": response.headers.get("content-type"),
+          "Response preview": responseText.slice(0, 500),
+          "Model": model,
+          "Profile": this.profile,
+          "Operation": operation,
+          "Elapsed": `${Date.now() - startedAt} ms`,
+        })
+        logAiError(message, cause)
+        throw new Error(message, { cause })
+      }
+    }
     if (!response.ok) {
-      const error = payload.error as { message?: string } | undefined
-      throw new Error(error?.message ?? `OpenAI returned HTTP ${response.status}.`)
+      const error = (payload.error && typeof payload.error === "object" ? payload.error : {}) as OpenAiErrorPayload
+      const message = aiErrorMessage("OpenAI rejected the AI request.", {
+        "Message": error.message ?? payload.message ?? "No error message was returned.",
+        "HTTP status": `${response.status} ${response.statusText}`.trim(),
+        "Error type": error.type,
+        "Error code": error.code,
+        "Parameter": error.param,
+        "Request ID": response.headers.get("x-request-id"),
+        "Response ID": payload.id,
+        "Model": model,
+        "Profile": this.profile,
+        "Operation": operation,
+        "Elapsed": `${Date.now() - startedAt} ms`,
+      })
+      logAiError(message)
+      throw new Error(message)
     }
     const rawUsage = payload.usage as Record<string, unknown> | undefined
     const inputDetails = rawUsage?.input_tokens_details as Record<string, unknown> | undefined
+    let output: unknown
+    try { output = JSON.parse(outputText(payload)) }
+    catch (cause) {
+      const message = aiErrorMessage("OpenAI returned invalid structured output.", {
+        "Reason": cause instanceof Error ? cause.message : String(cause),
+        "Request ID": response.headers.get("x-request-id"),
+        "Response ID": payload.id,
+        "Model": model,
+        "Profile": this.profile,
+        "Operation": operation,
+        "Elapsed": `${Date.now() - startedAt} ms`,
+      })
+      logAiError(message, cause)
+      throw new Error(message, { cause })
+    }
     return {
-      output: JSON.parse(outputText(payload)),
+      output,
       model,
       responseId: typeof payload.id === "string" ? payload.id : undefined,
       usage: {
