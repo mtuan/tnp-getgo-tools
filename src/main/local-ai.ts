@@ -22,16 +22,22 @@ export interface LocalAiConfiguration {
 }
 
 class LocalOpenAiProvider {
+  private activeController: AbortController | null = null
   constructor(private readonly configuration: LocalAiConfiguration) {}
+
+  cancel() { this.activeController?.abort() }
 
   async generate(request: GetGoStructuredAiRequest): Promise<GetGoStructuredAiResponse> {
     const apiKey = this.configuration.apiKey?.trim()
     if (!apiKey) throw new Error("Local AI is not configured. Set GETGO_AI_OPENAI_API_KEY in .env and restart GetGo Tools.")
     const model = this.configuration.model?.trim() || "gpt-5.6-terra"
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const controller = new AbortController()
+    this.activeController = controller
+    let response: Response
+    try { response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120_000)]),
       body: JSON.stringify({
         model,
         reasoning: { effort: "medium" },
@@ -39,7 +45,10 @@ class LocalOpenAiProvider {
         text: { format: { type: "json_schema", name: "getgo_dynamic_question_proposal", strict: true, schema: request.outputSchema }, verbosity: "low" },
         prompt_cache_key: request.promptCacheKey,
       }),
-    })
+    }) } catch (cause) {
+      if (controller.signal.aborted) throw new Error("AI request cancelled.")
+      throw cause
+    } finally { if (this.activeController === controller) this.activeController = null }
     const payload = await response.json().catch(() => ({})) as Record<string, unknown>
     if (!response.ok) {
       const error = payload.error as { message?: string } | undefined
@@ -68,10 +77,14 @@ function toAiQuestion(question: QuizQuestionRecord): Record<string, unknown> {
 
 export class LocalAiService {
   private readonly service: GetGoDynamicQuestionAiService
+  private readonly provider: LocalOpenAiProvider
 
   constructor(configuration: LocalAiConfiguration) {
-    this.service = new GetGoDynamicQuestionAiService(new LocalOpenAiProvider(configuration))
+    this.provider = new LocalOpenAiProvider(configuration)
+    this.service = new GetGoDynamicQuestionAiService(this.provider)
   }
+
+  cancelDynamicQuestionAi() { this.provider.cancel() }
 
   async createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult> {
     return this.service.createProposal({ question: toAiQuestion(input.question), context: input.context, instructions: input.instructions })

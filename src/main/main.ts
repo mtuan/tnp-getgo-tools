@@ -89,6 +89,7 @@ app.whenReady().then(() => {
     if (typeof value.instructions !== "string" || !value.instructions.trim()) throw new Error("Fix instructions are required.")
     return localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0])
   })
+  ipcMain.handle("ai:cancel-dynamic-question", () => localAi.cancelDynamicQuestionAi())
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { properties: ["openDirectory"] })

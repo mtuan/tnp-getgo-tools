@@ -29,6 +29,7 @@ const api: DesktopApi = {
   changePassword: (password) => ipcRenderer.invoke("auth:change-password", password),
   createDynamicQuestionProposal: (input) => ipcRenderer.invoke("ai:dynamic-question", input),
   fixDynamicQuestion: (input) => ipcRenderer.invoke("ai:fix-dynamic-question", input),
+  cancelDynamicQuestionAi: () => ipcRenderer.invoke("ai:cancel-dynamic-question"),
 }
 
 contextBridge.exposeInMainWorld("getgo", api)
