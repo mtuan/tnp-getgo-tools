@@ -9,6 +9,7 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
   category?: string
   text_en?: unknown
   text_vn?: unknown
+  action?: "generated"
   verified?: boolean
   authoringMode?: string
   advancedDynamic?: {
@@ -40,7 +41,7 @@ function answerExpression(value: unknown): string {
 }
 
 function questionGeneratorSource(question: Record<string, unknown>): string {
-  const fields = Object.fromEntries(Object.entries(question).filter(([key]) => !["answer", "verified", "schemaVersion", "authoringMode", "advancedDynamic", "generatorBuild"].includes(key)))
+  const fields = Object.fromEntries(Object.entries(question).filter(([key]) => !["answer", "action", "verified", "schemaVersion", "authoringMode", "advancedDynamic", "generatorBuild"].includes(key)))
   const fieldSource = sourceLiteral(fields).slice(1, -1).trim()
   return `({}) => {\n  return {\n${fieldSource ? `${indent(fieldSource, 4)},\n` : ""}    answer: ${answerExpression(question.answer)},\n  }\n}`
 }
@@ -232,6 +233,9 @@ export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuest
 export async function saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
   const questionNo = String(question.question_no)
   if (!/^\d+$/.test(questionNo)) throw new Error("Invalid question number")
+  if (question.verified === true && question.action !== "generated") {
+    throw new Error('Question action must be exactly "generated" before verification')
+  }
   const questionsDirectory = path.join(path.dirname(manifestPath), "questions")
   await fs.mkdir(questionsDirectory, { recursive: true })
   const formatted = await formatQuestionCode(question)
@@ -242,7 +246,7 @@ export async function saveQuizQuestion(manifestPath: string, question: QuizQuest
 export async function resetQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
   const defaults = await defaultQuestions(path.dirname(manifestPath))
   const sourceDefault = defaults.find(item => String(item.question_no) === String(question.question_no))
-  const { advancedDynamic: _advancedDynamic, aiResponse: _aiResponse, aiFixHistory: _aiFixHistory, generatorBuild: _generatorBuild, ...sourceQuestion } = question
+  const { action: _action, advancedDynamic: _advancedDynamic, aiResponse: _aiResponse, aiFixHistory: _aiFixHistory, generatorBuild: _generatorBuild, ...sourceQuestion } = question
   const reset = sourceDefault ?? normalizeQuestion(
     { ...sourceQuestion, authoringMode: undefined, verified: false },
     Math.max(0, Number(question.question_no) - 1),

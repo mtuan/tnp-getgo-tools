@@ -6,11 +6,12 @@ export interface PageHeaderProps {
   description?: ReactNode
   leading?: ReactNode
   titleAction?: ReactNode
+  navigation?: ReactNode
   actions?: ReactNode
   className?: string
 }
 
-export function PageHeader({ eyebrow, title, description, leading, titleAction, actions, className = "" }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, leading, titleAction, navigation, actions, className = "" }: PageHeaderProps) {
   return <header className={`ui-page-header ${className}`.trim()}>
     <div className="ui-page-header-main">
       {leading}
@@ -20,6 +21,7 @@ export function PageHeader({ eyebrow, title, description, leading, titleAction, 
         {description && <p>{description}</p>}
       </div>
     </div>
+    {navigation && <div className="ui-page-header-navigation">{navigation}</div>}
     {actions && <div className="ui-page-header-actions">{actions}</div>}
   </header>
 }

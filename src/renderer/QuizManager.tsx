@@ -10,6 +10,7 @@ import { MigrationResultsDrawer } from "./MigrationResultsDrawer"
 import { Breadcrumbs } from "./ui/Breadcrumbs"
 import { Button } from "./ui/Button"
 import { PageHeader } from "./ui/PageHeader"
+import { QuestionNavigator } from "./ui/QuestionNavigator"
 import { Tabs } from "./ui/Tabs"
 import { Toggle } from "./ui/Toggle"
 import { DataTable, type DataColumn } from "./ui/DataTable"
@@ -194,6 +195,18 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
     const activeQuestion = selectedQuestion === null ? null : questions[selectedQuestion]
     if (activeQuestion) {
       const backToQuestions = () => { setSelectedQuestion(null); setPendingQuestionNo(null) }
+      const navigateQuestion = (value: string) => {
+        const nextIndex = Number(value)
+        if (!Number.isInteger(nextIndex) || nextIndex < 0 || nextIndex >= questions.length || nextIndex === selectedQuestion) return
+        const hasUnsavedChanges = questionDraftRecord !== null && JSON.stringify(questionDraftRecord) !== JSON.stringify(activeQuestion.record)
+        if (hasUnsavedChanges && !window.confirm("Discard unsaved changes and open another question?")) return
+        const nextQuestion = questions[nextIndex]
+        setSelectedQuestion(nextIndex)
+        setQuestionDraftRecord(structuredClone(nextQuestion.record))
+        setPendingQuestionNo(nextQuestion.number)
+        setSourceError(null)
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
       const updateReviewedCount = (wasVerified: boolean, isVerified: boolean) => {
         if (wasVerified === isVerified) return
         const currentReviewed = questionRecords.filter(record => record.verified === true).length
@@ -243,7 +256,7 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
       }
       return <section className="manager editor-page question-detail-page">
         <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }, { label: `Question ${activeQuestion.number}` }]} />
-        <PageHeader eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show question in folder" title="Show question in folder" onClick={() => void runButtonAction("show-question-folder", () => window.getgo.showQuizQuestionInFolder(quiz.manifestPath, activeQuestion.number))} />} actions={<><Toggle variant="button" checkedLabel="Verified" uncheckedLabel="Pending" ariaLabel="Mark question as verified" checked={questionDraftRecord?.verified === true} disabled={saving || savingVerification} onCheckedChange={verified => void setQuestionVerified(verified)} /><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>Save</Button></>} />
+        <PageHeader eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show question in folder" title="Show question in folder" onClick={() => void runButtonAction("show-question-folder", () => window.getgo.showQuizQuestionInFolder(quiz.manifestPath, activeQuestion.number))} />} navigation={<QuestionNavigator value={String(selectedQuestion)} disabled={saving || savingVerification} items={questions.map((question, index) => ({ value: String(index), label: `Question ${question.number}`, description: question.category === "—" ? undefined : question.category, reviewed: question.reviewed }))} onValueChange={navigateQuestion} />} actions={<><Toggle variant="button" checkedLabel="Verified" uncheckedLabel="Pending" ariaLabel="Mark question as verified" checked={questionDraftRecord?.verified === true} disabled={saving || savingVerification} onCheckedChange={verified => void setQuestionVerified(verified)} /><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>Save</Button></>} />
         {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
         {questionDraftRecord?.advancedDynamic && <AdvancedQuestionEditor record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
       </section>

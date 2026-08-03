@@ -106,6 +106,7 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
   category?: string
   text_en?: unknown
   text_vn?: unknown
+  action?: "generated"
   verified?: boolean
   migrationError?: { stage: "origin-render"; message: string }
   authoringMode?: string
