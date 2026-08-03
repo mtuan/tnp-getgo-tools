@@ -68,5 +68,9 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
     const lines = next.split("\n")
     onChange(lines.slice(1, -1).join("\n"))
   }
+  // Keep overflow widgets anchored to Monaco's editor container. Do not set
+  // `overflowWidgetsDomNode: document.body`: these editors live in auto-height,
+  // scrollable panels, so a body host uses different coordinates and places
+  // hover/signature/IntelliSense widgets far away from the editing cursor.
   return <Editor beforeMount={beforeMount} onMount={onMount} value={modelValue} onChange={handleChange} onValidate={onValidate} language="typescript" path={`file:///${path.replaceAll("\\", "/")}`} height={autoHeight ? height : "100%"} theme={window.matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "light"} loading={<div className="editor-loading"><span />Loading editor and IntelliSense…</div>} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, fixedOverflowWidgets: true, fontSize: 13, fontFamily: "SFMono-Regular, Consolas, 'Liberation Mono', monospace", minimap: { enabled: false }, lineNumbers: relativeLineNumbers && modelVisibleRange ? line => String(line - modelVisibleRange.startLineNumber + 1) : "on", padding: { top: 12, bottom: 12 }, readOnly, readOnlyMessage: { value: readOnly ? "This generated code is read-only." : "Only the function body can be edited." }, scrollBeyondLastLine: false, scrollbar: autoHeight ? { vertical: "hidden", verticalScrollbarSize: 0, handleMouseWheel: false } : undefined, tabSize: 2, wordWrap: "on" }} />
 }
