@@ -9,9 +9,18 @@ async function exists(filePath: string): Promise<boolean> {
   try { await fs.access(filePath); return true } catch { return false }
 }
 
-async function hasQuestionFiles(directory: string): Promise<boolean> {
+async function readQuestionReview(directory: string): Promise<{ count: number; reviewed: number }> {
   const entries = await fs.readdir(path.join(directory, "questions"), { withFileTypes: true }).catch(() => [])
-  return entries.some(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
+  const files = entries.filter(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
+  const reviewed = (await Promise.all(files.map(async entry => {
+    try {
+      const question = JSON.parse(await fs.readFile(path.join(directory, "questions", entry.name), "utf8")) as { verified?: unknown }
+      return question.verified === true ? 1 : 0
+    } catch {
+      return 0
+    }
+  }))).reduce<number>((total, value) => total + value, 0)
+  return { count: files.length, reviewed }
 }
 
 async function findManifests(root: string): Promise<string[]> {
@@ -75,6 +84,7 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
   const manifest = quizManifestSchema.parse(raw)
   const directory = path.dirname(manifestPath)
   const generated = await readGenerated(root, manifest)
+  const review = await readQuestionReview(directory)
   const stat = await fs.stat(manifestPath)
   const relativePath = path.relative(root, directory)
   let title = manifest.title ?? manifest.id
@@ -105,10 +115,11 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
     hasSourcePdf: await exists(path.join(directory, "source.pdf")),
     hasRawJson: await exists(path.join(directory, "raw.json")),
     hasQuizTs: await exists(path.join(directory, "quiz.ts")),
-    questionStorageVersion: await hasQuestionFiles(directory) ? "questions-v1" : "legacy",
+    questionStorageVersion: review.count > 0 ? "questions-v1" : "legacy",
     hasGeneratedArtifact: generated.exists,
     artifactHash: generated.hash,
-    questionCount: generated.questionCount,
+    questionCount: review.count || generated.questionCount,
+    reviewedQuestionCount: review.reviewed,
     quizBuilderApiVersion: manifest.quizBuilderApiVersion ?? null,
     modifiedAt: stat.mtime.toISOString(),
   }

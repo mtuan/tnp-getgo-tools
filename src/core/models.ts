@@ -40,6 +40,7 @@ export interface QuizSummary {
   hasGeneratedArtifact: boolean
   artifactHash: string | null
   questionCount: number | null
+  reviewedQuestionCount: number
   quizBuilderApiVersion: number | null
   modifiedAt: string
 }

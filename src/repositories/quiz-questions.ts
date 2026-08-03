@@ -189,7 +189,12 @@ export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuest
   const questionsDirectory = path.join(quizDirectory, "questions")
   const existing = await fs.readdir(questionsDirectory).catch(() => [] as string[])
   const files = existing.filter(name => /^q\d+\.json$/i.test(name)).sort((a, b) => questionNumber(a) - questionNumber(b))
-  if (files.length) return Promise.all(files.map(async file => JSON.parse(await fs.readFile(path.join(questionsDirectory, file), "utf8")) as QuizQuestionRecord))
+  if (files.length) return Promise.all(files.map(async file => {
+    const record = JSON.parse(await fs.readFile(path.join(questionsDirectory, file), "utf8")) as QuizQuestionRecord
+    if (!record.advancedDynamic) return record
+    try { return await formatQuestionCode(record) }
+    catch { return record }
+  }))
 
   await fs.mkdir(questionsDirectory, { recursive: true })
   const records = await defaultQuestions(quizDirectory)

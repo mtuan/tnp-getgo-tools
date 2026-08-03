@@ -48,8 +48,15 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   assert.equal(loaded[0].aiResponse?.proposal.originParamsTs, "{ a: 2, d: 3 }")
   assert.equal(loaded[0].advancedDynamic?.explanationGeneratorTs, "({}) => {\n  return { en: '', vi: '' }\n}")
 
+  const questionPath = path.join(directory, "questions", "q1.json")
+  const unformatted = JSON.parse(await fs.readFile(questionPath, "utf8"))
+  unformatted.advancedDynamic.questionGeneratorTs = "({}) => {\n return {\nquestion_no: 1,\n answer: QB.answer.choice('A', { A: 'one', B: 'two' })\n}\n}"
+  await fs.writeFile(questionPath, JSON.stringify(unformatted))
+  const formattedOnLoad = await loadQuizQuestions(manifestPath)
+  assert.match(formattedOnLoad[0].advancedDynamic?.questionGeneratorTs ?? "", /\n  return \{\n    question_no: 1,/)
+
   const reset = await resetQuizQuestion(manifestPath, {
-    ...loaded[0],
+    ...formattedOnLoad[0],
     aiFixHistory: [{ generatedAt: "2026-08-03T00:01:00.000Z" } as never],
   })
   assert.equal(reset.aiResponse, undefined)

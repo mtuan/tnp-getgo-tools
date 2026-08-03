@@ -39,7 +39,12 @@ export function AdvancedQuestionEditor({ record, path, context, onChange, onSave
   const latestRecordRef = useRef(record)
   latestRecordRef.current = record
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false)
-  const updateField = (key: "paramsGeneratorTs" | "questionGeneratorTs" | "explanationGeneratorTs" | "originParamsTs", value: string) => onChange({ ...record, advancedDynamic: { ...record.advancedDynamic!, [key]: value } })
+  const updateField = (key: "paramsGeneratorTs" | "questionGeneratorTs" | "explanationGeneratorTs" | "originParamsTs", value: string) => {
+    const latest = latestRecordRef.current
+    const next = { ...latest, advancedDynamic: { ...latest.advancedDynamic!, [key]: value } }
+    latestRecordRef.current = next
+    onChange(next)
+  }
   const synchronizeDependentSignatures = () => {
     const latest = latestRecordRef.current
     if (!latest.advancedDynamic) return
