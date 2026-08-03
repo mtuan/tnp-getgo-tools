@@ -130,7 +130,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
       { key: "number", title: "Question", width: 100, render: item => <strong>#{item.number}</strong> },
       { key: "category", title: "Category", width: "24%", render: item => item.category },
       { key: "prompt", title: "Question text", render: item => <span className="question-text">{item.prompt}{item.dynamic && <Zap aria-label="Dynamic question" />}</span> },
-      { key: "reviewed", title: "Reviewed", width: 110, render: item => { const reviewed = item.reviewed || ["reviewed", "validated", "published"].includes(quiz.contentStatus); return <span className={`badge ${reviewed ? "badge-reviewed" : ""}`}>{reviewed ? "Reviewed" : "Pending"}</span> } },
+      { key: "reviewed", title: "Reviewed", width: 110, render: item => <span className={`badge ${item.reviewed ? "badge-reviewed" : ""}`}>{item.reviewed ? "Reviewed" : "Pending"}</span> },
     ]
     const activeQuestion = selectedQuestion === null ? null : questions[selectedQuestion]
     if (activeQuestion) {
