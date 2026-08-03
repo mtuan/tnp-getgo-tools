@@ -9,6 +9,7 @@ import { createContestDirectory, createQuizFiles, renameContestDirectory, update
 import { loadQuizQuestions, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
+import { LocalAiService } from "./local-ai.js"
 
 loadEnvironment({ path: app.isPackaged ? path.join(process.resourcesPath, ".env") : path.join(app.getAppPath(), ".env") })
 
@@ -53,6 +54,10 @@ app.whenReady().then(() => {
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
   firebaseAuth = new FirebaseAuthService(app.getPath("userData"), async () => (await settings.read()).environment)
+  const localAi = new LocalAiService({
+    apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
+    model: process.env.GETGO_AI_OPENAI_MODEL,
+  })
   ipcMain.handle("auth:state", () => firebaseAuth!.state())
   ipcMain.handle("environment:readiness", () => firebaseAuth!.checkReadiness())
   ipcMain.handle("auth:sign-in", (_event, email: unknown, password: unknown) => {
@@ -71,8 +76,9 @@ app.whenReady().then(() => {
   ipcMain.handle("ai:dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI request.")
     const value = input as Record<string, unknown>
-    if (![value.contestId, value.quizId, value.questionId].every(item => typeof item === "string" && item.length > 0)) throw new Error("Invalid AI request identifiers.")
-    return firebaseAuth!.createProposal(value as { contestId: string; quizId: string; questionId: string; instructions?: string })
+    if (!value.question || typeof value.question !== "object" || Array.isArray(value.question)) throw new Error("A local question record is required.")
+    if (value.instructions !== undefined && typeof value.instructions !== "string") throw new Error("AI instructions must be text.")
+    return localAi.createDynamicQuestionProposal(value as { question: import("../core/models.js").QuizQuestionRecord; instructions?: string })
   })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {

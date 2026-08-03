@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs"
 import { createHash, randomBytes } from "node:crypto"
 import http from "node:http"
 import path from "node:path"
-import type { AuthState, AuthUser, DynamicQuestionProposalResult, EnvironmentReadiness, EnvironmentReadinessCheck } from "../core/models.js"
+import type { AuthState, AuthUser, EnvironmentReadiness, EnvironmentReadinessCheck } from "../core/models.js"
 
 type GetGoEnvironment = "development" | "staging" | "production"
 type FirebaseEnvironmentConfig = { apiKey: string; projectId: string; projectNumber?: string }
@@ -65,39 +65,25 @@ export class FirebaseAuthService {
     ]
     const request = async (url: string, init?: RequestInit) => fetch(url, { ...init, signal: AbortSignal.timeout(8_000) })
 
-    const [authenticationCheck, functionsCheck] = await Promise.all([
-      (async (): Promise<EnvironmentReadinessCheck> => {
-        try {
-          const response = await request(`https://identitytoolkit.googleapis.com/v1/projects?key=${encodeURIComponent(apiKey)}`)
-          const payload = await response.json().catch(() => ({})) as { projectId?: string; error?: { message?: string } }
-          const matchesProject = response.ok && (!projectNumber || payload.projectId === projectNumber)
-          return {
-            id: "authentication",
-            ready: matchesProject,
-            message: matchesProject
-              ? "Firebase Authentication is available."
-              : payload.projectId && projectNumber
-                ? `The API key belongs to project number ${payload.projectId}, not ${projectNumber}.`
-                : payload.error?.message ?? `Firebase Authentication returned HTTP ${response.status}.`,
-          }
-        } catch (cause) {
-          return { id: "authentication", ready: false, message: `Firebase Authentication is unreachable: ${cause instanceof Error ? cause.message : String(cause)}` }
+    const authenticationCheck = await (async (): Promise<EnvironmentReadinessCheck> => {
+      try {
+        const response = await request(`https://identitytoolkit.googleapis.com/v1/projects?key=${encodeURIComponent(apiKey)}`)
+        const payload = await response.json().catch(() => ({})) as { projectId?: string; error?: { message?: string } }
+        const matchesProject = response.ok && (!projectNumber || payload.projectId === projectNumber)
+        return {
+          id: "authentication",
+          ready: matchesProject,
+          message: matchesProject
+            ? "Firebase Authentication is available."
+            : payload.projectId && projectNumber
+              ? `The API key belongs to project number ${payload.projectId}, not ${projectNumber}.`
+              : payload.error?.message ?? `Firebase Authentication returned HTTP ${response.status}.`,
         }
-      })(),
-      (async (): Promise<EnvironmentReadinessCheck> => {
-        try {
-          const response = await request(
-            `https://asia-southeast1-${projectId}.cloudfunctions.net/createGetGoDynamicQuestionProposal`,
-            { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: {} }) },
-          )
-          const exists = response.status !== 404
-          return { id: "functions", ready: exists, message: exists ? "GetGo Cloud Functions are deployed." : "GetGo Cloud Functions have not been deployed." }
-        } catch (cause) {
-          return { id: "functions", ready: false, message: `GetGo Cloud Functions are unreachable: ${cause instanceof Error ? cause.message : String(cause)}` }
-        }
-      })(),
-    ])
-    checks.push(authenticationCheck, functionsCheck)
+      } catch (cause) {
+        return { id: "authentication", ready: false, message: `Firebase Authentication is unreachable: ${cause instanceof Error ? cause.message : String(cause)}` }
+      }
+    })()
+    checks.push(authenticationCheck)
 
     return { environment, projectId, ready: checks.every(check => check.ready), checks }
   }
@@ -223,14 +209,5 @@ export class FirebaseAuthService {
       this.session = { ...session, idToken: String(result.idToken), refreshToken: String(result.refreshToken), expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000 }
       await this.persist(environment, this.session.refreshToken)
     }
-  }
-  async createProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult> {
-    const session = await this.activeSession()
-    if (!session) throw new Error("Sign in with a GetGo admin account to use AI support.")
-    const { firebase: { projectId } } = await this.config()
-    const result = await postJson(`https://asia-southeast1-${projectId}.cloudfunctions.net/createGetGoDynamicQuestionProposal`, { data: input }, { authorization: `Bearer ${session.idToken}` }) as { result?: DynamicQuestionProposalResult; data?: DynamicQuestionProposalResult }
-    const value = result.result ?? result.data
-    if (!value?.proposal) throw new Error("The AI service returned an invalid proposal.")
-    return value
   }
 }

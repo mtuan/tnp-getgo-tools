@@ -15,3 +15,7 @@ The Google Desktop OAuth client and Facebook App ID are application credentials 
 After changing `.env`, restart the Electron main process. Vite hot reload does not reload main-process environment variables.
 
 `npm run dist` packages the local `.env` into the desktop application resources so installed builds use the same environment map. Treat distributed desktop credentials as public native-app configuration; never put privileged service-account keys or server secrets in this file.
+
+## Local AI
+
+AI question authoring is local-first and independent of the selected Firebase environment. Set `GETGO_AI_OPENAI_API_KEY` in `.env`; GetGo Tools sends the currently open local `questions/qN.json` record directly to the OpenAI Responses API. It does not read the quiz or question from Firestore and does not call a Firebase Function.

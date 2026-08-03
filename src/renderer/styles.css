@@ -297,6 +297,9 @@ tbody tr:hover { background: #eef2ff80; }
   .copy-toast { color: #e0e7ff; border-color: #6366f166; background: #312e81; box-shadow: 0 10px 28px #02061766; }
   .topbar.production-header { border-color: #881337; background: #9f1239; }
   .app-toast { color: #e2e8f0; border-color: #ffffff1a; background: #1e293b; box-shadow: 0 14px 36px #02061780; }.app-toast span { color: #94a3b8; }.app-toast button:hover { color: #e2e8f0; background: #ffffff12; }
+  .ui-error-frame { color: #fda4af; border-color: #e11d4866; background: #88133738; }
+  .ui-error-frame > button { color: #fda4af; }
+  .ui-error-frame > button:hover { background: #e11d482e; }
   .repository strong, .page-heading h1, .settings-page h1, .welcome h1, .empty-feature h2, .metrics strong, .panel-heading h2, td strong, .drawer h2 { color: #f8fafc; }
   .top-actions select, .settings-page select, .filters input, .filters select, .icon-button, .secondary, .panel, .table-panel, .metrics article, .drawer { color: #cbd5e1; border-color: #ffffff1a; background: #1e293b; }
   .panel-heading, th { color: #94a3b8; border-color: #ffffff1a; background: #ffffff08; }
@@ -370,6 +373,13 @@ tbody tr:hover { background: #eef2ff80; }
 .code-editor { height: calc(100% - 62px); }
 .editor-loading, .editor-empty { height: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; color: #64748b; background: #f8fafc; font-size: 12px; }
 .editor-loading span, .mini-spinner { width: 14px; height: 14px; border: 2px solid #c7d2fe; border-top-color: #4f46e5; border-radius: 50%; animation: spin .75s linear infinite; }
+.ai-generate-action { width: 100%; justify-content: center; margin-top: 6px; }
+.processing-overlay { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 24px; background: rgb(15 23 42 / 42%); backdrop-filter: blur(3px); }
+.processing-overlay-card { width: min(380px, 100%); display: grid; justify-items: center; gap: 10px; padding: 28px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--text); box-shadow: 0 24px 70px rgb(15 23 42 / 28%); text-align: center; }
+.processing-overlay-card > span:last-child { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.processing-overlay-spinner { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: #4f46e5; background: #eef2ff; animation: processing-pulse 1.4s ease-in-out infinite; }
+.processing-overlay-spinner svg { width: 21px; height: 21px; }
+@keyframes processing-pulse { 0%, 100% { transform: scale(.94); opacity: .72; } 50% { transform: scale(1.04); opacity: 1; } }
 .editor-statusbar { height: 22px; display: flex; justify-content: flex-end; align-items: center; gap: 18px; padding: 0 12px; color: #eef2ff; background: #4338ca; font-size: 9px; }
 
 @media (max-width: 1180px) {
@@ -494,8 +504,13 @@ tbody tr:hover { background: #eef2ff80; }
 .getgo-toggle:has(input:focus-visible)::before { box-shadow: 0 0 0 3px #6366f12b; }
 .label-help { margin-left: 5px; color: #94a3b8; font-weight: 400; }
 .crud-body textarea.json-editor { min-height: 360px; color: #334155; background: #f8fafc; font: 11px/1.55 SFMono-Regular, Consolas, monospace; tab-size: 2; }
-.crud-error { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px; padding: 10px 12px; border: 1px solid #fecdd3; border-radius: 9px; color: #be123c; background: #fff1f2; font-size: 11px; line-height: 1.4; }
-.crud-error svg { width: 16px; flex: 0 0 auto; }
+.ui-error-frame { display: grid; grid-template-columns: 22px minmax(0, 1fr) 34px; align-items: center; gap: 11px; min-height: 58px; margin-bottom: 16px; padding: 11px 12px 11px 14px; border: 1px solid #fecdd3; border-radius: 11px; color: #be123c; background: #fff1f2; font-size: 13px; line-height: 1.5; }
+.ui-error-frame > svg { width: 20px; height: 20px; }
+.ui-error-frame > span { min-width: 0; overflow-wrap: anywhere; }
+.ui-error-frame > button { display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; border-radius: 8px; color: #be123c; background: transparent; }
+.ui-error-frame > button:hover { background: #ffe4e6; }
+.ui-error-frame > button:focus-visible { outline: 3px solid #e11d4830; outline-offset: 1px; }
+.ui-error-frame > button svg { width: 16px; height: 16px; }
 .crud-dialog footer { min-height: 68px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; padding: 12px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; }
 .delete-action { display: flex; align-items: center; gap: 7px; margin-right: auto; color: #be123c; font-size: 10px; }
 .delete-action button { padding: 8px 10px; border-radius: 8px; }

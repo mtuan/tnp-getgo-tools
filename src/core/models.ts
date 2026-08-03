@@ -126,7 +126,7 @@ export interface AuthState {
 }
 
 export interface EnvironmentReadinessCheck {
-  id: "configuration" | "authentication" | "functions"
+  id: "configuration" | "authentication"
   ready: boolean
   message: string
 }
@@ -138,23 +138,8 @@ export interface EnvironmentReadiness {
   checks: EnvironmentReadinessCheck[]
 }
 
-export interface DynamicQuestionProposal {
-  paramsGeneratorTs: string
-  questionGeneratorTs: string
-  originParamsTs: string
-  explanationGeneratorTs: string
-  explanation: string
-  assumptions: string[]
-  warnings: string[]
-  confidence: number
-  [key: string]: unknown
-}
-
-export interface DynamicQuestionProposalResult {
-  proposal: DynamicQuestionProposal
-  model?: string
-  usage?: Record<string, unknown>
-}
+export type DynamicQuestionProposal = GetGoDynamicQuestionProposal
+export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult
 
 export interface DesktopApi {
   getSettings(): Promise<AppSettings>
@@ -181,5 +166,9 @@ export interface DesktopApi {
   signInWithProvider(provider: "google" | "facebook" | "apple"): Promise<AuthState>
   signOut(): Promise<AuthState>
   changePassword(password: string): Promise<void>
-  createDynamicQuestionProposal(input: { contestId: string; quizId: string; questionId: string; instructions?: string }): Promise<DynamicQuestionProposalResult>
+  createDynamicQuestionProposal(input: { question: QuizQuestionRecord; instructions?: string }): Promise<DynamicQuestionProposalResult>
 }
+import type {
+  GetGoDynamicQuestionProposal,
+  GetGoDynamicQuestionProposalResult,
+} from "@tnp/getgo-logics/authoring"
