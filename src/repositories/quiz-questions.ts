@@ -145,6 +145,12 @@ async function questionsFromRawTs(quizDirectory: string): Promise<QuizQuestionRe
   })
   if (source === null) return null
   const snippets = QuizTsService.extractSnippets(source)
+  const rawJson = await fs.readFile(path.join(quizDirectory, "raw.json"), "utf8")
+    .then(value => JSON.parse(value) as Record<string, unknown> | unknown[])
+    .catch(() => null)
+  const rawQuestions = Array.isArray(rawJson)
+    ? rawJson
+    : rawJson && Array.isArray(rawJson.questions) ? rawJson.questions : []
   const records: QuizQuestionRecord[] = []
   for (let index = 0; index < snippets.length; index += 1) {
     const snippet = snippets[index]
@@ -160,9 +166,28 @@ async function questionsFromRawTs(quizDirectory: string): Promise<QuizQuestionRe
       explanationGeneratorTs: fields.explanationGeneratorTs ?? "({}) => ({ en: '', vi: '' })",
     }
     const templateSource = QuizTsService.composeTemplateSource(advancedDynamic)
-    const generated = await builder.generateOriginal(templateSource) ?? await builder.generate(templateSource)
-    const withAssets = await extractImages(generated.question as unknown as Record<string, unknown>, index, path.join(quizDirectory, "assets"))
-    records.push(await formatQuestionCode({ ...withAssets, schemaVersion: 1, verified: false, authoringMode: "advanced-dynamic", advancedDynamic } as unknown as QuizQuestionRecord))
+    let sourceQuestion: Record<string, unknown> | null = null
+    let migrationError: QuizQuestionRecord["migrationError"]
+    try {
+      const generated = await builder.generateOriginal(templateSource)
+      sourceQuestion = generated?.question as unknown as Record<string, unknown> | null
+    } catch (cause) {
+      migrationError = {
+        stage: "origin-render",
+        message: cause instanceof Error ? cause.message : String(cause),
+      }
+    }
+    if (!sourceQuestion) {
+      const matchingRaw = rawQuestions.find(value => value && typeof value === "object" && String((value as Record<string, unknown>).question_no ?? "") === String(index + 1))
+        ?? rawQuestions[index]
+      if (matchingRaw && typeof matchingRaw === "object") sourceQuestion = matchingRaw as Record<string, unknown>
+    }
+    if (!sourceQuestion) {
+      const generated = await builder.generate(templateSource)
+      sourceQuestion = generated.question as unknown as Record<string, unknown>
+    }
+    const withAssets = await extractImages(sourceQuestion, index, path.join(quizDirectory, "assets"))
+    records.push(await formatQuestionCode({ ...withAssets, schemaVersion: 1, verified: false, authoringMode: "advanced-dynamic", advancedDynamic, ...(migrationError ? { migrationError } : {}) } as unknown as QuizQuestionRecord))
   }
   return records
 }

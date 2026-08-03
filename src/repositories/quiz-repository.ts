@@ -9,18 +9,22 @@ async function exists(filePath: string): Promise<boolean> {
   try { await fs.access(filePath); return true } catch { return false }
 }
 
-async function readQuestionReview(directory: string): Promise<{ count: number; reviewed: number }> {
+async function readQuestionReview(directory: string): Promise<{ count: number; reviewed: number; errors: number }> {
   const entries = await fs.readdir(path.join(directory, "questions"), { withFileTypes: true }).catch(() => [])
   const files = entries.filter(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
-  const reviewed = (await Promise.all(files.map(async entry => {
+  const states = await Promise.all(files.map(async entry => {
     try {
-      const question = JSON.parse(await fs.readFile(path.join(directory, "questions", entry.name), "utf8")) as { verified?: unknown }
-      return question.verified === true ? 1 : 0
+      const question = JSON.parse(await fs.readFile(path.join(directory, "questions", entry.name), "utf8")) as { verified?: unknown; migrationError?: unknown }
+      return { reviewed: question.verified === true ? 1 : 0, error: question.migrationError ? 1 : 0 }
     } catch {
-      return 0
+      return { reviewed: 0, error: 1 }
     }
-  }))).reduce<number>((total, value) => total + value, 0)
-  return { count: files.length, reviewed }
+  }))
+  return {
+    count: files.length,
+    reviewed: states.reduce((total, value) => total + value.reviewed, 0),
+    errors: states.reduce((total, value) => total + value.error, 0),
+  }
 }
 
 async function findManifests(root: string): Promise<string[]> {
@@ -120,6 +124,7 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
     artifactHash: generated.hash,
     questionCount: review.count || generated.questionCount,
     reviewedQuestionCount: review.reviewed,
+    migrationErrorCount: review.errors,
     quizBuilderApiVersion: manifest.quizBuilderApiVersion ?? null,
     modifiedAt: stat.mtime.toISOString(),
   }

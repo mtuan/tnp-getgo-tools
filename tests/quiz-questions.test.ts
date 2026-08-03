@@ -99,6 +99,36 @@ export default { questions: [
   assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /value: 5/)
 })
 
+test("recovers incomplete raw.ts origin fixtures from the matching raw.json question", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-origin-fallback-"))
+  const manifestPath = path.join(directory, "manifest.json")
+  await fs.writeFile(manifestPath, "{}")
+  await fs.writeFile(path.join(directory, "raw.json"), JSON.stringify({ questions: [{
+    question_no: 1,
+    text_en: "The saved list totals 600.",
+    answer: { type: "input", correct: 600 },
+  }] }))
+  await fs.writeFile(path.join(directory, "raw.ts"), `import QB from 'legacy-builder'
+export default { questions: [
+  QB.template(
+    () => ({ values: [100, 200, 300] }),
+    ({ values }) => ({ question_no: 1, text_en: \`Total: \${values.reduce((a, b) => a + b, 0)}\`, answer: QB.answer.input(600) }),
+    {},
+  ),
+] }
+`)
+
+  const created = await loadQuizQuestions(manifestPath)
+  assert.equal(created.length, 1)
+  assert.equal(created[0].text_en, "The saved list totals 600.")
+  assert.equal((created[0].answer as { correct: number }).correct, 600)
+  assert.match(created[0].advancedDynamic?.questionGeneratorTs ?? "", /values\.reduce/)
+  assert.deepEqual(created[0].migrationError, {
+    stage: "origin-render",
+    message: "Cannot read properties of undefined (reading 'reduce')",
+  })
+})
+
 test("normalizes legacy original-parameter callbacks into object expressions", () => {
   assert.equal(normalizeLegacyOriginParamsSource("() => ({ pairs: 25, feet: 100 })"), "{ pairs: 25, feet: 100 }")
   assert.equal(normalizeLegacyOriginParamsSource("() => { return { pairs: 25, feet: 100 }; }"), "{ pairs: 25, feet: 100 }")

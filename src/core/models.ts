@@ -41,6 +41,7 @@ export interface QuizSummary {
   artifactHash: string | null
   questionCount: number | null
   reviewedQuestionCount: number
+  migrationErrorCount: number
   quizBuilderApiVersion: number | null
   modifiedAt: string
 }
@@ -106,6 +107,7 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
   text_en?: unknown
   text_vn?: unknown
   verified?: boolean
+  migrationError?: { stage: "origin-render"; message: string }
   authoringMode?: string
   advancedDynamic?: {
     paramsGeneratorTs: string
