@@ -47,6 +47,7 @@ export function App() {
   const [settings, setSettings] = useState<AppSettings>({ repositoryPath: null, environment: "staging" })
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
   const [loading, setLoading] = useState(true)
+  const [choosingRepository, setChoosingRepository] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentRoute, setCurrentRoute] = useState(initialRoute)
   const [routeCopied, setRouteCopied] = useState(false)
@@ -61,11 +62,12 @@ export function App() {
     finally { setLoading(false) }
   }
   async function choose() {
-    setError(null)
+    setError(null); setChoosingRepository(true)
     try {
       const result = await window.getgo.chooseRepository()
       if (result) { setSnapshot(result); setSettings((s) => ({ ...s, repositoryPath: result.repositoryPath })); toast.show({ title: "Repository connected", description: result.repositoryPath }) }
     } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setError(message); toast.show({ title: "Could not connect repository", description: message, variant: "error" }) }
+    finally { setChoosingRepository(false) }
   }
   async function changeEnvironment(environment: AppSettings["environment"]) {
     const next = await window.getgo.setEnvironment(environment)
@@ -167,7 +169,7 @@ export function App() {
       <div className="content">
         <PageTransition trigger={[view, settings.repositoryPath]}>
         {error && <div className="error-banner"><strong>Could not scan repository</strong><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
-        {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><Button variant="primary" onClick={choose}>Choose repository</Button></section> : null}
+        {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><Button loading={choosingRepository} variant="primary" onClick={() => void choose()}>Choose repository</Button></section> : null}
         {settings.repositoryPath && view === "dashboard" && <>
           <PageHeader eyebrow="Workspace overview" title="Quiz operations" description="Local repository health and publishing readiness." actions={<Button variant="primary" onClick={() => navigate("quizzes")}>Browse quizzes</Button>} />
           <section className="metrics">

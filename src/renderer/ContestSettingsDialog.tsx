@@ -90,6 +90,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   const [expanded, setExpanded] = useState<Tab | null>("general")
   const [ruleEditor, setRuleEditor] = useState<number | "create" | null>(null)
   const [busy, setBusy] = useState(false)
+  const [busyScope, setBusyScope] = useState<Tab | "all" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const setBook = (patch: Partial<ContestSettings["book"]>) => setSettings(current => ({ ...current, book: { ...current.book, ...patch } }))
@@ -113,9 +114,9 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     const roundsToSave = settings.rounds.filter(round => text(round.roundCode).trim() || text(round.roundName).trim() || text(round.description).trim() || round.hasPractice === true)
     const incompleteRound = roundsToSave.find(round => !text(round.roundCode).trim() || !text(round.roundName).trim())
     if ((scope === "rounds" || scope === "all") && incompleteRound) { setTab("rounds"); setExpanded("rounds"); setError("Every round row needs a round code and round name."); return }
-    setBusy(true)
-    try { await onSaved({ ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), title: settings.book.title.trim(), description: settings.book.description?.trim() } }); setBusy(false) }
-    catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) }
+    setBusy(true); setBusyScope(scope)
+    try { await onSaved({ ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), title: settings.book.title.trim(), description: settings.book.description?.trim() } }); setBusy(false); setBusyScope(null) }
+    catch (cause) { setBusy(false); setBusyScope(null); setError(cause instanceof Error ? cause.message : String(cause)) }
   }
 
   async function submit(event: FormEvent) { event.preventDefault(); await save("all") }
@@ -156,7 +157,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     if (id === "rules") setSettings(current => ({ ...current, quizRules: saved.quizRules ?? [] }))
   }
   const renderSection = (id: Tab, title: string, description: string, content: React.ReactNode) => embedded
-    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)} actions={<div className="settings-section-actions"><Button color="neutral" disabled={busy} onClick={() => discard(id)}><RotateCcw />Discard</Button><Button variant="solid" className="settings-section-save" disabled={busy} onClick={() => void save(id)}><Save />{busy ? "Saving…" : "Save"}</Button></div>}>{content}</AccordionSection>
+    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)} actions={<div className="settings-section-actions"><Button icon={<RotateCcw />} color="neutral" disabled={busy} onClick={() => discard(id)}>Discard</Button><Button icon={<Save />} loading={busy && busyScope === id} disabled={busy && busyScope !== id} variant="solid" className="settings-section-save" onClick={() => void save(id)}>Save</Button></div>}>{content}</AccordionSection>
     : tab === id ? content : null
   return <DialogFrame presentation={embedded ? "embedded" : "drawer"} title={embedded ? "Contest information" : contest ? "Edit contest" : "Create contest"} submitLabel={contest ? "Save changes" : "Create"} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) } } : undefined}>
     {contest && !embedded && <div className="settings-tabs" role="tablist">{tabs.map(item => { const Icon = item.icon; const count = item.id === "rounds" ? rounds.length : item.id === "grades" ? grades.length : item.id === "categories" ? categories.length : item.id === "rules" ? rules.length : null; return <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}><Icon />{item.label}{count !== null && <i>{count}</i>}</button> })}</div>}

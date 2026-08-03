@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes } from "react"
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react"
 
 export type ButtonVariant = "solid" | "outline" | "primary" | "secondary" | "danger" | "text" | "icon"
 export type ButtonColor = "primary" | "danger" | "success" | "warning" | "neutral"
@@ -6,9 +6,15 @@ export type ButtonColor = "primary" | "danger" | "success" | "warning" | "neutra
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   color?: ButtonColor
+  icon?: ReactNode
+  loading?: boolean
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = "outline", color = "primary", className = "", type = "button", ...props }, ref) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = "outline", color = "primary", icon, loading = false, className = "", type = "button", disabled, children, ...props }, ref) {
   const variantClass = variant === "solid" ? "primary" : variant === "outline" ? "secondary" : variant === "text" ? "text-button" : variant === "icon" ? "icon-button" : variant
-  return <button ref={ref} type={type} className={`ui-button ${variantClass} button-color-${color} ${className}`.trim()} {...props} />
+  const spinner = <span className="ui-button-spinner" aria-hidden="true" />
+  return <button ref={ref} type={type} disabled={disabled || loading} aria-busy={loading || undefined} className={`ui-button ${variantClass} button-color-${color} ${loading ? "is-loading" : ""} ${className}`.trim()} {...props}>
+    {icon ? <span className="ui-button-icon" aria-hidden="true">{loading ? spinner : icon}</span> : loading ? <span className="ui-button-loading-overlay">{spinner}</span> : null}
+    <span className="ui-button-content">{children}</span>
+  </button>
 })

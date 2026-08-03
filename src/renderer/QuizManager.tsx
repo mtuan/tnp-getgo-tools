@@ -51,6 +51,8 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
   const [query, setQuery] = useState("")
   const [sourceLoading, setSourceLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [questionOperation, setQuestionOperation] = useState<"save" | "reset" | null>(null)
+  const [buttonAction, setButtonAction] = useState<string | null>(null)
   const [sourceError, setSourceError] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiInstructions, setAiInstructions] = useState("")
@@ -104,6 +106,14 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
     else setPage({ kind: "contests" })
   }
 
+  async function runButtonAction(key: string, action: () => Promise<void>) {
+    if (buttonAction) return
+    setButtonAction(key)
+    try { await action() }
+    catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); toast.show({ title: "Operation failed", description: message, variant: "error" }) }
+    finally { setButtonAction(null) }
+  }
+
   if (page.kind === "quiz") {
     const { quiz } = page
     const quizContest = snapshot.contests.find(contest => contest.id === quiz.contest)
@@ -127,7 +137,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
       const backToQuestions = () => { setSelectedQuestion(null); setPendingQuestionNo(null) }
       const saveQuestion = async () => {
         if (!questionDraftRecord?.advancedDynamic) return
-        setSaving(true); setSourceError(null)
+        setSaving(true); setQuestionOperation("save"); setSourceError(null)
         try {
           const savedQuestion = await window.getgo.saveQuizQuestion(quiz.manifestPath, questionDraftRecord)
           setQuestionDraftRecord(savedQuestion)
@@ -135,29 +145,29 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
           toast.show({ title: `Question ${savedQuestion.question_no} saved`, description: "The formatted question file was updated." })
         }
         catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setSourceError(message); toast.show({ title: "Could not save question", description: message, variant: "error" }) }
-        finally { setSaving(false) }
+        finally { setSaving(false); setQuestionOperation(null) }
       }
       const resetQuestion = async () => {
         if (!questionDraftRecord || !window.confirm("Reset this question to its default generated TypeScript? This will remove all AI-generated code and AI response history.")) return
-        setSaving(true); setSourceError(null)
+        setSaving(true); setQuestionOperation("reset"); setSourceError(null)
         try {
           const reset = await window.getgo.resetQuizQuestion(quiz.manifestPath, questionDraftRecord)
           setQuestionDraftRecord(reset)
           setQuestionRecords(current => current.map(item => String(item.question_no) === String(reset.question_no) ? reset : item))
           toast.show({ title: `Question ${reset.question_no} reset`, description: "Default TypeScript was restored and AI data was removed." })
         } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setSourceError(message); toast.show({ title: "Could not reset question", description: message, variant: "error" }) }
-        finally { setSaving(false) }
+        finally { setSaving(false); setQuestionOperation(null) }
       }
       return <section className="manager editor-page question-detail-page">
         <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }, { label: `Question ${activeQuestion.number}` }]} />
-        <PageHeader variant="editor" eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} actions={<><Button disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}><RotateCcw size={15} />Reset</Button><Button variant="solid" disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>{saving ? <span className="mini-spinner" /> : <Save size={15} />}{saving ? "Saving…" : "Save"}</Button></>} />
+        <PageHeader variant="editor" eyebrow="Advanced question editor" title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} leading={<button className="back-button" onClick={backToQuestions} aria-label="Back to questions"><ArrowLeft /></button>} actions={<><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={saving || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>Save</Button></>} />
         {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
         {questionDraftRecord?.advancedDynamic && <AdvancedQuestionEditor record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
       </section>
     }
     return <section className="manager editor-page">
       <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.id }]} />
-      <PageHeader variant="editor" eyebrow="Quiz detail" title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} leading={<button className="back-button" onClick={goBack} aria-label="Back to contest"><ArrowLeft /></button>} actions={quizTab === "info" ? <Button variant="solid" color="danger" onClick={async () => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }); toast.show({ title: "Quiz deleted", description: `${quiz.title} was moved to Trash.` }) }}><Trash2 size={15} />Delete quiz</Button> : <><Button onClick={() => window.getgo.showInFolder(quiz.manifestPath)}><FolderOpen size={15} />Files</Button><Button className="ai-button" onClick={() => setAiOpen(value => !value)}><Sparkles size={15} />AI assist</Button></>} />
+      <PageHeader variant="editor" eyebrow="Quiz detail" title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} leading={<button className="back-button" onClick={goBack} aria-label="Back to contest"><ArrowLeft /></button>} actions={quizTab === "info" ? <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-quiz"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; void runButtonAction("delete-quiz", async () => { const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }); toast.show({ title: "Quiz deleted", description: `${quiz.title} was moved to Trash.` }) }) }}>Delete quiz</Button> : <><Button icon={<FolderOpen size={15} />} loading={buttonAction === "show-files"} disabled={Boolean(buttonAction)} onClick={() => void runButtonAction("show-files", () => window.getgo.showInFolder(quiz.manifestPath))}>Files</Button><Button icon={<Sparkles size={15} />} className="ai-button" onClick={() => setAiOpen(value => !value)}>AI assist</Button></>} />
       <SummaryStrip items={[{ label: "Status", value: quiz.contentStatus }, { label: "QuizBuilder API", value: quiz.quizBuilderApiVersion ?? "—" }, { label: "Questions", value: quiz.questionCount ?? "—" }, { label: "Artifact", value: quiz.hasGeneratedArtifact ? "Built" : "Not built" }]} />
       <Tabs<"info" | "questions"> variant="underline" className="contest-detail-tabs" ariaLabel="Quiz detail" value={quizTab} onChange={setQuizTab} items={[{ id: "questions", label: "Questions", badge: questions.length || quiz.questionCount || 0 }, { id: "info", label: "Info" }]} />
       {quizTab === "info" && quizContest && <QuizCrudDialog embedded quiz={quiz} contest={quizContest} onClose={() => undefined} onSaved={async input => { const next = await window.getgo.updateQuiz(quiz.manifestPath, { title: input.title, grade: input.grade, round: input.round, year: input.year, status: input.status, quizBuilderApiVersion: input.quizBuilderApiVersion }); onSnapshotChange(next); const updated = next.quizzes.find(item => item.key === quiz.key); if (updated) setPage({ kind: "quiz", quiz: updated }); toast.show({ title: "Quiz updated", description: `${input.title} was saved.` }) }} />}
@@ -165,7 +175,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
       {aiOpen && <div className="ai-panel">
         <div className="ai-panel-icon"><Bot /></div><div className="ai-panel-copy"><strong>GetGo AI assistant</strong><span>AI generation uses the authenticated web-admin service. Continue there to generate or revise question code with the same quiz context.</span></div>
         <textarea value={aiInstructions} onChange={event => setAiInstructions(event.target.value)} placeholder="Describe the question or change you want…" aria-label="AI instructions" />
-        <Button variant="solid" onClick={() => void window.getgo.openExternal(webAdminUrl)}><ExternalLink size={15} />Open authenticated AI editor</Button>
+        <Button icon={<ExternalLink size={15} />} loading={buttonAction === "open-ai-editor"} variant="solid" disabled={Boolean(buttonAction)} onClick={() => void runButtonAction("open-ai-editor", () => window.getgo.openExternal(webAdminUrl))}>Open authenticated AI editor</Button>
       </div>}
       <DataTable ariaLabel="Quiz questions" rows={questions} columns={questionColumns} rowKey={(item, index) => `${item.number}-${index}`} emptyText={sourceLoading ? "Loading questions…" : "No questions found in questions/ or raw.json."} onRowClick={(item, index) => { setSelectedQuestion(index); setQuestionDraftRecord(structuredClone(item.record)); setPendingQuestionNo(item.number) }} /></>}
     </section>
@@ -174,7 +184,7 @@ export function QuizManager({ snapshot, initialRoute, onChangeRepository, onSnap
   const isContest = page.kind === "contest"
   return <section className="manager">
     {isContest && <Breadcrumbs items={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: page.contest.toUpperCase() }]} />}
-    <PageHeader className="manager-heading" eyebrow="Quiz manager" title={isContest ? selectedContest?.title ?? page.contest.toUpperCase() : "Contests"} description={isContest ? `${selectedContest?.quizzes.length ?? 0} quizzes in this contest` : `${contests.length} contests across the local repository`} leading={isContest ? <button className="back-button" onClick={goBack}><ArrowLeft /></button> : undefined} actions={<>{(!isContest || contestTab === "quizzes") && <Button variant="solid" onClick={() => isContest ? setQuizDialog("create") : setContestDialog("create")}><Plus size={15} />{isContest ? "Create quiz" : "Create contest"}</Button>}{isContest && contestTab === "info" && selectedContest && <Button variant="solid" color="danger" onClick={async () => { if (!window.confirm(`Delete ${selectedContest.title}? This will move the contest folder to Trash.`)) return; const next = await window.getgo.deleteContest(selectedContest.id); onSnapshotChange(next); setPage({ kind: "contests" }); toast.show({ title: "Contest deleted", description: `${selectedContest.title} was moved to Trash.` }) }}><Trash2 size={15} />Delete contest</Button>}<Button onClick={onChangeRepository}>Change repository</Button></>} />
+    <PageHeader className="manager-heading" eyebrow="Quiz manager" title={isContest ? selectedContest?.title ?? page.contest.toUpperCase() : "Contests"} description={isContest ? `${selectedContest?.quizzes.length ?? 0} quizzes in this contest` : `${contests.length} contests across the local repository`} leading={isContest ? <button className="back-button" onClick={goBack}><ArrowLeft /></button> : undefined} actions={<>{(!isContest || contestTab === "quizzes") && <Button icon={<Plus size={15} />} variant="solid" onClick={() => isContest ? setQuizDialog("create") : setContestDialog("create")}>{isContest ? "Create quiz" : "Create contest"}</Button>}{isContest && contestTab === "info" && selectedContest && <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-contest"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${selectedContest.title}? This will move the contest folder to Trash.`)) return; void runButtonAction("delete-contest", async () => { const next = await window.getgo.deleteContest(selectedContest.id); onSnapshotChange(next); setPage({ kind: "contests" }); toast.show({ title: "Contest deleted", description: `${selectedContest.title} was moved to Trash.` }) }) }}>Delete contest</Button>}<Button loading={buttonAction === "change-repository"} disabled={Boolean(buttonAction)} onClick={() => void runButtonAction("change-repository", async () => { await onChangeRepository() })}>Change repository</Button></>} />
     {isContest && <Tabs<"info" | "quizzes"> variant="underline" className="contest-detail-tabs" ariaLabel="Contest detail" value={contestTab} onChange={setContestTab} items={[{ id: "quizzes", label: "Quizzes", badge: selectedContest?.quizzes.length ?? 0 }, { id: "info", label: "Info" }]} />}
     {isContest && contestTab === "info" && selectedContest && <ContestSettingsDialog embedded contest={selectedContest} onClose={() => undefined} onSaved={async settings => { const next = await window.getgo.updateContest(selectedContest.id, settings); onSnapshotChange(next); toast.show({ title: "Contest updated", description: `${settings.book.title} was saved.` }) }} />}
     {(!isContest || contestTab === "quizzes") && <><div className="manager-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search contests…"} /></div>
