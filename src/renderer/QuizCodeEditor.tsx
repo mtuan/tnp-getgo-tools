@@ -46,21 +46,27 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   editableRef.current = modelEditableRange
   const applyRanges = useCallback(() => {
     const editor = editorRef.current; const model = editor?.getModel(); if (!editor || !model) return
+    const lineCount = model.getLineCount()
+    const clampLine = (line: number) => Math.max(1, Math.min(lineCount, line))
+    const visibleStart = modelVisibleRange ? clampLine(modelVisibleRange.startLineNumber) : 1
+    const visibleEnd = modelVisibleRange ? clampLine(modelVisibleRange.endLineNumber) : lineCount
+    const editableStart = modelEditableRange ? clampLine(modelEditableRange.startLineNumber) : visibleStart
+    const editableEnd = modelEditableRange ? clampLine(modelEditableRange.endLineNumber) : visibleEnd
     const hidden: monaco.Range[] = []
     if (modelVisibleRange) {
-      if (modelVisibleRange.startLineNumber > 1) hidden.push(new monaco.Range(1, 1, modelVisibleRange.startLineNumber - 1, 1))
-      if (modelVisibleRange.endLineNumber < model.getLineCount()) hidden.push(new monaco.Range(modelVisibleRange.endLineNumber + 1, 1, model.getLineCount(), model.getLineMaxColumn(model.getLineCount())))
+      if (visibleStart > 1) hidden.push(new monaco.Range(1, 1, visibleStart - 1, model.getLineMaxColumn(visibleStart - 1)))
+      if (visibleEnd < lineCount) hidden.push(new monaco.Range(visibleEnd + 1, 1, lineCount, model.getLineMaxColumn(lineCount)))
     }
     ;(editor as typeof editor & { setHiddenAreas(ranges: monaco.IRange[]): void }).setHiddenAreas(hidden)
     const decorations: monaco.editor.IModelDeltaDecoration[] = []
-    if (modelVisibleRange && modelEditableRange) for (const [start, end] of [[modelVisibleRange.startLineNumber, modelEditableRange.startLineNumber - 1], [modelEditableRange.endLineNumber + 1, modelVisibleRange.endLineNumber]]) for (let line = start; line <= end; line += 1) decorations.push({ range: new monaco.Range(line, 1, line, model.getLineMaxColumn(line)), options: { inlineClassName: "monaco-readonly-code" } })
+    if (modelVisibleRange && modelEditableRange) for (const [start, end] of [[visibleStart, editableStart - 1], [editableEnd + 1, visibleEnd]]) for (let line = start; line <= end; line += 1) decorations.push({ range: new monaco.Range(line, 1, line, model.getLineMaxColumn(line)), options: { inlineClassName: "monaco-readonly-code" } })
     lockedRef.current ? lockedRef.current.set(decorations) : lockedRef.current = editor.createDecorationsCollection(decorations)
   }, [modelEditableRange, modelVisibleRange])
   const onMount = useCallback<OnMount>(editor => {
     editorRef.current = editor; applyRanges(); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
     if (autoHeight) { const update = () => setHeight(Math.max(minHeight, editor.getContentHeight())); update(); editor.onDidContentSizeChange(update) }
     const updateReadOnly = () => { const range = editableRef.current; const selection = editor.getSelection(); editor.updateOptions({ readOnly: readOnly || (!!range && !(selection && selection.startLineNumber >= range.startLineNumber && selection.endLineNumber <= range.endLineNumber)) }) }
-    if (editableRef.current) { editor.setPosition({ lineNumber: editableRef.current.startLineNumber, column: 1 }); updateReadOnly(); editor.onDidChangeCursorSelection(updateReadOnly) }
+    if (editableRef.current) { const model = editor.getModel(); editor.setPosition({ lineNumber: Math.max(1, Math.min(model?.getLineCount() ?? 1, editableRef.current.startLineNumber)), column: 1 }); updateReadOnly(); editor.onDidChangeCursorSelection(updateReadOnly) }
     editor.onDidBlurEditorWidget(() => blurRef.current?.())
     if (formatOnMount) void Promise.resolve(formatOnMount(value)).then(formatted => { if (formatted !== value) changeRef.current(formatted) }).catch(() => { /* Invalid drafts remain editable. */ })
   }, [applyRanges, autoHeight, formatOnMount, minHeight, readOnly, value])
