@@ -8,6 +8,7 @@ const api: DesktopApi = {
   scanRepository: (path?: string) => ipcRenderer.invoke("repository:scan", path) as Promise<RepositorySnapshot>,
   setEnvironment: (environment) => ipcRenderer.invoke("settings:environment", environment) as Promise<AppSettings>,
   setAiProfile: (profile) => ipcRenderer.invoke("settings:ai-profile", profile) as Promise<AppSettings>,
+  setLocale: (locale) => ipcRenderer.invoke("settings:locale", locale) as Promise<AppSettings>,
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
   getPublishingStatus: () => ipcRenderer.invoke("publishing:status"),
   publishQuiz: (contestId, quizId) => ipcRenderer.invoke("publishing:quiz", contestId, quizId),

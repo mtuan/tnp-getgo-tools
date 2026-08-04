@@ -55,6 +55,10 @@ const aiProfileOptions: SelectOption[] = [
   { value: "thorough", label: "Thorough" },
   { value: "fast", label: "Fast" },
 ]
+const localeOptions: SelectOption[] = [
+  { value: "en", label: "English" },
+  { value: "vi", label: "Tiếng Việt" },
+]
 
 function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
   return <span className={`badge badge-${value}`}>{value.replace("-", " ")}</span>
@@ -65,7 +69,7 @@ export function App() {
   const auth = useAuth()
   const [initialRoute] = useState(readLastRoute)
   const [view, setView] = useState<View>(() => viewFromRoute(initialRoute))
-  const [settings, setSettings] = useState<AppSettings>({ repositoryPath: null, environment: "staging", aiProfile: "thorough" })
+  const [settings, setSettings] = useState<AppSettings>({ repositoryPath: null, environment: "staging", aiProfile: "thorough", locale: "en" })
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [choosingRepository, setChoosingRepository] = useState(false)
@@ -138,6 +142,11 @@ export function App() {
       toast.show({ title: "Could not update AI profile", description: cause instanceof Error ? cause.message : String(cause), variant: "error" })
     } finally { setSavingAiProfile(false) }
   }
+  async function changeLocale(locale: AppSettings["locale"]) {
+    const next = await window.getgo.setLocale(locale)
+    setSettings(next)
+    document.documentElement.lang = locale
+  }
   async function restartApp() {
     setRestartingApp(true)
     try {
@@ -151,6 +160,7 @@ export function App() {
   useEffect(() => {
     window.getgo.getSettings().then((value) => {
       setSettings(value)
+      document.documentElement.lang = value.locale
       if (typeof window.getgo.checkEnvironmentReadiness === "function") {
         const checkId = ++environmentCheckId.current
         setCheckingEnvironment(true)
@@ -265,8 +275,8 @@ export function App() {
           </Panel>
         </>}
         {settings.repositoryPath && view === "quizzes" && snapshot && <QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} />}
-        {settings.repositoryPath && view === "publishing" && snapshot && <Suspense fallback={null}><PublishingPage environment={settings.environment} repository={snapshot} /></Suspense>}
-        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /><label>Restart application<span>Development restarts keep the Vite hot-update connection active. Packaged builds relaunch GetGo Tools.</span></label><div><Button icon={<RotateCcw size={15} />} loading={restartingApp} variant="secondary" onClick={() => void restartApp()}>Restart GetGo Tools</Button></div></div></section>}
+        {settings.repositoryPath && view === "publishing" && snapshot && <Suspense fallback={null}><PublishingPage environment={settings.environment} repository={snapshot} locale={settings.locale} /></Suspense>}
+        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>Locale<span>Choose the language used by localized application pages.</span></label><Select value={settings.locale} options={localeOptions} onValueChange={value => void changeLocale(value as AppSettings["locale"])} /><label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /><label>Restart application<span>Development restarts keep the Vite hot-update connection active. Packaged builds relaunch GetGo Tools.</span></label><div><Button icon={<RotateCcw size={15} />} loading={restartingApp} variant="secondary" onClick={() => void restartApp()}>Restart GetGo Tools</Button></div></div></section>}
         </PageTransition>
       </div>
     </main>

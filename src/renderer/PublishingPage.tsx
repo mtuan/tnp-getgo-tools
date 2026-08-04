@@ -13,14 +13,6 @@ import { Select } from "./ui/Select"
 import { SummaryCard } from "./ui/SummaryCard"
 import { useToast } from "./ui/Toast"
 
-const copy = (navigator.language.toLowerCase().startsWith("vi") ? vi : en).publishing
-const labels: Record<PublishingStatus, string> = {
-  "not-published": copy.notPublished,
-  "up-to-date": copy.upToDate,
-  changed: copy.changed,
-  "local-error": copy.localError,
-  "remote-error": copy.remoteError,
-}
 const interpolate = (value: string, data: Record<string, string | number>) => Object.entries(data).reduce((result, [key, replacement]) => result.replace(`{${key}}`, String(replacement)), value)
 function fromRepository(repository: RepositorySnapshot, environment: AppSettings["environment"]): PublishingSnapshot {
   return {
@@ -44,7 +36,15 @@ function fromRepository(repository: RepositorySnapshot, environment: AppSettings
   }
 }
 
-export function PublishingPage({ environment, repository }: { environment: AppSettings["environment"]; repository: RepositorySnapshot }) {
+export function PublishingPage({ environment, repository, locale }: { environment: AppSettings["environment"]; repository: RepositorySnapshot; locale: AppSettings["locale"] }) {
+  const copy = (locale === "vi" ? vi : en).publishing
+  const labels: Record<PublishingStatus, string> = {
+    "not-published": copy.notPublished,
+    "up-to-date": copy.upToDate,
+    changed: copy.changed,
+    "local-error": copy.localError,
+    "remote-error": copy.remoteError,
+  }
   const auth = useAuth()
   const toast = useToast()
   const [snapshot, setSnapshot] = useState<PublishingSnapshot>(() => fromRepository(repository, environment))

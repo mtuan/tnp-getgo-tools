@@ -227,6 +227,10 @@ app.whenReady().then(async () => {
     localAi.setProfile(profile)
     return next
   })
+  ipcMain.handle("settings:locale", (_event, locale: AppSettings["locale"]) => {
+    if (!["en", "vi"].includes(locale)) throw new Error("Invalid locale")
+    return settings.update({ locale })
+  })
   ipcMain.handle("shell:show", async (_event, filePath: string) => {
     if (typeof filePath !== "string" || !path.isAbsolute(filePath)) throw new Error("Invalid path")
     shell.showItemInFolder(filePath)

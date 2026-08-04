@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import type { AppSettings } from "../core/models.js"
 
-const defaults: AppSettings = { repositoryPath: null, environment: "staging", aiProfile: "thorough" }
+const defaults: AppSettings = { repositoryPath: null, environment: "staging", aiProfile: "thorough", locale: "en" }
 
 export class SettingsStore {
   constructor(private readonly userDataPath: string) {}

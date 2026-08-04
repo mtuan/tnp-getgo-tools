@@ -134,6 +134,7 @@ export interface AppSettings {
   repositoryPath: string | null
   environment: "development" | "staging" | "production"
   aiProfile: "thorough" | "fast"
+  locale: "en" | "vi"
 }
 
 export interface AuthUser {
@@ -214,6 +215,7 @@ export interface DesktopApi {
   scanRepository(path?: string): Promise<RepositorySnapshot>
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>
+  setLocale(locale: AppSettings["locale"]): Promise<AppSettings>
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>
   getPublishingStatus(): Promise<PublishingSnapshot>
   publishQuiz(contestId: string, quizId: string): Promise<PublishResult>

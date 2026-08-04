@@ -29,6 +29,9 @@ main { grid-column: 2; min-width: 0; }
 .topbar.production-header .repository span { color: #fecdd3; }
 .topbar.production-header .repository strong { color: white; }
 .topbar.production-header .repository:hover strong { color: white; }
+.topbar.production-header .topbar-back.icon-button { color: white; background: transparent; }
+.topbar.production-header .topbar-back.icon-button:not(:disabled):hover { color: white; background: #ffffff1f; }
+.topbar.production-header .topbar-back.icon-button:not(:disabled):active { color: white; background: #ffffff2e; }
 .account-button { max-width:240px; }
 .account-button span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .account-menu { position:fixed; z-index:210; width:260px; padding:7px; border:1px solid #e2e8f0; border-radius:12px; color:#334155; background:white; box-shadow:0 18px 46px #0f172a2e; animation:menu-in .16s var(--ease-out) both; }
