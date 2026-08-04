@@ -17,5 +17,5 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "node"]
   },
-  "include": ["src/renderer", "src/core", "src/global.d.ts", "vite.config.ts"]
+  "include": ["src/renderer", "src/core", "src/repositories", "src/global.d.ts", "vite.config.ts"]
 }

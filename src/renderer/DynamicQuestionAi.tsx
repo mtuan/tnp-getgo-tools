@@ -9,9 +9,15 @@ import { useToast } from "./ui/Toast"
 
 const sourceKeys = ["paramsGeneratorTs", "questionGeneratorTs", "explanationGeneratorTs", "originParamsTs"] as const
 const elapsedLabel = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
+const hasExplanationContent = (value: unknown): boolean => {
+  if (typeof value === "string") return value.trim().length > 0
+  if (Array.isArray(value)) return value.some(hasExplanationContent)
+  if (value && typeof value === "object") return Object.values(value).some(hasExplanationContent)
+  return false
+}
 
-export function DynamicQuestionAi({ record, context, diagnostics, onApply, onHistoryOpen }: { record: QuizQuestionRecord; context: Record<string, unknown>; diagnostics: string[]; onApply(record: QuizQuestionRecord): void; onHistoryOpen(): void }) {
-  const toast = useToast(); const mode = record.aiResponse ? "fix" : "generate"; const [instructions, setInstructions] = useState(""); const [busy, setBusy] = useState(false); const [elapsed, setElapsed] = useState(0)
+export function DynamicQuestionAi({ record, context, diagnostics, hasGeneratedExplanation = false, onApply, onHistoryOpen }: { record: QuizQuestionRecord; context: Record<string, unknown>; diagnostics: string[]; hasGeneratedExplanation?: boolean; onApply(record: QuizQuestionRecord): void; onHistoryOpen(): void }) {
+  const toast = useToast(); const mode = record.action === "generated" || record.aiResponse || hasExplanationContent(record.explanation) || hasGeneratedExplanation ? "fix" : "generate"; const [instructions, setInstructions] = useState(""); const [busy, setBusy] = useState(false); const [elapsed, setElapsed] = useState(0)
   const containsImages = questionContainsImages(record)
   const instructionsRef = useRef<HTMLTextAreaElement>(null)
   const requestVersion = useRef(0)
@@ -30,7 +36,14 @@ export function DynamicQuestionAi({ record, context, diagnostics, onApply, onHis
       if (mode === "generate") { const result = await window.getgo.createDynamicQuestionProposal({ question: record, context, instructions: instructions.trim() || undefined }); if (version !== requestVersion.current) return; await applyGenerated(result, startedAt, version); if (version !== requestVersion.current) return; toast.show({ title: "AI proposal applied", description: result.proposal.warnings[0] ?? result.proposal.explanation }) }
       else {
         const history = Array.isArray(record.aiFixHistory) ? record.aiFixHistory : []
-        const currentProposal = history.at(-1)?.proposal ?? record.aiResponse!.proposal
+        const currentProposal = history.at(-1)?.proposal ?? record.aiResponse?.proposal ?? {
+          ...record.advancedDynamic!,
+          parameterizedValues: [],
+          explanation: "Existing generated question code.",
+          assumptions: [],
+          warnings: [],
+          confidence: 1,
+        }
         const currentSummary = { parameterizedValues: currentProposal.parameterizedValues, explanation: currentProposal.explanation, assumptions: currentProposal.assumptions, warnings: currentProposal.warnings, confidence: currentProposal.confidence }
         const result = await window.getgo.fixDynamicQuestion({ currentCode: record.advancedDynamic!, currentSummary, context, diagnostics, instructions: instructions.trim() })
         if (version !== requestVersion.current) return

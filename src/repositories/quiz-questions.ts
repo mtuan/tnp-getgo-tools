@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs"
+import { Buffer } from "node:buffer"
 import { createHash } from "node:crypto"
 import path from "node:path"
 import { QuizTsService, createDynamicQuestionBuildService } from "@tnp/getgo-logics/authoring"
@@ -22,7 +23,7 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
 }
 
 const inlineImagePattern = /^data:image\/([a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i
-const builder = createDynamicQuestionBuildService({ createBuilder: () => new QuizBuilder(), serialize: value => QuizValueSerializer.serialize(value), deserialize: value => QuizValueSerializer.deserialize(value), hash: async source => createHash("sha256").update(source).digest("hex") })
+const builder = createDynamicQuestionBuildService({ createBuilder: () => new QuizBuilder(), serialize: <T>(value: T): T => QuizValueSerializer.serialize(value), deserialize: <T>(value: T): T => QuizValueSerializer.deserialize(value), hash: async (source: string) => createHash("sha256").update(source).digest("hex") })
 
 function sourceLiteral(value: unknown): string {
   return JSON.stringify(value, null, 2).replace(/^(\s*)"([A-Za-z_$][\w$]*)":/gm, "$1$2:")
@@ -30,7 +31,7 @@ function sourceLiteral(value: unknown): string {
 
 function indent(source: string, spaces: number): string {
   const prefix = " ".repeat(spaces)
-  return source.split("\n").map(line => `${prefix}${line}`).join("\n")
+  return source.split("\n").map((line: string) => `${prefix}${line}`).join("\n")
 }
 
 function answerExpression(value: unknown): string {
@@ -65,11 +66,11 @@ async function extractImages(question: Record<string, unknown>, index: number, a
     return `asset:${fileName}`
   }
   const imageDatas = Array.isArray(question.image_datas)
-    ? await Promise.all(question.image_datas.map((value, imageIndex) => processValue(value, imageIndex ? `${stem}-${imageIndex + 1}` : stem)))
+    ? await Promise.all(question.image_datas.map((value: unknown, imageIndex: number) => processValue(value, imageIndex ? `${stem}-${imageIndex + 1}` : stem)))
     : question.image_datas
   const answer = question.answer && typeof question.answer === "object" ? question.answer as Record<string, unknown> : undefined
   const choices = answer?.choices && typeof answer.choices === "object" ? answer.choices as Record<string, unknown> : undefined
-  const nextChoices = choices ? Object.fromEntries(await Promise.all(Object.entries(choices).map(async ([label, value]) => [label, await processValue(value, `${stem}-${label}`)]))) : undefined
+  const nextChoices = choices ? Object.fromEntries(await Promise.all(Object.entries(choices).map(async ([label, value]: [string, unknown]) => [label, await processValue(value, `${stem}-${label}`)]))) : undefined
   return { ...question, ...(imageDatas !== undefined ? { image_datas: imageDatas } : {}), ...(answer ? { answer: { ...answer, ...(nextChoices ? { choices: nextChoices } : {}) } } : {}) }
 }
 
@@ -140,14 +141,14 @@ export function normalizeLegacyOriginParamsSource(source: string | undefined): s
 
 async function questionsFromRawTs(quizDirectory: string): Promise<QuizQuestionRecord[] | null> {
   const rawTsPath = path.join(quizDirectory, "raw.ts")
-  const source = await fs.readFile(rawTsPath, "utf8").catch((cause: NodeJS.ErrnoException) => {
-    if (cause.code === "ENOENT") return null
+  const source = await fs.readFile(rawTsPath, "utf8").catch((cause: unknown) => {
+    if (cause && typeof cause === "object" && "code" in cause && cause.code === "ENOENT") return null
     throw cause
   })
   if (source === null) return null
   const snippets = QuizTsService.extractSnippets(source)
   const rawJson = await fs.readFile(path.join(quizDirectory, "raw.json"), "utf8")
-    .then(value => JSON.parse(value) as Record<string, unknown> | unknown[])
+    .then((value: string) => JSON.parse(value) as Record<string, unknown> | unknown[])
     .catch(() => null)
   const rawQuestions = Array.isArray(rawJson)
     ? rawJson
@@ -179,7 +180,7 @@ async function questionsFromRawTs(quizDirectory: string): Promise<QuizQuestionRe
       }
     }
     if (!sourceQuestion) {
-      const matchingRaw = rawQuestions.find(value => value && typeof value === "object" && String((value as Record<string, unknown>).question_no ?? "") === String(index + 1))
+      const matchingRaw = rawQuestions.find((value: unknown) => value && typeof value === "object" && String((value as Record<string, unknown>).question_no ?? "") === String(index + 1))
         ?? rawQuestions[index]
       if (matchingRaw && typeof matchingRaw === "object") sourceQuestion = matchingRaw as Record<string, unknown>
     }
@@ -214,8 +215,8 @@ export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuest
   const quizDirectory = path.dirname(manifestPath)
   const questionsDirectory = path.join(quizDirectory, "questions")
   const existing = await fs.readdir(questionsDirectory).catch(() => [] as string[])
-  const files = existing.filter(name => /^q\d+\.json$/i.test(name)).sort((a, b) => questionNumber(a) - questionNumber(b))
-  if (files.length) return Promise.all(files.map(async file => {
+  const files = existing.filter((name: string) => /^q\d+\.json$/i.test(name)).sort((a: string, b: string) => questionNumber(a) - questionNumber(b))
+  if (files.length) return Promise.all(files.map(async (file: string) => {
     const record = JSON.parse(await fs.readFile(path.join(questionsDirectory, file), "utf8")) as QuizQuestionRecord
     if (!record.advancedDynamic) return record
     try { return await formatQuestionCode(record) }
@@ -236,6 +237,9 @@ export async function saveQuizQuestion(manifestPath: string, question: QuizQuest
   if (question.verified === true && question.action !== "generated") {
     throw new Error('Question action must be exactly "generated" before verification')
   }
+  if (question.verified === true && (!question.aiResponse || typeof question.aiResponse !== "object")) {
+    throw new Error("Generated question requires aiResponse data before verification")
+  }
   const questionsDirectory = path.join(path.dirname(manifestPath), "questions")
   await fs.mkdir(questionsDirectory, { recursive: true })
   const formatted = await formatQuestionCode(question)
@@ -245,7 +249,7 @@ export async function saveQuizQuestion(manifestPath: string, question: QuizQuest
 
 export async function resetQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
   const defaults = await defaultQuestions(path.dirname(manifestPath))
-  const sourceDefault = defaults.find(item => String(item.question_no) === String(question.question_no))
+  const sourceDefault = defaults.find((item: QuizQuestionRecord) => String(item.question_no) === String(question.question_no))
   const { action: _action, advancedDynamic: _advancedDynamic, aiResponse: _aiResponse, aiFixHistory: _aiFixHistory, generatorBuild: _generatorBuild, ...sourceQuestion } = question
   const reset = sourceDefault ?? normalizeQuestion(
     { ...sourceQuestion, authoringMode: undefined, verified: false },
