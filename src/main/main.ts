@@ -7,10 +7,12 @@ import type { AppSettings } from "../core/models.js"
 import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../repositories/quiz-questions.js"
+import { recordPublishedHash } from "../repositories/quiz-publishing.js"
 import { readAiUsage } from "../repositories/ai-usage.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
 import { LocalAiService } from "./local-ai.js"
+import { FirestorePublishingService } from "./firestore-publishing.js"
 
 loadEnvironment({ path: app.isPackaged ? path.join(process.resourcesPath, ".env") : path.join(app.getAppPath(), ".env") })
 
@@ -70,6 +72,7 @@ app.whenReady().then(async () => {
   const settings = new SettingsStore(app.getPath("userData"))
   const initialSettings = await settings.read()
   firebaseAuth = new FirebaseAuthService(app.getPath("userData"), async () => (await settings.read()).environment)
+  const publishing = new FirestorePublishingService(firebaseAuth)
   const localAi = new LocalAiService({
     apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
     model: process.env.GETGO_AI_OPENAI_MODEL,
@@ -120,6 +123,22 @@ app.whenReady().then(async () => {
     const current = await settings.read()
     if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
     return readAiUsage(await scanQuizRepository(current.repositoryPath))
+  })
+  ipcMain.handle("publishing:status", async () => {
+    const current = await settings.read()
+    if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
+    return publishing.reconcile(await scanQuizRepository(current.repositoryPath, { inspectQuestionRecords: false }))
+  })
+  ipcMain.handle("publishing:quiz", async (_event, contestId: unknown, quizId: unknown) => {
+    if (typeof contestId !== "string" || typeof quizId !== "string" || !/^[a-z0-9_-]+$/i.test(contestId) || !/^[a-z0-9_-]+$/i.test(quizId)) throw new Error("Invalid quiz selection.")
+    const current = await settings.read()
+    if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
+    const snapshot = await scanQuizRepository(current.repositoryPath)
+    const quiz = snapshot.quizzes.find(item => item.contest === contestId && item.id === quizId)
+    if (!quiz) throw new Error("The selected quiz was not found.")
+    const result = await publishing.publish(quiz)
+    await recordPublishedHash(quiz.manifestPath, result.contentHash, result.publishedAt)
+    return result
   })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {

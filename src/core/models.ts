@@ -18,6 +18,8 @@ export interface QuizManifest {
   status: ContentStatus
   source: { format: string; rawJsonSha256: string; quizTsSha256: string }
   quizBuilderApiVersion?: number
+  publishedHash?: string
+  publishedAt?: string
 }
 
 export interface QuizSummary {
@@ -39,6 +41,8 @@ export interface QuizSummary {
   questionStorageVersion: QuestionStorageVersion
   hasGeneratedArtifact: boolean
   artifactHash: string | null
+  publishedHash: string | null
+  publishedAt: string | null
   questionCount: number | null
   reviewedQuestionCount: number
   migrationErrorCount: number
@@ -176,6 +180,49 @@ export interface EnvironmentReadiness {
   checks: EnvironmentReadinessCheck[]
 }
 
+export type PublishingStatus = "not-published" | "up-to-date" | "changed" | "local-error" | "remote-error"
+
+export interface PublishableQuiz {
+  contestId: string
+  quizId: string
+  title: string
+  grade: string | null
+  round: string | null
+  year: string | null
+  questionCount: number
+  contentHash: string
+}
+
+export interface PublishingQuizStatus {
+  contestId: string
+  quizId: string
+  title: string
+  grade: string | null
+  round: string | null
+  year: string | null
+  questionCount: number | null
+  contentHash: string | null
+  publishedHash: string | null
+  publishedAt: string | null
+  status: PublishingStatus
+  error?: string
+}
+
+export interface PublishingSnapshot {
+  environment: AppSettings["environment"]
+  projectId: string
+  scannedAt: string
+  quizzes: PublishingQuizStatus[]
+}
+
+export interface PublishResult {
+  contestId: string
+  quizId: string
+  contentHash: string
+  questionCount: number
+  publishedAt: string
+}
+
 export type DynamicQuestionProposal = GetGoDynamicQuestionProposal
 export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult
 export type DynamicQuestionFixResult = GetGoDynamicQuestionFixResult
@@ -189,6 +236,8 @@ export interface DesktopApi {
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>
   getAiUsage(): Promise<AiUsageInfo>
+  getPublishingStatus(): Promise<PublishingSnapshot>
+  publishQuiz(contestId: string, quizId: string): Promise<PublishResult>
   showInFolder(path: string): Promise<void>
   showQuizQuestionInFolder(manifestPath: string, questionNo: number | string): Promise<void>
   readQuizAsset(manifestPath: string, assetReference: string): Promise<string>

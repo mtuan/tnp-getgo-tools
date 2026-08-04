@@ -19,6 +19,7 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
   await fs.writeFile(path.join(valid, "manifest.json"), JSON.stringify({
     schemaVersion: 1, id: "quiz-1", legacyId: "legacy-1", contest: "seamo", status: "reviewed",
     source: { format: "portal-client-v1", rawJsonSha256: "hash", quizTsSha256: "hash" },
+    publishedHash: "a".repeat(64), publishedAt: "2026-08-04T00:00:00.000Z",
   }))
   await fs.writeFile(path.join(valid, "quiz.ts"), "export {}")
   await fs.writeFile(path.join(invalid, "manifest.json"), "{}")
@@ -30,6 +31,8 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
   assert.equal(result.quizzes[0].hasQuizTs, true)
   assert.equal(result.quizzes[0].questionStorageVersion, "legacy")
   assert.equal(result.quizzes[0].deploymentStatus, "not-built")
+  assert.equal(result.quizzes[0].publishedHash, "a".repeat(64))
+  assert.equal(result.quizzes[0].publishedAt, "2026-08-04T00:00:00.000Z")
   assert.equal(result.issues.length, 1)
 
   await fs.mkdir(path.join(valid, "questions"))

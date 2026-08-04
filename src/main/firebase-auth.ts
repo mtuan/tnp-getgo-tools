@@ -132,6 +132,17 @@ export class FirebaseAuthService {
     try { return { user: (await this.activeSession())?.user ?? null } }
     catch { return { user: null } }
   }
+  async firestoreRequest(relativePath: string, init: RequestInit = {}): Promise<{ projectId: string; response: Response }> {
+    const session = await this.activeSession()
+    if (!session) throw new Error("Sign in before accessing Firestore.")
+    const { firebase: { projectId } } = await this.config()
+    const response = await fetch(`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents${relativePath}`, {
+      ...init,
+      headers: { authorization: `Bearer ${session.idToken}`, "content-type": "application/json", ...init.headers },
+      signal: init.signal ?? AbortSignal.timeout(30_000),
+    })
+    return { projectId, response }
+  }
   async signIn(email: string, password: string): Promise<AuthState> {
     const { environment, firebase: { apiKey } } = await this.config()
     const result = await postJson(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, { email, password, returnSecureToken: true }) as Record<string, unknown>

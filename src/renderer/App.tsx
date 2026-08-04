@@ -15,6 +15,7 @@ import { Select, type SelectOption } from "./ui/Select"
 import { useToast } from "./ui/Toast"
 
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
+const PublishingPage = lazy(() => import("./PublishingPage").then(module => ({ default: module.PublishingPage })))
 
 type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "ai-usage" | "settings" | "not-found"
 type NavigableView = Exclude<View, "not-found">
@@ -269,7 +270,7 @@ export function App() {
         </>}
         {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
-        {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
+        {settings.repositoryPath && view === "publishing" && <Suspense fallback={<div className="publishing-skeleton"><div /><div /><div /><div /></div>}><PublishingPage environment={settings.environment} /></Suspense>}
         {settings.repositoryPath && view === "ai-usage" && <AiUsagePage />}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /><label>Restart application<span>Development restarts keep the Vite hot-update connection active. Packaged builds relaunch GetGo Tools.</span></label><div><Button icon={<RotateCcw size={15} />} loading={restartingApp} variant="secondary" onClick={() => void restartApp()}>Restart GetGo Tools</Button></div></div></section>}
         </PageTransition>

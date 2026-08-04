@@ -9,9 +9,10 @@ async function exists(filePath: string): Promise<boolean> {
   try { await fs.access(filePath); return true } catch { return false }
 }
 
-async function readQuestionReview(directory: string): Promise<{ count: number; reviewed: number; errors: number }> {
+async function readQuestionReview(directory: string, inspectRecords: boolean): Promise<{ count: number; reviewed: number; errors: number }> {
   const entries = await fs.readdir(path.join(directory, "questions"), { withFileTypes: true }).catch(() => [])
   const files = entries.filter(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
+  if (!inspectRecords) return { count: files.length, reviewed: 0, errors: 0 }
   const states = await Promise.all(files.map(async entry => {
     try {
       const question = JSON.parse(await fs.readFile(path.join(directory, "questions", entry.name), "utf8")) as { verified?: unknown; migrationError?: unknown }
@@ -83,12 +84,12 @@ async function readGenerated(root: string, manifest: QuizManifest): Promise<{
   }
 }
 
-async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary> {
+async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecords: boolean): Promise<QuizSummary> {
   const raw = JSON.parse(await fs.readFile(manifestPath, "utf8")) as unknown
   const manifest = quizManifestSchema.parse(raw)
   const directory = path.dirname(manifestPath)
   const generated = await readGenerated(root, manifest)
-  const review = await readQuestionReview(directory)
+  const review = await readQuestionReview(directory, inspectQuestionRecords)
   const stat = await fs.stat(manifestPath)
   const relativePath = path.relative(root, directory)
   let title = manifest.title ?? manifest.id
@@ -122,6 +123,8 @@ async function mapQuiz(root: string, manifestPath: string): Promise<QuizSummary>
     questionStorageVersion: review.count > 0 ? "questions-v1" : "legacy",
     hasGeneratedArtifact: generated.exists,
     artifactHash: generated.hash,
+    publishedHash: manifest.publishedHash ?? null,
+    publishedAt: manifest.publishedAt ?? null,
     questionCount: review.count || generated.questionCount,
     reviewedQuestionCount: review.reviewed,
     migrationErrorCount: review.errors,
@@ -145,7 +148,7 @@ async function mapContest(root: string, id: string): Promise<ContestSummary> {
   }
 }
 
-export async function scanQuizRepository(repositoryPath: string): Promise<RepositorySnapshot> {
+export async function scanQuizRepository(repositoryPath: string, options: { inspectQuestionRecords?: boolean } = {}): Promise<RepositorySnapshot> {
   const root = path.resolve(repositoryPath)
   if (!(await exists(path.join(root, "quizzes")))) {
     throw new Error("This folder does not contain a quizzes directory.")
@@ -168,7 +171,7 @@ export async function scanQuizRepository(repositoryPath: string): Promise<Reposi
     }
   }
   for (const manifestPath of manifests) {
-    try { quizzes.push(await mapQuiz(root, manifestPath)) }
+    try { quizzes.push(await mapQuiz(root, manifestPath, options.inspectQuestionRecords !== false)) }
     catch (error) {
       issues.push({
         path: path.relative(root, manifestPath),
