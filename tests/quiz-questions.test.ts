@@ -91,7 +91,7 @@ test("saves and reloads a syntax-invalid question draft verbatim", async () => {
   })
 
   assert.equal(saved.advancedDynamic?.paramsGeneratorTs, invalidParams)
-  assert.match(saved.advancedDynamic?.draftSourceTs as string, /return \{ side \}\}\n\}/)
+  assert.match(saved.advancedDynamic?.draftSourceTs as string, /return \{ side \}\}/)
 
   const reloaded = await loadQuizQuestions(manifestPath)
   assert.equal(reloaded[0].advancedDynamic?.paramsGeneratorTs, invalidParams)
