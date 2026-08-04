@@ -173,6 +173,19 @@ app.whenReady().then(async () => {
     await resolveQuizSource(manifestPath)
     return manifestPath as string
   }
+  ipcMain.handle("quiz-asset:read", async (_event, manifestPath: unknown, assetReference: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    if (typeof assetReference !== "string" || !assetReference.startsWith("asset:")) throw new Error("Invalid quiz asset reference")
+    const relativeAssetPath = assetReference.slice("asset:".length)
+    const assetsDirectory = path.join(path.dirname(manifest), "assets")
+    const assetPath = path.resolve(assetsDirectory, relativeAssetPath)
+    const relative = path.relative(assetsDirectory, assetPath)
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Quiz asset is outside the assets folder")
+    const extension = path.extname(assetPath).toLowerCase()
+    const mimeType = ({ ".avif": "image/avif", ".gif": "image/gif", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp" } as Record<string, string>)[extension]
+    if (!mimeType) throw new Error(`Unsupported quiz asset type: ${extension || "unknown"}`)
+    return `data:${mimeType};base64,${(await fs.readFile(assetPath)).toString("base64")}`
+  })
   ipcMain.handle("quiz-source:read", async (_event, manifestPath: unknown) => {
     return fs.readFile(await resolveQuizSource(manifestPath), "utf8")
   })

@@ -166,6 +166,7 @@ export interface DesktopApi {
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>
   showInFolder(path: string): Promise<void>
   showQuizQuestionInFolder(manifestPath: string, questionNo: number | string): Promise<void>
+  readQuizAsset(manifestPath: string, assetReference: string): Promise<string>
   readQuizSource(manifestPath: string): Promise<string>
   saveQuizSource(manifestPath: string, source: string): Promise<void>
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>

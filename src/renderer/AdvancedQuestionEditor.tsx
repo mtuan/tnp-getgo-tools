@@ -15,7 +15,28 @@ interface RuntimeQuestion extends Record<string, unknown> { question_no: number;
 const text = (value: unknown) => Array.isArray(value) ? value.join(" ") : String(value ?? "")
 const formatStandaloneField = async (value: string) => value.trim() ? (await QuizTsService.formatSnippet(value)).trim().replace(/^;(?=\s*(?:\(|function\b))/, "") : ""
 
-function QuestionPreview({ question, params }: { question: RuntimeQuestion; params: Record<string, unknown> }) {
+function PreviewAsset({ manifestPath, value, alt }: { manifestPath: string; value: string; alt: string }) {
+  const [source, setSource] = useState(value.startsWith("data:image/") ? value : "")
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let active = true
+    setFailed(false)
+    if (value.startsWith("data:image/")) { setSource(value); return () => { active = false } }
+    setSource("")
+    void window.getgo.readQuizAsset(manifestPath, value).then(result => { if (active) setSource(result) }).catch(() => { if (active) setFailed(true) })
+    return () => { active = false }
+  }, [manifestPath, value])
+  if (failed) return <span className="question-preview-asset-error">Could not load {value}</span>
+  return source ? <img src={source} alt={alt} /> : <span className="mini-spinner" aria-label={`Loading ${alt}`} />
+}
+
+function PreviewValue({ manifestPath, value, alt }: { manifestPath: string; value: unknown; alt: string }) {
+  if (Array.isArray(value)) return <>{value.map((item, index) => <PreviewValue key={index} manifestPath={manifestPath} value={item} alt={alt} />)}</>
+  if (typeof value === "string" && (value.startsWith("asset:") || value.startsWith("data:image/"))) return <PreviewAsset manifestPath={manifestPath} value={value} alt={alt} />
+  return <>{text(value)}</>
+}
+
+function QuestionPreview({ question, params, manifestPath }: { question: RuntimeQuestion; params: Record<string, unknown>; manifestPath: string }) {
   const choices = Object.entries(question.answer?.choices ?? {})
   const englishText = text(question.text_en)
   const vietnameseText = text(question.text_vn)
@@ -24,14 +45,14 @@ function QuestionPreview({ question, params }: { question: RuntimeQuestion; para
   const hasExplanation = englishExplanation.trim().length > 0 || vietnameseExplanation.trim().length > 0
   return <div className="question-preview">
     <div className="question-preview-content">{englishText.trim() && <p>{englishText}</p>}{vietnameseText.trim() && <p className="question-preview-translation">{vietnameseText}</p>}
-      {question.image_datas?.map((image, index) => <div className="question-preview-image" key={`${image}-${index}`}>{image.startsWith("data:") ? <img src={image} alt="Question illustration" /> : image}</div>)}
-      {choices.length ? <div className="question-preview-choices">{choices.map(([label, value]) => <div className={String(question.answer.correct) === label ? "is-correct" : ""} key={label}><b>{label}.</b><span>{text(value)}</span></div>)}</div> : <div className="question-preview-answer"><span>Correct answer</span><strong>{text(question.answer?.correct)}{question.answer?.unit ? ` ${question.answer.unit}` : ""}</strong></div>}
+      {question.image_datas?.map((image, index) => <div className="question-preview-image" key={`${String(image)}-${index}`}><PreviewValue manifestPath={manifestPath} value={image} alt={`Question illustration ${index + 1}`} /></div>)}
+      {choices.length ? <div className="question-preview-choices">{choices.map(([label, value]) => <div className={String(question.answer.correct) === label ? "is-correct" : ""} key={label}><b>{label}.</b><span><PreviewValue manifestPath={manifestPath} value={value} alt={`Choice ${label}`} /></span></div>)}</div> : <div className="question-preview-answer"><span>Correct answer</span><strong>{text(question.answer?.correct)}{question.answer?.unit ? ` ${question.answer.unit}` : ""}</strong></div>}
       {hasExplanation && <section className="question-preview-explanation"><strong>Explanation</strong>{englishExplanation.trim() && <p>{englishExplanation}</p>}{vietnameseExplanation.trim() && <p className="question-preview-translation">{vietnameseExplanation}</p>}</section>}
     </div><div className="question-preview-params"><span>Generated parameters</span><code>{JSON.stringify(params)}</code></div>
   </div>
 }
 
-export function AdvancedQuestionEditor({ record, path, context, onChange, onSave }: { record: QuizQuestionRecord; path: string; context: Record<string, unknown>; onChange(record: QuizQuestionRecord): void; onSave(): void }) {
+export function AdvancedQuestionEditor({ record, path, manifestPath, context, onChange, onSave }: { record: QuizQuestionRecord; path: string; manifestPath: string; context: Record<string, unknown>; onChange(record: QuizQuestionRecord): void; onSave(): void }) {
   const source = useMemo(() => QuizTsService.composeTemplateSource(record.advancedDynamic!), [record.advancedDynamic])
   const [errors, setErrors] = useState<string[]>([])
   const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>({ question: record as unknown as RuntimeQuestion, params: { __dynamic: true } })
@@ -96,6 +117,6 @@ export function AdvancedQuestionEditor({ record, path, context, onChange, onSave
     return { id, key, value, lineCount, editableLineRange, expressionContext: id === "origin", onBlur: id === "params" ? synchronizeDependentSignatures : undefined }
   })
   return <><div className="advanced-question-layout"><div className="advanced-question-editors"><DynamicQuestionAi record={record} context={context} diagnostics={errors} hasGeneratedExplanation={Boolean(text(preview.question.explanation?.en).trim() || text(preview.question.explanation?.vi).trim())} onApply={onChange} onHistoryOpen={() => setAiHistoryOpen(true)} />{editorFields.map(field => <Panel className="advanced-question-editor-panel" title={panelCopy[field.id].title} description={panelCopy[field.id].description} key={field.id}><div className="question-code-workspace"><QuizCodeEditor value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} expressionContext={field.expressionContext} relativeLineNumbers formatOnMount={formatStandaloneField} onChange={value => updateField(field.key, value)} onBlur={field.onBlur} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></Panel>)}</div>
-    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions"><button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel></div>
+    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions"><button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} manifestPath={manifestPath} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel></div>
   </div>{aiHistoryOpen && record.aiResponse && <AiHistoryDrawer record={record} onClose={() => setAiHistoryOpen(false)} />}</>
 }

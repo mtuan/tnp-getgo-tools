@@ -244,7 +244,7 @@ export async function saveQuizQuestion(manifestPath: string, question: QuizQuest
 export async function resetQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
   const defaults = await defaultQuestions(path.dirname(manifestPath))
   const sourceDefault = defaults.find((item: QuizQuestionRecord) => String(item.question_no) === String(question.question_no))
-  const { action: _action, advancedDynamic: _advancedDynamic, aiResponse: _aiResponse, aiFixHistory: _aiFixHistory, generatorBuild: _generatorBuild, ...sourceQuestion } = question
+  const { advancedDynamic: _advancedDynamic, aiResponse: _aiResponse, aiFixHistory: _aiFixHistory, generatorBuild: _generatorBuild, ...sourceQuestion } = question
   const reset = sourceDefault ?? normalizeQuestion(
     { ...sourceQuestion, authoringMode: undefined, verified: false },
     Math.max(0, Number(question.question_no) - 1),

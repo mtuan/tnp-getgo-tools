@@ -10,6 +10,7 @@ const api: DesktopApi = {
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
   showInFolder: (path) => ipcRenderer.invoke("shell:show", path) as Promise<void>,
   showQuizQuestionInFolder: (manifestPath, questionNo) => ipcRenderer.invoke("shell:show-question", manifestPath, questionNo) as Promise<void>,
+  readQuizAsset: (manifestPath, assetReference) => ipcRenderer.invoke("quiz-asset:read", manifestPath, assetReference) as Promise<string>,
   readQuizSource: (manifestPath) => ipcRenderer.invoke("quiz-source:read", manifestPath) as Promise<string>,
   saveQuizSource: (manifestPath, source) => ipcRenderer.invoke("quiz-source:save", manifestPath, source) as Promise<void>,
   loadQuizQuestions: (manifestPath) => ipcRenderer.invoke("quiz-questions:load", manifestPath),
