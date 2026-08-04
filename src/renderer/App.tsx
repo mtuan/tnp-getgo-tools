@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
-import { AlertTriangle, ArrowLeft, Bot, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, PanelLeftClose, PanelLeftOpen, RotateCcw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Bot, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, PanelLeftClose, PanelLeftOpen, RefreshCw, RotateCcw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
 import { AccountMenu } from "./AccountMenu"
@@ -16,13 +16,28 @@ import { useToast } from "./ui/Toast"
 
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
 
-type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "ai-usage" | "settings"
+type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "ai-usage" | "settings" | "not-found"
+type NavigableView = Exclude<View, "not-found">
 const lastRouteKey = "getgo-tools:last-route"
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed"
 const readLastRoute = () => { try { return localStorage.getItem(lastRouteKey) || "/dashboard" } catch { return "/dashboard" } }
 const readSidebarCollapsed = () => { try { return localStorage.getItem(sidebarCollapsedKey) === "true" } catch { return false } }
-const viewFromRoute = (route: string): View => route.startsWith("/quizzes") ? "quizzes" : (["dashboard", "jobs", "publishing", "ai-usage", "settings"].includes(route.slice(1)) ? route.slice(1) as View : "dashboard")
-const nav: { id: View; label: string; icon: LucideIcon }[] = [
+function viewFromRoute(route: string, snapshot?: RepositorySnapshot | null): View {
+  const staticView = ["dashboard", "jobs", "publishing", "ai-usage", "settings"].find(value => route === `/${value}`)
+  if (staticView) return staticView as NavigableView
+  const parts = route.split("/").filter(Boolean).map(part => { try { return decodeURIComponent(part) } catch { return part } })
+  if (parts[0] !== "quizzes" || parts[1] !== "contests") return "not-found"
+  if (parts.length === 2) return "quizzes"
+  const contestId = parts[2]
+  if (!contestId || (snapshot && !snapshot.contests.some(contest => contest.id === contestId))) return "not-found"
+  if (parts.length === 3) return "quizzes"
+  if (parts[3] !== "quizzes" || !parts[4]) return "not-found"
+  if (snapshot && !snapshot.quizzes.some(quiz => quiz.contest === contestId && quiz.id === parts[4])) return "not-found"
+  if (parts.length === 5) return "quizzes"
+  return parts.length === 7 && parts[5] === "questions" && Boolean(parts[6]) ? "quizzes" : "not-found"
+}
+const normalizedRoute = (route: string) => { const value = route.trim(); if (!value) return "/dashboard"; return value.startsWith("/") ? value : `/${value}` }
+const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "quizzes", label: "Quizzes", icon: Library },
   { id: "jobs", label: "Jobs", icon: Workflow },
@@ -60,6 +75,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [repositoryError, setRepositoryError] = useState<string | null>(null)
   const [currentRoute, setCurrentRoute] = useState(initialRoute)
+  const [routeDraft, setRouteDraft] = useState(initialRoute)
+  const [routeRequest, setRouteRequest] = useState({ route: initialRoute, key: 0 })
   const [routeCopied, setRouteCopied] = useState(false)
   const [environmentReadiness, setEnvironmentReadiness] = useState<EnvironmentReadiness | null>(null)
   const [checkingEnvironment, setCheckingEnvironment] = useState(false)
@@ -147,6 +164,7 @@ export function App() {
     }).catch((cause) => { setError(String(cause)); setLoading(false) })
   }, [])
   useEffect(() => { try { localStorage.setItem(lastRouteKey, currentRoute) } catch { /* Storage can be unavailable in hardened renderer sessions. */ } }, [currentRoute])
+  useEffect(() => { setRouteDraft(currentRoute) }, [currentRoute])
   useEffect(() => { try { localStorage.setItem(sidebarCollapsedKey, String(sidebarCollapsed)) } catch { /* Storage can be unavailable in hardened renderer sessions. */ } }, [sidebarCollapsed])
   useEffect(() => {
     if (!routeCopied) return
@@ -166,10 +184,25 @@ export function App() {
     quizBackAction.current = action
     setCanNavigateBack(Boolean(action))
   }, [])
-  function navigate(view: View) {
-    if (view !== "quizzes") updateQuizBackAction(null)
-    setView(view)
-    setCurrentRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`)
+  useEffect(() => {
+    if (!snapshot || view !== "quizzes" || viewFromRoute(currentRoute, snapshot) !== "not-found") return
+    updateQuizBackAction(null)
+    setView("not-found")
+  }, [currentRoute, snapshot, updateQuizBackAction, view])
+  function goToRoute(route: string) {
+    const nextRoute = normalizedRoute(route)
+    const nextView = viewFromRoute(nextRoute, snapshot)
+    if (nextView !== "quizzes") updateQuizBackAction(null)
+    setView(nextView)
+    setCurrentRoute(nextRoute)
+    setRouteRequest(request => ({ route: nextRoute, key: request.key + 1 }))
+  }
+  function refreshCurrentRoute() {
+    setRouteDraft(currentRoute)
+    setRouteRequest(request => ({ route: currentRoute, key: request.key + 1 }))
+  }
+  function navigate(view: NavigableView) {
+    goToRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`)
   }
 
   function environmentSwitcher(className?: string) {
@@ -195,11 +228,12 @@ export function App() {
 
   return <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`.trim()}>
     <div className="routebar">
-      <div className="route-address" onClick={() => void copyCurrentRoute()} title="Copy route">
-        <span className="route-value">{currentRoute}</span>
-        <button type="button" onClick={(event) => { event.stopPropagation(); void copyCurrentRoute() }} aria-label={routeCopied ? "Route copied" : "Copy route"} title={routeCopied ? "Copied" : "Copy route"}>
-          {routeCopied ? <Check size={16} /> : <Copy size={16} />}
-        </button>
+      <div className="route-address">
+        <input className="route-value" value={routeDraft} aria-label="Application route" spellCheck={false} onFocus={event => event.currentTarget.select()} onChange={event => setRouteDraft(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); goToRoute(routeDraft); event.currentTarget.blur() } else if (event.key === "Escape") { event.preventDefault(); setRouteDraft(currentRoute); event.currentTarget.blur() } }} />
+        <div className="route-actions">
+          <button type="button" onClick={refreshCurrentRoute} aria-label="Refresh route" title="Refresh route"><RefreshCw size={16} /></button>
+          <button type="button" onClick={() => void copyCurrentRoute()} aria-label={routeCopied ? "Route copied" : "Copy route"} title={routeCopied ? "Copied" : "Copy route"}>{routeCopied ? <Check size={16} /> : <Copy size={16} />}</button>
+        </div>
       </div>
     </div>
     <aside className="sidebar">
@@ -217,9 +251,10 @@ export function App() {
         </div>
       </header>
       <div className="content">
-        <PageTransition trigger={[view, settings.repositoryPath]}>
+        <PageTransition key={routeRequest.key} trigger={[view, settings.repositoryPath]}>
         {error && <div className="error-banner" role="alert"><strong>Application error</strong><span>{error}</span><button className="error-banner-close" type="button" aria-label="Dismiss error" onClick={() => setError(null)}>×</button></div>}
-        {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><Button loading={choosingRepository} variant="primary" onClick={() => void choose()}>Choose repository</Button></section> : null}
+        {view === "not-found" && <section className="empty-feature"><span className="eyebrow">Error 404</span><h2>Page not found</h2><p>No GetGo Tools page matches <code>{currentRoute}</code>.</p><Button variant="primary" onClick={() => navigate("dashboard")}>Go to dashboard</Button></section>}
+        {!settings.repositoryPath && !loading && view !== "not-found" ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><Button loading={choosingRepository} variant="primary" onClick={() => void choose()}>Choose repository</Button></section> : null}
         {settings.repositoryPath && view === "dashboard" && <>
           <PageHeader eyebrow="Workspace overview" title="Quiz operations" description="Local repository health and publishing readiness." actions={<Button variant="primary" onClick={() => navigate("quizzes")}>Browse quizzes</Button>} />
           <section className="metrics">
@@ -232,7 +267,7 @@ export function App() {
             <div className="lifecycle">{["imported", "normalized", "generated", "reviewed", "validated", "published"].map((status) => { const count = quizzes.filter((q) => q.contentStatus === status).length; return <div key={status}><div><span>{status}</span><strong>{count}</strong></div><progress max={Math.max(quizzes.length, 1)} value={count} /></div> })}</div>
           </Panel>
         </>}
-        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} /></Suspense>}
+        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
         {settings.repositoryPath && view === "ai-usage" && <AiUsagePage />}

@@ -246,10 +246,13 @@ main { grid-column: 2; }
 .topbar-leading { min-width: 0; display: flex; align-items: center; gap: 12px; }
 .topbar-back.icon-button { flex: 0 0 auto; }
 .routebar { position: fixed; inset: 0 0 auto; z-index: 50; display: flex; align-items: center; height: 46px; padding: 6px 8px; border-bottom: 1px solid #e2e8f0; background: rgba(248,250,252,.96); backdrop-filter: blur(16px); }
-.route-address { position: relative; flex: 1; height: 32px; border: 1px solid #dbe2ea; border-radius: 8px; color: #475569; background: white; cursor: pointer; }
-.route-value { display: flex; align-items: center; width: 100%; height: 100%; padding: 0 42px 0 11px; font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: none; }
-.route-address button { position: absolute; top: 3px; right: 3px; display: grid; width: 28px; height: 26px; place-items: center; border: 0; border-radius: 6px; color: #64748b; background: transparent; cursor: pointer; transition: color .16s ease, background .16s ease; }
+.route-address { position: relative; flex: 1; height: 32px; border: 1px solid #dbe2ea; border-radius: 8px; color: #475569; background: white; }
+.route-address:focus-within { border-color: #a5b4fc; box-shadow: 0 0 0 2px #6366f11a; }
+.route-value { display: block; width: 100%; height: 100%; padding: 0 72px 0 11px; border: 0; outline: 0; color: inherit; background: transparent; font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; text-overflow: ellipsis; }
+.route-actions { position: absolute; top: 3px; right: 3px; display: flex; }
+.route-address button { display: grid; width: 28px; height: 26px; place-items: center; border: 0; border-radius: 6px; color: #64748b; background: transparent; cursor: pointer; transition: color .16s ease, background .16s ease; }
 .route-address button:hover { color: #4338ca; background: #eef2ff; }
+.route-address button:disabled { opacity: .45; cursor: default; }
 .copy-toast { position: fixed; z-index: 60; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid #c7d2fe; border-radius: 9px; color: #3730a3; background: #eef2ff; box-shadow: 0 10px 28px #312e8126; font-size: 12px; font-weight: 700; pointer-events: none; animation: toast-in .25s var(--ease-out) both; }
 .toast-viewport { position: fixed; z-index: 200; right: 18px; bottom: 18px; display: grid; width: min(380px, calc(100vw - 36px)); gap: 9px; pointer-events: none; }
 .app-toast { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; gap: 10px; align-items: start; padding: 12px 12px 12px 14px; border: 1px solid #dbe2ea; border-radius: 11px; color: #334155; background: white; box-shadow: 0 14px 36px #0f172a26; pointer-events: auto; animation: toast-in .22s var(--ease-out) both; }
