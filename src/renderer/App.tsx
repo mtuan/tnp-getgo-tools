@@ -12,8 +12,8 @@ import { Panel } from "./ui/Panel"
 import { SummaryCard } from "./ui/SummaryCard"
 import { Select, type SelectOption } from "./ui/Select"
 import { useToast } from "./ui/Toast"
+import { QuizManager } from "./QuizManager"
 
-const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
 const PublishingPage = lazy(() => import("./PublishingPage").then(module => ({ default: module.PublishingPage })))
 
 type View = "dashboard" | "quizzes" | "publishing" | "settings" | "not-found"
@@ -261,7 +261,7 @@ export function App() {
             <div className="lifecycle">{["imported", "normalized", "generated", "reviewed", "validated", "published"].map((status) => { const count = quizzes.filter((q) => q.contentStatus === status).length; return <div key={status}><div><span>{status}</span><strong>{count}</strong></div><progress max={Math.max(quizzes.length, 1)} value={count} /></div> })}</div>
           </Panel>
         </>}
-        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} /></Suspense>}
+        {settings.repositoryPath && view === "quizzes" && snapshot && <QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} />}
         {settings.repositoryPath && view === "publishing" && snapshot && <Suspense fallback={null}><PublishingPage environment={settings.environment} repository={snapshot} /></Suspense>}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /><label>Restart application<span>Development restarts keep the Vite hot-update connection active. Packaged builds relaunch GetGo Tools.</span></label><div><Button icon={<RotateCcw size={15} />} loading={restartingApp} variant="secondary" onClick={() => void restartApp()}>Restart GetGo Tools</Button></div></div></section>}
         </PageTransition>
