@@ -234,12 +234,6 @@ export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuest
 export async function saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {
   const questionNo = String(question.question_no)
   if (!/^\d+$/.test(questionNo)) throw new Error("Invalid question number")
-  if (question.verified === true && question.action !== "generated") {
-    throw new Error('Question action must be exactly "generated" before verification')
-  }
-  if (question.verified === true && (!question.aiResponse || typeof question.aiResponse !== "object")) {
-    throw new Error("Generated question requires aiResponse data before verification")
-  }
   const questionsDirectory = path.join(path.dirname(manifestPath), "questions")
   await fs.mkdir(questionsDirectory, { recursive: true })
   const formatted = await formatQuestionCode(question)
