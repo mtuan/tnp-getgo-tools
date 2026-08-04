@@ -5,13 +5,14 @@ import EditorWorker from "monaco-editor/editor/editor.worker?worker"
 import JsonWorker from "monaco-editor/language/json/json.worker?worker"
 import TypeScriptWorker from "monaco-editor/language/typescript/ts.worker?worker"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { visibleModelValue } from "../core/editor-context"
 import quizBuilderTypes from "./quiz-builder.monaco.json"
 
 self.MonacoEnvironment = { getWorker(_id, label) { if (label === "typescript" || label === "javascript") return new TypeScriptWorker(); if (label === "json") return new JsonWorker(); return new EditorWorker() } }
 loader.config({ monaco })
 
 function configureMonaco() {
-  monacoTypeScript.typescriptDefaults.setCompilerOptions({ allowNonTsExtensions: true, strict: true, noEmit: true, target: monacoTypeScript.ScriptTarget.ESNext, moduleResolution: monacoTypeScript.ModuleResolutionKind.NodeJs, module: monacoTypeScript.ModuleKind.ESNext, lib: ["es2022", "dom"] })
+  monacoTypeScript.typescriptDefaults.setCompilerOptions({ allowNonTsExtensions: true, strict: true, strictNullChecks: false, noEmit: true, target: monacoTypeScript.ScriptTarget.ESNext, moduleResolution: monacoTypeScript.ModuleResolutionKind.NodeJs, module: monacoTypeScript.ModuleKind.ESNext, lib: ["es2022", "dom"] })
   monacoTypeScript.typescriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false, diagnosticCodesToIgnore: [7006, 7031] })
   for (const library of quizBuilderTypes.libraries) monacoTypeScript.typescriptDefaults.addExtraLib(library.content, library.filePath)
 }
@@ -83,9 +84,8 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   }, [applyRanges, modelValue])
   const handleChange = (next = "") => {
     if (!contextPrefix && !contextSuffix) { onChange(next); return }
-    const start = next.startsWith(contextPrefix) ? contextPrefix.length : 0
-    const suffixIndex = contextSuffix ? next.lastIndexOf(contextSuffix) : next.length
-    onChange(next.slice(start, suffixIndex >= start ? suffixIndex : next.length))
+    const visible = visibleModelValue(next, contextPrefix, contextSuffix)
+    if (visible !== null) onChange(visible)
   }
   // Keep overflow widgets anchored to Monaco's editor container. Do not set
   // `overflowWidgetsDomNode: document.body`: these editors live in auto-height,

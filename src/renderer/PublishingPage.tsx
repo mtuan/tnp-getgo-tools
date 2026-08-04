@@ -22,8 +22,6 @@ const labels: Record<PublishingStatus, string> = {
   "remote-error": copy.remoteError,
 }
 const interpolate = (value: string, data: Record<string, string | number>) => Object.entries(data).reduce((result, [key, replacement]) => result.replace(`{${key}}`, String(replacement)), value)
-const shortHash = (value: string | null) => value ? `${value.slice(0, 9)}…` : "—"
-
 export function PublishingPage({ environment }: { environment: AppSettings["environment"] }) {
   const auth = useAuth()
   const toast = useToast()
@@ -76,8 +74,6 @@ export function PublishingPage({ environment }: { environment: AppSettings["envi
     { key: "quiz", title: copy.quiz, render: row => <><strong>{row.title}</strong><span>{row.quizId}</span></> },
     { key: "contest", title: copy.contest, render: row => row.contestId.toUpperCase() },
     { key: "questions", title: copy.questions, render: row => row.questionCount ?? "—" },
-    { key: "local", title: copy.localHash, render: row => <code title={row.contentHash ?? undefined}>{shortHash(row.contentHash)}</code> },
-    { key: "remote", title: copy.remoteHash, render: row => <code title={row.publishedHash ?? undefined}>{shortHash(row.publishedHash)}</code> },
     { key: "status", title: copy.status, render: row => <><span className={`badge publishing-status publishing-status-${row.status}`} title={row.error}>{labels[row.status]}</span>{row.error && <span className="publishing-row-error">{row.error}</span>}</> },
     { key: "published", title: copy.published, render: row => row.publishedAt ? new Date(row.publishedAt).toLocaleString() : copy.never },
   ]
