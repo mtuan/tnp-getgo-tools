@@ -11,6 +11,8 @@
     "clean": "rimraf dist",
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
     "sync:monaco-types": "node scripts/sync-quiz-builder-monaco-types.mjs",
+    "refresh:logics": "node scripts/refresh-vendored-logics.mjs",
+    "dev:fresh": "npm run refresh:logics && npm run dev",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "tsx --test tests/**/*.test.ts",
     "check": "npm run typecheck && npm test && npm run build",

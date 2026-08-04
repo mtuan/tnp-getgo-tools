@@ -23,7 +23,6 @@ export function PageHeader({ eyebrow, title, breadcrumbs, description, leading, 
         {description && <p>{description}</p>}
       </div>
     </div>
-    {navigation && <div className="ui-page-header-navigation">{navigation}</div>}
-    {actions && <div className="ui-page-header-actions">{actions}</div>}
+    {(navigation || actions) && <div className="ui-page-header-controls">{navigation && <div className="ui-page-header-navigation">{navigation}</div>}{actions && <div className="ui-page-header-actions">{actions}</div>}</div>}
   </header>
 }

@@ -24,3 +24,16 @@ npm run dist
 release artifacts should be produced on their target operating systems in CI.
 
 See [PLAN.md](./PLAN.md) for architecture, status semantics, and delivery phases.
+# Refreshing the vendored logics package
+
+After changing `../tnp-getgo-logics`, run:
+
+```sh
+npm run refresh:logics
+```
+
+This checks and builds logics, replaces the vendored tarball, explicitly
+installs that archive even when its version is unchanged, verifies every
+installed package file byte-for-byte, synchronizes Monaco types, and checks
+Tools. Restart an already-running Tools app afterward. To refresh and then
+start the development app in one command, use `npm run dev:fresh`.
