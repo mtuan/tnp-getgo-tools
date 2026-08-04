@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Check, ChevronDown, X } from "lucide-react"
 import { Select, useSelectDropdown, type SelectOption } from "./Select"
+import { SegmentedControl } from "./SegmentedControl"
 import { Toggle } from "./Toggle"
 
 export type { SelectOption } from "./Select"
@@ -27,7 +28,7 @@ export type FormField =
   | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
-  | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string })
+  | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
   | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
   | (FieldBase & { type: "checkbox" })
   | (FieldBase & { type: "toggle" })
@@ -57,6 +58,8 @@ const ruleValue = <T,>(rule: T | { value: T; message: string }) => typeof rule =
 const ruleMessage = <T,>(rule: T | { value: T; message: string }, fallback: string) => typeof rule === "object" && rule !== null && "message" in rule ? rule.message : fallback
 
 function SelectControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "select" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
+  const segmented = field.presentation === "segmented" || (field.presentation !== "dropdown" && field.options.length >= 2 && field.options.length <= 4)
+  if (segmented) return <SegmentedControl value={String(value ?? "")} options={field.options} disabled={disabled} autoFocus={autoFocus} ariaLabel={String(field.label ?? field.name)} onValueChange={onChange} />
   return <Select value={String(value ?? "")} options={field.options} disabled={disabled} autoFocus={autoFocus} placeholder={field.placeholder} onValueChange={onChange} />
 }
 
