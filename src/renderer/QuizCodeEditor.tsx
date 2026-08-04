@@ -62,15 +62,16 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
       if (visibleEnd < lineCount) hidden.push(new monaco.Range(visibleEnd + 1, 1, lineCount, model.getLineMaxColumn(lineCount)))
     }
     ;(editor as typeof editor & { setHiddenAreas(ranges: monaco.IRange[]): void }).setHiddenAreas(hidden)
+    if (contextPrefix || contextSuffix) console.debug("[GetGo Tools][Monaco context]", { path, model: model.uri.toString(), lineCount, visibleStart, visibleEnd, hidden: hidden.map(range => [range.startLineNumber, range.endLineNumber]) })
     const decorations: monaco.editor.IModelDeltaDecoration[] = []
     if (modelVisibleRange && modelEditableRange) for (const [start, end] of [[visibleStart, editableStart - 1], [editableEnd + 1, visibleEnd]]) for (let line = start; line <= end; line += 1) decorations.push({ range: new monaco.Range(line, 1, line, model.getLineMaxColumn(line)), options: { inlineClassName: "monaco-readonly-code" } })
     lockedRef.current ? lockedRef.current.set(decorations) : lockedRef.current = editor.createDecorationsCollection(decorations)
-  }, [modelEditableRange, modelVisibleRange])
+  }, [contextPrefix, contextSuffix, modelEditableRange, modelVisibleRange, path])
   const onMount = useCallback<OnMount>(editor => {
     editorRef.current = editor
     const mountedModel = editor.getModel()
     if (mountedModel && mountedModel.getValue() !== modelValue) mountedModel.setValue(modelValue)
-    applyRanges(); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
+    applyRanges(); window.requestAnimationFrame(applyRanges); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
     if (autoHeight) { const update = () => setHeight(Math.max(minHeight, editor.getContentHeight())); update(); editor.onDidContentSizeChange(update) }
     const updateReadOnly = () => { const range = editableRef.current; const selection = editor.getSelection(); editor.updateOptions({ readOnly: readOnly || (!!range && !(selection && selection.startLineNumber >= range.startLineNumber && selection.endLineNumber <= range.endLineNumber)) }) }
     if (editableRef.current) { const model = editor.getModel(); editor.setPosition({ lineNumber: Math.max(1, Math.min(model?.getLineCount() ?? 1, editableRef.current.startLineNumber)), column: 1 }); updateReadOnly(); editor.onDidChangeCursorSelection(updateReadOnly) }
@@ -86,6 +87,7 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
     if (!contextPrefix && !contextSuffix) { onChange(next); return }
     const visible = visibleModelValue(next, contextPrefix, contextSuffix)
     if (visible !== null) onChange(visible)
+    else console.warn("[GetGo Tools][Monaco context] Rejected an edit that changed protected editor context.", { path })
   }
   // Keep overflow widgets anchored to Monaco's editor container. Do not set
   // `overflowWidgetsDomNode: document.body`: these editors live in auto-height,

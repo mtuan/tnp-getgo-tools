@@ -67,6 +67,7 @@ export function AdvancedQuestionEditor({ record, path, manifestPath, context, on
   }
   const synchronizeDependentSignatures = () => {
     const latest = latestRecordRef.current
+    if (String(latest.question_no) !== String(record.question_no)) return
     if (!latest.advancedDynamic) return
     try {
       const currentSource = QuizTsService.composeTemplateSource(latest.advancedDynamic)
