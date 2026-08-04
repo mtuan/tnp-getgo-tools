@@ -24,11 +24,11 @@ interface FieldBase {
 }
 
 export type FormField =
-  | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search"; placeholder?: string; autoComplete?: string })
+  | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string })
-  | (FieldBase & { type: "multi-select"; options: SelectOption[] })
+  | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
   | (FieldBase & { type: "checkbox" })
   | (FieldBase & { type: "toggle" })
   | (FieldBase & { type: "custom"; render: (context: { value: unknown; values: FormValues; disabled: boolean; onChange(value: unknown): void }) => ReactNode })
@@ -65,7 +65,7 @@ function MultiSelectControl({ field, value, disabled, autoFocus, onChange }: { f
   const selected = Array.isArray(value) ? value.map(String) : []
   const toggle = (option: string) => onChange(selected.includes(option) ? selected.filter(item => item !== option) : [...selected, option])
   return <div className={`schema-select schema-multi ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
-    <button type="button" disabled={disabled} autoFocus={autoFocus} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={selected.length ? "schema-selected-values" : "placeholder"}>{selected.length ? selected.map(item => <i key={item}>{field.options.find(option => option.value === item)?.label ?? item}<X onClick={event => { event.stopPropagation(); toggle(item) }} /></i>) : "Select grades…"}</span><ChevronDown /></button>
+    <button type="button" disabled={disabled} autoFocus={autoFocus} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={selected.length ? "schema-selected-values" : "placeholder"}>{selected.length ? selected.map(item => <i key={item}>{field.options.find(option => option.value === item)?.label ?? item}<X onClick={event => { event.stopPropagation(); toggle(item) }} /></i>) : field.placeholder ?? "Select options…"}</span><ChevronDown /></button>
     {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="schema-select-menu schema-select-portal multi" style={{ left: dropdown.position.left, width: dropdown.position.width, top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }} role="listbox" aria-multiselectable="true">{field.options.map(option => { const checked = selected.includes(option.value); return <button type="button" role="option" aria-selected={checked} className={checked ? "selected" : ""} onClick={() => toggle(option.value)} key={option.value}><span className="option-check">{checked && <Check />}</span><span>{option.label}</span></button> })}</div>, document.body)}
   </div>
 }

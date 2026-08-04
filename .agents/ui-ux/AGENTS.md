@@ -10,6 +10,9 @@ Read these instructions when changing pages, components, layouts, styling, respo
 - Extend a shared primitive when behavior applies to multiple entry points.
 - Keep equivalent controls visually and behaviorally consistent with GetGo Web.
 - Never substitute native controls when the shared UI system defines a corresponding styled interaction.
+- Feature components must source interactive controls and established patterns from `src/renderer/ui`. If a needed primitive is missing, create or extend it there before using it in a page; do not introduce page-local control implementations.
+- Every feature form must use the shared schema-driven `Form`/`FormSchema` API. Model repeatable and conditional fields declaratively, using shared custom fields such as `EditTable` where needed; never assemble a page-specific form from manually labeled controls.
+- All icon-only actions use the shared `Button` with `variant="icon"`. They are borderless and must not rotate, scale, spring, or use novelty motion on hover or press.
 
 ## Themes and color
 

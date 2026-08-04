@@ -14,6 +14,7 @@ export interface PublishedQuestion {
     choices?: Record<string, string | number | Record<string, unknown>>
     unit?: string
     otherChoiceKey?: string
+    fixed?: boolean
   }
   dynamic?: {
     paramsGeneratorTs: string
@@ -68,6 +69,7 @@ export function sanitizePublishedQuestion(record: QuizQuestionRecord): Published
   if (answer.choices !== undefined) result.answer.choices = structuredClone(plainRecord(answer.choices, `Question ${questionNo} answer.choices`)) as PublishedQuestion["answer"]["choices"]
   if (typeof answer.unit === "string") result.answer.unit = answer.unit
   if (typeof answer.otherChoiceKey === "string") result.answer.otherChoiceKey = answer.otherChoiceKey
+  if (typeof answer.fixed === "boolean") result.answer.fixed = answer.fixed
   if (record.advancedDynamic !== undefined) {
     const dynamic = plainRecord(record.advancedDynamic, `Question ${questionNo} advancedDynamic`)
     const keys = ["paramsGeneratorTs", "questionGeneratorTs", "originParamsTs", "explanationGeneratorTs"] as const

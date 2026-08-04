@@ -5,7 +5,7 @@ import { questionHasDynamicParams } from "../core/question-dynamics"
 import { questionContainsImages } from "../core/question-images"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
-import { AdvancedQuestionEditor } from "./AdvancedQuestionEditor"
+import { QuestionEditorTabs, type QuestionEditorTab } from "./QuestionEditorTabs"
 import { MigrationResultsDrawer } from "./MigrationResultsDrawer"
 import { Button } from "./ui/Button"
 import { PageHeader } from "./ui/PageHeader"
@@ -43,15 +43,18 @@ function quizReviewStatus(quiz: QuizSummary): { kind: "full" | "partial" | "none
   return { kind: "none", label: "Not reviewed", reviewed, total }
 }
 
-function restoredPage(snapshot: RepositorySnapshot, route?: string): { page: ManagerPage; questionNo: string | null } {
-  if (!route?.startsWith("/quizzes/contests/")) return { page: { kind: "contests" }, questionNo: null }
-  const parts = route.split("/").filter(Boolean).map(part => { try { return decodeURIComponent(part) } catch { return part } })
+function restoredPage(snapshot: RepositorySnapshot, route?: string): { page: ManagerPage; questionNo: string | null; questionTab: QuestionEditorTab } {
+  if (!route?.startsWith("/quizzes/contests/")) return { page: { kind: "contests" }, questionNo: null, questionTab: "static" }
+  let url: URL
+  try { url = new URL(route, "app://getgo") } catch { url = new URL("/quizzes/contests", "app://getgo") }
+  const parts = url.pathname.split("/").filter(Boolean).map(part => { try { return decodeURIComponent(part) } catch { return part } })
+  const questionTab = url.searchParams.get("tab") === "dynamic" ? "dynamic" : "static"
   const contest = snapshot.contests.find(item => item.id === parts[2])
-  if (!contest) return { page: { kind: "contests" }, questionNo: null }
-  if (parts[3] !== "quizzes" || !parts[4]) return { page: { kind: "contest", contest: contest.id }, questionNo: null }
+  if (!contest) return { page: { kind: "contests" }, questionNo: null, questionTab }
+  if (parts[3] !== "quizzes" || !parts[4]) return { page: { kind: "contest", contest: contest.id }, questionNo: null, questionTab }
   const quiz = snapshot.quizzes.find(item => item.contest === contest.id && item.id === parts[4])
-  if (!quiz) return { page: { kind: "contest", contest: contest.id }, questionNo: null }
-  return { page: { kind: "quiz", quiz }, questionNo: parts[5] === "questions" && parts[6] ? parts[6] : null }
+  if (!quiz) return { page: { kind: "contest", contest: contest.id }, questionNo: null, questionTab }
+  return { page: { kind: "quiz", quiz }, questionNo: parts[5] === "questions" && parts[6] ? parts[6] : null, questionTab }
 }
 
 export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteChange, onBackActionChange }: QuizManagerProps) {
@@ -73,6 +76,7 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
   const [questionRecords, setQuestionRecords] = useState<QuizQuestionRecord[]>([])
   const [questionDraftRecord, setQuestionDraftRecord] = useState<QuizQuestionRecord | null>(null)
   const [pendingQuestionNo, setPendingQuestionNo] = useState(restored.questionNo)
+  const [questionEditorTab, setQuestionEditorTab] = useState<QuestionEditorTab>(restored.questionTab)
   const [migrationResults, setMigrationResults] = useState<{ result: QuizMigrationResult; attempted: number } | null>(null)
 
   const contests = useMemo(() => {
@@ -90,8 +94,8 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
   useEffect(() => {
     if (page.kind === "contests") { onRouteChange("/quizzes/contests"); if (pendingQuestionNo) setPendingQuestionNo(null) }
     if (page.kind === "contest") { onRouteChange(`/quizzes/contests/${encodeURIComponent(page.contest)}`); if (pendingQuestionNo) setPendingQuestionNo(null) }
-    if (page.kind === "quiz") onRouteChange(`/quizzes/contests/${encodeURIComponent(page.quiz.contest)}/quizzes/${encodeURIComponent(page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}` : ""}`)
-  }, [onRouteChange, page, pendingQuestionNo])
+    if (page.kind === "quiz") onRouteChange(`/quizzes/contests/${encodeURIComponent(page.quiz.contest)}/quizzes/${encodeURIComponent(page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}?tab=${questionEditorTab}` : ""}`)
+  }, [onRouteChange, page, pendingQuestionNo, questionEditorTab])
 
   useEffect(() => {
     if (page.kind !== "quiz") return
@@ -237,7 +241,7 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
         onSnapshotChange({ ...snapshot, quizzes: snapshot.quizzes.map(item => item.key === quiz.key ? { ...item, reviewedQuestionCount } : item) })
       }
       const saveQuestion = async () => {
-        if (!questionDraftRecord?.advancedDynamic || !questionHasChanges || saving || savingVerification) return
+        if (!questionDraftRecord || !questionHasChanges || saving || savingVerification) return
         setSaving(true); setQuestionOperation("save"); setSourceError(null)
         try {
           const savedQuestion = await window.getgo.saveQuizQuestion(quiz.manifestPath, questionDraftRecord)
@@ -278,9 +282,9 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
         } finally { setSavingVerification(false) }
       }
       return <section className="manager editor-page question-detail-page">
-        <PageHeader eyebrow="Advanced question editor" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }]} title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show question in folder" title="Show question in folder" onClick={() => void runButtonAction("show-question-folder", () => window.getgo.showQuizQuestionInFolder(quiz.manifestPath, activeQuestion.number))} />} navigation={<QuestionNavigator value={String(selectedQuestion)} disabled={saving || savingVerification} items={questions.map((question, index) => ({ value: String(index), label: `Question ${question.number}`, description: question.category === "—" ? undefined : question.category, reviewed: question.reviewed }))} onValueChange={navigateQuestion} />} actions={<><Button icon={questionDraftRecord?.verified === true ? <Check size={15} /> : undefined} loading={savingVerification} variant={questionDraftRecord?.verified === true ? "solid" : "outline"} color={questionDraftRecord?.verified === true ? "success" : "neutral"} disabled={saving || savingVerification} aria-pressed={questionDraftRecord?.verified === true} onClick={() => void setQuestionVerified(questionDraftRecord?.verified !== true)}>{questionDraftRecord?.verified === true ? "Verified" : "Verify"}</Button><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} variant="solid" color="danger" disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={!questionHasChanges || saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void saveQuestion()}>Save</Button></>} />
+        <PageHeader eyebrow="Question editor" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }]} title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show question in folder" title="Show question in folder" onClick={() => void runButtonAction("show-question-folder", () => window.getgo.showQuizQuestionInFolder(quiz.manifestPath, activeQuestion.number))} />} navigation={<QuestionNavigator value={String(selectedQuestion)} disabled={saving || savingVerification} items={questions.map((question, index) => ({ value: String(index), label: `Question ${question.number}`, description: question.category === "—" ? undefined : question.category, reviewed: question.reviewed }))} onValueChange={navigateQuestion} />} actions={<><Button icon={questionDraftRecord?.verified === true ? <Check size={15} /> : undefined} loading={savingVerification} variant={questionDraftRecord?.verified === true ? "solid" : "outline"} color={questionDraftRecord?.verified === true ? "success" : "neutral"} disabled={saving || savingVerification} aria-pressed={questionDraftRecord?.verified === true} onClick={() => void setQuestionVerified(questionDraftRecord?.verified !== true)}>{questionDraftRecord?.verified === true ? "Verified" : "Verify"}</Button><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} variant="solid" color="danger" disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={!questionHasChanges || saving || savingVerification} onClick={() => void saveQuestion()}>Save</Button></>} />
         {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
-        {questionDraftRecord?.advancedDynamic && <AdvancedQuestionEditor record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} manifestPath={quiz.manifestPath} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
+        {questionDraftRecord && <QuestionEditorTabs key={`${quiz.key}/${activeQuestion.number}`} tab={questionEditorTab} onTabChange={setQuestionEditorTab} record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} manifestPath={quiz.manifestPath} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
       </section>
     }
     return <section className="manager editor-page">

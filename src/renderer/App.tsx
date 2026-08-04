@@ -23,9 +23,12 @@ const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed"
 const readLastRoute = () => { try { return localStorage.getItem(lastRouteKey) || "/dashboard" } catch { return "/dashboard" } }
 const readSidebarCollapsed = () => { try { return localStorage.getItem(sidebarCollapsedKey) === "true" } catch { return false } }
 function viewFromRoute(route: string, snapshot?: RepositorySnapshot | null): View {
-  const staticView = ["dashboard", "publishing", "settings"].find(value => route === `/${value}`)
+  let pathname: string
+  try { pathname = new URL(route, "app://getgo").pathname }
+  catch { pathname = route.split("?")[0] }
+  const staticView = ["dashboard", "publishing", "settings"].find(value => pathname === `/${value}`)
   if (staticView) return staticView as NavigableView
-  const parts = route.split("/").filter(Boolean).map(part => { try { return decodeURIComponent(part) } catch { return part } })
+  const parts = pathname.split("/").filter(Boolean).map(part => { try { return decodeURIComponent(part) } catch { return part } })
   if (parts[0] !== "quizzes" || parts[1] !== "contests") return "not-found"
   if (parts.length === 2) return "quizzes"
   const contestId = parts[2]

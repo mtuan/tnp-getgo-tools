@@ -1,59 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { History, Zap } from "lucide-react"
-import { QuizTsService, createDynamicQuestionBuildService } from "@tnp/getgo-logics/authoring"
-import { QuizBuilder, QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder"
+import { QuizTsService } from "@tnp/getgo-logics/authoring"
 import type { QuizQuestionRecord } from "../core/models"
 import { QuizCodeEditor } from "./QuizCodeEditor"
 import { AiHistoryDrawer } from "./AiHistoryDrawer"
 import { DynamicQuestionAi } from "./DynamicQuestionAi"
+import { Button } from "./ui/Button"
 import { Panel } from "./ui/Panel"
-
-async function sha256(source: string): Promise<string> { const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source)); return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("") }
-const builder = createDynamicQuestionBuildService({ createBuilder: () => new QuizBuilder(), serialize: value => QuizValueSerializer.serialize(value), deserialize: value => QuizValueSerializer.deserialize(value), hash: sha256 })
-
-interface RuntimeQuestion extends Record<string, unknown> { question_no: number; category?: string; text_en: unknown; text_vn?: unknown; image_datas?: string[]; explanation?: { en?: unknown; vi?: unknown }; answer: { type: string; correct: string | number | string[]; choices?: Record<string, unknown>; unit?: string; otherChoiceKey?: string } }
-const text = (value: unknown) => Array.isArray(value) ? value.join(" ") : String(value ?? "")
-function PreviewAsset({ manifestPath, value, alt }: { manifestPath: string; value: string; alt: string }) {
-  const [source, setSource] = useState(value.startsWith("data:image/") ? value : "")
-  const [failed, setFailed] = useState(false)
-  useEffect(() => {
-    let active = true
-    setFailed(false)
-    if (value.startsWith("data:image/")) { setSource(value); return () => { active = false } }
-    setSource("")
-    void window.getgo.readQuizAsset(manifestPath, value).then(result => { if (active) setSource(result) }).catch(() => { if (active) setFailed(true) })
-    return () => { active = false }
-  }, [manifestPath, value])
-  if (failed) return <span className="question-preview-asset-error">Could not load {value}</span>
-  return source ? <img src={source} alt={alt} /> : <span className="mini-spinner" aria-label={`Loading ${alt}`} />
-}
-
-function PreviewValue({ manifestPath, value, alt }: { manifestPath: string; value: unknown; alt: string }) {
-  if (Array.isArray(value)) return <>{value.map((item, index) => <PreviewValue key={index} manifestPath={manifestPath} value={item} alt={alt} />)}</>
-  if (typeof value === "string" && (value.startsWith("asset:") || value.startsWith("data:image/"))) return <PreviewAsset manifestPath={manifestPath} value={value} alt={alt} />
-  return <>{text(value)}</>
-}
-
-function QuestionPreview({ question, params, manifestPath }: { question: RuntimeQuestion; params: Record<string, unknown>; manifestPath: string }) {
-  const choices = Object.entries(question.answer?.choices ?? {})
-  const englishText = text(question.text_en)
-  const vietnameseText = text(question.text_vn)
-  const englishExplanation = text(question.explanation?.en)
-  const vietnameseExplanation = text(question.explanation?.vi)
-  const hasExplanation = englishExplanation.trim().length > 0 || vietnameseExplanation.trim().length > 0
-  return <div className="question-preview">
-    <div className="question-preview-content">{englishText.trim() && <p>{englishText}</p>}{vietnameseText.trim() && <p className="question-preview-translation">{vietnameseText}</p>}
-      {question.image_datas?.map((image, index) => <div className="question-preview-image" key={`${String(image)}-${index}`}><PreviewValue manifestPath={manifestPath} value={image} alt={`Question illustration ${index + 1}`} /></div>)}
-      {choices.length ? <div className="question-preview-choices">{choices.map(([label, value]) => <div className={String(question.answer.correct) === label ? "is-correct" : ""} key={label}><b>{label}.</b><span><PreviewValue manifestPath={manifestPath} value={value} alt={`Choice ${label}`} />{question.answer.unit && label !== question.answer.otherChoiceKey ? ` ${question.answer.unit}` : ""}</span></div>)}</div> : <div className="question-preview-answer"><span>Correct answer</span><strong>{text(question.answer?.correct)}{question.answer?.unit ? ` ${question.answer.unit}` : ""}</strong></div>}
-      {hasExplanation && <section className="question-preview-explanation"><strong>Explanation</strong>{englishExplanation.trim() && <p>{englishExplanation}</p>}{vietnameseExplanation.trim() && <p className="question-preview-translation">{vietnameseExplanation}</p>}</section>}
-    </div><div className="question-preview-params"><span>Generated parameters</span><code>{JSON.stringify(params)}</code></div>
-  </div>
-}
+import { QuestionPreview, questionText as text, type RuntimeQuestion } from "./ui/QuestionPreview"
+import { questionService } from "./question-service"
 
 export function AdvancedQuestionEditor({ record, path, manifestPath, context, onChange, onSave }: { record: QuizQuestionRecord; path: string; manifestPath: string; context: Record<string, unknown>; onChange(record: QuizQuestionRecord): void; onSave(): void }) {
-  const source = useMemo(() => QuizTsService.composeTemplateSource(record.advancedDynamic!), [record.advancedDynamic])
   const [errors, setErrors] = useState<string[]>([])
-  const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>({ question: record as unknown as RuntimeQuestion, params: { __dynamic: true } })
+  const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>(() => ({ question: questionService.loadStatic(record).question, params: { __dynamic: true } }))
   const generatedQuestionRef = useRef<string | number | null>(null)
   const signatureQuestionRef = useRef<string | number | null>(null)
   const latestRecordRef = useRef(record)
@@ -88,7 +47,7 @@ export function AdvancedQuestionEditor({ record, path, manifestPath, context, on
     const timeout = window.setTimeout(synchronizeDependentSignatures, 400)
     return () => window.clearTimeout(timeout)
   }, [record.advancedDynamic?.paramsGeneratorTs, record.question_no])
-  const generate = async (original = false) => { try { const generated = original ? await builder.generateOriginal(source) : await builder.generate(source); if (generated) { setPreview(generated as { question: RuntimeQuestion; params: Record<string, unknown> }); setErrors([]) } } catch (cause) { setErrors([cause instanceof Error ? cause.message : String(cause)]) } }
+  const generate = async (original = false) => { try { const generated = await questionService.generateDynamic(latestRecordRef.current, original); setPreview({ question: generated.question, params: generated.params ?? {} }); setErrors([]) } catch (cause) { setErrors([cause instanceof Error ? cause.message : String(cause)]) } }
   useEffect(() => {
     if (generatedQuestionRef.current === record.question_no) return
     generatedQuestionRef.current = record.question_no
@@ -126,6 +85,6 @@ export function AdvancedQuestionEditor({ record, path, manifestPath, context, on
     return { id, key, value, lineCount, editableLineRange, expressionContext: id === "origin", modelContext, onBlur: id === "params" ? synchronizeDependentSignatures : undefined }
   })
   return <><div className="advanced-question-layout"><div className="advanced-question-editors"><DynamicQuestionAi record={record} context={context} diagnostics={errors} hasGeneratedExplanation={Boolean(text(preview.question.explanation?.en).trim() || text(preview.question.explanation?.vi).trim())} onApply={onChange} onHistoryOpen={() => setAiHistoryOpen(true)} />{editorFields.map(field => <Panel className="advanced-question-editor-panel" title={panelCopy[field.id].title} description={panelCopy[field.id].description} key={field.id}><div className="question-code-workspace"><QuizCodeEditor key={`${path}.${field.id}`} value={field.value} path={`${path}.${field.id}.ts`} autoHeight minHeight={120} visibleLineRange={{ startLineNumber: 1, endLineNumber: field.lineCount }} editableLineRange={field.editableLineRange} expressionContext={field.expressionContext} modelContext={field.modelContext} relativeLineNumbers onChange={value => updateField(field.key, value)} onBlur={field.onBlur} onSave={onSave} onValidate={field.id === "question" ? markers => setErrors(markers.filter(marker => marker.severity === 8).map(marker => `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`)) : undefined} /></div></Panel>)}</div>
-    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions"><button title="Regenerate question" aria-label="Regenerate question" onClick={() => void generate()}><Zap size={16} /></button><button title="Generate original question" aria-label="Generate original question" onClick={() => void generate(true)}><History size={16} /></button></span>}><QuestionPreview question={preview.question} params={preview.params} manifestPath={manifestPath} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel></div>
+    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${preview.question.question_no}`} meta={<span className="question-preview-actions"><Button variant="icon" title="Regenerate question" aria-label="Regenerate question" icon={<Zap size={16} />} onClick={() => void generate()} /><Button variant="icon" title="Generate original question" aria-label="Generate original question" icon={<History size={16} />} onClick={() => void generate(true)} /></span>}><QuestionPreview question={preview.question} params={preview.params} manifestPath={manifestPath} />{errors.length > 0 && <div className="question-editor-errors"><strong>Type or generation error</strong>{errors.map((error, index) => <span key={index}>{error}</span>)}</div>}</Panel></div>
   </div>{aiHistoryOpen && record.aiResponse && <AiHistoryDrawer record={record} onClose={() => setAiHistoryOpen(false)} />}</>
 }

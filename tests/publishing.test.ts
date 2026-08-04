@@ -45,6 +45,11 @@ test("AI and review changes do not affect hashes, but dynamic code changes do", 
   assert.notEqual(hashPublishedQuestions([first]), hashPublishedQuestions([changed]))
 })
 
+test("publishes fixed choice ordering as runtime answer metadata", () => {
+  const question = sanitizePublishedQuestion({ question_no: 1, text_en: "Pick", answer: { type: "choice", correct: "A", choices: { A: "First", B: "Second" }, fixed: true } })
+  assert.equal(question.answer.fixed, true)
+})
+
 test("canonical hashing ignores question and object-key ordering", () => {
   const one = sanitizePublishedQuestion({ question_no: 1, text_en: "One", answer: { type: "input", correct: "1" } })
   const two = sanitizePublishedQuestion({ question_no: 2, text_en: "Two", answer: { correct: "2", type: "input" } })
