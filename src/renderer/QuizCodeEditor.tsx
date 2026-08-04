@@ -23,11 +23,12 @@ interface QuizCodeEditorProps {
   editableLineRange?: EditorLineRange; relativeLineNumbers?: boolean; onValidate?: OnValidate; onBlur?: () => void
   formatOnMount?: (value: string) => string | Promise<string>
   expressionContext?: boolean
+  modelContext?: { prefix: string; suffix: string }
   readOnly?: boolean
   language?: "typescript" | "json"
 }
 
-export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = false, minHeight = 120, visibleLineRange, editableLineRange, relativeLineNumbers = false, onValidate, onBlur, formatOnMount, expressionContext = false, readOnly = false, language = "typescript" }: QuizCodeEditorProps) {
+export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = false, minHeight = 120, visibleLineRange, editableLineRange, relativeLineNumbers = false, onValidate, onBlur, formatOnMount, expressionContext = false, modelContext, readOnly = false, language = "typescript" }: QuizCodeEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const lockedRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null)
   const saveRef = useRef(onSave); saveRef.current = onSave
@@ -35,12 +36,14 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   const blurRef = useRef(onBlur); blurRef.current = onBlur
   const editableRef = useRef<EditorLineRange | undefined>(editableLineRange)
   const [height, setHeight] = useState(minHeight)
-  const contextOffset = expressionContext ? 1 : 0
-  const modelValue = expressionContext ? `const __getgoExpression = (\n${value}\n)` : value
-  const modelVisibleRange = expressionContext
-    ? { startLineNumber: 2, endLineNumber: value.split("\n").length + 1 }
+  const contextPrefix = modelContext?.prefix ?? (expressionContext ? "const __getgoExpression = (\n" : "")
+  const contextSuffix = modelContext?.suffix ?? (expressionContext ? "\n)" : "")
+  const contextOffset = contextPrefix.split("\n").length - 1
+  const modelValue = `${contextPrefix}${value}${contextSuffix}`
+  const modelVisibleRange = contextPrefix || contextSuffix
+    ? { startLineNumber: contextOffset + 1, endLineNumber: contextOffset + value.split("\n").length }
     : visibleLineRange
-  const modelEditableRange = editableLineRange && expressionContext
+  const modelEditableRange = editableLineRange && (contextPrefix || contextSuffix)
     ? { startLineNumber: editableLineRange.startLineNumber + contextOffset, endLineNumber: editableLineRange.endLineNumber + contextOffset }
     : editableLineRange
   editableRef.current = modelEditableRange
@@ -63,18 +66,26 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
     lockedRef.current ? lockedRef.current.set(decorations) : lockedRef.current = editor.createDecorationsCollection(decorations)
   }, [modelEditableRange, modelVisibleRange])
   const onMount = useCallback<OnMount>(editor => {
-    editorRef.current = editor; applyRanges(); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
+    editorRef.current = editor
+    const mountedModel = editor.getModel()
+    if (mountedModel && mountedModel.getValue() !== modelValue) mountedModel.setValue(modelValue)
+    applyRanges(); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
     if (autoHeight) { const update = () => setHeight(Math.max(minHeight, editor.getContentHeight())); update(); editor.onDidContentSizeChange(update) }
     const updateReadOnly = () => { const range = editableRef.current; const selection = editor.getSelection(); editor.updateOptions({ readOnly: readOnly || (!!range && !(selection && selection.startLineNumber >= range.startLineNumber && selection.endLineNumber <= range.endLineNumber)) }) }
     if (editableRef.current) { const model = editor.getModel(); editor.setPosition({ lineNumber: Math.max(1, Math.min(model?.getLineCount() ?? 1, editableRef.current.startLineNumber)), column: 1 }); updateReadOnly(); editor.onDidChangeCursorSelection(updateReadOnly) }
     editor.onDidBlurEditorWidget(() => blurRef.current?.())
     if (formatOnMount) void Promise.resolve(formatOnMount(value)).then(formatted => { if (formatted !== value) changeRef.current(formatted) }).catch(() => { /* Invalid drafts remain editable. */ })
-  }, [applyRanges, autoHeight, formatOnMount, minHeight, readOnly, value])
-  useEffect(() => { applyRanges() }, [applyRanges, value])
+  }, [applyRanges, autoHeight, formatOnMount, minHeight, modelValue, readOnly, value])
+  useEffect(() => {
+    const model = editorRef.current?.getModel()
+    if (model && model.getValue() !== modelValue) model.setValue(modelValue)
+    applyRanges()
+  }, [applyRanges, modelValue])
   const handleChange = (next = "") => {
-    if (!expressionContext) { onChange(next); return }
-    const lines = next.split("\n")
-    onChange(lines.slice(1, -1).join("\n"))
+    if (!contextPrefix && !contextSuffix) { onChange(next); return }
+    const start = next.startsWith(contextPrefix) ? contextPrefix.length : 0
+    const suffixIndex = contextSuffix ? next.lastIndexOf(contextSuffix) : next.length
+    onChange(next.slice(start, suffixIndex >= start ? suffixIndex : next.length))
   }
   // Keep overflow widgets anchored to Monaco's editor container. Do not set
   // `overflowWidgetsDomNode: document.body`: these editors live in auto-height,
