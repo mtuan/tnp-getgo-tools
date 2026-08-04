@@ -318,6 +318,7 @@ tbody tr:hover { background: #eef2ff80; }
 .review-status-full { color: #047857; background: #d1fae5; }
 .review-status-partial { color: #b45309; background: #fef3c7; }
 .review-status-none { color: #b91c1c; background: #fee2e2; }
+.quiz-header-verification { display: inline-flex; align-items: center; min-height: 42px; padding: 10px 16px; border: 1px solid currentColor; border-radius: 11px; font-size: 14px; font-weight: 800; line-height: 1; letter-spacing: -.1px; text-transform: none; box-shadow: 0 4px 12px #0f172a12; }
 .quiz-version-questions-v1 { color: #047857; background: #d1fae5; }
 .quiz-version-legacy { color: #b45309; background: #fef3c7; }
 .migration-results-drawer { width: min(680px, 100vw); }
