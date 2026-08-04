@@ -369,6 +369,9 @@ tbody tr:hover { background: #eef2ff80; }
   :root { color: #f8fafc; background: #020617; color-scheme: dark; }
   body { color: #f8fafc; background: #020617; }
   .topbar { border-color: #ffffff1a; background: rgba(15,23,42,.9); }
+  .ai-migration-progress { color: #e2e8f0; border-color: #6366f166; background: #1e293b; box-shadow: 0 18px 48px #02061780; }
+  .ai-migration-progress-heading > i { color: #c7d2fe; background: #4f46e533; }
+  .ai-migration-progress-heading span, .ai-migration-progress-detail, .ai-migration-progress > small { color: #94a3b8; }
   .ui-segmented-control { border-color: #ffffff1a; background: #0f172a; }
   .ui-segmented-control button { color: #94a3b8; }
   .ui-segmented-control button:hover:not(:disabled) { color: #c7d2fe; background: #ffffff0d; }
@@ -737,6 +740,20 @@ button.danger svg { width: 14px; }
 .question-preview-actions .question-feedback-button.has-issues { color: #dc2626; }
 .question-preview-actions .question-feedback-button.has-issues:hover { color: #b91c1c; }
 .question-feedback-dialog { width: min(520px, calc(100vw - 48px)); }
+.ai-migration-progress { position: fixed; right: 18px; bottom: 18px; z-index: 220; width: 360px; padding: 15px; border: 1px solid #c7d2fe; border-radius: 14px; color: #334155; background: white; box-shadow: 0 18px 48px #0f172a2b; }
+.ai-migration-progress-heading { display: flex; align-items: center; gap: 10px; }
+.ai-migration-progress-heading > i { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 10px; color: #4f46e5; background: #eef2ff; }
+.ai-migration-progress-heading > i svg { width: 17px; }
+.ai-migration-progress-heading > div { min-width: 0; flex: 1; }
+.ai-migration-progress-heading strong, .ai-migration-progress-heading span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-migration-progress-heading strong { font-size: 13px; }
+.ai-migration-progress-heading span { margin-top: 2px; color: #64748b; font-size: 10px; }
+.ai-migration-progress-heading .icon-button { width: 30px; height: 30px; min-height: 30px; background: transparent; }
+.ai-migration-progress-heading > .ai-migration-cancel { min-height: 32px; padding: 6px 12px; border-radius: 8px; box-shadow: none; }
+.ai-migration-progress-heading > .ai-migration-cancel:hover { transform: none; box-shadow: none; }
+.ai-migration-progress > progress { width: 100%; height: 7px; margin-top: 13px; accent-color: #4f46e5; }
+.ai-migration-progress-detail { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; margin-top: 5px; color: #475569; font-size: 11px; }
+.ai-migration-progress > small { display: block; margin-top: 7px; color: #64748b; font-size: 10px; }
 .question-preview-content { display: grid; gap: 14px; padding: 18px; }
 .question-preview-content p { margin: 0; line-height: 1.6; }
 .question-preview-translation { color: var(--muted); font-size: 14px; font-style: italic; }

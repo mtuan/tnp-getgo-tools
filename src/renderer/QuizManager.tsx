@@ -13,6 +13,7 @@ import { QuestionNavigator } from "./ui/QuestionNavigator"
 import { Tabs } from "./ui/Tabs"
 import { DataTable, type DataColumn } from "./ui/DataTable"
 import { useToast } from "./ui/Toast"
+import type { AiMigrationJobState } from "./AiMigrationProgress"
 
 interface QuizManagerProps {
   snapshot: RepositorySnapshot
@@ -20,6 +21,8 @@ interface QuizManagerProps {
   onSnapshotChange(snapshot: RepositorySnapshot): void
   onRouteChange(route: string): void
   onBackActionChange(action: (() => void) | null): void
+  aiMigrationJob: AiMigrationJobState | null
+  onStartAiMigration(quiz: QuizSummary, records: QuizQuestionRecord[]): void
 }
 
 type ManagerPage =
@@ -57,7 +60,7 @@ function restoredPage(snapshot: RepositorySnapshot, route?: string): { page: Man
   return { page: { kind: "quiz", quiz }, questionNo: parts[5] === "questions" && parts[6] ? parts[6] : null, questionTab }
 }
 
-export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteChange, onBackActionChange }: QuizManagerProps) {
+export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteChange, onBackActionChange, aiMigrationJob, onStartAiMigration }: QuizManagerProps) {
   const toast = useToast()
   const [restored] = useState(() => restoredPage(snapshot, initialRoute))
   const [page, setPage] = useState<ManagerPage>(restored.page)
@@ -115,6 +118,13 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
     }).finally(() => { if (active) setSourceLoading(false) })
     return () => { active = false }
   }, [page])
+
+  useEffect(() => {
+    if (page.kind !== "quiz" || aiMigrationJob?.quizId !== page.quiz.id || !["completed", "cancelled"].includes(aiMigrationJob.status)) return
+    let active = true
+    void window.getgo.loadQuizQuestions(page.quiz.manifestPath).then(records => { if (active) setQuestionRecords(records) }).catch(cause => { if (active) setSourceError(cause instanceof Error ? cause.message : String(cause)) })
+    return () => { active = false }
+  }, [aiMigrationJob?.status, aiMigrationJob?.quizId, page])
 
   const backToQuestions = useCallback(() => {
     setSelectedQuestion(null)
@@ -303,7 +313,7 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
       </section>
     }
     return <section className="manager editor-page">
-      <PageHeader eyebrow="Quiz detail" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }]} title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show quiz in folder" title="Show quiz in folder" onClick={() => void runButtonAction("show-quiz-folder", () => window.getgo.showInFolder(quiz.manifestPath))} />} actions={quizTab === "info" ? <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-quiz"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; void runButtonAction("delete-quiz", async () => { const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }); toast.show({ title: "Quiz deleted", description: `${quiz.title} was moved to Trash.` }) }) }}>Delete quiz</Button> : <span className={`badge quiz-header-verification review-status-${verification.kind}`} title={verification.label} aria-label={`${verification.label}: ${displayedVerifiedCount} of ${verificationTotal}`}>Reviewed: {displayedVerifiedCount}/{verificationTotal}</span>} />
+      <PageHeader eyebrow="Quiz detail" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }]} title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show quiz in folder" title="Show quiz in folder" onClick={() => void runButtonAction("show-quiz-folder", () => window.getgo.showInFolder(quiz.manifestPath))} />} actions={quizTab === "info" ? <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-quiz"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; void runButtonAction("delete-quiz", async () => { const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }); toast.show({ title: "Quiz deleted", description: `${quiz.title} was moved to Trash.` }) }) }}>Delete quiz</Button> : <><Button icon={<Zap size={15} />} variant="solid" loading={aiMigrationJob?.quizId === quiz.id && ["running", "cancelling"].includes(aiMigrationJob.status)} disabled={sourceLoading || Boolean(aiMigrationJob && ["running", "cancelling"].includes(aiMigrationJob.status))} onClick={() => onStartAiMigration(quiz, questionRecords)}>AI migrate</Button><span className={`badge quiz-header-verification review-status-${verification.kind}`} title={verification.label} aria-label={`${verification.label}: ${displayedVerifiedCount} of ${verificationTotal}`}>Reviewed: {displayedVerifiedCount}/{verificationTotal}</span></>} />
       <Tabs<"info" | "questions"> variant="underline" className="contest-detail-tabs" ariaLabel="Quiz detail" value={quizTab} onChange={setQuizTab} items={[{ id: "questions", label: "Questions", badge: questions.length || quiz.questionCount || 0 }, { id: "info", label: "Info" }]} />
       {quizTab === "info" && quizContest && <QuizCrudDialog embedded quiz={quiz} contest={quizContest} onClose={() => undefined} onSaved={async input => { const next = await window.getgo.updateQuiz(quiz.manifestPath, { title: input.title, grade: input.grade, round: input.round, year: input.year, status: input.status, quizBuilderApiVersion: input.quizBuilderApiVersion }); onSnapshotChange(next); const updated = next.quizzes.find(item => item.key === quiz.key); if (updated) setPage({ kind: "quiz", quiz: updated }); toast.show({ title: "Quiz updated", description: `${input.title} was saved.` }) }} />}
       {quizTab === "questions" && <>{sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
