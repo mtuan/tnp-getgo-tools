@@ -12,6 +12,21 @@ type StoredFix = DynamicQuestionFixResult & { generatedAt: string; processingTim
 type Revision = { id: string; generatedAt: string; processingTimeMs?: number; proposal: DynamicQuestionProposal; model: string; request?: Record<string, unknown>; usage: DynamicQuestionProposalResult["usage"]; kind: "generate" | "fix"; number: number; fix?: StoredFix; previous?: DynamicQuestionProposal }
 type TabId = "summary" | "parameters" | "params" | "question" | "explanation" | "origin" | "request"
 
+const emptyUsage: DynamicQuestionProposalResult["usage"] = { inputTokens: 0, outputTokens: 0, totalTokens: 0, cachedInputTokens: 0, cacheWriteTokens: 0 }
+function normalizedProposal(proposal: Partial<DynamicQuestionProposal> | undefined): DynamicQuestionProposal {
+  return {
+    paramsGeneratorTs: proposal?.paramsGeneratorTs ?? "",
+    questionGeneratorTs: proposal?.questionGeneratorTs ?? "",
+    explanationGeneratorTs: proposal?.explanationGeneratorTs ?? "",
+    originParamsTs: proposal?.originParamsTs ?? "{}",
+    parameterizedValues: Array.isArray(proposal?.parameterizedValues) ? proposal.parameterizedValues : [],
+    explanation: typeof proposal?.explanation === "string" ? proposal.explanation : "No summary was recorded for this revision.",
+    assumptions: Array.isArray(proposal?.assumptions) ? proposal.assumptions : [],
+    warnings: Array.isArray(proposal?.warnings) ? proposal.warnings : [],
+    confidence: typeof proposal?.confidence === "number" ? proposal.confidence : 1,
+  }
+}
+
 const fields = {
   paramsGeneratorTs: { label: "Parameters generator", tab: "params" as const },
   questionGeneratorTs: { label: "Question generator", tab: "question" as const },
@@ -27,13 +42,13 @@ function processingTime(value?: number): string {
 }
 
 function revisionsOf(response: StoredGenerate, history: StoredFix[]): Revision[] {
-  let previous = response.proposal
-  const revisions: Revision[] = [{ id: response.generatedAt, generatedAt: response.generatedAt, processingTimeMs: response.processingTimeMs, proposal: response.proposal, model: response.model, request: response.request, usage: response.usage, kind: "generate", number: 0 }]
+  let previous = normalizedProposal(response.proposal)
+  const revisions: Revision[] = [{ id: response.generatedAt, generatedAt: response.generatedAt, processingTimeMs: response.processingTimeMs, proposal: previous, model: response.model, request: response.request, usage: response.usage ?? emptyUsage, kind: "generate", number: 0 }]
   history.forEach((item, index) => {
     const before = previous
     const legacyChanges = Object.fromEntries((item.changes ?? []).map(change => [change.field, change.source]))
-    previous = item.proposal ?? { ...previous, ...legacyChanges, explanation: item.explanation || previous.explanation, warnings: item.warnings ?? previous.warnings }
-    revisions.push({ id: item.generatedAt, generatedAt: item.generatedAt, processingTimeMs: item.processingTimeMs, proposal: previous, previous: before, model: item.model, request: item.request, usage: item.usage, kind: "fix", number: index + 1, fix: item })
+    previous = normalizedProposal(item.proposal ?? { ...previous, ...legacyChanges, explanation: item.explanation || previous.explanation, warnings: item.warnings ?? previous.warnings })
+    revisions.push({ id: item.generatedAt, generatedAt: item.generatedAt, processingTimeMs: item.processingTimeMs, proposal: previous, previous: before, model: item.model, request: item.request, usage: item.usage ?? emptyUsage, kind: "fix", number: index + 1, fix: item })
   })
   return revisions
 }

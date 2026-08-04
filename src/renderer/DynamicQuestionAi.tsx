@@ -19,7 +19,19 @@ const hasExplanationContent = (value: unknown): boolean => {
 }
 const protectedQuestionFields = ["question_no", "category", "text_en", "text_vn", "image_datas", "answer"] as const
 const protectedQuestionContent = (question: Record<string, unknown>) => Object.fromEntries(protectedQuestionFields.filter(key => question[key] !== undefined).map(key => [key, question[key]]))
-const changedProtectedFields = (original: Record<string, unknown>, generated: Record<string, unknown>) => protectedQuestionFields.filter(key => JSON.stringify(original[key]) !== JSON.stringify(generated[key]))
+const comparableProtectedValue = (key: typeof protectedQuestionFields[number], value: unknown) => {
+  if (key === "text_vn" && (value === undefined || value === null || value === "")) return undefined
+  if (key === "image_datas" && (value === undefined || (Array.isArray(value) && value.length === 0))) return undefined
+  return value
+}
+const changedProtectedFields = (original: Record<string, unknown>, generated: Record<string, unknown>) => protectedQuestionFields.filter(key => JSON.stringify(comparableProtectedValue(key, original[key])) !== JSON.stringify(comparableProtectedValue(key, generated[key])))
+const proposalSummary = (proposal: Partial<DynamicQuestionProposalResult["proposal"]>) => ({
+  parameterizedValues: Array.isArray(proposal.parameterizedValues) ? proposal.parameterizedValues : [],
+  explanation: typeof proposal.explanation === "string" ? proposal.explanation : "Existing generated question code.",
+  assumptions: Array.isArray(proposal.assumptions) ? proposal.assumptions : [],
+  warnings: Array.isArray(proposal.warnings) ? proposal.warnings : [],
+  confidence: typeof proposal.confidence === "number" ? proposal.confidence : 1,
+})
 
 export function DynamicQuestionAi({ record, context, diagnostics, hasGeneratedExplanation = false, onApply, onHistoryOpen }: { record: QuizQuestionRecord; context: Record<string, unknown>; diagnostics: string[]; hasGeneratedExplanation?: boolean; onApply(record: QuizQuestionRecord): void; onHistoryOpen(): void }) {
   const toast = useToast(); const mode = record.aiResponse || (Array.isArray(record.aiFixHistory) && record.aiFixHistory.length > 0) || hasExplanationContent(record.explanation) || hasGeneratedExplanation ? "fix" : "generate"; const [instructions, setInstructions] = useState(""); const [busy, setBusy] = useState(false); const [elapsed, setElapsed] = useState(0)
@@ -48,7 +60,7 @@ export function DynamicQuestionAi({ record, context, diagnostics, hasGeneratedEx
           warnings: [],
           confidence: 1,
         }
-        const currentSummary = { parameterizedValues: currentProposal.parameterizedValues, explanation: currentProposal.explanation, assumptions: currentProposal.assumptions, warnings: currentProposal.warnings, confidence: currentProposal.confidence }
+        const currentSummary = proposalSummary(currentProposal)
         const result = await window.getgo.fixDynamicQuestion({ originalQuestion: record, currentCode: record.advancedDynamic!, currentSummary, context, diagnostics, instructions: instructions.trim() })
         if (version !== requestVersion.current) return
         const changed = Object.fromEntries(await Promise.all(result.changes.map(async change => [change.field, await formatSource(change.field, change.source)])))
