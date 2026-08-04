@@ -31,7 +31,7 @@ export type FormField =
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
   | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
   | (FieldBase & { type: "checkbox" })
-  | (FieldBase & { type: "toggle" })
+  | (FieldBase & { type: "toggle"; presentation?: "default" | "row" })
   | (FieldBase & { type: "custom"; render: (context: { value: unknown; values: FormValues; disabled: boolean; onChange(value: unknown): void }) => ReactNode })
 
 export type FormRow = FormField | FormField[]
@@ -107,6 +107,10 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
 }
 
 function Field({ field, values, errors, onChange, autoFocus }: { field: FormField; values: FormValues; errors: FormErrors; onChange(name: string, value: unknown): void; autoFocus: boolean }) {
+  if (field.type === "toggle" && field.presentation === "row") return <div className={`schema-field schema-toggle-row ${errors[field.name] ? "invalid" : ""}`}>
+    <div><label>{field.label}{field.required && <b>*</b>}</label>{errors[field.name] ? <small className="field-error">{errors[field.name]}</small> : field.helper ? <small>{field.helper}</small> : null}</div>
+    <FormControl field={field} values={values} onChange={onChange} autoFocus={autoFocus} />
+  </div>
   const inlineLabel = field.type === "checkbox"
   return <div className={`schema-field ${errors[field.name] ? "invalid" : ""}`}>
     {!inlineLabel && field.label && <label>{field.label}{field.required && <b>*</b>}</label>}

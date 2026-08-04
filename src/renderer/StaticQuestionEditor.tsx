@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react"
 import { Zap } from "lucide-react"
 import { answerTypeDefinitions, staticAnswerType } from "../core/answer-types"
-import type { QuizQuestionRecord } from "../core/models"
+import type { QuestionFeedback as Feedback, QuizQuestionRecord } from "../core/models"
 import { answerDetailsComponents, type EditableAnswer } from "./answer-details"
 import { Form, type FormSchema } from "./ui/Form"
 import { Button } from "./ui/Button"
 import { Panel } from "./ui/Panel"
 import { QuestionPreview } from "./ui/QuestionPreview"
 import { questionService } from "./question-service"
+import { QuestionFeedback } from "./QuestionFeedback"
 
 const answerOf = (record: QuizQuestionRecord): EditableAnswer => record.answer && typeof record.answer === "object" && !Array.isArray(record.answer)
   ? record.answer as EditableAnswer
   : { type: "input", correct: "" }
 
-export function StaticQuestionEditor({ record, manifestPath, onChange }: { record: QuizQuestionRecord; manifestPath: string; onChange(record: QuizQuestionRecord): void }) {
+export function StaticQuestionEditor({ record, manifestPath, onChange, onFeedbackSave }: { record: QuizQuestionRecord; manifestPath: string; onChange(record: QuizQuestionRecord): void; onFeedbackSave(value: Omit<Feedback, "updatedAt"> | null): Promise<void> }) {
   const [preview, setPreview] = useState(() => questionService.loadStatic(record))
   const answer = answerOf(record)
   const explanation = record.explanation && typeof record.explanation === "object" && !Array.isArray(record.explanation) ? record.explanation as Record<string, unknown> : {}
@@ -45,6 +46,6 @@ export function StaticQuestionEditor({ record, manifestPath, onChange }: { recor
       <Panel className="static-question-form-panel" title="Question detail" description="Edit the stored question and explanation."><div className="static-question-fields"><Form fields={fields} values={values} autoFocus={false} autoSelectSingleOption={false} onChange={updateQuestion} /></div></Panel>
       <Panel className="static-question-form-panel" title="Answer details" description={answerType === "input" ? "Configure the accepted value and input control." : "Configure options and mark one or more correct choices."}><div className="static-question-fields"><AnswerDetails answer={{ ...answer, type: answerType, ...(answerType === "input" ? { inputType: answer.inputType ?? (answer.type === "numeric" ? "number" : "text") } : {}) }} onChange={nextAnswer => onChange({ ...record, answer: nextAnswer })} /></div></Panel>
     </div>
-    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${record.question_no}`} meta={<span className="question-preview-actions"><Button variant="icon" title="Regenerate question" aria-label="Regenerate question" icon={<Zap size={16} />} onClick={() => setPreview(current => questionService.loadStatic(record, true, current.question))} /></span>}><QuestionPreview question={preview.question} params={preview.params} manifestPath={manifestPath} /></Panel></div>
+    <div className="advanced-question-sidebar"><Panel className="question-preview-panel" title={`Question ${record.question_no}`} meta={<span className="question-preview-actions"><QuestionFeedback feedback={record.feedback} onSave={onFeedbackSave} /><Button variant="icon" title="Regenerate question" aria-label="Regenerate question" icon={<Zap size={16} />} onClick={() => setPreview(current => questionService.loadStatic(record, true, current.question))} /></span>}><QuestionPreview question={preview.question} params={preview.params} manifestPath={manifestPath} /></Panel></div>
   </div>
 }

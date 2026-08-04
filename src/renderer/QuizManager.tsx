@@ -281,10 +281,25 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
           toast.show({ title: "Could not update verification", description: message, variant: "error" })
         } finally { setSavingVerification(false) }
       }
+      const saveQuestionFeedback = async (feedback: Omit<NonNullable<QuizQuestionRecord["feedback"]>, "updatedAt"> | null) => {
+        const nextRecord = { ...activeQuestion.record }
+        if (feedback) nextRecord.feedback = { ...feedback, updatedAt: new Date().toISOString() }
+        else delete nextRecord.feedback
+        const savedQuestion = await window.getgo.saveQuizQuestion(quiz.manifestPath, nextRecord)
+        setQuestionRecords(current => current.map(item => String(item.question_no) === String(savedQuestion.question_no) ? savedQuestion : item))
+        setQuestionDraftRecord(current => {
+          if (!current || String(current.question_no) !== String(savedQuestion.question_no)) return current
+          const next: QuizQuestionRecord = { ...current }
+          if (savedQuestion.feedback) next.feedback = savedQuestion.feedback
+          else delete next.feedback
+          return next
+        })
+        toast.show({ title: feedback ? "Question feedback saved" : "Question feedback cleared", description: `Question ${savedQuestion.question_no} was updated.` })
+      }
       return <section className="manager editor-page question-detail-page">
         <PageHeader eyebrow="Question editor" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }]} title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show question in folder" title="Show question in folder" onClick={() => void runButtonAction("show-question-folder", () => window.getgo.showQuizQuestionInFolder(quiz.manifestPath, activeQuestion.number))} />} navigation={<QuestionNavigator value={String(selectedQuestion)} disabled={saving || savingVerification} items={questions.map((question, index) => ({ value: String(index), label: `Question ${question.number}`, description: question.category === "—" ? undefined : question.category, reviewed: question.reviewed }))} onValueChange={navigateQuestion} />} actions={<><Button icon={questionDraftRecord?.verified === true ? <Check size={15} /> : undefined} loading={savingVerification} variant={questionDraftRecord?.verified === true ? "solid" : "outline"} color={questionDraftRecord?.verified === true ? "success" : "neutral"} disabled={saving || savingVerification} aria-pressed={questionDraftRecord?.verified === true} onClick={() => void setQuestionVerified(questionDraftRecord?.verified !== true)}>{questionDraftRecord?.verified === true ? "Verified" : "Verify"}</Button><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} variant="solid" color="danger" disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={!questionHasChanges || saving || savingVerification} onClick={() => void saveQuestion()}>Save</Button></>} />
         {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
-        {questionDraftRecord && <QuestionEditorTabs key={`${quiz.key}/${activeQuestion.number}`} tab={questionEditorTab} onTabChange={setQuestionEditorTab} record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} manifestPath={quiz.manifestPath} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} />}
+        {questionDraftRecord && <QuestionEditorTabs key={`${quiz.key}/${activeQuestion.number}`} tab={questionEditorTab} onTabChange={setQuestionEditorTab} record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} manifestPath={quiz.manifestPath} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} onFeedbackSave={saveQuestionFeedback} />}
       </section>
     }
     return <section className="manager editor-page">

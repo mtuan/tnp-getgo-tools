@@ -115,6 +115,7 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
   text_vn?: unknown
   action?: "generated"
   verified?: boolean
+  feedback?: QuestionFeedback
   migrationError?: { stage: "origin-render"; message: string }
   authoringMode?: string
   advancedDynamic?: {
@@ -126,6 +127,13 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
   }
   aiResponse?: DynamicQuestionProposalResult & { generatedAt: string; processingTimeMs?: number }
   aiFixHistory?: Array<DynamicQuestionFixResult & { generatedAt: string; processingTimeMs?: number; proposal: DynamicQuestionProposal }>
+}
+
+export type QuestionIssue = "missing-image" | "wrong-question" | "wrong-answer"
+export interface QuestionFeedback {
+  issues: QuestionIssue[]
+  note?: string
+  updatedAt: string
 }
 
 export const supportedQuizBuilderApiVersions = [1] as const
