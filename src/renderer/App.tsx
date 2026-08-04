@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react"
-import { AlertTriangle, Bot, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, RotateCcw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
+import { AlertTriangle, ArrowLeft, Bot, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, PanelLeftClose, PanelLeftOpen, RotateCcw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
 import { AccountMenu } from "./AccountMenu"
@@ -18,7 +18,9 @@ const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default
 
 type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "ai-usage" | "settings"
 const lastRouteKey = "getgo-tools:last-route"
+const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed"
 const readLastRoute = () => { try { return localStorage.getItem(lastRouteKey) || "/dashboard" } catch { return "/dashboard" } }
+const readSidebarCollapsed = () => { try { return localStorage.getItem(sidebarCollapsedKey) === "true" } catch { return false } }
 const viewFromRoute = (route: string): View => route.startsWith("/quizzes") ? "quizzes" : (["dashboard", "jobs", "publishing", "ai-usage", "settings"].includes(route.slice(1)) ? route.slice(1) as View : "dashboard")
 const nav: { id: View; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -63,7 +65,10 @@ export function App() {
   const [checkingEnvironment, setCheckingEnvironment] = useState(false)
   const [savingAiProfile, setSavingAiProfile] = useState(false)
   const [restartingApp, setRestartingApp] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
+  const [canNavigateBack, setCanNavigateBack] = useState(false)
   const environmentCheckId = useRef(0)
+  const quizBackAction = useRef<(() => void) | null>(null)
 
   async function scan(path?: string, announce = false) {
     setLoading(true); setRepositoryError(null)
@@ -142,6 +147,7 @@ export function App() {
     }).catch((cause) => { setError(String(cause)); setLoading(false) })
   }, [])
   useEffect(() => { try { localStorage.setItem(lastRouteKey, currentRoute) } catch { /* Storage can be unavailable in hardened renderer sessions. */ } }, [currentRoute])
+  useEffect(() => { try { localStorage.setItem(sidebarCollapsedKey, String(sidebarCollapsed)) } catch { /* Storage can be unavailable in hardened renderer sessions. */ } }, [sidebarCollapsed])
   useEffect(() => {
     if (!routeCopied) return
     const timeout = window.setTimeout(() => setRouteCopied(false), 1400)
@@ -156,7 +162,15 @@ export function App() {
       setError(cause instanceof Error ? cause.message : String(cause))
     }
   }
-  function navigate(view: View) { setView(view); setCurrentRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`) }
+  const updateQuizBackAction = useCallback((action: (() => void) | null) => {
+    quizBackAction.current = action
+    setCanNavigateBack(Boolean(action))
+  }, [])
+  function navigate(view: View) {
+    if (view !== "quizzes") updateQuizBackAction(null)
+    setView(view)
+    setCurrentRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`)
+  }
 
   function environmentSwitcher(className?: string) {
     const failedChecks = environmentReadiness?.checks.filter(check => !check.ready).map(check => check.message).join(" ")
@@ -179,7 +193,7 @@ export function App() {
   const ready = quizzes.filter((q) => ["reviewed", "validated", "published"].includes(q.contentStatus)).length
   const contests = snapshot?.contests.length ?? 0
 
-  return <div className="app-shell">
+  return <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`.trim()}>
     <div className="routebar">
       <div className="route-address" onClick={() => void copyCurrentRoute()} title="Copy route">
         <span className="route-value">{currentRoute}</span>
@@ -189,13 +203,14 @@ export function App() {
       </div>
     </div>
     <aside className="sidebar">
-      <div className="brand"><div className="brand-mark"><GetGoIcon size={38} /></div><div><strong>GetGo</strong><span>TOOLS</span></div></div>
-      <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)}><i><Icon size={18} strokeWidth={1.8} /></i>{item.label}</button> })}</nav>
-      <div className="sidebar-footer"><span className="status-dot" />Local workspace<strong>v0.1.0</strong></div>
+      <Button className="ui-page-header-folder sidebar-toggle" icon={sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />} variant="icon" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setSidebarCollapsed(value => !value)} />
+      <div className="brand"><div className="brand-mark"><GetGoIcon size={38} /></div><div className="brand-copy"><strong>GetGo</strong><span>TOOLS</span></div></div>
+      <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} aria-label={item.label} title={sidebarCollapsed ? item.label : undefined} onClick={() => navigate(item.id)}><i><Icon size={18} strokeWidth={1.8} /></i><span>{item.label}</span></button> })}</nav>
+      <div className="sidebar-footer"><span className="sidebar-workspace"><span className="status-dot" />Local workspace</span><strong>v0.1.0</strong></div>
     </aside>
     <main>
       <header className={`topbar ${settings.environment === "production" ? "production-header" : ""}`}>
-        <button className="repository" onClick={choose}><span>Repository</span><strong>{settings.repositoryPath?.split(/[\\/]/).pop() ?? "Choose folder"}</strong></button>
+        <div className="topbar-leading">{canNavigateBack && <Button className="ui-page-header-folder topbar-back" icon={<ArrowLeft />} variant="icon" aria-label="Go back" title="Go back" onClick={() => quizBackAction.current?.()} />}<button className="repository" onClick={choose}><span>Repository</span><strong>{settings.repositoryPath?.split(/[\\/]/).pop() ?? "Choose folder"}</strong></button></div>
         <div className="top-actions">
           {environmentSwitcher("compact")}
           {auth.state.user ? <AccountMenu user={auth.state.user} onSignOut={auth.signOut} /> : <Button disabled={auth.loading} onClick={auth.requestLogin}><LogIn size={15} />Sign in</Button>}
@@ -217,7 +232,7 @@ export function App() {
             <div className="lifecycle">{["imported", "normalized", "generated", "reviewed", "validated", "published"].map((status) => { const count = quizzes.filter((q) => q.contentStatus === status).length; return <div key={status}><div><span>{status}</span><strong>{count}</strong></div><progress max={Math.max(quizzes.length, 1)} value={count} /></div> })}</div>
           </Panel>
         </>}
-        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
+        {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
         {settings.repositoryPath && view === "ai-usage" && <AiUsagePage />}
