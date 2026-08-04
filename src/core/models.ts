@@ -181,6 +181,7 @@ export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult
 export type DynamicQuestionFixResult = GetGoDynamicQuestionFixResult
 
 export interface DesktopApi {
+  restartApp(): Promise<void>
   getSettings(): Promise<AppSettings>
   chooseRepository(): Promise<RepositorySnapshot | null>
   scanRepository(path?: string): Promise<RepositorySnapshot>

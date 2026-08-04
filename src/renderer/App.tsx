@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
-import { Bot, Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
+import { AlertTriangle, Bot, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, RotateCcw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
 import { AccountMenu } from "./AccountMenu"
@@ -7,6 +7,7 @@ import { AiUsagePage } from "./AiUsagePage"
 import { GetGoIcon } from "./GetGoIcon"
 import { PageTransition } from "./PageTransition"
 import { Button } from "./ui/Button"
+import { DialogFrame } from "./ui/DialogFrame"
 import { PageHeader } from "./ui/PageHeader"
 import { Panel } from "./ui/Panel"
 import { SummaryCard } from "./ui/SummaryCard"
@@ -55,25 +56,32 @@ export function App() {
   const [loading, setLoading] = useState(true)
   const [choosingRepository, setChoosingRepository] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [repositoryError, setRepositoryError] = useState<string | null>(null)
   const [currentRoute, setCurrentRoute] = useState(initialRoute)
   const [routeCopied, setRouteCopied] = useState(false)
   const [environmentReadiness, setEnvironmentReadiness] = useState<EnvironmentReadiness | null>(null)
   const [checkingEnvironment, setCheckingEnvironment] = useState(false)
   const [savingAiProfile, setSavingAiProfile] = useState(false)
+  const [restartingApp, setRestartingApp] = useState(false)
   const environmentCheckId = useRef(0)
 
   async function scan(path?: string, announce = false) {
-    setLoading(true); setError(null)
+    setLoading(true); setRepositoryError(null)
     try { setSnapshot(await window.getgo.scanRepository(path)); if (announce) toast.show({ title: "Repository refreshed", description: "Local contests and quizzes are up to date." }) }
-    catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setError(message); if (announce) toast.show({ title: "Refresh failed", description: message, variant: "error" }) }
+    catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setRepositoryError(message); if (announce) toast.show({ title: "Refresh failed", description: message, variant: "error" }) }
     finally { setLoading(false) }
   }
   async function choose() {
-    setError(null); setChoosingRepository(true)
+    setChoosingRepository(true)
     try {
       const result = await window.getgo.chooseRepository()
-      if (result) { setSnapshot(result); setSettings((s) => ({ ...s, repositoryPath: result.repositoryPath })); toast.show({ title: "Repository connected", description: result.repositoryPath }) }
-    } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setError(message); toast.show({ title: "Could not connect repository", description: message, variant: "error" }) }
+      if (result) {
+        setSnapshot(result)
+        setSettings((s) => ({ ...s, repositoryPath: result.repositoryPath }))
+        setRepositoryError(null)
+        toast.show({ title: "Repository connected", description: result.repositoryPath })
+      }
+    } catch (cause) { const message = cause instanceof Error ? cause.message : String(cause); setRepositoryError(message) }
     finally { setChoosingRepository(false) }
   }
   async function changeEnvironment(environment: AppSettings["environment"]) {
@@ -110,6 +118,16 @@ export function App() {
     } catch (cause) {
       toast.show({ title: "Could not update AI profile", description: cause instanceof Error ? cause.message : String(cause), variant: "error" })
     } finally { setSavingAiProfile(false) }
+  }
+  async function restartApp() {
+    setRestartingApp(true)
+    try {
+      await window.getgo.restartApp()
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      setRestartingApp(false)
+      toast.show({ title: "Could not restart GetGo Tools", description: message, variant: "error" })
+    }
   }
   useEffect(() => {
     window.getgo.getSettings().then((value) => {
@@ -185,7 +203,7 @@ export function App() {
       </header>
       <div className="content">
         <PageTransition trigger={[view, settings.repositoryPath]}>
-        {error && <div className="error-banner"><strong>Could not scan repository</strong><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}
+        {error && <div className="error-banner" role="alert"><strong>Application error</strong><span>{error}</span><button className="error-banner-close" type="button" aria-label="Dismiss error" onClick={() => setError(null)}>×</button></div>}
         {!settings.repositoryPath && !loading ? <section className="welcome"><div className="welcome-mark"><GetGoIcon size={56} /></div><h1>Connect your quiz repository</h1><p>Select the local <code>tnp-getgo-quizzes</code> folder to inspect quiz lifecycle and build status.</p><Button loading={choosingRepository} variant="primary" onClick={() => void choose()}>Choose repository</Button></section> : null}
         {settings.repositoryPath && view === "dashboard" && <>
           <PageHeader eyebrow="Workspace overview" title="Quiz operations" description="Local repository health and publishing readiness." actions={<Button variant="primary" onClick={() => navigate("quizzes")}>Browse quizzes</Button>} />
@@ -203,11 +221,12 @@ export function App() {
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
         {settings.repositoryPath && view === "ai-usage" && <AiUsagePage />}
-        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /></div></section>}
+        {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /><label>Restart application<span>Development restarts keep the Vite hot-update connection active. Packaged builds relaunch GetGo Tools.</span></label><div><Button icon={<RotateCcw size={15} />} loading={restartingApp} variant="secondary" onClick={() => void restartApp()}>Restart GetGo Tools</Button></div></div></section>}
         </PageTransition>
       </div>
     </main>
     {routeCopied && <div className="copy-toast" role="status" aria-live="polite"><Check size={16} />Route copied</div>}
+    {repositoryError && <DialogFrame presentation="modal" className="repository-error-dialog" hideFooter title="Could not open repository" busy={choosingRepository} error={null} onClose={() => setRepositoryError(null)} onSubmit={event => event.preventDefault()}><div className="repository-error-content"><i><AlertTriangle /></i><div><strong>The selected folder is not a valid quiz repository.</strong><span>{repositoryError}</span></div></div><div className="repository-error-actions"><Button disabled={choosingRepository} onClick={() => setRepositoryError(null)}>Close</Button><Button icon={<FolderOpen size={15} />} loading={choosingRepository} variant="solid" onClick={() => void choose()}>Choose another folder</Button></div></DialogFrame>}
     {loading && <div className="loading"><span />Scanning repository…</div>}
   </div>
 }

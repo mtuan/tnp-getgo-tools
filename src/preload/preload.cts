@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron"
 import type { AppSettings, DesktopApi, RepositorySnapshot } from "../core/models.js"
 
 const api: DesktopApi = {
+  restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,
   chooseRepository: () => ipcRenderer.invoke("repository:choose") as Promise<RepositorySnapshot | null>,
   scanRepository: (path?: string) => ipcRenderer.invoke("repository:scan", path) as Promise<RepositorySnapshot>,

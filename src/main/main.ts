@@ -75,6 +75,14 @@ app.whenReady().then(async () => {
     model: process.env.GETGO_AI_OPENAI_MODEL,
     profile: initialSettings.aiProfile,
   })
+  ipcMain.handle("app:restart", () => {
+    if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
+      mainWindow?.reload()
+      return
+    }
+    app.relaunch()
+    app.exit(0)
+  })
   ipcMain.handle("auth:state", () => firebaseAuth!.state())
   ipcMain.handle("environment:readiness", () => firebaseAuth!.checkReadiness())
   ipcMain.handle("auth:sign-in", (_event, email: unknown, password: unknown) => {
