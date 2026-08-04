@@ -8,7 +8,6 @@ import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { recordPublishedHash } from "../repositories/quiz-publishing.js"
-import { readAiUsage } from "../repositories/ai-usage.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
 import { LocalAiService } from "./local-ai.js"
@@ -119,11 +118,6 @@ app.whenReady().then(async () => {
     return runAiIpc("fix", () => localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0]))
   })
   ipcMain.handle("ai:cancel-dynamic-question", () => localAi.cancelDynamicQuestionAi())
-  ipcMain.handle("ai:usage", async () => {
-    const current = await settings.read()
-    if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
-    return readAiUsage(await scanQuizRepository(current.repositoryPath))
-  })
   ipcMain.handle("publishing:status", async () => {
     const current = await settings.read()
     if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")

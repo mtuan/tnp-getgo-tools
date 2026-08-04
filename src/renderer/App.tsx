@@ -1,9 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
-import { AlertTriangle, ArrowLeft, Bot, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, PanelLeftClose, PanelLeftOpen, RefreshCw, RotateCcw, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, PanelLeftClose, PanelLeftOpen, RefreshCw, RotateCcw, Settings, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
 import { AccountMenu } from "./AccountMenu"
-import { AiUsagePage } from "./AiUsagePage"
 import { GetGoIcon } from "./GetGoIcon"
 import { PageTransition } from "./PageTransition"
 import { Button } from "./ui/Button"
@@ -17,14 +16,14 @@ import { useToast } from "./ui/Toast"
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
 const PublishingPage = lazy(() => import("./PublishingPage").then(module => ({ default: module.PublishingPage })))
 
-type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "ai-usage" | "settings" | "not-found"
+type View = "dashboard" | "quizzes" | "publishing" | "settings" | "not-found"
 type NavigableView = Exclude<View, "not-found">
 const lastRouteKey = "getgo-tools:last-route"
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed"
 const readLastRoute = () => { try { return localStorage.getItem(lastRouteKey) || "/dashboard" } catch { return "/dashboard" } }
 const readSidebarCollapsed = () => { try { return localStorage.getItem(sidebarCollapsedKey) === "true" } catch { return false } }
 function viewFromRoute(route: string, snapshot?: RepositorySnapshot | null): View {
-  const staticView = ["dashboard", "jobs", "publishing", "ai-usage", "settings"].find(value => route === `/${value}`)
+  const staticView = ["dashboard", "publishing", "settings"].find(value => route === `/${value}`)
   if (staticView) return staticView as NavigableView
   const parts = route.split("/").filter(Boolean).map(part => { try { return decodeURIComponent(part) } catch { return part } })
   if (parts[0] !== "quizzes" || parts[1] !== "contests") return "not-found"
@@ -41,9 +40,7 @@ const normalizedRoute = (route: string) => { const value = route.trim(); if (!va
 const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "quizzes", label: "Quizzes", icon: Library },
-  { id: "jobs", label: "Jobs", icon: Workflow },
   { id: "publishing", label: "Publishing", icon: CloudUpload },
-  { id: "ai-usage", label: "AI usage", icon: Bot },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 const environmentOptions: SelectOption[] = [
@@ -58,10 +55,6 @@ const aiProfileOptions: SelectOption[] = [
 
 function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
   return <span className={`badge badge-${value}`}>{value.replace("-", " ")}</span>
-}
-
-function EmptyFeature({ title, detail }: { title: string; detail: string }) {
-  return <section className="empty-feature"><div className="empty-icon"><Sparkles /></div><h2>{title}</h2><p>{detail}</p><span>Planned for the next implementation phase</span></section>
 }
 
 export function App() {
@@ -269,9 +262,7 @@ export function App() {
           </Panel>
         </>}
         {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} /></Suspense>}
-        {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <Suspense fallback={<div className="publishing-skeleton"><div /><div /><div /><div /></div>}><PublishingPage environment={settings.environment} /></Suspense>}
-        {settings.repositoryPath && view === "ai-usage" && <AiUsagePage />}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /><label>Restart application<span>Development restarts keep the Vite hot-update connection active. Packaged builds relaunch GetGo Tools.</span></label><div><Button icon={<RotateCcw size={15} />} loading={restartingApp} variant="secondary" onClick={() => void restartApp()}>Restart GetGo Tools</Button></div></div></section>}
         </PageTransition>
       </div>

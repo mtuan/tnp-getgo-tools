@@ -9,7 +9,6 @@ const api: DesktopApi = {
   setEnvironment: (environment) => ipcRenderer.invoke("settings:environment", environment) as Promise<AppSettings>,
   setAiProfile: (profile) => ipcRenderer.invoke("settings:ai-profile", profile) as Promise<AppSettings>,
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
-  getAiUsage: () => ipcRenderer.invoke("ai:usage"),
   getPublishingStatus: () => ipcRenderer.invoke("publishing:status"),
   publishQuiz: (contestId, quizId) => ipcRenderer.invoke("publishing:quiz", contestId, quizId),
   showInFolder: (path) => ipcRenderer.invoke("shell:show", path) as Promise<void>,
