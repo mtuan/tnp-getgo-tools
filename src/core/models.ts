@@ -188,7 +188,7 @@ export interface DesktopApi {
   signOut(): Promise<AuthState>
   changePassword(password: string): Promise<void>
   createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult>
-  fixDynamicQuestion(input: { currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; currentSummary: GetGoDynamicQuestionSummary; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult>
+  fixDynamicQuestion(input: { originalQuestion: QuizQuestionRecord; currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; currentSummary: GetGoDynamicQuestionSummary; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult>
   cancelDynamicQuestionAi(): Promise<void>
 }
 import type {

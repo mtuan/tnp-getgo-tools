@@ -204,8 +204,8 @@ export class LocalAiService {
     return this.service.createProposal({ question: toAiQuestion(input.question), context: input.context, instructions: input.instructions })
   }
 
-  async fixDynamicQuestion(input: { currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; currentSummary: GetGoDynamicQuestionSummary; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult> {
+  async fixDynamicQuestion(input: { originalQuestion: QuizQuestionRecord; currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; currentSummary: GetGoDynamicQuestionSummary; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult> {
     const { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs } = input.currentCode
-    return this.service.fixProposal({ currentCode: { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs }, currentSummary: input.currentSummary, context: input.context, diagnostics: input.diagnostics, instructions: input.instructions })
+    return this.service.fixProposal({ originalQuestion: toAiQuestion(input.originalQuestion), currentCode: { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs }, currentSummary: input.currentSummary, context: input.context, diagnostics: input.diagnostics, instructions: input.instructions })
   }
 }

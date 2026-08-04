@@ -100,6 +100,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("ai:fix-dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI fix request.")
     const value = input as Record<string, unknown>
+    if (!value.originalQuestion || typeof value.originalQuestion !== "object" || Array.isArray(value.originalQuestion)) throw new Error("The immutable original question is required.")
     if (!value.currentCode || typeof value.currentCode !== "object" || Array.isArray(value.currentCode)) throw new Error("Current question code is required.")
     if (!value.currentSummary || typeof value.currentSummary !== "object" || Array.isArray(value.currentSummary)) throw new Error("Current AI summary is required.")
     if (typeof value.instructions !== "string" || !value.instructions.trim()) throw new Error("Fix instructions are required.")
