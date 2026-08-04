@@ -1,6 +1,6 @@
 import { AlertTriangle, CloudUpload, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
-import type { AppSettings, PublishingQuizStatus, PublishingSnapshot, PublishingStatus } from "../core/models"
+import type { AppSettings, PublishingQuizStatus, PublishingSnapshot, PublishingStatus, RepositorySnapshot } from "../core/models"
 import en from "./locales/en.json"
 import vi from "./locales/vi.json"
 import { useAuth } from "./AuthContext"
@@ -22,10 +22,32 @@ const labels: Record<PublishingStatus, string> = {
   "remote-error": copy.remoteError,
 }
 const interpolate = (value: string, data: Record<string, string | number>) => Object.entries(data).reduce((result, [key, replacement]) => result.replace(`{${key}}`, String(replacement)), value)
-export function PublishingPage({ environment }: { environment: AppSettings["environment"] }) {
+function fromRepository(repository: RepositorySnapshot, environment: AppSettings["environment"]): PublishingSnapshot {
+  return {
+    environment,
+    projectId: "",
+    scannedAt: repository.scannedAt,
+    quizzes: repository.quizzes.map(quiz => ({
+      contestId: quiz.contest,
+      quizId: quiz.id,
+      title: quiz.title,
+      grade: quiz.grade,
+      round: quiz.round,
+      year: quiz.year,
+      questionCount: quiz.questionCount,
+      contentHash: quiz.localContentHash,
+      publishedHash: quiz.publishedHash,
+      publishedAt: quiz.publishedAt,
+      status: !quiz.localContentHash ? "local-error" : !quiz.publishedHash ? "not-published" : quiz.publishedHash === quiz.localContentHash ? "up-to-date" : "changed",
+      ...(!quiz.localContentHash ? { error: "This quiz has no valid cached question data to publish." } : {}),
+    })),
+  }
+}
+
+export function PublishingPage({ environment, repository }: { environment: AppSettings["environment"]; repository: RepositorySnapshot }) {
   const auth = useAuth()
   const toast = useToast()
-  const [snapshot, setSnapshot] = useState<PublishingSnapshot | null>(null)
+  const [snapshot, setSnapshot] = useState<PublishingSnapshot>(() => fromRepository(repository, environment))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
@@ -45,8 +67,12 @@ export function PublishingPage({ environment }: { environment: AppSettings["envi
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { setSnapshot(null); setSelected(new Set()); if (auth.state.user) void load() }, [auth.state.user, environment, load])
-  const rows = snapshot?.quizzes ?? []
+  useEffect(() => {
+    setSnapshot(fromRepository(repository, environment))
+    setSelected(new Set())
+    if (auth.state.user) void load()
+  }, [auth.state.user, environment, repository, load])
+  const rows = snapshot.quizzes
   const contests = useMemo(() => [...new Set(rows.map(row => row.contestId))].sort(), [rows])
   const visible = rows.filter(row => (contest === "all" || row.contestId === contest) && (status === "all" || row.status === status) && `${row.title} ${row.quizId}`.toLowerCase().includes(query.trim().toLowerCase()))
   const publishable = visible.filter(row => ["changed", "not-published"].includes(row.status))
@@ -80,13 +106,13 @@ export function PublishingPage({ environment }: { environment: AppSettings["envi
 
   if (!auth.loading && !auth.state.user) return <section className="publishing-auth"><CloudUpload /><h1>{copy.title}</h1><p>{copy.authentication}</p><Button variant="primary" onClick={() => auth.requestLogin()}>{copy.signIn}</Button></section>
   return <section className="publishing-page">
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={snapshot ? `${copy.description} ${snapshot.environment} · ${snapshot.projectId}` : copy.description} actions={<><Button icon={<RefreshCw />} loading={loading} onClick={() => auth.requireAuth(load)}>{copy.refresh}</Button><Button icon={<CloudUpload />} variant="primary" disabled={!selected.size || loading} onClick={() => setConfirming(true)}>{copy.publishSelected}{selected.size ? ` (${selected.size})` : ""}</Button></>} />
+    <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={`${copy.description} ${snapshot.environment}${snapshot.projectId ? ` · ${snapshot.projectId}` : ""}`} actions={<><Button icon={<RefreshCw />} loading={loading} onClick={() => auth.requireAuth(load)}>{copy.refresh}</Button><Button icon={<CloudUpload />} variant="primary" disabled={!selected.size || loading} onClick={() => setConfirming(true)}>{copy.publishSelected}{selected.size ? ` (${selected.size})` : ""}</Button></>} />
     {error && <ErrorFrame message={error} />}
-    {loading && !snapshot ? <div className="publishing-skeleton" aria-label={copy.loading}><div /><div /><div /><div /></div> : <>
+    <>
       <section className="metrics publishing-metrics"><SummaryCard label={copy.summaryTotal} value={rows.length} /><SummaryCard label={copy.summaryChanged} value={rows.filter(row => ["changed", "not-published"].includes(row.status)).length} /><SummaryCard label={copy.summaryCurrent} value={rows.filter(row => row.status === "up-to-date").length} /><SummaryCard label={copy.summaryErrors} value={rows.filter(row => row.status.endsWith("error")).length} /></section>
       <div className="filters publishing-filters"><input value={query} aria-label={copy.search} placeholder={copy.search} onChange={event => setQuery(event.target.value)} /><Select value={contest} ariaLabel={copy.contest} options={[{ value: "all", label: copy.allContests }, ...contests.map(value => ({ value, label: value.toUpperCase() }))]} onValueChange={setContest} /><Select value={status} ariaLabel={copy.status} options={[{ value: "all", label: copy.allStatuses }, ...Object.entries(labels).map(([value, label]) => ({ value, label }))]} onValueChange={setStatus} /></div>
       <div className="table-panel publishing-table"><DataTable rows={visible} columns={columns} rowKey={row => `${row.contestId}/${row.quizId}`} ariaLabel={copy.title} emptyText={copy.empty} /></div>
-    </>}
-    {confirming && <DialogFrame presentation="modal" className="publishing-confirm" title={copy.confirmTitle} busy={publishing} error={null} onClose={() => setConfirming(false)} onSubmit={publish} submitLabel={copy.confirm}><div className="publishing-confirm-copy"><CloudUpload /><p>{interpolate(copy.confirmText, { quizzes: selectedRows.length, questions: selectedQuestions, project: snapshot?.projectId ?? environment })}</p></div>{environment === "production" && <div className="publishing-production-warning"><AlertTriangle /><strong>{copy.productionWarning}</strong></div>}</DialogFrame>}
+    </>
+    {confirming && <DialogFrame presentation="modal" className="publishing-confirm" title={copy.confirmTitle} busy={publishing} error={null} onClose={() => setConfirming(false)} onSubmit={publish} submitLabel={copy.confirm}><div className="publishing-confirm-copy"><CloudUpload /><p>{interpolate(copy.confirmText, { quizzes: selectedRows.length, questions: selectedQuestions, project: snapshot.projectId || environment })}</p></div>{environment === "production" && <div className="publishing-production-warning"><AlertTriangle /><strong>{copy.productionWarning}</strong></div>}</DialogFrame>}
   </section>
 }

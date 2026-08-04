@@ -1,5 +1,5 @@
 import type { PublishResult, PublishingQuizStatus, PublishingSnapshot, QuizSummary, RepositorySnapshot } from "../core/models.js"
-import { createLocalPublishPayload, type LocalPublishPayload } from "../repositories/quiz-publishing.js"
+import type { LocalPublishPayload } from "../repositories/quiz-publishing.js"
 import type { FirebaseAuthService } from "./firebase-auth.js"
 
 type FirestoreValue = Record<string, unknown>
@@ -46,23 +46,18 @@ export class FirestorePublishingService {
   }
 
   async reconcile(snapshot: RepositorySnapshot): Promise<PublishingSnapshot> {
-    const rows: PublishingQuizStatus[] = []
-    for (const quiz of snapshot.quizzes) {
-      let local: LocalPublishPayload
-      try { local = await createLocalPublishPayload(quiz) }
-      catch (cause) {
-        rows.push(this.errorRow(quiz, "local-error", cause))
-        continue
-      }
-      rows.push({
-        ...local.quiz,
+    const rows: PublishingQuizStatus[] = snapshot.quizzes.map(quiz => {
+      if (!quiz.localContentHash) return this.errorRow(quiz, "local-error", new Error("This quiz has no valid cached question data to publish."))
+      return {
+        contestId: quiz.contest, quizId: quiz.id, title: quiz.title, grade: quiz.grade, round: quiz.round, year: quiz.year,
+        questionCount: quiz.questionCount, contentHash: quiz.localContentHash,
         publishedHash: quiz.publishedHash,
         publishedAt: quiz.publishedAt,
-        status: !quiz.publishedHash ? "not-published" : quiz.publishedHash === local.quiz.contentHash ? "up-to-date" : "changed",
-      })
-    }
-    const readiness = await this.auth.checkReadiness()
-    return { environment: readiness.environment, projectId: readiness.projectId ?? "", scannedAt: new Date().toISOString(), quizzes: rows }
+        status: !quiz.publishedHash ? "not-published" : quiz.publishedHash === quiz.localContentHash ? "up-to-date" : "changed",
+      }
+    })
+    const target = await this.auth.publishingTarget()
+    return { environment: target.environment, projectId: target.projectId, scannedAt: snapshot.scannedAt, quizzes: rows }
   }
 
   private errorRow(quiz: QuizSummary, status: "local-error" | "remote-error", cause: unknown, local?: LocalPublishPayload): PublishingQuizStatus {
@@ -73,8 +68,7 @@ export class FirestorePublishingService {
     }
   }
 
-  async publish(quiz: QuizSummary): Promise<PublishResult> {
-    const local = await createLocalPublishPayload(quiz)
+  async publish(quiz: QuizSummary, local: LocalPublishPayload): Promise<PublishResult> {
     const path = documentPath(quiz.contest, quiz.id)
     const remoteQuestionNames = await this.listQuestionNames(path)
     const nextNames = new Set(local.questions.map(question => String(question.question_no)))

@@ -1,30 +1,38 @@
 import { createHash } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import type { ContestSummary, QuizManifest, QuizSummary, RepositorySnapshot, ScanIssue } from "../core/models.js"
+import type { ContestSummary, QuizManifest, QuizQuestionRecord, QuizSummary, RepositorySnapshot, ScanIssue } from "../core/models.js"
 import { contestSettingsSchema, quizManifestSchema } from "../core/schema.js"
 import { deriveDeploymentStatus } from "../core/status.js"
+import { hashPublishedQuestions, sanitizePublishedQuestion } from "../core/publishing.js"
 
 async function exists(filePath: string): Promise<boolean> {
   try { await fs.access(filePath); return true } catch { return false }
 }
 
-async function readQuestionReview(directory: string, inspectRecords: boolean): Promise<{ count: number; reviewed: number; errors: number }> {
+async function readQuestionReview(directory: string, inspectRecords: boolean): Promise<{ count: number; reviewed: number; errors: number; records: unknown[]; contentHash: string | null }> {
   const entries = await fs.readdir(path.join(directory, "questions"), { withFileTypes: true }).catch(() => [])
   const files = entries.filter(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
-  if (!inspectRecords) return { count: files.length, reviewed: 0, errors: 0 }
+  if (!inspectRecords) return { count: files.length, reviewed: 0, errors: 0, records: [], contentHash: null }
   const states = await Promise.all(files.map(async entry => {
     try {
       const question = JSON.parse(await fs.readFile(path.join(directory, "questions", entry.name), "utf8")) as { verified?: unknown; migrationError?: unknown }
-      return { reviewed: question.verified === true ? 1 : 0, error: question.migrationError ? 1 : 0 }
+      return { reviewed: question.verified === true ? 1 : 0, error: question.migrationError ? 1 : 0, record: question }
     } catch {
-      return { reviewed: 0, error: 1 }
+      return { reviewed: 0, error: 1, record: null }
     }
   }))
+  let contentHash: string | null = null
+  if (states.length && states.every(value => value.record)) {
+    try { contentHash = hashPublishedQuestions(states.map(value => sanitizePublishedQuestion(value.record as QuizQuestionRecord))) }
+    catch { /* Invalid drafts remain editable and surface as local publishing errors. */ }
+  }
   return {
     count: files.length,
     reviewed: states.reduce((total, value) => total + value.reviewed, 0),
     errors: states.reduce((total, value) => total + value.error, 0),
+    records: states.flatMap(value => value.record ? [value.record] : []),
+    contentHash,
   }
 }
 
@@ -84,7 +92,7 @@ async function readGenerated(root: string, manifest: QuizManifest): Promise<{
   }
 }
 
-async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecords: boolean): Promise<QuizSummary> {
+async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecords: boolean, onQuestions?: (quiz: QuizSummary, records: unknown[]) => void): Promise<QuizSummary> {
   const raw = JSON.parse(await fs.readFile(manifestPath, "utf8")) as unknown
   const manifest = quizManifestSchema.parse(raw)
   const directory = path.dirname(manifestPath)
@@ -100,7 +108,7 @@ async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecord
       if (match?.[2]) title = match[2]
     } catch { /* The file-presence flags below report a missing quiz.ts. */ }
   }
-  return {
+  const summary: QuizSummary = {
     key: `${manifest.contest}/${manifest.id}`,
     relativePath,
     manifestPath,
@@ -125,12 +133,15 @@ async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecord
     artifactHash: generated.hash,
     publishedHash: manifest.publishedHash ?? null,
     publishedAt: manifest.publishedAt ?? null,
+    localContentHash: review.contentHash,
     questionCount: review.count || generated.questionCount,
     reviewedQuestionCount: review.reviewed,
     migrationErrorCount: review.errors,
     quizBuilderApiVersion: manifest.quizBuilderApiVersion ?? null,
     modifiedAt: stat.mtime.toISOString(),
   }
+  onQuestions?.(summary, review.records)
+  return summary
 }
 
 async function mapContest(root: string, id: string): Promise<ContestSummary> {
@@ -148,7 +159,15 @@ async function mapContest(root: string, id: string): Promise<ContestSummary> {
   }
 }
 
-export async function scanQuizRepository(repositoryPath: string, options: { inspectQuestionRecords?: boolean } = {}): Promise<RepositorySnapshot> {
+/** Read one changed contest without walking the repository. */
+export const readContestSummary = mapContest
+
+/** Read one changed quiz without walking the repository. */
+export function readQuizSummary(root: string, manifestPath: string, onQuestions?: (quiz: QuizSummary, records: unknown[]) => void): Promise<QuizSummary> {
+  return mapQuiz(root, manifestPath, true, onQuestions)
+}
+
+export async function scanQuizRepository(repositoryPath: string, options: { inspectQuestionRecords?: boolean; onQuizQuestions?: (quiz: QuizSummary, records: unknown[]) => void } = {}): Promise<RepositorySnapshot> {
   const root = path.resolve(repositoryPath)
   if (!(await exists(path.join(root, "quizzes")))) {
     throw new Error("This folder does not contain a quizzes directory.")
@@ -171,7 +190,7 @@ export async function scanQuizRepository(repositoryPath: string, options: { insp
     }
   }
   for (const manifestPath of manifests) {
-    try { quizzes.push(await mapQuiz(root, manifestPath, options.inspectQuestionRecords !== false)) }
+    try { quizzes.push(await mapQuiz(root, manifestPath, options.inspectQuestionRecords !== false, options.onQuizQuestions)) }
     catch (error) {
       issues.push({
         path: path.relative(root, manifestPath),

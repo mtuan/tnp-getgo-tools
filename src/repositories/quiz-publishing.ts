@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import type { PublishableQuiz, QuizSummary } from "../core/models.js"
+import type { PublishableQuiz, QuizQuestionRecord, QuizSummary } from "../core/models.js"
 import { hashPublishedQuestions, sanitizePublishedQuestion, type PublishedQuestion } from "../core/publishing.js"
 
 export interface LocalPublishPayload {
@@ -8,13 +8,9 @@ export interface LocalPublishPayload {
   questions: PublishedQuestion[]
 }
 
-export async function createLocalPublishPayload(quiz: QuizSummary): Promise<LocalPublishPayload> {
-  const directory = path.join(path.dirname(quiz.manifestPath), "questions")
-  const entries = await fs.readdir(directory, { withFileTypes: true }).catch(() => [])
-  const files = entries.filter(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
-  if (!files.length) throw new Error("This quiz has no question files to publish.")
-  const questions = await Promise.all(files.map(async file => sanitizePublishedQuestion(JSON.parse(await fs.readFile(path.join(directory, file.name), "utf8")))))
-  questions.sort((left, right) => left.question_no - right.question_no)
+export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unknown[]): LocalPublishPayload {
+  if (!values.length) throw new Error("This quiz has no question files to publish.")
+  const questions = values.map(value => sanitizePublishedQuestion(value as QuizQuestionRecord)).sort((left, right) => left.question_no - right.question_no)
   const seen = new Set<number>()
   for (const question of questions) {
     if (seen.has(question.question_no)) throw new Error(`Question ${question.question_no} occurs more than once.`)
@@ -33,6 +29,14 @@ export async function createLocalPublishPayload(quiz: QuizSummary): Promise<Loca
     },
     questions,
   }
+}
+
+export async function createLocalPublishPayload(quiz: QuizSummary): Promise<LocalPublishPayload> {
+  const directory = path.join(path.dirname(quiz.manifestPath), "questions")
+  const entries = await fs.readdir(directory, { withFileTypes: true }).catch(() => [])
+  const files = entries.filter(entry => entry.isFile() && /^q\d+\.json$/i.test(entry.name))
+  const values = await Promise.all(files.map(async file => JSON.parse(await fs.readFile(path.join(directory, file.name), "utf8"))))
+  return createPublishPayloadFromQuestions(quiz, values)
 }
 
 export async function recordPublishedHash(manifestPath: string, publishedHash: string, publishedAt: string): Promise<void> {

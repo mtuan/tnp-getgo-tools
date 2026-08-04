@@ -3,11 +3,11 @@ import { config as loadEnvironment } from "dotenv"
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import type { AppSettings } from "../core/models.js"
-import { scanQuizRepository } from "../repositories/quiz-repository.js"
+import type { AppSettings, RepositorySnapshot } from "../core/models.js"
+import { readContestSummary, readQuizSummary, scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../repositories/quiz-questions.js"
-import { recordPublishedHash } from "../repositories/quiz-publishing.js"
+import { createPublishPayloadFromQuestions, recordPublishedHash, type LocalPublishPayload } from "../repositories/quiz-publishing.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
 import { LocalAiService } from "./local-ai.js"
@@ -69,7 +69,69 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath)
   const settings = new SettingsStore(app.getPath("userData"))
+  let repositorySnapshot: RepositorySnapshot | null = null
+  let repositoryScanPromise: Promise<RepositorySnapshot> | null = null
+  let repositoryScanPath: string | null = null
+  const publishPayloads = new Map<string, LocalPublishPayload>()
+  const scanRepository = async (repositoryPath: string, options?: Parameters<typeof scanQuizRepository>[1]) => {
+    const resolved = path.resolve(repositoryPath)
+    if (repositorySnapshot?.repositoryPath === resolved) return repositorySnapshot
+    if (repositoryScanPromise) {
+      if (repositoryScanPath === resolved) return repositoryScanPromise
+      await repositoryScanPromise
+      return scanRepository(resolved, options)
+    }
+    repositoryScanPath = resolved
+    repositoryScanPromise = (async () => {
+      const nextPayloads = new Map<string, LocalPublishPayload>()
+      const next = await scanQuizRepository(resolved, {
+        ...options,
+        onQuizQuestions: (quiz, records) => {
+          if (!records.length) return
+          try { nextPayloads.set(quiz.key, createPublishPayloadFromQuestions(quiz, records)) }
+          catch { /* The snapshot keeps the local error for the publishing page. */ }
+        },
+      })
+      publishPayloads.clear()
+      for (const [key, payload] of nextPayloads) publishPayloads.set(key, payload)
+      repositorySnapshot = next
+      return next
+    })()
+    try { return await repositoryScanPromise }
+    finally { repositoryScanPromise = null; repositoryScanPath = null }
+  }
+  const requireSnapshot = (): RepositorySnapshot => {
+    if (!repositorySnapshot) throw new Error("Repository data is not loaded. Restart Tools or choose the repository again.")
+    return repositorySnapshot
+  }
+  const waitForSnapshot = async (repositoryPath: string): Promise<RepositorySnapshot> => {
+    const resolved = path.resolve(repositoryPath)
+    if (repositorySnapshot?.repositoryPath === resolved) return repositorySnapshot
+    if (repositoryScanPromise && repositoryScanPath === resolved) {
+      const snapshot = await repositoryScanPromise
+      if (snapshot.repositoryPath === resolved) return snapshot
+    }
+    throw new Error("Repository data is not loaded. Restart Tools or choose the repository again.")
+  }
+  const replaceQuiz = async (root: string, manifestPath: string): Promise<RepositorySnapshot> => {
+    let payload: LocalPublishPayload | null = null
+    const quiz = await readQuizSummary(root, manifestPath, (summary, records) => {
+      if (records.length) {
+        try { payload = createPublishPayloadFromQuestions(summary, records) }
+        catch { payload = null }
+      }
+    })
+    const snapshot = requireSnapshot()
+    repositorySnapshot = { ...snapshot, quizzes: [...snapshot.quizzes.filter(item => item.manifestPath !== manifestPath && item.key !== quiz.key), quiz].sort((a, b) => a.key.localeCompare(b.key)) }
+    if (payload) publishPayloads.set(quiz.key, payload)
+    else publishPayloads.delete(quiz.key)
+    return repositorySnapshot
+  }
   const initialSettings = await settings.read()
+  if (initialSettings.repositoryPath) {
+    try { await scanRepository(initialSettings.repositoryPath) }
+    catch (cause) { console.error(`[GetGo Tools][Repository startup scan] ${cause instanceof Error ? cause.message : String(cause)}`) }
+  }
   firebaseAuth = new FirebaseAuthService(app.getPath("userData"), async () => (await settings.read()).environment)
   const publishing = new FirestorePublishingService(firebaseAuth)
   const localAi = new LocalAiService({
@@ -121,24 +183,27 @@ app.whenReady().then(async () => {
   ipcMain.handle("publishing:status", async () => {
     const current = await settings.read()
     if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
-    return publishing.reconcile(await scanQuizRepository(current.repositoryPath, { inspectQuestionRecords: false }))
+    return publishing.reconcile(await waitForSnapshot(current.repositoryPath))
   })
   ipcMain.handle("publishing:quiz", async (_event, contestId: unknown, quizId: unknown) => {
     if (typeof contestId !== "string" || typeof quizId !== "string" || !/^[a-z0-9_-]+$/i.test(contestId) || !/^[a-z0-9_-]+$/i.test(quizId)) throw new Error("Invalid quiz selection.")
     const current = await settings.read()
     if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
-    const snapshot = await scanQuizRepository(current.repositoryPath)
+    const snapshot = await waitForSnapshot(current.repositoryPath)
     const quiz = snapshot.quizzes.find(item => item.contest === contestId && item.id === quizId)
     if (!quiz) throw new Error("The selected quiz was not found.")
-    const result = await publishing.publish(quiz)
+    const payload = publishPayloads.get(quiz.key)
+    if (!payload) throw new Error("This quiz has no valid cached question data to publish.")
+    const result = await publishing.publish(quiz, payload)
     await recordPublishedHash(quiz.manifestPath, result.contentHash, result.publishedAt)
+    if (repositorySnapshot) repositorySnapshot = { ...repositorySnapshot, quizzes: repositorySnapshot.quizzes.map(item => item.key === quiz.key ? { ...item, publishedHash: result.contentHash, publishedAt: result.publishedAt } : item) }
     return result
   })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { properties: ["openDirectory"] })
     if (result.canceled || !result.filePaths[0]) return null
-    const snapshot = await scanQuizRepository(result.filePaths[0])
+    const snapshot = await scanRepository(result.filePaths[0])
     await settings.update({ repositoryPath: snapshot.repositoryPath })
     return snapshot
   })
@@ -146,7 +211,7 @@ app.whenReady().then(async () => {
     const current = await settings.read()
     const repositoryPath = requestedPath ?? current.repositoryPath
     if (!repositoryPath) throw new Error("Choose a quiz repository first.")
-    const snapshot = await scanQuizRepository(repositoryPath)
+    const snapshot = await scanRepository(repositoryPath)
     await settings.update({ repositoryPath: snapshot.repositoryPath })
     return snapshot
   })
@@ -221,15 +286,19 @@ app.whenReady().then(async () => {
     if (typeof source !== "string") throw new Error("Invalid quiz source")
     await resolveQuizSource(manifestPath)
     await updateQuizSource(manifestPath as string, source)
+    await replaceQuiz(await repositoryRoot(), manifestPath as string)
   })
   ipcMain.handle("quiz-questions:load", async (_event, manifestPath: unknown) => {
     const manifest = await resolveManifest(manifestPath)
-    return loadQuizQuestions(manifest)
+    const wasLegacy = repositorySnapshot?.quizzes.find(item => item.manifestPath === manifest)?.questionStorageVersion === "legacy"
+    const questions = await loadQuizQuestions(manifest)
+    if (wasLegacy && questions.length) await replaceQuiz(await repositoryRoot(), manifest)
+    return questions
   })
   ipcMain.handle("quiz-questions:migrate-legacy", async (_event, contestId: unknown) => {
     if (typeof contestId !== "string" || !/^[a-z0-9_-]+$/i.test(contestId)) throw new Error("Invalid contest ID")
     const root = await repositoryRoot()
-    const before = await scanQuizRepository(root)
+    const before = requireSnapshot()
     if (!before.contests.some(contest => contest.id === contestId)) throw new Error(`Contest “${contestId}” was not found.`)
     const legacy = before.quizzes.filter(quiz => quiz.contest === contestId && quiz.questionStorageVersion === "legacy")
     const migratedQuizIds: string[] = []
@@ -243,35 +312,63 @@ app.whenReady().then(async () => {
         failures.push({ quizId: quiz.id, message: cause instanceof Error ? cause.message : String(cause) })
       }
     }
-    return { snapshot: await scanQuizRepository(root), migratedQuizIds, failures }
+    for (const quizId of migratedQuizIds) {
+      const quiz = before.quizzes.find(item => item.contest === contestId && item.id === quizId)
+      if (quiz) await replaceQuiz(root, quiz.manifestPath)
+    }
+    return { snapshot: requireSnapshot(), migratedQuizIds, failures }
   })
   ipcMain.handle("quiz-questions:save", async (_event, manifestPath: unknown, question: unknown) => {
     const manifest = await resolveManifest(manifestPath)
     if (!question || typeof question !== "object") throw new Error("Invalid question")
-    return saveQuizQuestion(manifest, question as Parameters<typeof saveQuizQuestion>[1])
+    const saved = await saveQuizQuestion(manifest, question as Parameters<typeof saveQuizQuestion>[1])
+    await replaceQuiz(await repositoryRoot(), manifest)
+    return saved
   })
   ipcMain.handle("quiz-questions:reset", async (_event, manifestPath: unknown, question: unknown) => {
     const manifest = await resolveManifest(manifestPath)
     if (!question || typeof question !== "object") throw new Error("Invalid question")
-    return resetQuizQuestion(manifest, question as Parameters<typeof resetQuizQuestion>[1])
+    const saved = await resetQuizQuestion(manifest, question as Parameters<typeof resetQuizQuestion>[1])
+    await replaceQuiz(await repositoryRoot(), manifest)
+    return saved
   })
   ipcMain.handle("crud:contest:create", async (_event, contestSettings: unknown) => {
     if (!contestSettings || typeof contestSettings !== "object") throw new Error("Invalid contest settings")
     const root = await repositoryRoot()
     await createContestDirectory(root, contestSettings as Parameters<typeof createContestDirectory>[1])
-    return scanQuizRepository(root)
+    const contest = await readContestSummary(root, validateRepositoryId((contestSettings as Parameters<typeof createContestDirectory>[1]).book.code, "Contest ID"))
+    const snapshot = requireSnapshot()
+    repositorySnapshot = { ...snapshot, contests: [...snapshot.contests, contest].sort((a, b) => a.id.localeCompare(b.id)) }
+    return repositorySnapshot
   })
   ipcMain.handle("crud:contest:update", async (_event, id: unknown, contestSettings: unknown) => {
     if (typeof id !== "string" || !contestSettings || typeof contestSettings !== "object") throw new Error("Invalid contest settings")
     const root = await repositoryRoot()
     await updateContestSettings(root, id, contestSettings as Parameters<typeof updateContestSettings>[2])
-    return scanQuizRepository(root)
+    const contest = await readContestSummary(root, id)
+    const snapshot = requireSnapshot()
+    repositorySnapshot = { ...snapshot, contests: snapshot.contests.map(item => item.id === id ? contest : item) }
+    return repositorySnapshot
   })
   ipcMain.handle("crud:contest:rename", async (_event, currentId: unknown, nextId: unknown) => {
     if (typeof currentId !== "string" || typeof nextId !== "string") throw new Error("Invalid contest ID")
     const root = await repositoryRoot()
     await renameContestDirectory(root, currentId, nextId)
-    return scanQuizRepository(root)
+    const snapshot = requireSnapshot()
+    const current = validateRepositoryId(currentId, "Contest ID")
+    const next = validateRepositoryId(nextId, "Contest ID")
+    const contest = await readContestSummary(root, next)
+    const affected = snapshot.quizzes.filter(item => item.contest === current)
+    repositorySnapshot = {
+      ...snapshot,
+      contests: snapshot.contests.map(item => item.id === current ? contest : item),
+      quizzes: snapshot.quizzes.filter(item => item.contest !== current),
+    }
+    for (const oldQuiz of affected) {
+      publishPayloads.delete(oldQuiz.key)
+      await replaceQuiz(root, path.join(root, "quizzes", next, oldQuiz.id, "manifest.json"))
+    }
+    return requireSnapshot()
   })
   ipcMain.handle("crud:contest:delete", async (_event, requestedId: unknown) => {
     if (typeof requestedId !== "string") throw new Error("Invalid contest ID")
@@ -280,24 +377,31 @@ app.whenReady().then(async () => {
     const directory = path.join(root, "quizzes", id)
     await fs.access(directory)
     await shell.trashItem(directory)
-    return scanQuizRepository(root)
+    const snapshot = requireSnapshot()
+    for (const quiz of snapshot.quizzes.filter(item => item.contest === id)) publishPayloads.delete(quiz.key)
+    repositorySnapshot = { ...snapshot, contests: snapshot.contests.filter(item => item.id !== id), quizzes: snapshot.quizzes.filter(item => item.contest !== id) }
+    return repositorySnapshot
   })
   ipcMain.handle("crud:quiz:create", async (_event, contest: unknown, input: unknown) => {
     if (typeof contest !== "string" || !input || typeof input !== "object") throw new Error("Invalid quiz details")
     const root = await repositoryRoot()
     await createQuizFiles(root, contest, input as Parameters<typeof createQuizFiles>[2])
-    return scanQuizRepository(root)
+    return replaceQuiz(root, path.join(root, "quizzes", validateRepositoryId(contest, "Contest ID"), validateRepositoryId((input as Parameters<typeof createQuizFiles>[2]).id, "Quiz ID"), "manifest.json"))
   })
   ipcMain.handle("crud:quiz:update", async (_event, manifestPath: unknown, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid quiz details")
     const manifest = await resolveManifest(manifestPath)
     await updateQuizManifest(manifest, input as Parameters<typeof updateQuizManifest>[1])
-    return scanQuizRepository(await repositoryRoot())
+    return replaceQuiz(await repositoryRoot(), manifest)
   })
   ipcMain.handle("crud:quiz:delete", async (_event, manifestPath: unknown) => {
     const manifest = await resolveManifest(manifestPath)
     await shell.trashItem(path.dirname(manifest))
-    return scanQuizRepository(await repositoryRoot())
+    const snapshot = requireSnapshot()
+    const removed = snapshot.quizzes.find(item => item.manifestPath === manifest)
+    if (removed) publishPayloads.delete(removed.key)
+    repositorySnapshot = { ...snapshot, quizzes: snapshot.quizzes.filter(item => item.manifestPath !== manifest) }
+    return repositorySnapshot
   })
   createWindow()
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })

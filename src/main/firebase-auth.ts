@@ -46,6 +46,13 @@ export class FirebaseAuthService {
     return { environment, firebase: { apiKey, projectId, projectNumber } }
   }
 
+  /** Local publishing metadata only. Unlike checkReadiness, this never makes a
+   * network request and is safe to use while rendering cached publishing data. */
+  async publishingTarget(): Promise<{ environment: GetGoEnvironment; projectId: string }> {
+    const { environment, firebase } = await this.config()
+    return { environment, projectId: firebase.projectId }
+  }
+
   async checkReadiness(): Promise<EnvironmentReadiness> {
     const environment = await this.getEnvironment()
     let configured: { environment: GetGoEnvironment; firebase: FirebaseEnvironmentConfig }

@@ -43,6 +43,9 @@ export interface QuizSummary {
   artifactHash: string | null
   publishedHash: string | null
   publishedAt: string | null
+  /** Hash of the cached, sanitized runtime questions. Calculated on the initial
+   * repository scan and maintained incrementally by Tools mutations. */
+  localContentHash: string | null
   questionCount: number | null
   reviewedQuestionCount: number
   migrationErrorCount: number
