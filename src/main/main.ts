@@ -7,6 +7,7 @@ import type { AppSettings } from "../core/models.js"
 import { scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
 import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../repositories/quiz-questions.js"
+import { readAiUsage } from "../repositories/ai-usage.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
 import { LocalAiService } from "./local-ai.js"
@@ -107,6 +108,11 @@ app.whenReady().then(async () => {
     return runAiIpc("fix", () => localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0]))
   })
   ipcMain.handle("ai:cancel-dynamic-question", () => localAi.cancelDynamicQuestionAi())
+  ipcMain.handle("ai:usage", async () => {
+    const current = await settings.read()
+    if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
+    return readAiUsage(await scanQuizRepository(current.repositoryPath))
+  })
   ipcMain.handle("settings:get", () => settings.read())
   ipcMain.handle("repository:choose", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { properties: ["openDirectory"] })
@@ -152,7 +158,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("shell:open-external", async (_event, requestedUrl: unknown) => {
     if (typeof requestedUrl !== "string") throw new Error("Invalid URL")
     const url = new URL(requestedUrl)
-    if (url.protocol !== "https:" || url.hostname !== "tnp-getgo.web.app") throw new Error("External URL is not allowed")
+    if (url.protocol !== "https:" || !["tnp-getgo.web.app", "platform.openai.com"].includes(url.hostname)) throw new Error("External URL is not allowed")
     await shell.openExternal(url.toString())
   })
   const resolveQuizSource = async (manifestPath: unknown): Promise<string> => {

@@ -129,6 +129,29 @@ export interface AppSettings {
   aiProfile: "thorough" | "fast"
 }
 
+export interface AiUsageRecord {
+  id: string
+  kind: "generate" | "fix"
+  contestId: string
+  quizId: string
+  quizTitle: string
+  questionNo: string
+  generatedAt: string | null
+  processingTimeMs: number
+  model: string
+  responseId: string | null
+  inputTokens: number
+  outputTokens: number
+  cachedInputTokens: number
+  totalTokens: number
+}
+
+export interface AiUsageInfo {
+  scannedAt: string
+  records: AiUsageRecord[]
+  totals: { requests: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; totalTokens: number; processingTimeMs: number }
+}
+
 export interface AuthUser {
   uid: string
   email: string
@@ -164,6 +187,7 @@ export interface DesktopApi {
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>
+  getAiUsage(): Promise<AiUsageInfo>
   showInFolder(path: string): Promise<void>
   showQuizQuestionInFolder(manifestPath: string, questionNo: number | string): Promise<void>
   readQuizAsset(manifestPath: string, assetReference: string): Promise<string>

@@ -8,6 +8,7 @@ const api: DesktopApi = {
   setEnvironment: (environment) => ipcRenderer.invoke("settings:environment", environment) as Promise<AppSettings>,
   setAiProfile: (profile) => ipcRenderer.invoke("settings:ai-profile", profile) as Promise<AppSettings>,
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
+  getAiUsage: () => ipcRenderer.invoke("ai:usage"),
   showInFolder: (path) => ipcRenderer.invoke("shell:show", path) as Promise<void>,
   showQuizQuestionInFolder: (manifestPath, questionNo) => ipcRenderer.invoke("shell:show-question", manifestPath, questionNo) as Promise<void>,
   readQuizAsset: (manifestPath, assetReference) => ipcRenderer.invoke("quiz-asset:read", manifestPath, assetReference) as Promise<string>,

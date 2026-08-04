@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
-import { Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
+import { Bot, Check, CloudUpload, Copy, LayoutDashboard, Library, LogIn, Settings, Sparkles, Workflow, type LucideIcon } from "lucide-react"
 import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
 import { AccountMenu } from "./AccountMenu"
+import { AiUsagePage } from "./AiUsagePage"
 import { GetGoIcon } from "./GetGoIcon"
 import { PageTransition } from "./PageTransition"
 import { Button } from "./ui/Button"
@@ -14,15 +15,16 @@ import { useToast } from "./ui/Toast"
 
 const QuizManager = lazy(() => import("./QuizManager").then(module => ({ default: module.QuizManager })))
 
-type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "settings"
+type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "ai-usage" | "settings"
 const lastRouteKey = "getgo-tools:last-route"
 const readLastRoute = () => { try { return localStorage.getItem(lastRouteKey) || "/dashboard" } catch { return "/dashboard" } }
-const viewFromRoute = (route: string): View => route.startsWith("/quizzes") ? "quizzes" : (["dashboard", "jobs", "publishing", "settings"].includes(route.slice(1)) ? route.slice(1) as View : "dashboard")
+const viewFromRoute = (route: string): View => route.startsWith("/quizzes") ? "quizzes" : (["dashboard", "jobs", "publishing", "ai-usage", "settings"].includes(route.slice(1)) ? route.slice(1) as View : "dashboard")
 const nav: { id: View; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "quizzes", label: "Quizzes", icon: Library },
   { id: "jobs", label: "Jobs", icon: Workflow },
   { id: "publishing", label: "Publishing", icon: CloudUpload },
+  { id: "ai-usage", label: "AI usage", icon: Bot },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 const environmentOptions: SelectOption[] = [
@@ -200,6 +202,7 @@ export function App() {
         {settings.repositoryPath && view === "quizzes" && snapshot && <Suspense fallback={<div className="manager-loading"><span />Loading quiz manager…</div>}><QuizManager snapshot={snapshot} initialRoute={initialRoute} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} /></Suspense>}
         {settings.repositoryPath && view === "jobs" && <EmptyFeature title="Pipeline jobs" detail="Validation, builds, and publish operations will appear here with structured progress and logs." />}
         {settings.repositoryPath && view === "publishing" && <EmptyFeature title="Publishing workspace" detail="Remote reconciliation and safe staging/production publishing will be added after pipeline extraction." />}
+        {settings.repositoryPath && view === "ai-usage" && <AiUsagePage />}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="panel settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label>{environmentSwitcher()}<label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><Select value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /></div></section>}
         </PageTransition>
       </div>
