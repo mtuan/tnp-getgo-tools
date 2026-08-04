@@ -71,6 +71,32 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   assert.equal(reloadedReset[0].aiFixHistory, undefined)
 })
 
+test("saves and reloads a syntax-invalid question draft verbatim", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-invalid-draft-"))
+  const manifestPath = path.join(directory, "manifest.json")
+  const invalidParams = "() => {\n  const side = QB.rnd.int(2, 10)\n  return { side }}\n}"
+  await fs.writeFile(manifestPath, "{}")
+  await fs.mkdir(path.join(directory, "questions"))
+
+  const saved = await saveQuizQuestion(manifestPath, {
+    question_no: 1,
+    verified: false,
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: invalidParams,
+      questionGeneratorTs: "({ side, answer }) => {\n  return { question_no: 1, text_en: `${side}`, answer }\n}",
+      originParamsTs: "{}",
+      explanationGeneratorTs: "({}) => {\n  return { en: '', vi: '' }\n}",
+    },
+  })
+
+  assert.equal(saved.advancedDynamic?.paramsGeneratorTs, invalidParams)
+  assert.match(saved.advancedDynamic?.draftSourceTs as string, /return \{ side \}\}\n\}/)
+
+  const reloaded = await loadQuizQuestions(manifestPath)
+  assert.equal(reloaded[0].advancedDynamic?.paramsGeneratorTs, invalidParams)
+})
+
 test("creates and resets question files from raw.ts before falling back to raw.json", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-ts-"))
   const manifestPath = path.join(directory, "manifest.json")

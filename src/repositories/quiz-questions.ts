@@ -95,8 +95,14 @@ async function formatQuestionCode(question: QuizQuestionRecord): Promise<QuizQue
   if (!question.advancedDynamic) return question
   const formatField = async (value: string | undefined, objectExpression = false): Promise<string> => {
     if (!value?.trim()) return ""
-    const formatted = (await QuizTsService.formatSnippet(objectExpression ? `(${value})` : value)).trim().replace(/^;\s*/, "")
-    return objectExpression ? formatted.replace(/^\(\s*/, "").replace(/\s*\)$/, "") : formatted
+    try {
+      const formatted = (await QuizTsService.formatSnippet(objectExpression ? `(${value})` : value)).trim().replace(/^;\s*/, "")
+      return objectExpression ? formatted.replace(/^\(\s*/, "").replace(/\s*\)$/, "") : formatted
+    } catch {
+      // Incomplete TypeScript is a valid editor draft. Preserve it verbatim so
+      // syntax diagnostics can be fixed after saving or reopening the question.
+      return value
+    }
   }
   const [paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs] = await Promise.all([
     formatField(question.advancedDynamic.paramsGeneratorTs),
@@ -105,7 +111,8 @@ async function formatQuestionCode(question: QuizQuestionRecord): Promise<QuizQue
     formatField(question.advancedDynamic.explanationGeneratorTs),
   ])
   const formattedFields = { paramsGeneratorTs, questionGeneratorTs, originParamsTs, explanationGeneratorTs }
-  const formatted = await QuizTsService.formatSnippet(QuizTsService.composeTemplateSource(formattedFields))
+  const draftSource = QuizTsService.composeTemplateSource(formattedFields)
+  const formatted = await QuizTsService.formatSnippet(draftSource).catch(() => draftSource)
   return {
     ...question,
     advancedDynamic: {
