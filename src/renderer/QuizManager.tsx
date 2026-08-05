@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronRight, FolderOpen, Plus, RefreshCw, RotateCcw, Save, Search, Trash2, Zap } from "lucide-react"
 import type { ContestSummary, QuizCrudInput, QuizMigrationResult, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
 import { questionHasDynamicParams } from "../core/question-dynamics"
@@ -36,6 +36,22 @@ function questionPrompt(value: unknown): string {
   if (typeof value === "string") return value
   if (Array.isArray(value)) return value.filter(item => typeof item === "string").join(" ")
   return "Question content"
+}
+
+function comparableQuestion(record: QuizQuestionRecord | null): unknown {
+  if (!record) return record
+  if (!record.advancedDynamic) return record
+  const { draftSourceTs: _derivedDraftSource, ...advancedDynamic } = record.advancedDynamic
+  return { ...record, advancedDynamic }
+}
+
+function questionDiff(before: QuizQuestionRecord, after: QuizQuestionRecord) {
+  const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+  const changedFields = keys.filter(key => key !== "advancedDynamic" && JSON.stringify(before[key]) !== JSON.stringify(after[key]))
+  const advancedKeys = [...new Set([...Object.keys(before.advancedDynamic ?? {}), ...Object.keys(after.advancedDynamic ?? {})])]
+  const changedGeneratorFields = advancedKeys.filter(key => key !== "draftSourceTs" && JSON.stringify(before.advancedDynamic?.[key]) !== JSON.stringify(after.advancedDynamic?.[key])).map(key => ({ key, beforeLength: String(before.advancedDynamic?.[key] ?? "").length, afterLength: String(after.advancedDynamic?.[key] ?? "").length }))
+  const draftSourceChanged = before.advancedDynamic?.draftSourceTs !== after.advancedDynamic?.draftSourceTs
+  return { changedFields, changedGeneratorFields, draftSourceChanged }
 }
 
 function quizReviewStatus(quiz: QuizSummary): { kind: "full" | "partial" | "none"; label: string; reviewed: number; total: number } {
@@ -81,6 +97,15 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
   const [pendingQuestionNo, setPendingQuestionNo] = useState(restored.questionNo)
   const [questionEditorTab, setQuestionEditorTab] = useState<QuestionEditorTab>(restored.questionTab)
   const [migrationResults, setMigrationResults] = useState<{ result: QuizMigrationResult; attempted: number } | null>(null)
+  const lastSavedQuestion = useRef<QuizQuestionRecord | null>(null)
+
+  useEffect(() => {
+    const saved = lastSavedQuestion.current
+    if (!saved || !questionDraftRecord || String(saved.question_no) !== String(questionDraftRecord.question_no)) return
+    const diff = questionDiff(saved, questionDraftRecord)
+    if (!diff.changedFields.length && !diff.changedGeneratorFields.length) return
+    console.info("[GetGo Tools][Question save][post-save dirty state]", { questionNo: saved.question_no, ...diff })
+  }, [questionDraftRecord])
 
   const contests = useMemo(() => {
     return snapshot.contests.map(contest => ({ ...contest, quizzes: snapshot.quizzes.filter(quiz => quiz.contest === contest.id) }))
@@ -231,11 +256,11 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
     ]
     const activeQuestion = selectedQuestion === null ? null : questions[selectedQuestion]
     if (activeQuestion) {
-      const questionHasChanges = questionDraftRecord !== null && JSON.stringify(questionDraftRecord) !== JSON.stringify(activeQuestion.record)
+      const questionHasChanges = questionDraftRecord !== null && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(activeQuestion.record))
       const navigateQuestion = (value: string) => {
         const nextIndex = Number(value)
         if (!Number.isInteger(nextIndex) || nextIndex < 0 || nextIndex >= questions.length || nextIndex === selectedQuestion) return
-        const hasUnsavedChanges = questionDraftRecord !== null && JSON.stringify(questionDraftRecord) !== JSON.stringify(activeQuestion.record)
+        const hasUnsavedChanges = questionDraftRecord !== null && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(activeQuestion.record))
         if (hasUnsavedChanges && !window.confirm("Discard unsaved changes and open another question?")) return
         const nextQuestion = questions[nextIndex]
         setSelectedQuestion(nextIndex)
@@ -254,7 +279,10 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
         if (!questionDraftRecord || !questionHasChanges || saving || savingVerification) return
         setSaving(true); setQuestionOperation("save"); setSourceError(null)
         try {
+          console.info("[GetGo Tools][Question save][request]", { questionNo: questionDraftRecord.question_no, dirty: questionDiff(activeQuestion.record, questionDraftRecord) })
           const savedQuestion = await window.getgo.saveQuizQuestion(quiz.manifestPath, questionDraftRecord)
+          console.info("[GetGo Tools][Question save][persisted]", { questionNo: savedQuestion.question_no, formattingChanges: questionDiff(questionDraftRecord, savedQuestion) })
+          lastSavedQuestion.current = savedQuestion
           setQuestionDraftRecord(savedQuestion)
           setQuestionRecords(current => current.map(item => String(item.question_no) === String(savedQuestion.question_no) ? savedQuestion : item))
           updateReviewedCount(activeQuestion.record.verified === true, savedQuestion.verified === true)
