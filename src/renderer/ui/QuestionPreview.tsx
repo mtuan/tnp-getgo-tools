@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
 import type { RuntimeQuestion } from "../question-service"
+import { displayQuestionValue } from "../../core/question-value-display"
 
 export type { RuntimeQuestion } from "../question-service"
 
-export const questionText = (value: unknown) => Array.isArray(value) ? value.join(" ") : String(value ?? "")
+export const questionText = displayQuestionValue
 
 function PreviewAsset({ manifestPath, value, alt }: { manifestPath: string; value: string; alt: string }) {
   const [source, setSource] = useState(value.startsWith("data:image/") ? value : "")
