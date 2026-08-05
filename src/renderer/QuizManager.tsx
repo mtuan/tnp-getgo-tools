@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronRight, FolderOpen, Plus, RefreshCw, RotateCcw, Save, Search, Trash2, Zap } from "lucide-react"
-import type { ContestSummary, QuizCrudInput, QuizMigrationResult, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
+import type { AiMigrationJob, ContestSummary, QuizAiMigrationJob, QuizCrudInput, QuizMigrationResult, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
 import { questionHasDynamicParams } from "../core/question-dynamics"
 import { questionContainsImages } from "../core/question-images"
 import { QuizCrudDialog } from "./CrudDialogs"
@@ -13,7 +13,6 @@ import { QuestionNavigator } from "./ui/QuestionNavigator"
 import { Tabs } from "./ui/Tabs"
 import { DataTable, type DataColumn } from "./ui/DataTable"
 import { useToast } from "./ui/Toast"
-import type { AiMigrationJobState } from "./AiMigrationProgress"
 
 interface QuizManagerProps {
   snapshot: RepositorySnapshot
@@ -21,8 +20,6 @@ interface QuizManagerProps {
   onSnapshotChange(snapshot: RepositorySnapshot): void
   onRouteChange(route: string): void
   onBackActionChange(action: (() => void) | null): void
-  aiMigrationJob: AiMigrationJobState | null
-  onStartAiMigration(quiz: QuizSummary, records: QuizQuestionRecord[]): void
 }
 
 type ManagerPage =
@@ -76,7 +73,7 @@ function restoredPage(snapshot: RepositorySnapshot, route?: string): { page: Man
   return { page: { kind: "quiz", quiz }, questionNo: parts[5] === "questions" && parts[6] ? parts[6] : null, questionTab }
 }
 
-export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteChange, onBackActionChange, aiMigrationJob, onStartAiMigration }: QuizManagerProps) {
+export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteChange, onBackActionChange }: QuizManagerProps) {
   const toast = useToast()
   const [restored] = useState(() => restoredPage(snapshot, initialRoute))
   const [page, setPage] = useState<ManagerPage>(restored.page)
@@ -97,7 +94,54 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
   const [pendingQuestionNo, setPendingQuestionNo] = useState(restored.questionNo)
   const [questionEditorTab, setQuestionEditorTab] = useState<QuestionEditorTab>(restored.questionTab)
   const [migrationResults, setMigrationResults] = useState<{ result: QuizMigrationResult; attempted: number } | null>(null)
+  const [migrationJobs, setMigrationJobs] = useState<AiMigrationJob[]>([])
   const lastSavedQuestion = useRef<QuizQuestionRecord | null>(null)
+  const previousSaveButtonState = useRef<{ enabled: boolean; questionNo: string | null } | null>(null)
+
+  const storedQuestion = selectedQuestion === null ? null : questionRecords[selectedQuestion] ?? null
+  const saveButtonDirty = Boolean(storedQuestion && questionDraftRecord && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(storedQuestion)))
+  const saveButtonEnabled = saveButtonDirty && !saving && !savingVerification
+
+  useEffect(() => {
+    const questionNo = questionDraftRecord ? String(questionDraftRecord.question_no) : null
+    const previous = previousSaveButtonState.current
+    if (previous?.enabled === saveButtonEnabled && previous.questionNo === questionNo) return
+    const diff = storedQuestion && questionDraftRecord ? questionDiff(storedQuestion, questionDraftRecord) : null
+    const reasons = !storedQuestion || !questionDraftRecord
+      ? ["No question draft and stored question are both available."]
+      : [
+          saveButtonDirty ? "The editable draft differs from the stored question." : "The editable draft matches the stored question.",
+          saving ? "A question save/reset operation is in progress." : null,
+          savingVerification ? "A verification update is in progress." : null,
+          diff?.draftSourceChanged ? "draftSourceTs differs, but it is derived and intentionally ignored by the dirty check." : null,
+        ].filter((reason): reason is string => Boolean(reason))
+    console.info("[GetGo Tools][Question save button][state changed]", {
+      questionNo,
+      previousEnabled: previous?.enabled ?? null,
+      enabled: saveButtonEnabled,
+      dirty: saveButtonDirty,
+      saving,
+      savingVerification,
+      reasons,
+      differences: diff,
+    })
+    previousSaveButtonState.current = { enabled: saveButtonEnabled, questionNo }
+  }, [questionDraftRecord, saveButtonDirty, saveButtonEnabled, saving, savingVerification, storedQuestion])
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const next = await window.getgo.getAiMigrationJobs()
+        if (active) setMigrationJobs(next.jobs)
+      } catch (cause) {
+        console.error("[GetGo Tools][Quiz migration status]", cause)
+      }
+    }
+    void load()
+    const timer = window.setInterval(() => void load(), 1000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [])
 
   useEffect(() => {
     const saved = lastSavedQuestion.current
@@ -116,6 +160,7 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
   const visibleContests = contests.filter(contest => !normalizedQuery || `${contest.id} ${contest.title} ${contest.description}`.toLowerCase().includes(normalizedQuery))
   const visibleQuizzes = (selectedContest?.quizzes ?? []).filter((quiz) => !normalizedQuery ||
     `${quiz.id} ${quiz.legacyId} ${quiz.grade ?? ""} ${quiz.round ?? ""} ${quiz.year ?? ""}`.toLowerCase().includes(normalizedQuery))
+  const migrationForQuiz = (quiz: QuizSummary): QuizAiMigrationJob | null => migrationJobs.find(job => job.contestId === quiz.contest && job.quizId === quiz.id) ?? quiz.aiMigrationJob ?? null
   const legacyQuizCount = selectedContest?.quizzes.filter(quiz => quiz.questionStorageVersion === "legacy").length ?? 0
   const allLegacyQuizCount = snapshot.quizzes.filter(quiz => quiz.questionStorageVersion === "legacy").length
 
@@ -143,13 +188,6 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
     }).finally(() => { if (active) setSourceLoading(false) })
     return () => { active = false }
   }, [page])
-
-  useEffect(() => {
-    if (page.kind !== "quiz" || aiMigrationJob?.quizId !== page.quiz.id || !["completed", "cancelled"].includes(aiMigrationJob.status)) return
-    let active = true
-    void window.getgo.loadQuizQuestions(page.quiz.manifestPath).then(records => { if (active) setQuestionRecords(records) }).catch(cause => { if (active) setSourceError(cause instanceof Error ? cause.message : String(cause)) })
-    return () => { active = false }
-  }, [aiMigrationJob?.status, aiMigrationJob?.quizId, page])
 
   const backToQuestions = useCallback(() => {
     setSelectedQuestion(null)
@@ -341,7 +379,7 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
       </section>
     }
     return <section className="manager editor-page">
-      <PageHeader eyebrow="Quiz detail" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }]} title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show quiz in folder" title="Show quiz in folder" onClick={() => void runButtonAction("show-quiz-folder", () => window.getgo.showInFolder(quiz.manifestPath))} />} actions={quizTab === "info" ? <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-quiz"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; void runButtonAction("delete-quiz", async () => { const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }); toast.show({ title: "Quiz deleted", description: `${quiz.title} was moved to Trash.` }) }) }}>Delete quiz</Button> : <><Button icon={<Zap size={15} />} variant="solid" loading={aiMigrationJob?.quizId === quiz.id && ["running", "cancelling"].includes(aiMigrationJob.status)} disabled={sourceLoading || Boolean(aiMigrationJob && ["running", "cancelling"].includes(aiMigrationJob.status))} onClick={() => onStartAiMigration(quiz, questionRecords)}>AI migrate</Button><span className={`badge quiz-header-verification review-status-${verification.kind}`} title={verification.label} aria-label={`${verification.label}: ${displayedVerifiedCount} of ${verificationTotal}`}>Reviewed: {displayedVerifiedCount}/{verificationTotal}</span></>} />
+      <PageHeader eyebrow="Quiz detail" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }]} title={quiz.title} description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show quiz in folder" title="Show quiz in folder" onClick={() => void runButtonAction("show-quiz-folder", () => window.getgo.showInFolder(quiz.manifestPath))} />} actions={quizTab === "info" ? <Button icon={<Trash2 size={15} />} loading={buttonAction === "delete-quiz"} variant="solid" color="danger" disabled={Boolean(buttonAction)} onClick={() => { if (!window.confirm(`Delete ${quiz.title}? This will move the quiz folder to Trash.`)) return; void runButtonAction("delete-quiz", async () => { const next = await window.getgo.deleteQuiz(quiz.manifestPath); onSnapshotChange(next); setPage({ kind: "contest", contest: quiz.contest }); toast.show({ title: "Quiz deleted", description: `${quiz.title} was moved to Trash.` }) }) }}>Delete quiz</Button> : <><Button icon={<Zap size={15} />} variant="solid" loading={buttonAction === "ai-migrate"} disabled={sourceLoading || Boolean(buttonAction)} onClick={() => void runButtonAction("ai-migrate", async () => { const job = await window.getgo.startAiMigrationJob({ manifestPath: quiz.manifestPath, context: { contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round } }); toast.show({ title: "AI migration queued", description: `${job.quizTitle} was added to Jobs.` }) })}>AI migrate</Button><span className={`badge quiz-header-verification review-status-${verification.kind}`} title={verification.label} aria-label={`${verification.label}: ${displayedVerifiedCount} of ${verificationTotal}`}>Reviewed: {displayedVerifiedCount}/{verificationTotal}</span></>} />
       <Tabs<"info" | "questions"> variant="underline" className="contest-detail-tabs" ariaLabel="Quiz detail" value={quizTab} onChange={setQuizTab} items={[{ id: "questions", label: "Questions", badge: questions.length || quiz.questionCount || 0 }, { id: "info", label: "Info" }]} />
       {quizTab === "info" && quizContest && <QuizCrudDialog embedded quiz={quiz} contest={quizContest} onClose={() => undefined} onSaved={async input => { const next = await window.getgo.updateQuiz(quiz.manifestPath, { title: input.title, grade: input.grade, round: input.round, year: input.year, status: input.status, quizBuilderApiVersion: input.quizBuilderApiVersion }); onSnapshotChange(next); const updated = next.quizzes.find(item => item.key === quiz.key); if (updated) setPage({ kind: "quiz", quiz: updated }); toast.show({ title: "Quiz updated", description: `${input.title} was saved.` }) }} />}
       {quizTab === "questions" && <>{sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
@@ -355,8 +393,8 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
     {isContest && <Tabs<"info" | "quizzes"> variant="underline" className="contest-detail-tabs" ariaLabel="Contest detail" value={contestTab} onChange={setContestTab} items={[{ id: "quizzes", label: "Quizzes", badge: selectedContest?.quizzes.length ?? 0 }, { id: "info", label: "Info" }]} />}
     {isContest && contestTab === "info" && selectedContest && <ContestSettingsDialog embedded contest={selectedContest} onClose={() => undefined} onSaved={async settings => { const next = await window.getgo.updateContest(selectedContest.id, settings); onSnapshotChange(next); toast.show({ title: "Contest updated", description: `${settings.book.title} was saved.` }) }} />}
     {(!isContest || contestTab === "quizzes") && <><div className="manager-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search contests…"} /></div>
-    <div className="manager-table"><table><thead><tr>{isContest ? <><th>Quiz</th><th>Version</th><th>Grade</th><th>Year / round</th><th>Questions</th><th>Reviewed</th><th /></> : <><th>Contest</th><th>Quizzes</th><th>Ready</th><th>Builds</th><th /></>}</tr></thead><tbody>
-      {isContest ? visibleQuizzes.map(quiz => { const review = quizReviewStatus(quiz); return <tr key={quiz.key} onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab("questions") }}><td><strong>{quiz.title}</strong><span>{quiz.id}</span></td><td><span className={`badge quiz-version quiz-version-${quiz.questionStorageVersion}`}>{quiz.questionStorageVersion === "questions-v1" ? "Questions v1" : "Legacy"}</span></td><td>{quiz.grade ?? "—"}</td><td><strong>{quiz.year ?? "—"}</strong><span>{quiz.round ?? "No round"}</span></td><td>{quiz.questionCount ?? "—"}</td><td><span className={`badge review-status review-status-${review.kind}`} title={review.label} aria-label={`${review.label}: ${review.reviewed} of ${review.total}`}>{review.reviewed}/{review.total}</span>{quiz.migrationErrorCount > 0 && <span className="badge badge-error">{quiz.migrationErrorCount} errors</span>}</td><td><ChevronRight size={16} /></td></tr> }) : visibleContests.map(contest => { const ready = contest.quizzes.filter(quiz => ["reviewed", "validated", "published"].includes(quiz.contentStatus)).length; const builds = contest.quizzes.filter(quiz => quiz.hasGeneratedArtifact).length; return <tr key={contest.id} onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("quizzes"); setQuery("") }}><td><strong>{contest.title}</strong><span>{contest.description || contest.id.toUpperCase()}</span></td><td>{contest.quizzes.length}</td><td>{ready}</td><td>{builds}</td><td><ChevronRight size={16} /></td></tr> })}
+    <div className="manager-table"><table><thead><tr>{isContest ? <><th>Quiz</th><th>Version</th><th>Grade</th><th>Year / round</th><th>Questions</th><th>Reviewed</th><th>Status</th><th /></> : <><th>Contest</th><th>Quizzes</th><th>Ready</th><th>Builds</th><th /></>}</tr></thead><tbody>
+      {isContest ? visibleQuizzes.map(quiz => { const review = quizReviewStatus(quiz); const migration = migrationForQuiz(quiz); const percent = migration ? (migration.total ? Math.min(100, Math.round(migration.processed / migration.total * 100)) : 100) : 0; const activeMigration = migration && (migration.status === "queued" || migration.status === "running"); return <tr key={quiz.key} onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab("questions") }}><td><strong>{quiz.title}</strong><span>{quiz.id}</span></td><td><span className={`badge quiz-version quiz-version-${quiz.questionStorageVersion}`}>{quiz.questionStorageVersion === "questions-v1" ? "Questions v1" : "Legacy"}</span></td><td>{quiz.grade ?? "—"}</td><td><strong>{quiz.year ?? "—"}</strong><span>{quiz.round ?? "No round"}</span></td><td>{quiz.questionCount ?? "—"}</td><td><span className={`badge review-status review-status-${review.kind}`} title={review.label} aria-label={`${review.label}: ${review.reviewed} of ${review.total}`}>{review.reviewed}/{review.total}</span>{quiz.migrationErrorCount > 0 && <span className="badge badge-error">{quiz.migrationErrorCount} errors</span>}</td><td>{migration ? migration.status === "completed" ? <span className="job-status job-status-completed">Migrated ({migration.succeeded}/{migration.total})</span> : <div className="quiz-migration-status"><span className={`job-status job-status-${migration.status}`}>{migration.status}</span><span>{activeMigration ? `${percent}% · ${migration.processed}/${migration.total}` : `${migration.succeeded} saved${migration.failed ? ` · ${migration.failed} failed` : ""}`}</span></div> : <span className="job-status">Not started</span>}</td><td><ChevronRight size={16} /></td></tr> }) : visibleContests.map(contest => { const ready = contest.quizzes.filter(quiz => ["reviewed", "validated", "published"].includes(quiz.contentStatus)).length; const builds = contest.quizzes.filter(quiz => quiz.hasGeneratedArtifact).length; return <tr key={contest.id} onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("quizzes"); setQuery("") }}><td><strong>{contest.title}</strong><span>{contest.description || contest.id.toUpperCase()}</span></td><td>{contest.quizzes.length}</td><td>{ready}</td><td>{builds}</td><td><ChevronRight size={16} /></td></tr> })}
     </tbody></table>{(isContest ? visibleQuizzes : visibleContests).length === 0 && <div className="no-results">No matching {isContest ? "quizzes" : "contests"}.</div>}</div></>}
     {contestDialog && <ContestSettingsDialog contest={contestDialog === "create" ? undefined : contestDialog} onClose={() => setContestDialog(null)} onSaved={async settings => { const creating = contestDialog === "create"; const next = creating ? await window.getgo.createContest(settings) : await window.getgo.updateContest(contestDialog.id, settings); onSnapshotChange(next); setContestDialog(null); toast.show({ title: creating ? "Contest created" : "Contest updated", description: `${settings.book.title} was saved.` }) }} onDeleted={contestDialog !== "create" ? async () => { const title = contestDialog.title; const next = await window.getgo.deleteContest(contestDialog.id); onSnapshotChange(next); setContestDialog(null); setPage({ kind: "contests" }); toast.show({ title: "Contest deleted", description: `${title} was moved to Trash.` }) } : undefined} />}
     {quizDialog === "create" && isContest && selectedContest && <QuizCrudDialog contest={selectedContest} onClose={() => setQuizDialog(null)} onSaved={async (input: QuizCrudInput) => { const next = await window.getgo.createQuiz(page.contest, { ...input, status: "imported" }); onSnapshotChange(next); setQuizDialog(null); toast.show({ title: "Quiz created", description: `${input.title} is ready to edit.` }) }} />}

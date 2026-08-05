@@ -1,7 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
-import { AlertTriangle, ArrowLeft, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, PanelLeftClose, PanelLeftOpen, RefreshCw, RotateCcw, Settings, type LucideIcon } from "lucide-react"
-import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
-import { questionContainsImages } from "../core/question-images"
+import { AlertTriangle, ArrowLeft, BriefcaseBusiness, Check, CloudUpload, Copy, FolderOpen, LayoutDashboard, Library, LogIn, PanelLeftClose, PanelLeftOpen, RefreshCw, RotateCcw, Settings, type LucideIcon } from "lucide-react"
+import type { AppSettings, ContentStatus, DeploymentStatus, EnvironmentReadiness, RepositorySnapshot } from "../core/models"
 import { useAuth } from "./AuthContext"
 import { AccountMenu } from "./AccountMenu"
 import { GetGoIcon } from "./GetGoIcon"
@@ -15,11 +14,11 @@ import { Select, type SelectOption } from "./ui/Select"
 import { SegmentedControl } from "./ui/SegmentedControl"
 import { useToast } from "./ui/Toast"
 import { QuizManager } from "./QuizManager"
-import { AiMigrationProgress, type AiMigrationJobState } from "./AiMigrationProgress"
 
 const PublishingPage = lazy(() => import("./PublishingPage").then(module => ({ default: module.PublishingPage })))
+const JobsPage = lazy(() => import("./JobsPage").then(module => ({ default: module.JobsPage })))
 
-type View = "dashboard" | "quizzes" | "publishing" | "settings" | "not-found"
+type View = "dashboard" | "quizzes" | "jobs" | "publishing" | "settings" | "not-found"
 type NavigableView = Exclude<View, "not-found">
 const lastRouteKey = "getgo-tools:last-route"
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed"
@@ -29,7 +28,7 @@ function viewFromRoute(route: string, snapshot?: RepositorySnapshot | null): Vie
   let pathname: string
   try { pathname = new URL(route, "app://getgo").pathname }
   catch { pathname = route.split("?")[0] }
-  const staticView = ["dashboard", "publishing", "settings"].find(value => pathname === `/${value}`)
+  const staticView = ["dashboard", "jobs", "publishing", "settings"].find(value => pathname === `/${value}`)
   if (staticView) return staticView as NavigableView
   const parts = pathname.split("/").filter(Boolean).map(part => { try { return decodeURIComponent(part) } catch { return part } })
   if (parts[0] !== "quizzes" || parts[1] !== "contests") return "not-found"
@@ -46,6 +45,7 @@ const normalizedRoute = (route: string) => { const value = route.trim(); if (!va
 const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "quizzes", label: "Quizzes", icon: Library },
+  { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "publishing", label: "Publishing", icon: CloudUpload },
   { id: "settings", label: "Settings", icon: Settings },
 ]
@@ -88,61 +88,8 @@ export function App() {
   const [restartingApp, setRestartingApp] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
   const [canNavigateBack, setCanNavigateBack] = useState(false)
-  const [aiMigrationJob, setAiMigrationJob] = useState<AiMigrationJobState | null>(null)
-  const aiMigrationCancelled = useRef(false)
   const environmentCheckId = useRef(0)
   const quizBackAction = useRef<(() => void) | null>(null)
-
-  const startAiMigration = useCallback((quiz: QuizSummary, records: QuizQuestionRecord[]) => {
-    if (aiMigrationJob?.status === "running" || aiMigrationJob?.status === "cancelling") return
-    const skippedVerified = records.filter(record => record.verified === true).length
-    const skippedImages = records.filter(record => record.verified !== true && questionContainsImages(record)).length
-    const eligible = records.filter(record => record.verified !== true && !questionContainsImages(record))
-    aiMigrationCancelled.current = false
-    setAiMigrationJob({ status: "running", quizId: quiz.id, total: eligible.length, processed: 0, succeeded: 0, failed: 0, skippedImages, skippedVerified, startedAt: Date.now() })
-    void (async () => {
-      let processed = 0; let succeeded = 0; let failed = 0
-      const context = { contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }
-      for (const queuedQuestion of eligible) {
-        if (aiMigrationCancelled.current) break
-        const latestBeforeAi = (await window.getgo.loadQuizQuestions(quiz.manifestPath)).find(record => String(record.question_no) === String(queuedQuestion.question_no))
-        if (!latestBeforeAi || latestBeforeAi.verified === true || questionContainsImages(latestBeforeAi)) {
-          processed += 1
-          setAiMigrationJob(current => current ? { ...current, processed, skippedVerified: current.skippedVerified + (latestBeforeAi?.verified === true ? 1 : 0), skippedImages: current.skippedImages + (latestBeforeAi && latestBeforeAi.verified !== true && questionContainsImages(latestBeforeAi) ? 1 : 0) } : current)
-          continue
-        }
-        const question = latestBeforeAi
-        setAiMigrationJob(current => current ? { ...current, currentQuestion: String(question.question_no) } : current)
-        const startedAt = Date.now()
-        try {
-          const result = await window.getgo.createDynamicQuestionProposal({ question, context })
-          if (aiMigrationCancelled.current) break
-          const proposal = result.proposal
-          const latestBeforeSave = (await window.getgo.loadQuizQuestions(quiz.manifestPath)).find(record => String(record.question_no) === String(question.question_no))
-          if (!latestBeforeSave || latestBeforeSave.verified === true) {
-            processed += 1
-            setAiMigrationJob(current => current ? { ...current, processed, skippedVerified: current.skippedVerified + (latestBeforeSave?.verified === true ? 1 : 0) } : current)
-            continue
-          }
-          await window.getgo.saveQuizQuestion(quiz.manifestPath, { ...latestBeforeSave, verified: false, authoringMode: "advanced-dynamic", advancedDynamic: { ...latestBeforeSave.advancedDynamic, paramsGeneratorTs: proposal.paramsGeneratorTs, questionGeneratorTs: proposal.questionGeneratorTs, originParamsTs: proposal.originParamsTs, explanationGeneratorTs: proposal.explanationGeneratorTs }, aiResponse: { ...result, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt } })
-          succeeded += 1
-        } catch (cause) {
-          if (aiMigrationCancelled.current || (cause instanceof Error && cause.message === "AI request cancelled.")) break
-          failed += 1
-          console.error(`[GetGo Tools][AI migration][Question ${question.question_no}]`, cause)
-        }
-        processed += 1
-        setAiMigrationJob(current => current ? { ...current, processed, succeeded, failed } : current)
-      }
-      setAiMigrationJob(current => current ? { ...current, status: aiMigrationCancelled.current ? "cancelled" : "completed", processed, succeeded, failed, currentQuestion: undefined, finishedAt: Date.now() } : current)
-    })()
-  }, [aiMigrationJob?.status])
-
-  const cancelAiMigration = useCallback(() => {
-    aiMigrationCancelled.current = true
-    setAiMigrationJob(current => current ? { ...current, status: "cancelling" } : current)
-    void window.getgo.cancelDynamicQuestionAi().catch(() => undefined)
-  }, [])
 
   async function scan(path?: string, announce = false) {
     setLoading(true); setRepositoryError(null)
@@ -330,7 +277,8 @@ export function App() {
             <div className="lifecycle">{["imported", "normalized", "generated", "reviewed", "validated", "published"].map((status) => { const count = quizzes.filter((q) => q.contentStatus === status).length; return <div key={status}><div><span>{status}</span><strong>{count}</strong></div><progress max={Math.max(quizzes.length, 1)} value={count} /></div> })}</div>
           </Panel>
         </>}
-        {settings.repositoryPath && view === "quizzes" && snapshot && <QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} aiMigrationJob={aiMigrationJob} onStartAiMigration={startAiMigration} />}
+        {settings.repositoryPath && view === "quizzes" && snapshot && <QuizManager snapshot={snapshot} initialRoute={routeRequest.route} onSnapshotChange={setSnapshot} onRouteChange={setCurrentRoute} onBackActionChange={updateQuizBackAction} />}
+        {settings.repositoryPath && view === "jobs" && <Suspense fallback={null}><JobsPage onOpenQuiz={route => goToRoute(route)} /></Suspense>}
         {settings.repositoryPath && view === "publishing" && snapshot && <Suspense fallback={null}><PublishingPage environment={settings.environment} repository={snapshot} locale={settings.locale} /></Suspense>}
         {settings.repositoryPath && view === "settings" && <section className="settings-page"><span className="eyebrow">Application</span><h1>Settings</h1><div className="settings-card"><label>Quiz repository<span>The folder containing quizzes/, generated/, and schemas/.</span></label><div><code>{settings.repositoryPath}</code><button className="secondary" onClick={choose}>Change</button></div><label>Active environment<span>Upload status will be reconciled independently for every environment.</span></label><SegmentedControl value={settings.environment} options={environmentOptions} disabled={checkingEnvironment} ariaLabel="Active environment" onValueChange={value => void changeEnvironment(value as AppSettings["environment"])} /><label>Locale<span>Choose the language used by localized application pages.</span></label><SegmentedControl value={settings.locale} options={localeOptions} ariaLabel="Locale" onValueChange={value => void changeLocale(value as AppSettings["locale"])} /><label>AI generation profile<span>Thorough preserves the current full-reference behavior. Fast uses a compact reference and lower reasoning latency.</span></label><SegmentedControl value={settings.aiProfile} options={aiProfileOptions} disabled={savingAiProfile} ariaLabel="AI generation profile" onValueChange={value => void changeAiProfile(value as AppSettings["aiProfile"])} /><label>Restart application<span>Development restarts keep the Vite hot-update connection active. Packaged builds relaunch GetGo Tools.</span></label><div><Button icon={<RotateCcw size={15} />} loading={restartingApp} variant="secondary" onClick={() => void restartApp()}>Restart GetGo Tools</Button></div></div></section>}
         </PageTransition>
@@ -339,6 +287,5 @@ export function App() {
     {routeCopied && <div className="copy-toast" role="status" aria-live="polite"><Check size={16} />Route copied</div>}
     {repositoryError && <DialogFrame presentation="modal" className="repository-error-dialog" hideFooter title="Could not open repository" busy={choosingRepository} error={null} onClose={() => setRepositoryError(null)} onSubmit={event => event.preventDefault()}><div className="repository-error-content"><i><AlertTriangle /></i><div><strong>The selected folder is not a valid quiz repository.</strong><span>{repositoryError}</span></div></div><div className="repository-error-actions"><Button disabled={choosingRepository} onClick={() => setRepositoryError(null)}>Close</Button><Button icon={<FolderOpen size={15} />} loading={choosingRepository} variant="solid" onClick={() => void choose()}>Choose another folder</Button></div></DialogFrame>}
     {loading && <div className="loading"><span />Scanning repository…</div>}
-    {aiMigrationJob && <AiMigrationProgress job={aiMigrationJob} onCancel={cancelAiMigration} onDismiss={() => setAiMigrationJob(null)} />}
   </div>
 }

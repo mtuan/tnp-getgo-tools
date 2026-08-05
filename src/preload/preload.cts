@@ -38,6 +38,10 @@ const api: DesktopApi = {
   createDynamicQuestionProposal: (input) => ipcRenderer.invoke("ai:dynamic-question", input),
   fixDynamicQuestion: (input) => ipcRenderer.invoke("ai:fix-dynamic-question", input),
   cancelDynamicQuestionAi: () => ipcRenderer.invoke("ai:cancel-dynamic-question"),
+  startAiMigrationJob: (input) => ipcRenderer.invoke("ai-migration:start", input),
+  getAiMigrationJobs: () => ipcRenderer.invoke("ai-migration:list"),
+  setAiMigrationConcurrency: (concurrency) => ipcRenderer.invoke("ai-migration:concurrency", concurrency),
+  cancelAiMigrationJob: (jobId) => ipcRenderer.invoke("ai-migration:cancel", jobId),
 }
 
 contextBridge.exposeInMainWorld("getgo", api)

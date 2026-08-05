@@ -1,13 +1,20 @@
 import { createHash } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import type { ContestSummary, QuizManifest, QuizQuestionRecord, QuizSummary, RepositorySnapshot, ScanIssue } from "../core/models.js"
+import type { ContestSummary, QuizAiMigrationJob, QuizManifest, QuizQuestionRecord, QuizSummary, RepositorySnapshot, ScanIssue } from "../core/models.js"
 import { contestSettingsSchema, quizManifestSchema } from "../core/schema.js"
 import { deriveDeploymentStatus } from "../core/status.js"
 import { hashPublishedQuestions, sanitizePublishedQuestion } from "../core/publishing.js"
 
 async function exists(filePath: string): Promise<boolean> {
   try { await fs.access(filePath); return true } catch { return false }
+}
+
+async function readAiMigrationJob(directory: string): Promise<QuizAiMigrationJob | null> {
+  try {
+    const value = JSON.parse(await fs.readFile(path.join(directory, "ai-migration-job.json"), "utf8")) as QuizAiMigrationJob
+    return value && typeof value.id === "string" && typeof value.status === "string" ? value : null
+  } catch { return null }
 }
 
 async function readQuestionReview(directory: string, inspectRecords: boolean): Promise<{ count: number; reviewed: number; errors: number; records: unknown[]; contentHash: string | null }> {
@@ -137,6 +144,7 @@ async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecord
     questionCount: review.count || generated.questionCount,
     reviewedQuestionCount: review.reviewed,
     migrationErrorCount: review.errors,
+    aiMigrationJob: await readAiMigrationJob(directory),
     quizBuilderApiVersion: manifest.quizBuilderApiVersion ?? null,
     modifiedAt: stat.mtime.toISOString(),
   }

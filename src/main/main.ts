@@ -11,6 +11,7 @@ import { createPublishPayloadFromQuestions, recordPublishedHash, type LocalPubli
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
 import { LocalAiService } from "./local-ai.js"
+import { AiMigrationJobManager } from "./ai-migration-jobs.js"
 import { FirestorePublishingService } from "./firestore-publishing.js"
 
 loadEnvironment({ path: app.isPackaged ? path.join(process.resourcesPath, ".env") : path.join(app.getAppPath(), ".env") })
@@ -139,6 +140,11 @@ app.whenReady().then(async () => {
     model: process.env.GETGO_AI_OPENAI_MODEL,
     profile: initialSettings.aiProfile,
   })
+  const aiMigrationJobs = new AiMigrationJobManager(app.getPath("userData"), {
+    apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
+    model: process.env.GETGO_AI_OPENAI_MODEL,
+    profile: initialSettings.aiProfile,
+  })
   ipcMain.handle("app:restart", () => {
     if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
       mainWindow?.reload()
@@ -180,6 +186,21 @@ app.whenReady().then(async () => {
     return runAiIpc("fix", () => localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0]))
   })
   ipcMain.handle("ai:cancel-dynamic-question", () => localAi.cancelDynamicQuestionAi())
+  ipcMain.handle("ai-migration:start", (_event, input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("Invalid AI migration job.")
+    const value = input as Record<string, unknown>
+    if (typeof value.manifestPath !== "string" || !value.context || typeof value.context !== "object" || Array.isArray(value.context)) throw new Error("A quiz manifest and context are required.")
+    return aiMigrationJobs.start(value as { manifestPath: string; context: Record<string, unknown> })
+  })
+  ipcMain.handle("ai-migration:list", () => aiMigrationJobs.list())
+  ipcMain.handle("ai-migration:concurrency", (_event, concurrency: unknown) => {
+    if (typeof concurrency !== "number" || !Number.isInteger(concurrency)) throw new Error("Invalid job concurrency.")
+    return aiMigrationJobs.setConcurrency(concurrency)
+  })
+  ipcMain.handle("ai-migration:cancel", (_event, jobId: unknown) => {
+    if (typeof jobId !== "string") throw new Error("Invalid migration job.")
+    return aiMigrationJobs.cancel(jobId)
+  })
   ipcMain.handle("publishing:status", async () => {
     const current = await settings.read()
     if (!current.repositoryPath) throw new Error("Choose a quiz repository first.")
@@ -225,6 +246,7 @@ app.whenReady().then(async () => {
     if (!["thorough", "fast"].includes(profile)) throw new Error("Invalid AI profile")
     const next = await settings.update({ aiProfile: profile })
     localAi.setProfile(profile)
+    aiMigrationJobs.setProfile(profile)
     return next
   })
   ipcMain.handle("settings:locale", (_event, locale: AppSettings["locale"]) => {

@@ -49,6 +49,7 @@ export interface QuizSummary {
   questionCount: number | null
   reviewedQuestionCount: number
   migrationErrorCount: number
+  aiMigrationJob?: QuizAiMigrationJob | null
   quizBuilderApiVersion: number | null
   modifiedAt: string
 }
@@ -212,6 +213,35 @@ export interface PublishResult {
   publishedAt: string
 }
 
+export type AiMigrationJobStatus = "queued" | "running" | "completed" | "cancelled" | "failed"
+export interface AiMigrationJob {
+  id: string
+  contestId: string
+  quizId: string
+  quizTitle: string
+  manifestPath: string
+  context: Record<string, unknown>
+  status: AiMigrationJobStatus
+  total: number
+  processed: number
+  succeeded: number
+  failed: number
+  skippedImages: number
+  skippedVerified: number
+  currentQuestion?: string
+  errors: Array<{ questionNo: string; message: string }>
+  createdAt: string
+  startedAt?: string
+  finishedAt?: string
+}
+
+export type QuizAiMigrationJob = Omit<AiMigrationJob, "manifestPath" | "context">
+
+export interface AiMigrationJobsSnapshot {
+  concurrency: number
+  jobs: AiMigrationJob[]
+}
+
 export type DynamicQuestionProposal = GetGoDynamicQuestionProposal
 export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult
 export type DynamicQuestionFixResult = GetGoDynamicQuestionFixResult
@@ -253,6 +283,10 @@ export interface DesktopApi {
   createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult>
   fixDynamicQuestion(input: { originalQuestion: QuizQuestionRecord; currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; currentSummary: GetGoDynamicQuestionSummary; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult>
   cancelDynamicQuestionAi(): Promise<void>
+  startAiMigrationJob(input: { manifestPath: string; context: Record<string, unknown> }): Promise<AiMigrationJob>
+  getAiMigrationJobs(): Promise<AiMigrationJobsSnapshot>
+  setAiMigrationConcurrency(concurrency: number): Promise<AiMigrationJobsSnapshot>
+  cancelAiMigrationJob(jobId: string): Promise<AiMigrationJobsSnapshot>
 }
 import type {
   GetGoDynamicQuestionProposal,
