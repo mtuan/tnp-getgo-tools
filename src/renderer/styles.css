@@ -773,7 +773,7 @@ button.danger svg { width: 14px; }
 .quiz-migration-status { min-width: 112px; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .quiz-migration-status > span:last-child { margin: 0; color: #64748b; font-size: 10px; }
 .question-preview-content { display: grid; gap: 14px; padding: 18px; }
-.question-preview-content p { margin: 0; line-height: 1.6; }
+.question-preview-content p { margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .question-preview-translation { color: var(--muted); font-size: 14px; font-style: italic; }
 .question-preview-image { display: grid; place-items: center; min-height: 32px; }
 .question-preview-image img { display: block; max-width: 100%; height: auto; object-fit: contain; }
