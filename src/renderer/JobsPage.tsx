@@ -65,7 +65,7 @@ export function JobsPage({ onOpenQuiz }: { onOpenQuiz(route: string): void }) {
   }
 
   return <section className="jobs-page">
-    <PageHeader eyebrow="Background work" title="Jobs" description="Recent quiz migrations and their results." actions={snapshot && <div className="jobs-concurrency"><span>Concurrent jobs</span><SegmentedControl value={String(snapshot.concurrency)} options={[1, 2, 3, 4].map(value => ({ value: String(value), label: String(value) }))} disabled={savingConcurrency} ariaLabel="Concurrent migration jobs" onValueChange={value => void setConcurrency(value)} /></div>} />
+    <PageHeader eyebrow="Background work" title="Jobs" description="Recent quiz migrations and their results." actions={<><Button icon={<ExternalLink />} onClick={() => void window.getgo.openExternal("https://platform.openai.com/usage")}>OpenAI usage</Button>{snapshot && <div className="jobs-concurrency"><span>Concurrent jobs</span><SegmentedControl value={String(snapshot.concurrency)} options={[1, 2, 3, 4].map(value => ({ value: String(value), label: String(value) }))} disabled={savingConcurrency} ariaLabel="Concurrent migration jobs" onValueChange={value => void setConcurrency(value)} /></div>}</>} />
     {error && <div className="jobs-load-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>Retry</Button></div>}
     {!error && snapshot && <Panel className="jobs-list" title="Recent jobs" description="Jobs continue running when you navigate elsewhere in GetGo Tools." meta={`${snapshot.jobs.length} job${snapshot.jobs.length === 1 ? "" : "s"}`}>
       {snapshot.jobs.length === 0 ? <div className="jobs-empty">No migration jobs yet. Open a quiz and choose <strong>AI migrate</strong>.</div> : snapshot.jobs.map(job => {
@@ -74,7 +74,7 @@ export function JobsPage({ onOpenQuiz }: { onOpenQuiz(route: string): void }) {
         return <article className="job-row" key={job.id}>
           <div className={`job-status-icon job-status-${job.status}`}>{statusIcon(job.status)}</div>
           <div className="job-main">
-            <div className="job-title-line"><div><strong>{job.quizTitle}</strong><span>{job.quizId}</span></div><span className={`job-status job-status-${job.status}`}>{job.status}</span></div>
+            <div className="job-title-line"><div><strong>{job.quizTitle}</strong><span>{job.quizId}</span></div><span className={`badge job-status job-status-${job.status}`}>{job.status}</span></div>
             <div className="job-progress"><progress max={Math.max(job.total, 1)} value={job.total ? job.processed : 1} /><span>{percent}%</span></div>
             <div className="job-detail"><span>{job.status === "queued" ? "Waiting to start" : job.currentQuestion ? `Question ${job.currentQuestion}` : `${job.processed} of ${job.total} processed`}</span><span>{durationLabel(job, now)}</span></div>
             <p className="job-result">{job.succeeded} saved · {job.failed} failed · {job.skippedImages} images skipped · {job.skippedVerified} verified skipped</p>
