@@ -1,7 +1,26 @@
 {
   "alphabetEditor": {
     "filterWords": "Filter related words",
-    "clearFilter": "Clear word filter"
+    "clearFilter": "Clear word filter",
+    "speechSettings": "Speech settings"
+  },
+  "speechSettings": {
+    "title": "Speech settings",
+    "english": "English",
+    "vietnamese": "Vietnamese",
+    "voice": "Voice",
+    "systemVoice": "System default",
+    "voiceHelp": "Installed voices matching this language.",
+    "noVoices": "No matching system voices are installed.",
+    "previewVoice": "Preview selected voice",
+    "demoSentence": "Hello, I'm {name}. Nice to meet you.",
+    "defaultVoiceName": "your selected voice",
+    "letterSpeed": "Letter speed",
+    "wordSpeed": "Word speed",
+    "meaningSpeed": "Meaning speed",
+    "pause": "Pause (milliseconds)",
+    "pauseHelp": "Delay between the word and its meaning.",
+    "save": "Save settings"
   },
   "publishing": {
     "eyebrow": "Firestore synchronization",

@@ -43,3 +43,23 @@ export function alphabetWordContainsLetter(
     isAlphabetLetterCharacter(character, letter, language),
   );
 }
+
+export function formatAlphabetWord(
+  text: string,
+  classifier?: string,
+  locale = "vi",
+): string {
+  const trimmedText = text.trim();
+  const trimmedClassifier = classifier?.trim();
+  if (!trimmedClassifier) return trimmedText;
+  const normalizedText = trimmedText
+    .toLocaleLowerCase(locale)
+    .replace(/\s+/gu, " ");
+  const normalizedClassifier = trimmedClassifier
+    .toLocaleLowerCase(locale)
+    .replace(/\s+/gu, " ");
+  return normalizedText === normalizedClassifier ||
+    normalizedText.startsWith(`${normalizedClassifier} `)
+    ? trimmedText
+    : `${trimmedClassifier} ${trimmedText}`;
+}

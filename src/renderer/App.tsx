@@ -26,11 +26,14 @@ import {
 } from "lucide-react";
 import type {
   AppSettings,
+  SpeechLanguage,
+  SpeechLanguageSettings,
   ContentStatus,
   DeploymentStatus,
   EnvironmentReadiness,
   RepositorySnapshot,
 } from "../core/models";
+import { defaultSpeechSettings } from "../core/speech-settings";
 import { useAuth } from "./AuthContext";
 import { AccountMenu } from "./AccountMenu";
 import { GetGoIcon } from "./GetGoIcon";
@@ -161,6 +164,7 @@ export function App() {
     environment: "staging",
     aiProfile: "thorough",
     locale: "en",
+    speech: structuredClone(defaultSpeechSettings),
   });
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -296,6 +300,13 @@ export function App() {
     const next = await window.getgo.setLocale(locale);
     setSettings(next);
     document.documentElement.lang = locale;
+  }
+  async function changeSpeechSettings(
+    language: SpeechLanguage,
+    value: SpeechLanguageSettings,
+  ) {
+    const next = await window.getgo.setSpeechSettings(language, value);
+    setSettings(next);
   }
   async function restartApp() {
     setRestartingApp(true);
@@ -716,11 +727,13 @@ export function App() {
             {settings.repositoryPath && view === "quizzes" && snapshot && (
               <QuizManager
                 locale={settings.locale}
+                speechSettings={settings.speech}
                 snapshot={snapshot}
                 initialRoute={routeRequest.route}
                 onSnapshotChange={setSnapshot}
                 onRouteChange={setCurrentRoute}
                 onBackActionChange={updateQuizBackAction}
+                onSpeechSettingsChange={changeSpeechSettings}
               />
             )}
             {settings.repositoryPath && view === "jobs" && (

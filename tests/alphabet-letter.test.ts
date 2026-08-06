@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   alphabetWordContainsLetter,
+  formatAlphabetWord,
   isAlphabetLetterCharacter,
 } from "../src/core/alphabet-letter.js";
 
@@ -27,4 +28,11 @@ test("matches Vietnamese tone variants while preserving distinct letters", () =>
   assert.equal(isAlphabetLetterCharacter("ậ", "Â", "Vietnamese"), true);
   assert.equal(isAlphabetLetterCharacter("đ", "D", "Vietnamese"), false);
   assert.equal(isAlphabetLetterCharacter("đ", "Đ", "Vietnamese"), true);
+});
+
+test("formats classifiers without duplicating an existing word prefix", () => {
+  assert.equal(formatAlphabetWord("chó", "con"), "con chó");
+  assert.equal(formatAlphabetWord("đồng xu", "đồng"), "đồng xu");
+  assert.equal(formatAlphabetWord("quyển sách", "quyển"), "quyển sách");
+  assert.equal(formatAlphabetWord("hạt", "hạt"), "hạt");
 });

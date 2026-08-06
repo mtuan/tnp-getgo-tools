@@ -214,11 +214,21 @@ export interface QuestionFeedback {
 
 export const supportedQuizBuilderApiVersions = [1] as const;
 
+export type SpeechLanguage = "en" | "vi";
+export interface SpeechLanguageSettings {
+  voiceURI: string;
+  letterRate: number;
+  wordRate: number;
+  meaningRate: number;
+  pauseMs: number;
+}
+
 export interface AppSettings {
   repositoryPath: string | null;
   environment: "development" | "staging" | "production";
   aiProfile: "thorough" | "fast";
   locale: "en" | "vi";
+  speech: Record<SpeechLanguage, SpeechLanguageSettings>;
 }
 
 export interface AuthUser {
@@ -334,6 +344,10 @@ export interface DesktopApi {
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>;
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>;
   setLocale(locale: AppSettings["locale"]): Promise<AppSettings>;
+  setSpeechSettings(
+    language: SpeechLanguage,
+    settings: SpeechLanguageSettings,
+  ): Promise<AppSettings>;
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>;
   getPublishingStatus(): Promise<PublishingSnapshot>;
   publishQuiz(contestId: string, quizId: string): Promise<PublishResult>;

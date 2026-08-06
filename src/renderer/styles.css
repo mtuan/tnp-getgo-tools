@@ -4748,6 +4748,19 @@ button.danger svg {
   width: 15px;
   height: 15px;
 }
+.speech-voice-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  align-items: start;
+  gap: 8px;
+}
+.speech-voice-field .ui-button.icon-button {
+  width: 39px;
+  height: 39px;
+  min-width: 39px;
+  margin-top: 7px;
+  padding: 0;
+}
 .question-text {
   display: flex !important;
   align-items: flex-start;

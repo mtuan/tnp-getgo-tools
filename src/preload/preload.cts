@@ -27,6 +27,12 @@ const api: DesktopApi = {
     ipcRenderer.invoke("settings:ai-profile", profile) as Promise<AppSettings>,
   setLocale: (locale) =>
     ipcRenderer.invoke("settings:locale", locale) as Promise<AppSettings>,
+  setSpeechSettings: (language, settings) =>
+    ipcRenderer.invoke(
+      "settings:speech",
+      language,
+      settings,
+    ) as Promise<AppSettings>,
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
   getPublishingStatus: () => ipcRenderer.invoke("publishing:status"),
   publishQuiz: (contestId, quizId) =>

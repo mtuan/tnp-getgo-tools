@@ -51,3 +51,31 @@ test("returns an empty dictionary when dict.json does not exist", async () => {
     { schemaVersion: 1, words: [] },
   );
 });
+
+test("rejects a classifier already included in dictionary text", async () => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), "getgo-duplicate-classifier-"),
+  );
+  const manifestPath = path.join(directory, "manifest.json");
+  await fs.writeFile(manifestPath, "{}");
+  await fs.writeFile(
+    path.join(directory, "dict.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      words: [
+        {
+          text: "đồng xu",
+          classifier: "đồng",
+          meaning: "Miếng tiền nhỏ.",
+          image: "asset:coin.png",
+          minimumAge: 4,
+        },
+      ],
+    }),
+  );
+
+  await assert.rejects(
+    loadAlphabetDictionary(manifestPath),
+    /text already contains its classifier/,
+  );
+});

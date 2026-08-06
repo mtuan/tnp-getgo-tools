@@ -27,6 +27,8 @@ import type {
   QuizQuestionRecord,
   QuizSummary,
   RepositorySnapshot,
+  SpeechLanguage,
+  SpeechLanguageSettings,
 } from "../core/models";
 import { questionHasDynamicParams } from "../core/question-dynamics";
 import { alphabetData } from "../core/alphabet-question";
@@ -62,11 +64,16 @@ import {
 
 interface QuizManagerProps {
   locale: AppSettings["locale"];
+  speechSettings: AppSettings["speech"];
   snapshot: RepositorySnapshot;
   initialRoute?: string;
   onSnapshotChange(snapshot: RepositorySnapshot): void;
   onRouteChange(route: string): void;
   onBackActionChange(action: (() => void) | null): void;
+  onSpeechSettingsChange(
+    language: SpeechLanguage,
+    settings: SpeechLanguageSettings,
+  ): Promise<void>;
 }
 
 type ManagerPage =
@@ -237,11 +244,13 @@ function restoredPage(
 
 export function QuizManager({
   locale,
+  speechSettings,
   snapshot,
   initialRoute,
   onSnapshotChange,
   onRouteChange,
   onBackActionChange,
+  onSpeechSettingsChange,
 }: QuizManagerProps) {
   const toast = useToast();
   const [restored] = useState(() => restoredPage(snapshot, initialRoute));
@@ -1376,6 +1385,7 @@ export function QuizManager({
             (isAlphabetQuestion ? (
               <AlphabetLetterEditor
                 locale={locale}
+                speechSettings={speechSettings}
                 manifestPath={quiz.manifestPath}
                 dictionaryWords={alphabetDictionary.words}
                 quizType={
@@ -1386,6 +1396,7 @@ export function QuizManager({
                 record={questionDraftRecord}
                 tab={alphabetEditorTab}
                 onTabChange={setAlphabetEditorTab}
+                onSpeechSettingsChange={onSpeechSettingsChange}
                 onChange={(next) =>
                   updateQuestionDraft(
                     String(questionDraftRecord.question_no),

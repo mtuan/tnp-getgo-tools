@@ -13,6 +13,18 @@ function alphabetWord(value: unknown, index: number): AlphabetSample {
   if (word.classifier !== undefined && typeof word.classifier !== "string") {
     throw new Error(`Dictionary word ${index + 1} classifier is invalid.`);
   }
+  if (typeof word.classifier === "string" && word.classifier.trim()) {
+    const classifier = word.classifier
+      .trim()
+      .toLocaleLowerCase("vi")
+      .replace(/\s+/gu, " ");
+    const text = word.text.trim().toLocaleLowerCase("vi").replace(/\s+/gu, " ");
+    if (text === classifier || text.startsWith(`${classifier} `)) {
+      throw new Error(
+        `Dictionary word ${index + 1} text already contains its classifier.`,
+      );
+    }
+  }
   if (word.meaning !== undefined && typeof word.meaning !== "string") {
     throw new Error(`Dictionary word ${index + 1} meaning is invalid.`);
   }

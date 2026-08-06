@@ -1,7 +1,26 @@
 {
   "alphabetEditor": {
     "filterWords": "Lọc từ liên quan",
-    "clearFilter": "Xóa bộ lọc từ"
+    "clearFilter": "Xóa bộ lọc từ",
+    "speechSettings": "Cài đặt giọng đọc"
+  },
+  "speechSettings": {
+    "title": "Cài đặt giọng đọc",
+    "english": "Tiếng Anh",
+    "vietnamese": "Tiếng Việt",
+    "voice": "Giọng đọc",
+    "systemVoice": "Mặc định của hệ thống",
+    "voiceHelp": "Các giọng đã cài đặt phù hợp với ngôn ngữ này.",
+    "noVoices": "Chưa cài đặt giọng hệ thống phù hợp.",
+    "previewVoice": "Nghe thử giọng đã chọn",
+    "demoSentence": "Xin chào, tôi là {name}. Rất vui được gặp bạn.",
+    "defaultVoiceName": "giọng đọc đã chọn",
+    "letterSpeed": "Tốc độ đọc chữ cái",
+    "wordSpeed": "Tốc độ đọc từ",
+    "meaningSpeed": "Tốc độ đọc nghĩa",
+    "pause": "Khoảng nghỉ (mili giây)",
+    "pauseHelp": "Thời gian nghỉ giữa từ và phần giải nghĩa.",
+    "save": "Lưu cài đặt"
   },
   "publishing": {
     "eyebrow": "Đồng bộ Firestore",
