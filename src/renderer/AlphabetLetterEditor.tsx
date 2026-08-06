@@ -6,22 +6,44 @@ import {
   isAlphabetLetterCharacter,
 } from "../core/alphabet-letter";
 import type {
+  AppSettings,
   AlphabetQuestionContent,
   AlphabetSample,
   QuizQuestionRecord,
   QuizType,
 } from "../core/models";
+import en from "./locales/en.json";
+import vi from "./locales/vi.json";
 import { Button } from "./ui/Button";
 import { DataTable, type DataColumn } from "./ui/DataTable";
 import { Form, type FormSchema } from "./ui/Form";
 import { Panel } from "./ui/Panel";
 import { PreviewAsset } from "./ui/QuestionPreview";
+import { SearchField } from "./ui/SearchField";
 import { Tabs } from "./ui/Tabs";
 
 export type AlphabetEditorTab = "info" | "related-words";
 
+function setPreferredSpeechVoice(
+  utterance: SpeechSynthesisUtterance,
+  language: string,
+) {
+  const normalizedLanguage = language.toLocaleLowerCase();
+  const languagePrefix = normalizedLanguage.split("-")[0];
+  const voices = window.speechSynthesis.getVoices();
+  const voice =
+    voices.find(
+      (candidate) => candidate.lang.toLocaleLowerCase() === normalizedLanguage,
+    ) ||
+    voices.find((candidate) =>
+      candidate.lang.toLocaleLowerCase().startsWith(`${languagePrefix}-`),
+    );
+  if (voice) utterance.voice = voice;
+}
+
 interface Props {
   quizType: Extract<QuizType, "alphabet-english" | "alphabet-vietnamese">;
+  locale: AppSettings["locale"];
   manifestPath: string;
   record: QuizQuestionRecord;
   dictionaryWords: AlphabetSample[];
@@ -32,6 +54,7 @@ interface Props {
 
 export function AlphabetLetterEditor({
   quizType,
+  locale,
   manifestPath,
   record,
   dictionaryWords,
@@ -40,10 +63,12 @@ export function AlphabetLetterEditor({
   onChange,
 }: Props) {
   const [selectedSampleIndex, setSelectedSampleIndex] = useState(0);
+  const [wordFilter, setWordFilter] = useState("");
   const speechPauseRef = useRef<number | null>(null);
   const language =
     quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
+  const copy = (locale === "vi" ? vi : en).alphabetEditor;
   const wordLocale = quizType === "alphabet-vietnamese" ? "vi" : "en";
   const relatedWords = dictionaryWords
     .filter((word) =>
@@ -57,9 +82,20 @@ export function AlphabetLetterEditor({
           sensitivity: "base",
         }),
     );
+  const normalizedWordFilter = wordFilter.trim().toLocaleLowerCase(wordLocale);
+  const filteredRelatedWords = normalizedWordFilter
+    ? relatedWords.filter((word) =>
+        [word.text, word.classifier, word.meaning].some((value) =>
+          value?.toLocaleLowerCase(wordLocale).includes(normalizedWordFilter),
+        ),
+      )
+    : relatedWords;
   const selectedSample =
-    relatedWords[
-      Math.min(selectedSampleIndex, Math.max(0, relatedWords.length - 1))
+    filteredRelatedWords[
+      Math.min(
+        selectedSampleIndex,
+        Math.max(0, filteredRelatedWords.length - 1),
+      )
     ];
   const selectedWord = selectedSample
     ? [selectedSample.classifier, selectedSample.text].filter(Boolean).join(" ")
@@ -86,6 +122,7 @@ export function AlphabetLetterEditor({
       quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
     const wordUtterance = new SpeechSynthesisUtterance(selectedWord);
     wordUtterance.lang = speechLanguage;
+    setPreferredSpeechVoice(wordUtterance, speechLanguage);
     wordUtterance.rate = 0.65;
     wordUtterance.pitch = 1.08;
     if (selectedSample?.meaning) {
@@ -95,6 +132,7 @@ export function AlphabetLetterEditor({
             selectedSample.meaning,
           );
           meaningUtterance.lang = speechLanguage;
+          setPreferredSpeechVoice(meaningUtterance, speechLanguage);
           meaningUtterance.rate = 1;
           window.speechSynthesis.speak(meaningUtterance);
           speechPauseRef.current = null;
@@ -104,11 +142,16 @@ export function AlphabetLetterEditor({
     window.speechSynthesis.speak(wordUtterance);
   };
   const speakLetter = () => {
-    const spokenText = alphabet.pronunciation || alphabet.letter;
+    const spokenText =
+      alphabet.lowercase ||
+      alphabet.letter.toLocaleLowerCase(
+        quizType === "alphabet-vietnamese" ? "vi" : "en",
+      );
     if (!spokenText || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(spokenText);
     utterance.lang = quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
+    setPreferredSpeechVoice(utterance, utterance.lang);
     utterance.rate = 0.75;
     window.speechSynthesis.speak(utterance);
   };
@@ -122,6 +165,7 @@ export function AlphabetLetterEditor({
     [selectedSampleIndex, tab],
   );
   useEffect(() => setSelectedSampleIndex(0), [alphabet.letter]);
+  useEffect(() => setSelectedSampleIndex(0), [wordFilter]);
   const update = (next: AlphabetQuestionContent) =>
     onChange({
       question_no: record.question_no,
@@ -232,11 +276,21 @@ export function AlphabetLetterEditor({
               className="alphabet-dictionary-panel"
               title="Related words"
               description="Read-only dictionary words containing this letter."
+              meta={
+                <SearchField
+                  className="alphabet-word-filter"
+                  value={wordFilter}
+                  ariaLabel={copy.filterWords}
+                  placeholder={copy.filterWords}
+                  clearLabel={copy.clearFilter}
+                  onValueChange={setWordFilter}
+                />
+              }
             >
               <DataTable<AlphabetSample>
                 ariaLabel="Letter samples"
                 columns={sampleColumns}
-                rows={relatedWords}
+                rows={filteredRelatedWords}
                 rowKey={(word) => word.text}
                 selectedRowIndex={selectedSampleIndex}
                 onRowClick={(_, index) => setSelectedSampleIndex(index)}

@@ -1,4 +1,8 @@
 {
+  "alphabetEditor": {
+    "filterWords": "Lọc từ liên quan",
+    "clearFilter": "Xóa bộ lọc từ"
+  },
   "publishing": {
     "eyebrow": "Đồng bộ Firestore",
     "title": "Xuất bản",

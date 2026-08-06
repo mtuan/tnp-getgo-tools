@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type {
   AiMigrationJob,
+  AppSettings,
   AlphabetDictionary,
   ContestQuizQuestionRecord,
   ContestSummary,
@@ -60,6 +61,7 @@ import {
 } from "./AlphabetLetterEditor";
 
 interface QuizManagerProps {
+  locale: AppSettings["locale"];
   snapshot: RepositorySnapshot;
   initialRoute?: string;
   onSnapshotChange(snapshot: RepositorySnapshot): void;
@@ -234,6 +236,7 @@ function restoredPage(
 }
 
 export function QuizManager({
+  locale,
   snapshot,
   initialRoute,
   onSnapshotChange,
@@ -1372,6 +1375,7 @@ export function QuizManager({
           {questionDraftRecord &&
             (isAlphabetQuestion ? (
               <AlphabetLetterEditor
+                locale={locale}
                 manifestPath={quiz.manifestPath}
                 dictionaryWords={alphabetDictionary.words}
                 quizType={

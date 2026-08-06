@@ -715,6 +715,7 @@ export function App() {
             )}
             {settings.repositoryPath && view === "quizzes" && snapshot && (
               <QuizManager
+                locale={settings.locale}
                 snapshot={snapshot}
                 initialRoute={routeRequest.route}
                 onSnapshotChange={setSnapshot}

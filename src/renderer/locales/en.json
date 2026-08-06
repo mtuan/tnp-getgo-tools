@@ -1,4 +1,8 @@
 {
+  "alphabetEditor": {
+    "filterWords": "Filter related words",
+    "clearFilter": "Clear word filter"
+  },
   "publishing": {
     "eyebrow": "Firestore synchronization",
     "title": "Publishing",
