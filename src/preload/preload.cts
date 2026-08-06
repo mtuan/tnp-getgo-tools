@@ -32,6 +32,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:quiz:save", topicId, quiz),
   saveContentV2Question: (topicId, quizId, question) =>
     ipcRenderer.invoke("content-v2:question:save", topicId, quizId, question),
+  markAllContentV2QuizQuestionsReviewed: (topicId, quizId) =>
+    ipcRenderer.invoke("content-v2:questions:review-all", topicId, quizId),
   deleteContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:delete", topicId),
   deleteContentV2Quiz: (topicId, quizId) =>
@@ -96,6 +98,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("quiz-questions:migrate-legacy", contestId),
   saveQuizQuestion: (manifestPath, question) =>
     ipcRenderer.invoke("quiz-questions:save", manifestPath, question),
+  markAllQuizQuestionsReviewed: (manifestPath) =>
+    ipcRenderer.invoke("quiz-questions:review-all", manifestPath),
   createQuizQuestion: (manifestPath) =>
     ipcRenderer.invoke("quiz-questions:create", manifestPath),
   reorderQuizQuestions: (manifestPath, questionNumbers) =>

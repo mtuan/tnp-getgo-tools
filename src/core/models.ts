@@ -474,6 +474,13 @@ export interface DesktopApi {
     manifestPath: string,
     question: QuizQuestionRecord,
   ): Promise<QuizQuestionRecord>;
+  markAllQuizQuestionsReviewed(
+    manifestPath: string,
+  ): Promise<QuizQuestionRecord[]>;
+  markAllContentV2QuizQuestionsReviewed(
+    topicId: string,
+    quizId: string,
+  ): Promise<RepositorySnapshot>;
   createQuizQuestion(
     manifestPath: string,
   ): Promise<{ question: QuizQuestionRecord; snapshot: RepositorySnapshot }>;

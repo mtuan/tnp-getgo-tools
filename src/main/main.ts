@@ -29,6 +29,7 @@ import {
   createQuizQuestion,
   deleteQuizQuestion,
   loadQuizQuestions,
+  markAllQuizQuestionsReviewed,
   quizQuestionFile,
   reorderQuizQuestions,
   resetQuizQuestion,
@@ -535,6 +536,55 @@ app.whenReady().then(async () => {
     },
   );
   ipcMain.handle(
+    "content-v2:questions:review-all",
+    async (_event, topicId: unknown, quizId: unknown) => {
+      if (typeof topicId !== "string" || typeof quizId !== "string")
+        throw new Error("Invalid question selection.");
+      const root = await repositoryRoot();
+      const current = requireSnapshot();
+      const summaries = current.contentV2.questions.filter(
+        (item) => item.topicId === topicId && item.quizId === quizId,
+      );
+      const [topic, quiz] = await Promise.all([
+        loadContentV2Topic(root, topicId),
+        loadContentV2Quiz(root, topicId, quizId),
+      ]);
+      await Promise.all(
+        summaries
+          .filter((item) => item.status !== "reviewed")
+          .map(async (item) => {
+            const question = await loadContentV2Question(
+              root,
+              topicId,
+              quizId,
+              item.id,
+            );
+            await saveContentV2Question(root, topic, quiz, {
+              ...question,
+              status: "reviewed",
+            });
+          }),
+      );
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          questions: current.contentV2.questions.map((item) =>
+            item.topicId === topicId && item.quizId === quizId
+              ? { ...item, status: "reviewed" }
+              : item,
+          ),
+          quizzes: current.contentV2.quizzes.map((item) =>
+            item.topicId === topicId && item.id === quizId
+              ? { ...item, reviewedQuestionCount: summaries.length }
+              : item,
+          ),
+        },
+      };
+      return requireSnapshot();
+    },
+  );
+  ipcMain.handle(
     "content-v2:topic:delete",
     async (_event, topicId: unknown) => {
       if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
@@ -918,6 +968,13 @@ app.whenReady().then(async () => {
       );
       await replaceQuiz(await repositoryRoot(), manifest);
       return saved;
+    },
+  );
+  ipcMain.handle(
+    "quiz-questions:review-all",
+    async (_event, manifestPath: unknown) => {
+      const manifest = await resolveManifest(manifestPath);
+      return markAllQuizQuestionsReviewed(manifest);
     },
   );
   ipcMain.handle(

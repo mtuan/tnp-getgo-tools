@@ -11,6 +11,7 @@ import {
   QuizValueSerializer,
 } from "@tnp/getgo-logics/quiz-builder";
 import type { QuizQuestionRecord } from "../core/models.js";
+import { questionIsVerified, withQuestionStatus } from "../core/question-status.js";
 
 const inlineImagePattern =
   /^data:image\/([a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i;
@@ -540,6 +541,32 @@ export async function saveQuizQuestion(
     "utf8",
   );
   return formatted;
+}
+
+export async function markAllQuizQuestionsReviewed(
+  manifestPath: string,
+): Promise<QuizQuestionRecord[]> {
+  const questionsDirectory = path.join(path.dirname(manifestPath), "questions");
+  const existing = await storedQuestionFiles(manifestPath);
+  const reviewed = existing.map(({ file, record }) => ({
+    file,
+    record: questionIsVerified(record)
+      ? record
+      : withQuestionStatus(record, "verified"),
+  }));
+
+  await Promise.all(
+    reviewed.map(async ({ file, record }, index) => {
+      if (questionIsVerified(existing[index].record)) return;
+      await fs.writeFile(
+        path.join(questionsDirectory, file),
+        `${JSON.stringify(record, null, 2)}\n`,
+        "utf8",
+      );
+    }),
+  );
+
+  return reviewed.map(({ record }) => record);
 }
 
 async function storedQuestionFiles(

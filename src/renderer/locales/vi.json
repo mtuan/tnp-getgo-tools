@@ -105,6 +105,9 @@
   "quizPublish": {
     "tab": "Xuất bản",
     "more": "Thêm",
+    "markAllReviewed": "Đánh dấu tất cả câu hỏi đã duyệt",
+    "markAllReviewedSuccess": "Đã duyệt tất cả câu hỏi",
+    "markAllReviewedDescription": "Đã đánh dấu {count} câu hỏi là đã duyệt.",
     "title": "Trạng thái xuất bản",
     "description": "Trạng thái được tính từ hash nội dung cục bộ đã lưu và lần xuất bản thành công gần nhất.",
     "status": "Trạng thái",

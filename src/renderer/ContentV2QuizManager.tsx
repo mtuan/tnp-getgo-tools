@@ -219,6 +219,15 @@ export function ContentV2QuizManager(props: Props) {
         refresh(await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next));
         return toManagerQuestion(next);
       },
+      markAllQuizQuestionsReviewed: async (manifestPath) => {
+        const quiz = findQuiz(props.snapshot, manifestPath);
+        const next = await window.getgo.markAllContentV2QuizQuestionsReviewed(
+          quiz.topicId,
+          quiz.id,
+        );
+        props.onSnapshotChange(next);
+        return loadQuestions(manifestPath);
+      },
       resetQuizQuestion: async (manifestPath, question) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, question.question_no);

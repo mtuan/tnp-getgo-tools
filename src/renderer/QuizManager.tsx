@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  CheckCheck,
   ChevronRight,
   CloudUpload,
   FolderOpen,
@@ -90,6 +91,7 @@ export type QuizManagerApi = Pick<
   | "loadAlphabetDictionary"
   | "migrateLegacyQuizzes"
   | "saveQuizQuestion"
+  | "markAllQuizQuestionsReviewed"
   | "resetQuizQuestion"
   | "showQuizQuestionInFolder"
   | "showInFolder"
@@ -850,6 +852,37 @@ export function QuizManager({
     const displayedVerifiedCount = questions.length
       ? verifiedCount
       : quiz.reviewedQuestionCount;
+    const markAllQuestionsReviewed = async () => {
+      const pendingRecords = questionRecords.filter(
+        (record) => !questionIsVerified(record),
+      );
+      if (!pendingRecords.length) return;
+      const nextRecords = await managerApi.markAllQuizQuestionsReviewed(
+        quiz.manifestPath,
+      );
+      const updatedQuiz = {
+        ...quiz,
+        reviewedQuestionCount: nextRecords.filter(questionIsVerified).length,
+      };
+      setQuestionRecords(nextRecords);
+      setQuestionDraftRecord((current) =>
+        current ? withQuestionStatus(current, "verified") : current,
+      );
+      setPage({ kind: "quiz", quiz: updatedQuiz });
+      onSnapshotChange({
+        ...snapshot,
+        quizzes: snapshot.quizzes.map((item) =>
+          item.key === quiz.key ? updatedQuiz : item,
+        ),
+      });
+      toast.show({
+        title: quizPublishCopy.markAllReviewedSuccess,
+        description: quizPublishCopy.markAllReviewedDescription.replace(
+          "{count}",
+          String(pendingRecords.length),
+        ),
+      });
+    };
     const questionColumns: DataColumn<QuestionListItem>[] = [
       {
         key: "number",
@@ -1662,6 +1695,19 @@ export function QuizManager({
                   label={quizPublishCopy.more}
                   disabled={sourceLoading || Boolean(buttonAction)}
                   items={[
+                    {
+                      id: "mark-all-reviewed",
+                      label: quizPublishCopy.markAllReviewed,
+                      icon: CheckCheck,
+                      disabled:
+                        questions.length === 0 ||
+                        verifiedCount === questions.length,
+                      onSelect: () =>
+                        void runButtonAction(
+                          "mark-all-reviewed",
+                          markAllQuestionsReviewed,
+                        ),
+                    },
                     {
                       id: "reorder",
                       label: "Reorder questions",

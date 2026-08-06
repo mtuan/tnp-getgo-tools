@@ -105,6 +105,9 @@
   "quizPublish": {
     "tab": "Publish",
     "more": "More",
+    "markAllReviewed": "Mark all questions as reviewed",
+    "markAllReviewedSuccess": "All questions reviewed",
+    "markAllReviewedDescription": "Marked {count} questions as reviewed.",
     "title": "Publishing status",
     "description": "Status is calculated from the cached local content hash and the last successful publish.",
     "status": "Status",

@@ -7,11 +7,43 @@ import {
   createQuizQuestion,
   deleteQuizQuestion,
   loadQuizQuestions,
+  markAllQuizQuestionsReviewed,
   normalizeLegacyOriginParamsSource,
   reorderQuizQuestions,
   resetQuizQuestion,
   saveQuizQuestion,
 } from "../src/repositories/quiz-questions.js";
+
+test("marks all split questions reviewed in one bulk operation", async () => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), "getgo-review-all-"),
+  );
+  const manifestPath = path.join(directory, "manifest.json");
+  const questionsDirectory = path.join(directory, "questions");
+  await fs.writeFile(manifestPath, "{}");
+  await fs.mkdir(questionsDirectory);
+  await Promise.all([
+    fs.writeFile(
+      path.join(questionsDirectory, "q1.json"),
+      JSON.stringify({ question_no: 1, verified: false, text_en: "First" }),
+    ),
+    fs.writeFile(
+      path.join(questionsDirectory, "q2.json"),
+      JSON.stringify({ question_no: 2, status: "reviewed", text_en: "Second" }),
+    ),
+  ]);
+
+  const reviewed = await markAllQuizQuestionsReviewed(manifestPath);
+
+  assert.equal(reviewed.length, 2);
+  assert.ok(reviewed.every((question) => question.status === "verified"));
+  const first = JSON.parse(
+    await fs.readFile(path.join(questionsDirectory, "q1.json"), "utf8"),
+  );
+  assert.equal(first.status, "verified");
+  assert.equal(first.verified, undefined);
+  assert.equal(first.text_en, "First");
+});
 
 test("creates, reorders, and deletes only split question files", async () => {
   const directory = await fs.mkdtemp(
