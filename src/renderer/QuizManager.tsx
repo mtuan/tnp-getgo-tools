@@ -3,6 +3,7 @@ import { Check, ChevronRight, FolderOpen, Plus, RefreshCw, RotateCcw, Save, Sear
 import type { AiMigrationJob, ContestSummary, QuizAiMigrationJob, QuizCrudInput, QuizMigrationResult, QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../core/models"
 import { questionHasDynamicParams } from "../core/question-dynamics"
 import { questionContainsImages } from "../core/question-images"
+import { isCurrentQuestionDraftChange } from "../core/question-draft"
 import { QuizCrudDialog } from "./CrudDialogs"
 import { ContestSettingsDialog } from "./ContestSettingsDialog"
 import { QuestionEditorTabs, type QuestionEditorTab } from "./QuestionEditorTabs"
@@ -46,7 +47,11 @@ function questionDiff(before: QuizQuestionRecord, after: QuizQuestionRecord) {
   const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])]
   const changedFields = keys.filter(key => key !== "advancedDynamic" && JSON.stringify(before[key]) !== JSON.stringify(after[key]))
   const advancedKeys = [...new Set([...Object.keys(before.advancedDynamic ?? {}), ...Object.keys(after.advancedDynamic ?? {})])]
-  const changedGeneratorFields = advancedKeys.filter(key => key !== "draftSourceTs" && JSON.stringify(before.advancedDynamic?.[key]) !== JSON.stringify(after.advancedDynamic?.[key])).map(key => ({ key, beforeLength: String(before.advancedDynamic?.[key] ?? "").length, afterLength: String(after.advancedDynamic?.[key] ?? "").length }))
+  const changedGeneratorFields = advancedKeys.filter(key => key !== "draftSourceTs" && JSON.stringify(before.advancedDynamic?.[key]) !== JSON.stringify(after.advancedDynamic?.[key])).map(key => {
+    const beforeValue = String(before.advancedDynamic?.[key] ?? "")
+    const afterValue = String(after.advancedDynamic?.[key] ?? "")
+    return { key, beforeLength: beforeValue.length, afterLength: afterValue.length, beforePreview: beforeValue.slice(0, 180), afterPreview: afterValue.slice(0, 180) }
+  })
   const draftSourceChanged = before.advancedDynamic?.draftSourceTs !== after.advancedDynamic?.draftSourceTs
   return { changedFields, changedGeneratorFields, draftSourceChanged }
 }
@@ -99,8 +104,47 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
   const previousSaveButtonState = useRef<{ enabled: boolean; questionNo: string | null } | null>(null)
 
   const storedQuestion = selectedQuestion === null ? null : questionRecords[selectedQuestion] ?? null
-  const saveButtonDirty = Boolean(storedQuestion && questionDraftRecord && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(storedQuestion)))
+  const draftMatchesSelection = Boolean(storedQuestion && questionDraftRecord && String(storedQuestion.question_no) === String(questionDraftRecord.question_no))
+  const saveButtonDirty = Boolean(draftMatchesSelection && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(storedQuestion)))
   const saveButtonEnabled = saveButtonDirty && !saving && !savingVerification
+
+  useEffect(() => {
+    const selectedRecord = selectedQuestion === null ? null : questionRecords[selectedQuestion] ?? null
+    console.info("[GetGo Tools][Question navigation][state]", {
+      selectedIndex: selectedQuestion,
+      selectedQuestionNo: selectedRecord ? String(selectedRecord.question_no) : null,
+      draftQuestionNo: questionDraftRecord ? String(questionDraftRecord.question_no) : null,
+      identitiesMatch: Boolean(selectedRecord && questionDraftRecord && String(selectedRecord.question_no) === String(questionDraftRecord.question_no)),
+      draftTextPreview: questionDraftRecord ? questionPrompt(questionDraftRecord.text_en ?? questionDraftRecord.text_vn).slice(0, 120) : null,
+    })
+  }, [questionDraftRecord?.question_no, questionRecords, selectedQuestion])
+
+  const updateQuestionDraft = useCallback((originQuestionNo: string, next: QuizQuestionRecord) => {
+    setQuestionDraftRecord(current => {
+      const currentQuestionNo = current ? String(current.question_no) : null
+      const nextQuestionNo = String(next.question_no)
+      if (!isCurrentQuestionDraftChange(originQuestionNo, currentQuestionNo, nextQuestionNo)) {
+        console.warn("[GetGo Tools][Question draft][stale editor change rejected]", {
+          originQuestionNo,
+          currentQuestionNo,
+          nextQuestionNo,
+          reason: currentQuestionNo !== originQuestionNo
+            ? "The editor callback belongs to a question that is no longer open."
+            : "The editor callback returned a record for a different question.",
+        })
+        return current
+      }
+      if (current && JSON.stringify(comparableQuestion(current)) !== JSON.stringify(comparableQuestion(next))) {
+        console.info("[GetGo Tools][Question draft][editor change]", {
+          originQuestionNo,
+          currentQuestionNo,
+          nextQuestionNo,
+          differences: questionDiff(current, next),
+        })
+      }
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     const questionNo = questionDraftRecord ? String(questionDraftRecord.question_no) : null
@@ -110,7 +154,9 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
     const reasons = !storedQuestion || !questionDraftRecord
       ? ["No question draft and stored question are both available."]
       : [
-          saveButtonDirty ? "The editable draft differs from the stored question." : "The editable draft matches the stored question.",
+          !draftMatchesSelection
+            ? "The selected question and draft identities differ during navigation; dirty state is suppressed."
+            : saveButtonDirty ? "The editable draft differs from the stored question." : "The editable draft matches the stored question.",
           saving ? "A question save/reset operation is in progress." : null,
           savingVerification ? "A verification update is in progress." : null,
           diff?.draftSourceChanged ? "draftSourceTs differs, but it is derived and intentionally ignored by the dirty check." : null,
@@ -294,13 +340,19 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
     ]
     const activeQuestion = selectedQuestion === null ? null : questions[selectedQuestion]
     if (activeQuestion) {
-      const questionHasChanges = questionDraftRecord !== null && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(activeQuestion.record))
+      const questionHasChanges = draftMatchesSelection && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(activeQuestion.record))
       const navigateQuestion = (value: string) => {
         const nextIndex = Number(value)
         if (!Number.isInteger(nextIndex) || nextIndex < 0 || nextIndex >= questions.length || nextIndex === selectedQuestion) return
-        const hasUnsavedChanges = questionDraftRecord !== null && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(activeQuestion.record))
+        const hasUnsavedChanges = draftMatchesSelection && JSON.stringify(comparableQuestion(questionDraftRecord)) !== JSON.stringify(comparableQuestion(activeQuestion.record))
         if (hasUnsavedChanges && !window.confirm("Discard unsaved changes and open another question?")) return
         const nextQuestion = questions[nextIndex]
+        console.info("[GetGo Tools][Question navigation]", {
+          fromQuestionNo: String(activeQuestion.number),
+          toQuestionNo: String(nextQuestion.number),
+          unsavedChanges: hasUnsavedChanges,
+          initializedFromStoredRecord: true,
+        })
         setSelectedQuestion(nextIndex)
         setQuestionDraftRecord(structuredClone(nextQuestion.record))
         setPendingQuestionNo(nextQuestion.number)
@@ -375,7 +427,7 @@ export function QuizManager({ snapshot, initialRoute, onSnapshotChange, onRouteC
       return <section className="manager editor-page question-detail-page">
         <PageHeader eyebrow="Question editor" breadcrumbs={[{ label: "Contests", onClick: () => setPage({ kind: "contests" }) }, { label: quiz.contest.toUpperCase(), onClick: goBack }, { label: quiz.title, onClick: backToQuestions }]} title={`Question ${activeQuestion.number}`} description={`${activeQuestion.category} · questions/q${activeQuestion.number}.json`} titleAction={<Button className="ui-page-header-folder" icon={<FolderOpen />} variant="icon" disabled={Boolean(buttonAction)} aria-label="Show question in folder" title="Show question in folder" onClick={() => void runButtonAction("show-question-folder", () => window.getgo.showQuizQuestionInFolder(quiz.manifestPath, activeQuestion.number))} />} navigation={<QuestionNavigator value={String(selectedQuestion)} disabled={saving || savingVerification} items={questions.map((question, index) => ({ value: String(index), label: `Question ${question.number}`, description: question.category === "—" ? undefined : question.category, reviewed: question.reviewed }))} onValueChange={navigateQuestion} />} actions={<><Button icon={questionDraftRecord?.verified === true ? <Check size={15} /> : undefined} loading={savingVerification} variant={questionDraftRecord?.verified === true ? "solid" : "outline"} color={questionDraftRecord?.verified === true ? "success" : "neutral"} disabled={saving || savingVerification} aria-pressed={questionDraftRecord?.verified === true} onClick={() => void setQuestionVerified(questionDraftRecord?.verified !== true)}>{questionDraftRecord?.verified === true ? "Verified" : "Verify"}</Button><Button icon={<RotateCcw size={15} />} loading={questionOperation === "reset"} variant="solid" color="danger" disabled={saving || savingVerification || !questionDraftRecord?.advancedDynamic} onClick={() => void resetQuestion()}>Reset</Button><Button icon={<Save size={15} />} loading={questionOperation === "save"} variant="solid" disabled={!questionHasChanges || saving || savingVerification} onClick={() => void saveQuestion()}>Save</Button></>} />
         {sourceError && <div className="error-banner"><strong>Editor error</strong><span>{sourceError}</span></div>}
-        {questionDraftRecord && <QuestionEditorTabs key={`${quiz.key}/${activeQuestion.number}`} tab={questionEditorTab} onTabChange={setQuestionEditorTab} record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${activeQuestion.number}`} manifestPath={quiz.manifestPath} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={setQuestionDraftRecord} onSave={() => void saveQuestion()} onFeedbackSave={saveQuestionFeedback} />}
+        {questionDraftRecord && <QuestionEditorTabs key={`${quiz.key}/${questionDraftRecord.question_no}`} tab={questionEditorTab} onTabChange={setQuestionEditorTab} record={questionDraftRecord} path={`${quiz.relativePath}/questions/q${questionDraftRecord.question_no}`} manifestPath={quiz.manifestPath} context={{ contestId: quiz.contest, quizId: quiz.id, title: quiz.title, year: quiz.year, grade: quiz.grade, round: quiz.round }} onChange={next => updateQuestionDraft(String(questionDraftRecord.question_no), next)} onSave={() => void saveQuestion()} onFeedbackSave={saveQuestionFeedback} />}
       </section>
     }
     return <section className="manager editor-page">

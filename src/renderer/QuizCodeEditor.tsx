@@ -70,7 +70,18 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   const onMount = useCallback<OnMount>(editor => {
     editorRef.current = editor
     const mountedModel = editor.getModel()
-    if (mountedModel && mountedModel.getValue() !== modelValue) mountedModel.setValue(modelValue)
+    const existingValue = mountedModel?.getValue() ?? ""
+    const replacedOnMount = Boolean(mountedModel && existingValue !== modelValue)
+    console.info("[GetGo Tools][Monaco model][mount]", {
+      path,
+      model: mountedModel?.uri.toString() ?? null,
+      incomingLength: modelValue.length,
+      existingLength: existingValue.length,
+      incomingPreview: modelValue.slice(0, 120),
+      existingPreview: existingValue.slice(0, 120),
+      replacedOnMount,
+    })
+    if (mountedModel && replacedOnMount) mountedModel.setValue(modelValue)
     applyRanges(); window.requestAnimationFrame(applyRanges); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
     if (autoHeight) { const update = () => setHeight(Math.max(minHeight, editor.getContentHeight())); update(); editor.onDidContentSizeChange(update) }
     const updateReadOnly = () => { const range = editableRef.current; const selection = editor.getSelection(); editor.updateOptions({ readOnly: readOnly || (!!range && !(selection && selection.startLineNumber >= range.startLineNumber && selection.endLineNumber <= range.endLineNumber)) }) }
@@ -80,7 +91,17 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   }, [applyRanges, autoHeight, formatOnMount, minHeight, modelValue, readOnly, value])
   useEffect(() => {
     const model = editorRef.current?.getModel()
-    if (model && model.getValue() !== modelValue) model.setValue(modelValue)
+    if (model && model.getValue() !== modelValue) {
+      console.info("[GetGo Tools][Monaco model][prop sync]", {
+        path,
+        model: model.uri.toString(),
+        incomingLength: modelValue.length,
+        existingLength: model.getValueLength(),
+        incomingPreview: modelValue.slice(0, 120),
+        existingPreview: model.getValue().slice(0, 120),
+      })
+      model.setValue(modelValue)
+    }
     applyRanges()
   }, [applyRanges, modelValue])
   const handleChange = (next = "") => {

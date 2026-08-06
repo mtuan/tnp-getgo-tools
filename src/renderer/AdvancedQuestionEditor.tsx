@@ -15,10 +15,25 @@ export function AdvancedQuestionEditor({ record, path, manifestPath, context, on
   const [errors, setErrors] = useState<string[]>([])
   const [preview, setPreview] = useState<{ question: RuntimeQuestion; params: Record<string, unknown> }>(() => ({ question: questionService.loadStatic(record).question, params: { __dynamic: true } }))
   const generatedQuestionRef = useRef<string | number | null>(null)
-  const signatureQuestionRef = useRef<string | number | null>(null)
+  const signatureSourceRef = useRef({
+    questionNo: String(record.question_no),
+    paramsGeneratorTs: record.advancedDynamic?.paramsGeneratorTs ?? "",
+  })
   const latestRecordRef = useRef(record)
   latestRecordRef.current = record
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false)
+  useEffect(() => {
+    console.info("[GetGo Tools][Question editor][bound draft]", {
+      questionNo: String(record.question_no),
+      path,
+      generatorLengths: {
+        params: record.advancedDynamic?.paramsGeneratorTs.length ?? 0,
+        question: record.advancedDynamic?.questionGeneratorTs.length ?? 0,
+        explanation: record.advancedDynamic?.explanationGeneratorTs.length ?? 0,
+        origin: record.advancedDynamic?.originParamsTs.length ?? 0,
+      },
+    })
+  }, [path, record.question_no])
   const updateField = (key: "paramsGeneratorTs" | "questionGeneratorTs" | "explanationGeneratorTs" | "originParamsTs", value: string) => {
     const latest = latestRecordRef.current
     const next = { ...latest, advancedDynamic: { ...latest.advancedDynamic!, [key]: value } }
@@ -41,10 +56,13 @@ export function AdvancedQuestionEditor({ record, path, manifestPath, context, on
     } catch { /* Incomplete TypeScript is normal while typing; the next edit or blur retries. */ }
   }
   useEffect(() => {
-    if (signatureQuestionRef.current !== record.question_no) {
-      signatureQuestionRef.current = record.question_no
-      return
+    const next = {
+      questionNo: String(record.question_no),
+      paramsGeneratorTs: record.advancedDynamic?.paramsGeneratorTs ?? "",
     }
+    const previous = signatureSourceRef.current
+    signatureSourceRef.current = next
+    if (previous.questionNo !== next.questionNo || previous.paramsGeneratorTs === next.paramsGeneratorTs) return
     const timeout = window.setTimeout(synchronizeDependentSignatures, 400)
     return () => window.clearTimeout(timeout)
   }, [record.advancedDynamic?.paramsGeneratorTs, record.question_no])
