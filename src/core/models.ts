@@ -171,6 +171,12 @@ export interface AlphabetSample {
   classifier?: string;
   meaning?: string;
   image?: string;
+  minimumAge: number;
+}
+
+export interface AlphabetDictionary {
+  schemaVersion: 1;
+  words: AlphabetSample[];
 }
 
 export interface AlphabetQuestionContent {
@@ -178,7 +184,6 @@ export interface AlphabetQuestionContent {
   uppercase: string;
   lowercase: string;
   pronunciation?: string;
-  samples: AlphabetSample[];
 }
 
 export interface AlphabetQuestionRecord
@@ -194,6 +199,7 @@ export interface AlphabetQuestionRecord
   advancedDynamic?: never;
   aiResponse?: never;
   aiFixHistory?: never;
+  samples?: never;
 }
 
 export type QuizQuestionRecord =
@@ -340,6 +346,7 @@ export interface DesktopApi {
   readQuizSource(manifestPath: string): Promise<string>;
   saveQuizSource(manifestPath: string, source: string): Promise<void>;
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>;
+  loadAlphabetDictionary(manifestPath: string): Promise<AlphabetDictionary>;
   migrateLegacyQuizzes(contestId: string): Promise<QuizMigrationResult>;
   saveQuizQuestion(
     manifestPath: string,

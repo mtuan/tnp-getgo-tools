@@ -4688,6 +4688,13 @@ button.danger svg {
 .ui-data-table tbody tr.clickable {
   cursor: pointer;
 }
+.ui-data-table tbody tr.is-selected {
+  background: #f4f3ff;
+}
+.alphabet-dictionary-panel > .ui-data-table {
+  border: 0;
+  border-radius: 0;
+}
 .question-text {
   display: flex !important;
   align-items: flex-start;
@@ -5582,6 +5589,9 @@ button.danger svg {
   }
   .ui-data-table td {
     border-color: #ffffff12;
+  }
+  .ui-data-table tbody tr.is-selected {
+    background: #312e8155;
   }
   .question-text {
     color: #e2e8f0 !important;

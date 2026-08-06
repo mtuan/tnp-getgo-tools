@@ -1,0 +1,53 @@
+import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { loadAlphabetDictionary } from "../src/repositories/alphabet-dictionary.js";
+
+test("loads and sanitizes a quiz-level alphabet dictionary", async () => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), "getgo-alphabet-dictionary-"),
+  );
+  const manifestPath = path.join(directory, "manifest.json");
+  await fs.writeFile(manifestPath, "{}");
+  await fs.writeFile(
+    path.join(directory, "dict.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      words: [
+        {
+          text: "chó",
+          classifier: "con",
+          meaning: "Vật nuôi sống cùng con người.",
+          image: "asset:dog.png",
+          minimumAge: 3,
+          authoringOnly: true,
+        },
+      ],
+    }),
+  );
+
+  assert.deepEqual(await loadAlphabetDictionary(manifestPath), {
+    schemaVersion: 1,
+    words: [
+      {
+        text: "chó",
+        classifier: "con",
+        meaning: "Vật nuôi sống cùng con người.",
+        image: "asset:dog.png",
+        minimumAge: 3,
+      },
+    ],
+  });
+});
+
+test("returns an empty dictionary when dict.json does not exist", async () => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), "getgo-empty-alphabet-dictionary-"),
+  );
+  assert.deepEqual(
+    await loadAlphabetDictionary(path.join(directory, "manifest.json")),
+    { schemaVersion: 1, words: [] },
+  );
+});

@@ -172,9 +172,6 @@ function normalizeQuestion(
       ...(typeof value("pronunciation") === "string"
         ? { pronunciation: value("pronunciation") as string }
         : {}),
-      samples: Array.isArray(value("samples"))
-        ? (structuredClone(value("samples")) as never[])
-        : [],
       ...(typeof question.status === "string"
         ? { status: question.status }
         : {}),
@@ -663,7 +660,6 @@ export async function createQuizQuestion(
             uppercase: "",
             lowercase: "",
             pronunciation: "",
-            samples: [],
           }
         : {
             question_no: questionNo,

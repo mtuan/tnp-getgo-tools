@@ -33,3 +33,13 @@ export function isAlphabetLetterCharacter(
     ? accepted.includes(candidate)
     : candidate === normalizedLetter.toLocaleLowerCase("vi");
 }
+
+export function alphabetWordContainsLetter(
+  word: string,
+  letter: string,
+  language: "English" | "Vietnamese",
+): boolean {
+  return Array.from(word).some((character) =>
+    isAlphabetLetterCharacter(character, letter, language),
+  );
+}

@@ -5,7 +5,6 @@ export const emptyAlphabetData = (): AlphabetQuestionContent => ({
   uppercase: "",
   lowercase: "",
   pronunciation: "",
-  samples: [],
 });
 
 export function alphabetData(
@@ -18,6 +17,5 @@ export function alphabetData(
     uppercase: record.uppercase,
     lowercase: record.lowercase,
     pronunciation: record.pronunciation,
-    samples: Array.isArray(record.samples) ? record.samples : [],
   };
 }

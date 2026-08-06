@@ -1,50 +1,138 @@
-import { contextBridge, ipcRenderer } from "electron"
-import type { AppSettings, DesktopApi, RepositorySnapshot } from "../core/models.js"
+import { contextBridge, ipcRenderer } from "electron";
+import type {
+  AppSettings,
+  DesktopApi,
+  RepositorySnapshot,
+} from "../core/models.js";
 
 const api: DesktopApi = {
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,
-  chooseRepository: () => ipcRenderer.invoke("repository:choose") as Promise<RepositorySnapshot | null>,
-  scanRepository: (path?: string, force?: boolean) => ipcRenderer.invoke("repository:scan", path, force) as Promise<RepositorySnapshot>,
-  setEnvironment: (environment) => ipcRenderer.invoke("settings:environment", environment) as Promise<AppSettings>,
-  setAiProfile: (profile) => ipcRenderer.invoke("settings:ai-profile", profile) as Promise<AppSettings>,
-  setLocale: (locale) => ipcRenderer.invoke("settings:locale", locale) as Promise<AppSettings>,
+  chooseRepository: () =>
+    ipcRenderer.invoke(
+      "repository:choose",
+    ) as Promise<RepositorySnapshot | null>,
+  scanRepository: (path?: string, force?: boolean) =>
+    ipcRenderer.invoke(
+      "repository:scan",
+      path,
+      force,
+    ) as Promise<RepositorySnapshot>,
+  setEnvironment: (environment) =>
+    ipcRenderer.invoke(
+      "settings:environment",
+      environment,
+    ) as Promise<AppSettings>,
+  setAiProfile: (profile) =>
+    ipcRenderer.invoke("settings:ai-profile", profile) as Promise<AppSettings>,
+  setLocale: (locale) =>
+    ipcRenderer.invoke("settings:locale", locale) as Promise<AppSettings>,
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
   getPublishingStatus: () => ipcRenderer.invoke("publishing:status"),
-  publishQuiz: (contestId, quizId) => ipcRenderer.invoke("publishing:quiz", contestId, quizId),
-  showInFolder: (path) => ipcRenderer.invoke("shell:show", path) as Promise<void>,
-  showQuizQuestionInFolder: (manifestPath, questionNo) => ipcRenderer.invoke("shell:show-question", manifestPath, questionNo) as Promise<void>,
-  readQuizAsset: (manifestPath, assetReference) => ipcRenderer.invoke("quiz-asset:read", manifestPath, assetReference) as Promise<string>,
-  readQuizSource: (manifestPath) => ipcRenderer.invoke("quiz-source:read", manifestPath) as Promise<string>,
-  saveQuizSource: (manifestPath, source) => ipcRenderer.invoke("quiz-source:save", manifestPath, source) as Promise<void>,
-  loadQuizQuestions: (manifestPath) => ipcRenderer.invoke("quiz-questions:load", manifestPath),
-  migrateLegacyQuizzes: (contestId) => ipcRenderer.invoke("quiz-questions:migrate-legacy", contestId),
-  saveQuizQuestion: (manifestPath, question) => ipcRenderer.invoke("quiz-questions:save", manifestPath, question),
-  createQuizQuestion: (manifestPath) => ipcRenderer.invoke("quiz-questions:create", manifestPath),
-  reorderQuizQuestions: (manifestPath, questionNumbers) => ipcRenderer.invoke("quiz-questions:reorder", manifestPath, questionNumbers),
-  deleteQuizQuestion: (manifestPath, questionNo) => ipcRenderer.invoke("quiz-questions:delete", manifestPath, questionNo),
-  resetQuizQuestion: (manifestPath, question) => ipcRenderer.invoke("quiz-questions:reset", manifestPath, question),
-  openExternal: (url) => ipcRenderer.invoke("shell:open-external", url) as Promise<void>,
-  copyText: (text) => ipcRenderer.invoke("clipboard:write", text) as Promise<void>,
-  createContest: (settings) => ipcRenderer.invoke("crud:contest:create", settings) as Promise<RepositorySnapshot>,
-  updateContest: (id, settings) => ipcRenderer.invoke("crud:contest:update", id, settings) as Promise<RepositorySnapshot>,
-  renameContest: (currentId, nextId) => ipcRenderer.invoke("crud:contest:rename", currentId, nextId) as Promise<RepositorySnapshot>,
-  deleteContest: (id) => ipcRenderer.invoke("crud:contest:delete", id) as Promise<RepositorySnapshot>,
-  createQuiz: (contest, input) => ipcRenderer.invoke("crud:quiz:create", contest, input) as Promise<RepositorySnapshot>,
-  updateQuiz: (manifestPath, input) => ipcRenderer.invoke("crud:quiz:update", manifestPath, input) as Promise<RepositorySnapshot>,
-  deleteQuiz: (manifestPath) => ipcRenderer.invoke("crud:quiz:delete", manifestPath) as Promise<RepositorySnapshot>,
+  publishQuiz: (contestId, quizId) =>
+    ipcRenderer.invoke("publishing:quiz", contestId, quizId),
+  showInFolder: (path) =>
+    ipcRenderer.invoke("shell:show", path) as Promise<void>,
+  showQuizQuestionInFolder: (manifestPath, questionNo) =>
+    ipcRenderer.invoke(
+      "shell:show-question",
+      manifestPath,
+      questionNo,
+    ) as Promise<void>,
+  readQuizAsset: (manifestPath, assetReference) =>
+    ipcRenderer.invoke(
+      "quiz-asset:read",
+      manifestPath,
+      assetReference,
+    ) as Promise<string>,
+  readQuizSource: (manifestPath) =>
+    ipcRenderer.invoke("quiz-source:read", manifestPath) as Promise<string>,
+  saveQuizSource: (manifestPath, source) =>
+    ipcRenderer.invoke(
+      "quiz-source:save",
+      manifestPath,
+      source,
+    ) as Promise<void>,
+  loadQuizQuestions: (manifestPath) =>
+    ipcRenderer.invoke("quiz-questions:load", manifestPath),
+  loadAlphabetDictionary: (manifestPath) =>
+    ipcRenderer.invoke("alphabet-dictionary:load", manifestPath),
+  migrateLegacyQuizzes: (contestId) =>
+    ipcRenderer.invoke("quiz-questions:migrate-legacy", contestId),
+  saveQuizQuestion: (manifestPath, question) =>
+    ipcRenderer.invoke("quiz-questions:save", manifestPath, question),
+  createQuizQuestion: (manifestPath) =>
+    ipcRenderer.invoke("quiz-questions:create", manifestPath),
+  reorderQuizQuestions: (manifestPath, questionNumbers) =>
+    ipcRenderer.invoke("quiz-questions:reorder", manifestPath, questionNumbers),
+  deleteQuizQuestion: (manifestPath, questionNo) =>
+    ipcRenderer.invoke("quiz-questions:delete", manifestPath, questionNo),
+  resetQuizQuestion: (manifestPath, question) =>
+    ipcRenderer.invoke("quiz-questions:reset", manifestPath, question),
+  openExternal: (url) =>
+    ipcRenderer.invoke("shell:open-external", url) as Promise<void>,
+  copyText: (text) =>
+    ipcRenderer.invoke("clipboard:write", text) as Promise<void>,
+  createContest: (settings) =>
+    ipcRenderer.invoke(
+      "crud:contest:create",
+      settings,
+    ) as Promise<RepositorySnapshot>,
+  updateContest: (id, settings) =>
+    ipcRenderer.invoke(
+      "crud:contest:update",
+      id,
+      settings,
+    ) as Promise<RepositorySnapshot>,
+  renameContest: (currentId, nextId) =>
+    ipcRenderer.invoke(
+      "crud:contest:rename",
+      currentId,
+      nextId,
+    ) as Promise<RepositorySnapshot>,
+  deleteContest: (id) =>
+    ipcRenderer.invoke(
+      "crud:contest:delete",
+      id,
+    ) as Promise<RepositorySnapshot>,
+  createQuiz: (contest, input) =>
+    ipcRenderer.invoke(
+      "crud:quiz:create",
+      contest,
+      input,
+    ) as Promise<RepositorySnapshot>,
+  updateQuiz: (manifestPath, input) =>
+    ipcRenderer.invoke(
+      "crud:quiz:update",
+      manifestPath,
+      input,
+    ) as Promise<RepositorySnapshot>,
+  deleteQuiz: (manifestPath) =>
+    ipcRenderer.invoke(
+      "crud:quiz:delete",
+      manifestPath,
+    ) as Promise<RepositorySnapshot>,
   getAuthState: () => ipcRenderer.invoke("auth:state"),
-  signIn: (email, password) => ipcRenderer.invoke("auth:sign-in", email, password),
-  signInWithProvider: (provider) => ipcRenderer.invoke("auth:provider", provider),
+  signIn: (email, password) =>
+    ipcRenderer.invoke("auth:sign-in", email, password),
+  signInWithProvider: (provider) =>
+    ipcRenderer.invoke("auth:provider", provider),
   signOut: () => ipcRenderer.invoke("auth:sign-out"),
-  changePassword: (password) => ipcRenderer.invoke("auth:change-password", password),
-  createDynamicQuestionProposal: (input) => ipcRenderer.invoke("ai:dynamic-question", input),
-  fixDynamicQuestion: (input) => ipcRenderer.invoke("ai:fix-dynamic-question", input),
-  cancelDynamicQuestionAi: () => ipcRenderer.invoke("ai:cancel-dynamic-question"),
-  startAiMigrationJob: (input) => ipcRenderer.invoke("ai-migration:start", input),
+  changePassword: (password) =>
+    ipcRenderer.invoke("auth:change-password", password),
+  createDynamicQuestionProposal: (input) =>
+    ipcRenderer.invoke("ai:dynamic-question", input),
+  fixDynamicQuestion: (input) =>
+    ipcRenderer.invoke("ai:fix-dynamic-question", input),
+  cancelDynamicQuestionAi: () =>
+    ipcRenderer.invoke("ai:cancel-dynamic-question"),
+  startAiMigrationJob: (input) =>
+    ipcRenderer.invoke("ai-migration:start", input),
   getAiMigrationJobs: () => ipcRenderer.invoke("ai-migration:list"),
-  setAiMigrationConcurrency: (concurrency) => ipcRenderer.invoke("ai-migration:concurrency", concurrency),
-  cancelAiMigrationJob: (jobId) => ipcRenderer.invoke("ai-migration:cancel", jobId),
-}
+  setAiMigrationConcurrency: (concurrency) =>
+    ipcRenderer.invoke("ai-migration:concurrency", concurrency),
+  cancelAiMigrationJob: (jobId) =>
+    ipcRenderer.invoke("ai-migration:cancel", jobId),
+};
 
-contextBridge.exposeInMainWorld("getgo", api)
+contextBridge.exposeInMainWorld("getgo", api);

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type {
   AiMigrationJob,
+  AlphabetDictionary,
   ContestQuizQuestionRecord,
   ContestSummary,
   QuizAiMigrationJob,
@@ -28,6 +29,7 @@ import type {
 } from "../core/models";
 import { questionHasDynamicParams } from "../core/question-dynamics";
 import { alphabetData } from "../core/alphabet-question";
+import { alphabetWordContainsLetter } from "../core/alphabet-letter";
 import { questionContainsImages } from "../core/question-images";
 import { isCurrentQuestionDraftChange } from "../core/question-draft";
 import {
@@ -262,6 +264,8 @@ export function QuizManager({
   const [questionRecords, setQuestionRecords] = useState<QuizQuestionRecord[]>(
     [],
   );
+  const [alphabetDictionary, setAlphabetDictionary] =
+    useState<AlphabetDictionary>({ schemaVersion: 1, words: [] });
   const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [previewQuestion, setPreviewQuestion] =
     useState<ContestQuizQuestionRecord | null>(null);
@@ -529,11 +533,17 @@ export function QuizManager({
     let active = true;
     setSourceLoading(true);
     setSourceError(null);
-    window.getgo
-      .loadQuizQuestions(page.quiz.manifestPath)
-      .then((records) => {
+    Promise.all([
+      window.getgo.loadQuizQuestions(page.quiz.manifestPath),
+      page.quiz.type === "alphabet-english" ||
+      page.quiz.type === "alphabet-vietnamese"
+        ? window.getgo.loadAlphabetDictionary(page.quiz.manifestPath)
+        : Promise.resolve<AlphabetDictionary>({ schemaVersion: 1, words: [] }),
+    ])
+      .then(([records, dictionary]) => {
         if (!active) return;
         setQuestionRecords(records);
+        setAlphabetDictionary(dictionary);
         setQuestionOrder(null);
         if (pendingQuestionNo) {
           const index = records.findIndex(
@@ -931,10 +941,17 @@ export function QuizManager({
       },
       {
         key: "samples",
-        title: "Samples",
+        title: "Words",
         width: 110,
         align: "center",
-        render: (item) => alphabetData(item.record).samples.length,
+        render: (item) => {
+          const letter = alphabetData(item.record).letter;
+          const language =
+            quiz.type === "alphabet-vietnamese" ? "Vietnamese" : "English";
+          return alphabetDictionary.words.filter((word) =>
+            alphabetWordContainsLetter(word.text, letter, language),
+          ).length;
+        },
       },
       {
         key: "status",
@@ -1356,6 +1373,7 @@ export function QuizManager({
             (isAlphabetQuestion ? (
               <AlphabetLetterEditor
                 manifestPath={quiz.manifestPath}
+                dictionaryWords={alphabetDictionary.words}
                 quizType={
                   quiz.type === "alphabet-vietnamese"
                     ? "alphabet-vietnamese"

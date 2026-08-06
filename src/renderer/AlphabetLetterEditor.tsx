@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { alphabetData } from "../core/alphabet-question";
-import { isAlphabetLetterCharacter } from "../core/alphabet-letter";
+import {
+  alphabetWordContainsLetter,
+  isAlphabetLetterCharacter,
+} from "../core/alphabet-letter";
 import type {
   AlphabetQuestionContent,
   AlphabetSample,
   QuizQuestionRecord,
   QuizType,
 } from "../core/models";
-import { EditTable, type EditColumnDef } from "./ui/EditTable";
 import { Button } from "./ui/Button";
+import { DataTable, type DataColumn } from "./ui/DataTable";
 import { Form, type FormSchema } from "./ui/Form";
 import { Panel } from "./ui/Panel";
 import { PreviewAsset } from "./ui/QuestionPreview";
@@ -21,6 +24,7 @@ interface Props {
   quizType: Extract<QuizType, "alphabet-english" | "alphabet-vietnamese">;
   manifestPath: string;
   record: QuizQuestionRecord;
+  dictionaryWords: AlphabetSample[];
   tab: AlphabetEditorTab;
   onTabChange(tab: AlphabetEditorTab): void;
   onChange(record: QuizQuestionRecord): void;
@@ -30,6 +34,7 @@ export function AlphabetLetterEditor({
   quizType,
   manifestPath,
   record,
+  dictionaryWords,
   tab,
   onTabChange,
   onChange,
@@ -39,9 +44,22 @@ export function AlphabetLetterEditor({
   const language =
     quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
+  const wordLocale = quizType === "alphabet-vietnamese" ? "vi" : "en";
+  const relatedWords = dictionaryWords
+    .filter((word) =>
+      alphabetWordContainsLetter(word.text, alphabet.letter, language),
+    )
+    .sort(
+      (left, right) =>
+        (left.minimumAge ?? Number.MAX_SAFE_INTEGER) -
+          (right.minimumAge ?? Number.MAX_SAFE_INTEGER) ||
+        left.text.localeCompare(right.text, wordLocale, {
+          sensitivity: "base",
+        }),
+    );
   const selectedSample =
-    alphabet.samples[
-      Math.min(selectedSampleIndex, Math.max(0, alphabet.samples.length - 1))
+    relatedWords[
+      Math.min(selectedSampleIndex, Math.max(0, relatedWords.length - 1))
     ];
   const selectedWord = selectedSample
     ? [selectedSample.classifier, selectedSample.text].filter(Boolean).join(" ")
@@ -103,6 +121,7 @@ export function AlphabetLetterEditor({
     },
     [selectedSampleIndex, tab],
   );
+  useEffect(() => setSelectedSampleIndex(0), [alphabet.letter]);
   const update = (next: AlphabetQuestionContent) =>
     onChange({
       question_no: record.question_no,
@@ -122,48 +141,48 @@ export function AlphabetLetterEditor({
       { name: "lowercase", label: "Lowercase", type: "text", required: true },
     ],
   ];
-  const sampleColumns: EditColumnDef<AlphabetSample>[] = [
+  const sampleColumns: DataColumn<AlphabetSample>[] = [
     {
       key: "text",
-      dataKey: "text",
       title: "Word",
       width: "28%",
-      field: { name: "text", type: "text" },
+      render: (word) => <strong>{word.text}</strong>,
     },
     ...(quizType === "alphabet-vietnamese"
       ? ([
           {
             key: "classifier",
-            dataKey: "classifier",
             title: "Classifier",
             width: "15%",
-            field: {
-              name: "classifier",
-              type: "text",
-              placeholder: "con, cái, quả…",
-            },
+            render: (word) => word.classifier || "—",
           },
-        ] satisfies EditColumnDef<AlphabetSample>[])
+        ] satisfies DataColumn<AlphabetSample>[])
       : []),
     {
       key: "meaning",
-      dataKey: "meaning",
       title: "Simple meaning",
-      field: { name: "meaning", type: "text" },
+      render: (word) => word.meaning || "—",
+    },
+    {
+      key: "minimumAge",
+      title: "Age",
+      width: 72,
+      align: "center",
+      render: (word) =>
+        Number.isInteger(word.minimumAge) ? `${word.minimumAge}+` : "—",
     },
     {
       key: "image",
-      dataKey: "image",
       title: "Image",
-      width: "112px",
-      field: { name: "image", type: "text" },
-      renderView: (value, sample) => (
+      width: 72,
+      align: "center",
+      render: (word) => (
         <div className="alphabet-sample-image">
-          {typeof value === "string" && value ? (
+          {word.image ? (
             <PreviewAsset
               manifestPath={manifestPath}
-              value={value}
-              alt={`Illustration for ${sample.text || "related word"}`}
+              value={word.image}
+              alt={`Illustration for ${word.text || "related word"}`}
             />
           ) : (
             <span aria-label="No image">—</span>
@@ -185,7 +204,7 @@ export function AlphabetLetterEditor({
           {
             id: "related-words",
             label: "Related words",
-            badge: alphabet.samples.length,
+            badge: relatedWords.length,
           },
         ]}
       />
@@ -210,55 +229,18 @@ export function AlphabetLetterEditor({
             </Panel>
           ) : (
             <Panel
-              className="edit-table-panel"
+              className="alphabet-dictionary-panel"
               title="Related words"
-              description="Simple words, meanings, and illustrations for this letter."
+              description="Read-only dictionary words containing this letter."
             >
-              <EditTable<AlphabetSample>
+              <DataTable<AlphabetSample>
                 ariaLabel="Letter samples"
                 columns={sampleColumns}
-                rows={alphabet.samples}
-                rowKey={(_, index) => String(index)}
+                rows={relatedWords}
+                rowKey={(word) => word.text}
                 selectedRowIndex={selectedSampleIndex}
                 onRowClick={(_, index) => setSelectedSampleIndex(index)}
-                addLabel="Add related word"
-                emptyText="No related words yet."
-                onRowAdd={() =>
-                  update({
-                    ...alphabet,
-                    samples: [
-                      ...alphabet.samples,
-                      { text: "", classifier: "", meaning: "", image: "" },
-                    ],
-                  })
-                }
-                onRowChange={(index, field, value) =>
-                  update({
-                    ...alphabet,
-                    samples: alphabet.samples.map((sample, sampleIndex) =>
-                      sampleIndex === index
-                        ? { ...sample, [field]: String(value ?? "") }
-                        : sample,
-                    ),
-                  })
-                }
-                onRowDelete={(index) => {
-                  setSelectedSampleIndex((current) =>
-                    Math.max(
-                      0,
-                      Math.min(
-                        current > index ? current - 1 : current,
-                        alphabet.samples.length - 2,
-                      ),
-                    ),
-                  );
-                  update({
-                    ...alphabet,
-                    samples: alphabet.samples.filter(
-                      (_, sampleIndex) => sampleIndex !== index,
-                    ),
-                  });
-                }}
+                emptyText="No dictionary words contain this letter."
               />
             </Panel>
           )}

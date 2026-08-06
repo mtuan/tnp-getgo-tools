@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isAlphabetLetterCharacter } from "../src/core/alphabet-letter.js";
+import {
+  alphabetWordContainsLetter,
+  isAlphabetLetterCharacter,
+} from "../src/core/alphabet-letter.js";
 
 test("matches English alphabet letters without case sensitivity", () => {
   assert.equal(isAlphabetLetterCharacter("D", "d", "English"), true);
   assert.equal(isAlphabetLetterCharacter("d", "D", "English"), true);
   assert.equal(isAlphabetLetterCharacter("Đ", "D", "English"), false);
+});
+
+test("filters dictionary words containing the active letter", () => {
+  assert.equal(alphabetWordContainsLetter("banana", "A", "English"), true);
+  assert.equal(alphabetWordContainsLetter("quả táo", "A", "Vietnamese"), true);
+  assert.equal(alphabetWordContainsLetter("dâu tây", "Ă", "Vietnamese"), false);
 });
 
 test("matches Vietnamese tone variants while preserving distinct letters", () => {

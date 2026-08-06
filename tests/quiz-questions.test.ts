@@ -117,13 +117,13 @@ test("creates alphabet question records for alphabet quizzes", async () => {
     uppercase: "",
     lowercase: "",
     pronunciation: "",
-    samples: [],
   });
-  assert.deepEqual(
-    JSON.parse(
-      await fs.readFile(path.join(directory, "questions", "q1.json"), "utf8"),
-    ).samples,
-    [],
+  assert.equal(
+    "samples" in
+      JSON.parse(
+        await fs.readFile(path.join(directory, "questions", "q1.json"), "utf8"),
+      ),
+    false,
   );
 });
 
@@ -163,7 +163,6 @@ test("upgrades the temporary nested alphabet shape without contest-question fiel
     letter: "A",
     uppercase: "A",
     lowercase: "a",
-    samples: [{ text: "Apple" }],
   });
 });
 

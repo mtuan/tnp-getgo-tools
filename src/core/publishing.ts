@@ -31,12 +31,6 @@ export interface PublishedAlphabetQuestion {
   uppercase: string;
   lowercase: string;
   pronunciation?: string;
-  samples: Array<{
-    text: string;
-    classifier?: string;
-    meaning?: string;
-    image?: string;
-  }>;
 }
 
 export type PublishedQuestion =
@@ -72,8 +66,6 @@ export function sanitizePublishedQuestion(
         throw new Error(`Question ${questionNo} ${field} is required.`);
       return value;
     };
-    if (!Array.isArray(record.samples))
-      throw new Error(`Question ${questionNo} samples must be an array.`);
     return {
       question_no: questionNo,
       type: "alphabet",
@@ -83,34 +75,6 @@ export function sanitizePublishedQuestion(
       ...(typeof record.pronunciation === "string" && record.pronunciation
         ? { pronunciation: record.pronunciation }
         : {}),
-      samples: record.samples.map((sample, index) => {
-        const text = required(sample?.text, `samples[${index}].text`);
-        if (
-          sample.classifier !== undefined &&
-          typeof sample.classifier !== "string"
-        )
-          throw new Error(
-            `Question ${questionNo} samples[${index}].classifier is invalid.`,
-          );
-        if (sample.meaning !== undefined && typeof sample.meaning !== "string")
-          throw new Error(
-            `Question ${questionNo} samples[${index}].meaning is invalid.`,
-          );
-        if (
-          sample.image !== undefined &&
-          (typeof sample.image !== "string" ||
-            (sample.image && !sample.image.startsWith("asset:")))
-        )
-          throw new Error(
-            `Question ${questionNo} samples[${index}].image must be an asset reference.`,
-          );
-        return {
-          text,
-          ...(sample.classifier ? { classifier: sample.classifier } : {}),
-          ...(sample.meaning ? { meaning: sample.meaning } : {}),
-          ...(sample.image ? { image: sample.image } : {}),
-        };
-      }),
     };
   }
   const answer = plainRecord(record.answer, `Question ${questionNo} answer`);
