@@ -19,4 +19,5 @@ export * from "./SummaryCard";
 export * from "./Tabs";
 export * from "./TableActionButton";
 export * from "./Toast";
+export * from "./TreeView";
 export * from "./Toggle";

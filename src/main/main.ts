@@ -47,7 +47,12 @@ import { SettingsStore } from "./settings.js";
 import { FirebaseAuthService } from "./firebase-auth.js";
 import { LocalAiService } from "./local-ai.js";
 import { AiMigrationJobManager } from "./ai-migration-jobs.js";
-import { FirestorePublishingService } from "./firestore-publishing.js";
+import { PublishJobManager } from "./publish-jobs.js";
+import { WebDeploymentJobManager } from "./web-deployment-jobs.js";
+import {
+  createContentV2QuizPublishPreview,
+  FirestorePublishingService,
+} from "./firestore-publishing.js";
 import {
   loadContentV2Assets,
   loadContentV2Question,
@@ -55,10 +60,12 @@ import {
   loadContentV2QuizResources,
   loadContentV2Topic,
   recordContentV2Published,
+  readContentV2QuizPublishState,
   saveContentV2Question,
   saveContentV2Quiz,
   saveContentV2Topic,
   scanContentV2Repository,
+  writeContentV2QuizPublishState,
 } from "../repositories/content-v2-repository.js";
 
 loadEnvironment({
@@ -265,6 +272,11 @@ app.whenReady().then(async () => {
     model: process.env.GETGO_AI_OPENAI_MODEL,
     profile: initialSettings.aiProfile,
   });
+  const publishJobs = new PublishJobManager(app.getPath("userData"));
+  const webDeploymentJobs = new WebDeploymentJobManager(
+    app.getPath("userData"),
+    app.getAppPath(),
+  );
   ipcMain.handle("app:restart", () => {
     if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
       mainWindow?.reload();
@@ -395,6 +407,75 @@ app.whenReady().then(async () => {
     if (typeof jobId !== "string") throw new Error("Invalid migration job.");
     return aiMigrationJobs.cancel(jobId);
   });
+  const backgroundJobsSnapshot = async () => {
+    const [migration, published, deployments] = await Promise.all([
+      aiMigrationJobs.list(),
+      publishJobs.list(),
+      webDeploymentJobs.list(),
+    ]);
+    const migrated = migration.jobs.map((job) => ({
+      id: job.id,
+      kind: "ai-migrate" as const,
+      name: `AI migrate · ${job.quizTitle}`,
+      description: job.errors.at(-1)
+        ? `Question ${job.errors.at(-1)?.questionNo}: ${job.errors.at(-1)?.message}`
+        : `${job.succeeded} migrated · ${job.failed} failed · ${job.skippedImages + job.skippedVerified} skipped`,
+      status: job.status,
+      completed: job.processed,
+      total: job.total,
+      progressLabel: job.currentQuestion
+        ? `Question ${job.currentQuestion}`
+        : `${job.processed}/${job.total}`,
+      createdAt: job.createdAt,
+      startedAt: job.startedAt,
+      finishedAt: job.finishedAt,
+      route: `/quizzes/contests/${encodeURIComponent(job.contestId)}/quizzes/${encodeURIComponent(job.quizId)}`,
+      cancellable: ["queued", "running", "paused"].includes(job.status),
+      error: job.errors.at(-1)?.message,
+    }));
+    return {
+      aiConcurrency: migration.concurrency,
+      jobs: [...migrated, ...published, ...deployments].sort((left, right) =>
+        right.createdAt.localeCompare(left.createdAt),
+      ),
+    };
+  };
+  ipcMain.handle("jobs:list", backgroundJobsSnapshot);
+  ipcMain.handle("deployment:start", async (_event, component: unknown, target: unknown) => {
+    if (!(component === "firebase-rules" || component === "web"))
+      throw new Error("Invalid deployment component.");
+    if (!(target === "development" || target === "staging" || target === "production"))
+      throw new Error("Invalid deployment target.");
+    await webDeploymentJobs.start(component, target);
+    return backgroundJobsSnapshot();
+  });
+  ipcMain.handle("jobs:cancel", async (_event, jobId: unknown) => {
+    if (typeof jobId !== "string") throw new Error("Invalid job ID.");
+    await Promise.all([
+      aiMigrationJobs.cancel(jobId),
+      publishJobs.cancel(jobId),
+      webDeploymentJobs.cancel(jobId),
+    ]);
+    return backgroundJobsSnapshot();
+  });
+  ipcMain.handle("jobs:pause", async (_event, jobId: unknown) => {
+    if (typeof jobId !== "string") throw new Error("Invalid job ID.");
+    await Promise.all([
+      aiMigrationJobs.pause(jobId),
+      publishJobs.pause(jobId),
+      webDeploymentJobs.pause(jobId),
+    ]);
+    return backgroundJobsSnapshot();
+  });
+  ipcMain.handle("jobs:resume", async (_event, jobId: unknown) => {
+    if (typeof jobId !== "string") throw new Error("Invalid job ID.");
+    await Promise.all([
+      aiMigrationJobs.resume(jobId),
+      publishJobs.resume(jobId),
+      webDeploymentJobs.resume(jobId),
+    ]);
+    return backgroundJobsSnapshot();
+  });
   ipcMain.handle("publishing:status", async () => {
     const current = await settings.read();
     if (!current.repositoryPath)
@@ -424,7 +505,14 @@ app.whenReady().then(async () => {
         throw new Error(
           "This quiz has no valid cached question data to publish.",
         );
-      const result = await publishing.publish(quiz, payload);
+      return publishJobs.track(
+        {
+          name: `Publish · ${quiz.title}`,
+          description: `Publish ${payload.quiz.questionCount} questions to Firebase`,
+          route: `/quizzes/contests/${encodeURIComponent(contestId)}/quizzes/${encodeURIComponent(quizId)}?tab=publish`,
+        },
+        async (control) => {
+      const result = await publishing.publish(quiz, payload, control);
       await recordPublishedHash(
         quiz.manifestPath,
         result.contentHash,
@@ -443,7 +531,9 @@ app.whenReady().then(async () => {
               : item,
           ),
         };
-      return result;
+          return result;
+        },
+      );
     },
   );
   ipcMain.handle("settings:get", () => settings.read());
@@ -672,12 +762,27 @@ app.whenReady().then(async () => {
         result.contentHash,
         result.publishedAt,
       );
-      await refreshContentV2(root);
-      return result;
+      if (repositorySnapshot)
+        repositorySnapshot = {
+          ...repositorySnapshot,
+          contentV2: {
+            ...repositorySnapshot.contentV2,
+            topics: repositorySnapshot.contentV2.topics.map((item) =>
+              item.id === topicId
+                ? {
+                    ...item,
+                    publishedHash: result.contentHash,
+                    publishedAt: result.publishedAt,
+                  }
+                : item,
+            ),
+          },
+        };
+      return { ...result, snapshot: requireSnapshot() };
     },
   );
   ipcMain.handle(
-    "content-v2:quiz:publish",
+    "content-v2:quiz:publish-preview",
     async (_event, topicId: unknown, quizId: unknown) => {
       if (typeof topicId !== "string" || typeof quizId !== "string")
         throw new Error("Invalid quiz selection.");
@@ -687,8 +792,6 @@ app.whenReady().then(async () => {
         (item) => item.topicId === topicId && item.id === quizId,
       );
       if (!summary) throw new Error("The selected quiz was not found.");
-      if (summary.questionCount !== summary.reviewedQuestionCount)
-        throw new Error("Review every question before publishing this quiz.");
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
       const questionIds = snapshot.contentV2.questions
         .filter(
@@ -709,7 +812,7 @@ app.whenReady().then(async () => {
         questions,
         resources,
       });
-      const result = await publishing.publishContentV2Quiz(
+      return createContentV2QuizPublishPreview(
         topicId,
         quiz,
         questions,
@@ -717,13 +820,98 @@ app.whenReady().then(async () => {
         assets,
         summary.localHash,
       );
+    },
+  );
+  ipcMain.handle(
+    "content-v2:quiz:publish",
+    async (_event, topicId: unknown, quizId: unknown) => {
+      if (typeof topicId !== "string" || typeof quizId !== "string")
+        throw new Error("Invalid quiz selection.");
+      const root = await repositoryRoot();
+      const snapshot = requireSnapshot();
+      const summary = snapshot.contentV2.quizzes.find(
+        (item) => item.topicId === topicId && item.id === quizId,
+      );
+      if (!summary) throw new Error("The selected quiz was not found.");
+      if (summary.questionCount !== summary.reviewedQuestionCount)
+        throw new Error("Review every question before publishing this quiz.");
+      return publishJobs.track(
+        {
+          name: `Publish · ${summary.title}`,
+          description: `Publish ${summary.questionCount} questions to Firebase`,
+          route: `/topics/${encodeURIComponent(topicId)}/quizzes/${encodeURIComponent(quizId)}?tab=publish`,
+        },
+        async (control) => {
+      const quiz = await loadContentV2Quiz(root, topicId, quizId);
+      const questionIds = snapshot.contentV2.questions
+        .filter(
+          (question) =>
+            question.topicId === topicId && question.quizId === quizId,
+        )
+        .sort((left, right) => left.order - right.order)
+        .map((question) => question.id);
+      const [questions, resources] = await Promise.all([
+        Promise.all(
+          questionIds.map((questionId) =>
+            loadContentV2Question(root, topicId, quizId, questionId),
+          ),
+        ),
+        loadContentV2QuizResources(root, topicId, quiz),
+      ]);
+      const assets = await loadContentV2Assets(root, topicId, quizId, {
+        questions,
+        resources,
+      });
+      if (!firebaseAuth) throw new Error("Publishing is not initialized.");
+      const target = await firebaseAuth.publishingTarget();
+      const publishState = await readContentV2QuizPublishState(summary.filePath);
+      const result = await publishing.publishContentV2Quiz(
+        topicId,
+        quiz,
+        questions,
+        resources,
+        assets,
+        summary.localHash,
+        publishState.targets[target.projectId],
+        control,
+      );
       await recordContentV2Published(
         summary.filePath,
         result.contentHash,
         result.publishedAt,
       );
-      await refreshContentV2(root);
-      return result;
+      await writeContentV2QuizPublishState(summary.filePath, {
+        schemaVersion: 1,
+        targets: {
+          ...publishState.targets,
+          [result.projectId]: {
+            environment: result.environment,
+            projectId: result.projectId,
+            contentHash: result.contentHash,
+            publishedAt: result.publishedAt,
+            items: result.items,
+          },
+        },
+      });
+      if (repositorySnapshot)
+        repositorySnapshot = {
+          ...repositorySnapshot,
+          contentV2: {
+            ...repositorySnapshot.contentV2,
+            quizzes: repositorySnapshot.contentV2.quizzes.map((item) =>
+              item.topicId === topicId && item.id === quizId
+                ? {
+                    ...item,
+                    publishedHash: result.contentHash,
+                    publishedAt: result.publishedAt,
+                  }
+                : item,
+            ),
+          },
+        };
+          return { ...result, snapshot: requireSnapshot() };
+        },
+      );
     },
   );
   ipcMain.handle(

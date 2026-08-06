@@ -369,10 +369,42 @@ export interface ContentV2PublishResult {
   quizId?: string;
   contentHash: string;
   publishedAt: string;
+  snapshot?: RepositorySnapshot;
+}
+
+export interface ContentV2QuizPublishPreview {
+  firestore: {
+    quizDocument: {
+      operation: "upsert";
+      path: string;
+      data: Record<string, unknown>;
+    };
+    questionDocuments: Array<{
+      operation: "upsert";
+      path: string;
+      data: Record<string, unknown>;
+    }>;
+    resourceDocuments: Array<{
+      operation: "upsert";
+      path: string;
+      data: Record<string, unknown>;
+    }>;
+    cleanup: string[];
+  };
+  firebaseStorage: {
+    uploads: Array<{
+      operation: "upload";
+      reference: string;
+      localSourcePath: string;
+      destinationPath: string;
+      contentHash: string;
+      mimeType: string;
+    }>;
+  };
 }
 
 export type AiMigrationJobStatus =
-  "queued" | "running" | "completed" | "cancelled" | "failed";
+  "queued" | "running" | "paused" | "completed" | "cancelled" | "failed";
 export interface AiMigrationJob {
   id: string;
   contestId: string;
@@ -402,6 +434,30 @@ export type QuizAiMigrationJob = Omit<
 export interface AiMigrationJobsSnapshot {
   concurrency: number;
   jobs: AiMigrationJob[];
+}
+
+export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy";
+export type WebDeploymentTarget = "development" | "staging" | "production";
+export type DeploymentComponent = "firebase-rules" | "web";
+export interface BackgroundJob {
+  id: string;
+  kind: BackgroundJobKind;
+  name: string;
+  description: string;
+  status: AiMigrationJobStatus;
+  completed: number;
+  total: number;
+  progressLabel?: string;
+  createdAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+  route?: string;
+  cancellable: boolean;
+  error?: string;
+}
+export interface BackgroundJobsSnapshot {
+  aiConcurrency: number;
+  jobs: BackgroundJob[];
 }
 
 export type DynamicQuestionProposal = GetGoDynamicQuestionProposal;
@@ -459,6 +515,10 @@ export interface DesktopApi {
     topicId: string,
     quizId: string,
   ): Promise<ContentV2PublishResult>;
+  previewContentV2QuizPublish(
+    topicId: string,
+    quizId: string,
+  ): Promise<ContentV2QuizPublishPreview>;
   showInFolder(path: string): Promise<void>;
   showQuizQuestionInFolder(
     manifestPath: string,
@@ -540,6 +600,14 @@ export interface DesktopApi {
     context: Record<string, unknown>;
   }): Promise<AiMigrationJob>;
   getAiMigrationJobs(): Promise<AiMigrationJobsSnapshot>;
+  getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
+  startDeployment(
+    component: DeploymentComponent,
+    target: WebDeploymentTarget,
+  ): Promise<BackgroundJobsSnapshot>;
+  cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
+  pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
+  resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   setAiMigrationConcurrency(
     concurrency: number,
   ): Promise<AiMigrationJobsSnapshot>;

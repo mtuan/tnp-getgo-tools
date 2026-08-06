@@ -32,6 +32,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:quiz:save", topicId, quiz),
   saveContentV2Question: (topicId, quizId, question) =>
     ipcRenderer.invoke("content-v2:question:save", topicId, quizId, question),
+  previewContentV2QuizPublish: (topicId, quizId) =>
+    ipcRenderer.invoke("content-v2:quiz:publish-preview", topicId, quizId),
   markAllContentV2QuizQuestionsReviewed: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:questions:review-all", topicId, quizId),
   deleteContentV2Topic: (topicId) =>
@@ -168,6 +170,12 @@ const api: DesktopApi = {
   startAiMigrationJob: (input) =>
     ipcRenderer.invoke("ai-migration:start", input),
   getAiMigrationJobs: () => ipcRenderer.invoke("ai-migration:list"),
+  getBackgroundJobs: () => ipcRenderer.invoke("jobs:list"),
+  startDeployment: (component, target) =>
+    ipcRenderer.invoke("deployment:start", component, target),
+  cancelBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:cancel", jobId),
+  pauseBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:pause", jobId),
+  resumeBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:resume", jobId),
   setAiMigrationConcurrency: (concurrency) =>
     ipcRenderer.invoke("ai-migration:concurrency", concurrency),
   cancelAiMigrationJob: (jobId) =>

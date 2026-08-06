@@ -8,7 +8,7 @@ import { loadQuizQuestions, saveQuizQuestion } from "../repositories/quiz-questi
 import { LocalAiService, type LocalAiConfiguration } from "./local-ai.js"
 
 interface StoredState { concurrency: number; jobs: AiMigrationJob[] }
-interface RuntimeJob { service: LocalAiService; cancelled: boolean }
+interface RuntimeJob { service: LocalAiService; cancelled: boolean; paused: boolean; resume?: () => void }
 
 export class AiMigrationJobManager {
   private concurrency = 1
@@ -71,7 +71,7 @@ export class AiMigrationJobManager {
     const quizId = String(input.context.quizId ?? "")
     const contestId = String(input.context.contestId ?? "")
     if (!quizId || !contestId || !path.isAbsolute(input.manifestPath)) throw new Error("Invalid quiz migration job.")
-    const duplicate = this.jobs.find(job => job.quizId === quizId && job.contestId === contestId && ["queued", "running"].includes(job.status))
+    const duplicate = this.jobs.find(job => job.quizId === quizId && job.contestId === contestId && ["queued", "running", "paused"].includes(job.status))
     if (duplicate) return duplicate
     const records = await loadQuizQuestions(input.manifestPath)
     const job: AiMigrationJob = {
@@ -88,10 +88,31 @@ export class AiMigrationJobManager {
   async cancel(id: string) {
     await this.ensureLoaded()
     const job = this.jobs.find(item => item.id === id)
+    if (!job || !["queued", "running", "paused"].includes(job.status)) return this.snapshot()
+    const runtime = this.runtimes.get(id)
+    if (runtime) { runtime.cancelled = true; runtime.paused = false; runtime.resume?.(); runtime.service.cancelDynamicQuestionAi() }
+    job.status = "cancelled"; job.currentQuestion = undefined; job.finishedAt = new Date().toISOString()
+    await this.persistJob(job); this.schedule(); return this.snapshot()
+  }
+
+  async pause(id: string) {
+    await this.ensureLoaded()
+    const job = this.jobs.find(item => item.id === id)
     if (!job || !["queued", "running"].includes(job.status)) return this.snapshot()
     const runtime = this.runtimes.get(id)
-    if (runtime) { runtime.cancelled = true; runtime.service.cancelDynamicQuestionAi() }
-    job.status = "cancelled"; job.currentQuestion = undefined; job.finishedAt = new Date().toISOString()
+    if (runtime) runtime.paused = true
+    job.status = "paused"
+    await this.persistJob(job)
+    return this.snapshot()
+  }
+
+  async resume(id: string) {
+    await this.ensureLoaded()
+    const job = this.jobs.find(item => item.id === id)
+    if (!job || job.status !== "paused") return this.snapshot()
+    const runtime = this.runtimes.get(id)
+    if (runtime) { runtime.paused = false; job.status = "running"; runtime.resume?.() }
+    else job.status = "queued"
     await this.persistJob(job); this.schedule(); return this.snapshot()
   }
 
@@ -103,12 +124,14 @@ export class AiMigrationJobManager {
 
   private async run(job: AiMigrationJob, context: Record<string, unknown>) {
     const service = new LocalAiService(this.aiConfiguration)
-    const runtime: RuntimeJob = { service, cancelled: false }
+    const runtime: RuntimeJob = { service, cancelled: false, paused: false }
     this.runtimes.set(job.id, runtime); job.status = "running"; job.startedAt = new Date().toISOString(); await this.persistJob(job)
     try {
       const initial = await loadQuizQuestions(job.manifestPath)
       const queue = initial.filter(record => !questionIsVerified(record) && !questionContainsImages(record))
       for (const queued of queue) {
+        if (runtime.paused) await new Promise<void>(resolve => { runtime.resume = resolve })
+        runtime.resume = undefined
         if (runtime.cancelled) break
         const latest = (await loadQuizQuestions(job.manifestPath)).find(record => String(record.question_no) === String(queued.question_no))
         if (!latest || questionIsVerified(latest) || questionContainsImages(latest)) { job.processed += 1; if (latest && questionIsVerified(latest)) job.skippedVerified += 1; else if (latest && questionContainsImages(latest)) job.skippedImages += 1; await this.persistJob(job); continue }

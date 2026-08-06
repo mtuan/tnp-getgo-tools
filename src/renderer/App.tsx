@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
+  Rocket,
   RotateCcw,
   Settings,
   type LucideIcon,
@@ -60,12 +61,16 @@ const PublishingPage = lazy(() =>
 const JobsPage = lazy(() =>
   import("./JobsPage").then((module) => ({ default: module.JobsPage })),
 );
+const DeploymentPage = lazy(() =>
+  import("./DeploymentPage").then((module) => ({ default: module.DeploymentPage })),
+);
 
 type View =
   | "dashboard"
   | "topics"
   | "quizzes"
   | "jobs"
+  | "deploy"
   | "publishing"
   | "settings"
   | "not-found";
@@ -110,7 +115,7 @@ function viewFromRoute(
   } catch {
     pathname = route.split("?")[0];
   }
-  const staticView = ["dashboard", "jobs", "publishing", "settings"].find(
+  const staticView = ["dashboard", "jobs", "deploy", "publishing", "settings"].find(
     (value) => pathname === `/${value}`,
   );
   if (staticView) return staticView as NavigableView;
@@ -183,6 +188,7 @@ const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "topics", label: "Topics", icon: Library },
   { id: "quizzes", label: "Legacy quizzes", icon: Archive },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
+  { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "publishing", label: "Publishing", icon: CloudUpload },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -832,7 +838,12 @@ export function App() {
             )}
             {settings.repositoryPath && view === "jobs" && (
               <Suspense fallback={null}>
-                <JobsPage onOpenQuiz={(route) => goToRoute(route)} />
+                <JobsPage locale={settings.locale} onOpenQuiz={(route) => goToRoute(route)} />
+              </Suspense>
+            )}
+            {settings.repositoryPath && view === "deploy" && (
+              <Suspense fallback={null}>
+                <DeploymentPage locale={settings.locale} onOpenJobs={() => goToRoute("/jobs")} />
               </Suspense>
             )}
             {settings.repositoryPath && view === "publishing" && snapshot && (

@@ -268,7 +268,7 @@ export function ContentV2QuizManager(props: Props) {
       },
       publishQuiz: async (topicId, quizId) => {
         const result = await window.getgo.publishContentV2Quiz(topicId, quizId);
-        const next = await window.getgo.scanRepository();
+        const next = result.snapshot ?? props.snapshot;
         refresh(next);
         const quiz = next.contentV2.quizzes.find((item) => item.topicId === topicId && item.id === quizId);
         return { contestId: topicId, quizId, contentHash: result.contentHash, questionCount: quiz?.questionCount ?? 0, publishedAt: result.publishedAt };

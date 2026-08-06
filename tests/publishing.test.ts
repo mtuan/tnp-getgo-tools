@@ -9,6 +9,70 @@ import {
   sanitizePublishedQuestion,
 } from "../src/core/publishing.js";
 import { recordPublishedHash } from "../src/repositories/quiz-publishing.js";
+import { createContentV2QuizPublishPreview } from "../src/main/firestore-publishing.js";
+import {
+  contentV2PublishedItems,
+  diffContentV2PublishedItems,
+} from "../src/core/content-v2-publish-state.js";
+
+test("content v2 assets publish directly to quiz-scoped Storage paths", () => {
+  const preview = createContentV2QuizPublishPreview(
+    "alphabet",
+    {
+      schemaVersion: 2,
+      id: "english-alphabet",
+      topicId: "alphabet",
+      type: "alphabet-course",
+      title: "English Alphabet",
+      description: "",
+      status: "reviewed",
+      order: 0,
+      language: "en",
+      dictionary: "resources/dictionary.json",
+    },
+    [],
+    {},
+    [
+      {
+        reference: "asset:book.png",
+        sourcePath: "/local/book.png",
+        contentHash: "a".repeat(64),
+        mimeType: "image/png",
+        data: new Uint8Array(),
+      },
+    ],
+    "b".repeat(64),
+  );
+
+  assert.equal(
+    preview.firebaseStorage.uploads[0]?.destinationPath,
+    "getgo-content-v2/topics/alphabet/quizzes/english-alphabet/assets/book.png",
+  );
+  assert.equal(
+    preview.firebaseStorage.uploads[0]?.localSourcePath,
+    "/local/book.png",
+  );
+  assert.equal("assetIds" in preview.firestore.quizDocument.data, false);
+  assert.equal("questionIds" in preview.firestore.quizDocument.data, false);
+  assert.equal("resourceIds" in preview.firestore.quizDocument.data, false);
+  assert.equal("assetDocuments" in preview.firestore, false);
+
+  const first = contentV2PublishedItems(preview);
+  assert.equal(diffContentV2PublishedItems(undefined, first).changed.size, 2);
+  assert.equal(diffContentV2PublishedItems(first, first).changed.size, 0);
+  const withoutAsset = contentV2PublishedItems({
+    ...preview,
+    firebaseStorage: { uploads: [] },
+  });
+  const removed = diffContentV2PublishedItems(first, withoutAsset).removed;
+  assert.deepEqual(removed, [
+    {
+      kind: "storage-object",
+      path: "getgo-content-v2/topics/alphabet/quizzes/english-alphabet/assets/book.png",
+      hash: "a".repeat(64),
+    },
+  ]);
+});
 
 const dynamic = {
   paramsGeneratorTs: "() => ({ value: QB.rnd.int(1, 9) })",

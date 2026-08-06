@@ -21,6 +21,7 @@ import type {
   ContentV2TopicSummary,
   ScanIssue,
 } from "../core/models.js";
+import type { ContentV2QuizPublishState } from "../core/content-v2-publish-state.js";
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
@@ -588,4 +589,34 @@ export async function recordContentV2Published(
   record.publishedHash = publishedHash;
   record.publishedAt = publishedAt;
   await writeJson(filePath, record);
+}
+
+export async function readContentV2QuizPublishState(
+  quizFilePath: string,
+): Promise<ContentV2QuizPublishState> {
+  const filePath = path.join(path.dirname(quizFilePath), "publish-state.json");
+  const value = await fs
+    .readFile(filePath, "utf8")
+    .then((source) => JSON.parse(source) as unknown)
+    .catch((cause: NodeJS.ErrnoException) => {
+      if (cause.code === "ENOENT") return null;
+      throw cause;
+    });
+  if (value === null) return { schemaVersion: 1, targets: {} };
+  if (
+    !value ||
+    typeof value !== "object" ||
+    (value as { schemaVersion?: unknown }).schemaVersion !== 1 ||
+    !(value as { targets?: unknown }).targets ||
+    typeof (value as { targets?: unknown }).targets !== "object"
+  )
+    throw new Error("Invalid content-v2 publish-state.json.");
+  return value as ContentV2QuizPublishState;
+}
+
+export async function writeContentV2QuizPublishState(
+  quizFilePath: string,
+  state: ContentV2QuizPublishState,
+): Promise<void> {
+  await writeJson(path.join(path.dirname(quizFilePath), "publish-state.json"), state);
 }

@@ -14,6 +14,8 @@ import {
   saveContentV2Quiz,
   saveContentV2Topic,
   scanContentV2Repository,
+  readContentV2QuizPublishState,
+  writeContentV2QuizPublishState,
 } from "../src/repositories/content-v2-repository.js";
 
 const alphabetTopic = {
@@ -40,6 +42,27 @@ const alphabetQuiz = {
   language: "en" as const,
   dictionary: "resources/dictionary.json",
 };
+
+test("stores content-v2 publish state separately for each Firebase project", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-state-"));
+  const quizFilePath = path.join(root, "quiz.json");
+  await fs.writeFile(quizFilePath, "{}");
+  await writeContentV2QuizPublishState(quizFilePath, {
+    schemaVersion: 1,
+    targets: {
+      "project-dev": {
+        environment: "development",
+        projectId: "project-dev",
+        contentHash: "a".repeat(64),
+        publishedAt: "2026-08-06T00:00:00.000Z",
+        items: {},
+      },
+    },
+  });
+  const state = await readContentV2QuizPublishState(quizFilePath);
+  assert.equal(state.targets["project-dev"]?.environment, "development");
+  assert.equal(state.targets["project-dev"]?.contentHash, "a".repeat(64));
+});
 
 test("v2 type registry rejects incompatible parent and child types", () => {
   assert.doesNotThrow(() =>

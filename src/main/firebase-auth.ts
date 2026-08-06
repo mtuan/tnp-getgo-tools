@@ -284,13 +284,13 @@ export class FirebaseAuthService {
     );
     return { projectId, response };
   }
-  async uploadStorageObject(
-    objectPath: string,
-    data: Uint8Array,
-    mimeType: string,
-  ): Promise<{ projectId: string; bucket: string }> {
+  private async storageTarget(): Promise<{
+    session: Session;
+    projectId: string;
+    bucket: string;
+  }> {
     const session = await this.activeSession();
-    if (!session) throw new Error("Sign in before uploading content assets.");
+    if (!session) throw new Error("Sign in before changing content assets.");
     const {
       environment,
       firebase: { projectId, apiKey },
@@ -313,6 +313,15 @@ export class FirebaseAuthService {
       bucket = payload.storageBucket;
       this.storageBuckets.set(environment, bucket);
     }
+    return { session, projectId, bucket };
+  }
+
+  async uploadStorageObject(
+    objectPath: string,
+    data: Uint8Array,
+    mimeType: string,
+  ): Promise<{ projectId: string; bucket: string }> {
+    const { session, projectId, bucket } = await this.storageTarget();
     const url = new URL(
       `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o`,
     );
@@ -337,6 +346,28 @@ export class FirebaseAuthService {
       );
     }
     return { projectId, bucket };
+  }
+
+  async deleteStorageObject(objectPath: string): Promise<void> {
+    const { session, bucket } = await this.storageTarget();
+    const response = await fetch(
+      `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(objectPath)}`,
+      {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${session.idToken}` },
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    if (response.status === 404) return;
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: { message?: string };
+      };
+      throw new Error(
+        payload.error?.message ??
+          `Firebase Storage returned HTTP ${response.status}.`,
+      );
+    }
   }
   async signIn(email: string, password: string): Promise<AuthState> {
     const {
