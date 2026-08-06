@@ -116,6 +116,24 @@ export class AiMigrationJobManager {
     await this.persistJob(job); this.schedule(); return this.snapshot()
   }
 
+  async retry(id: string) {
+    await this.ensureLoaded()
+    const job = this.jobs.find(item => item.id === id)
+    if (!job || !["failed", "cancelled"].includes(job.status)) return this.snapshot()
+    await this.start({ manifestPath: job.manifestPath, context: job.context ?? { contestId: job.contestId, quizId: job.quizId, title: job.quizTitle } })
+    return this.snapshot()
+  }
+
+  async delete(id: string) {
+    await this.ensureLoaded()
+    const job = this.jobs.find(item => item.id === id)
+    if (!job || ["queued", "running", "paused"].includes(job.status)) return this.snapshot()
+    this.jobs = this.jobs.filter(item => item.id !== id)
+    await fs.unlink(path.join(path.dirname(job.manifestPath), "ai-migration-job.json")).catch(() => undefined)
+    await this.persist()
+    return this.snapshot()
+  }
+
   private schedule() {
     const capacity = this.concurrency - this.runtimes.size
     if (capacity <= 0) return

@@ -431,6 +431,7 @@ app.whenReady().then(async () => {
       finishedAt: job.finishedAt,
       route: `/quizzes/contests/${encodeURIComponent(job.contestId)}/quizzes/${encodeURIComponent(job.quizId)}`,
       cancellable: ["queued", "running", "paused"].includes(job.status),
+      retryable: ["failed", "cancelled"].includes(job.status),
       error: job.errors.at(-1)?.message,
     }));
     return {
@@ -473,6 +474,24 @@ app.whenReady().then(async () => {
       aiMigrationJobs.resume(jobId),
       publishJobs.resume(jobId),
       webDeploymentJobs.resume(jobId),
+    ]);
+    return backgroundJobsSnapshot();
+  });
+  ipcMain.handle("jobs:retry", async (_event, jobId: unknown) => {
+    if (typeof jobId !== "string") throw new Error("Invalid job ID.");
+    await Promise.all([
+      aiMigrationJobs.retry(jobId),
+      publishJobs.retry(jobId),
+      webDeploymentJobs.retry(jobId),
+    ]);
+    return backgroundJobsSnapshot();
+  });
+  ipcMain.handle("jobs:delete", async (_event, jobId: unknown) => {
+    if (typeof jobId !== "string") throw new Error("Invalid job ID.");
+    await Promise.all([
+      aiMigrationJobs.delete(jobId),
+      publishJobs.delete(jobId),
+      webDeploymentJobs.delete(jobId),
     ]);
     return backgroundJobsSnapshot();
   });

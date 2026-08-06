@@ -843,7 +843,7 @@ export function App() {
             )}
             {settings.repositoryPath && view === "deploy" && (
               <Suspense fallback={null}>
-                <DeploymentPage locale={settings.locale} onOpenJobs={() => goToRoute("/jobs")} />
+                <DeploymentPage locale={settings.locale} environment={settings.environment} onOpenJobs={() => goToRoute("/jobs")} />
               </Suspense>
             )}
             {settings.repositoryPath && view === "publishing" && snapshot && (

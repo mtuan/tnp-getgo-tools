@@ -126,18 +126,15 @@
     "resume": "Tiếp tục",
     "open": "Mở",
     "retry": "Thử lại",
+    "delete": "Xóa công việc",
+    "deleteConfirm": "Xóa {name} khỏi lịch sử công việc?",
     "cancelConfirm": "Hủy {name}? Tác vụ đang chạy sẽ bị dừng."
   },
   "deployment": {
     "eyebrow": "Quản lý phát hành",
     "title": "Triển khai",
-    "description": "Triển khai riêng Firebase rules và GetGo Web cho từng môi trường.",
+    "description": "Triển khai riêng Firebase rules và GetGo Web đến môi trường đang chọn trên thanh tiêu đề.",
     "openJobs": "Công việc triển khai",
-    "target": "Môi trường đích",
-    "targetDescription": "Chọn môi trường sẽ nhận bản triển khai.",
-    "development": "Development",
-    "staging": "Staging",
-    "production": "Production",
     "rulesTitle": "Firebase rules",
     "rulesDescription": "Triển khai chính sách phân quyền và truy cập dữ liệu mà không build lại Web.",
     "firestoreRules": "Quy tắc bảo mật Firestore",
@@ -160,7 +157,10 @@
     "pause": "Tạm dừng",
     "resume": "Tiếp tục",
     "cancel": "Hủy",
-    "cancelConfirm": "Hủy {name}? Tiến trình triển khai đang chạy sẽ bị dừng."
+    "retry": "Thử lại",
+    "delete": "Xóa bản triển khai",
+    "cancelConfirm": "Hủy {name}? Tiến trình triển khai đang chạy sẽ bị dừng.",
+    "deleteConfirm": "Xóa {name} khỏi lịch sử triển khai?"
   },
   "quizPublish": {
     "tab": "Xuất bản",

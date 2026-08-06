@@ -6,12 +6,15 @@ import type { BackgroundJob } from "../core/models.js";
 type PublishJob = BackgroundJob & { kind: "publish" };
 export interface PublishJobControl { checkpoint(): Promise<void> }
 interface Runtime { paused: boolean; cancelled: boolean; resume?: () => void }
+type PublishTask = (control: PublishJobControl) => Promise<unknown>;
+type PublishInput = Pick<PublishJob, "name" | "description" | "route">;
 
 export class PublishJobManager {
   private jobs: PublishJob[] = [];
   private loadPromise: Promise<void> | null = null;
   private persistChain: Promise<void> = Promise.resolve();
   private runtimes = new Map<string, Runtime>();
+  private retryTasks = new Map<string, { input: PublishInput; task: PublishTask }>();
 
   constructor(private readonly userDataPath: string) {}
 
@@ -29,8 +32,8 @@ export class PublishJobManager {
       const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: PublishJob[] };
       this.jobs = (stored.jobs ?? []).slice(0, 50).map((job) =>
         ["queued", "running"].includes(job.status)
-          ? { ...job, status: "failed", cancellable: false, finishedAt: new Date().toISOString(), error: "Job was interrupted when GetGo Tools stopped." }
-          : job,
+          ? { ...job, status: "failed", cancellable: false, retryable: false, finishedAt: new Date().toISOString(), error: "Job was interrupted when GetGo Tools stopped." }
+          : { ...job, retryable: false },
       );
     } catch {
       this.jobs = [];
@@ -53,24 +56,26 @@ export class PublishJobManager {
   }
 
   async start(
-    input: Pick<PublishJob, "name" | "description" | "route">,
-    task: (control: PublishJobControl) => Promise<void>,
+    input: PublishInput,
+    task: PublishTask,
   ): Promise<PublishJob> {
     const job = await this.create(input);
+    this.retryTasks.set(job.id, { input, task });
     void this.run(job, task).catch(() => undefined);
     return structuredClone(job);
   }
 
   async track<T>(
-    input: Pick<PublishJob, "name" | "description" | "route">,
+    input: PublishInput,
     task: (control: PublishJobControl) => Promise<T>,
   ): Promise<T> {
     const job = await this.create(input);
+    this.retryTasks.set(job.id, { input, task });
     return this.run(job, task);
   }
 
   private async create(
-    input: Pick<PublishJob, "name" | "description" | "route">,
+    input: PublishInput,
   ): Promise<PublishJob> {
     await this.ensureLoaded();
     const job: PublishJob = {
@@ -84,6 +89,7 @@ export class PublishJobManager {
       total: 1,
       progressLabel: "Waiting",
       cancellable: true,
+      retryable: false,
       createdAt: new Date().toISOString(),
     };
     this.jobs.unshift(job);
@@ -124,7 +130,25 @@ export class PublishJobManager {
     runtime.resume?.();
     job.status = "cancelled";
     job.progressLabel = "Cancelled";
+    job.retryable = this.retryTasks.has(id);
     job.finishedAt = new Date().toISOString();
+    await this.persist();
+  }
+
+  async retry(id: string) {
+    await this.ensureLoaded();
+    const retry = this.retryTasks.get(id);
+    const job = this.jobs.find((item) => item.id === id);
+    if (!retry || !job || !["failed", "cancelled"].includes(job.status)) return;
+    await this.start(retry.input, retry.task);
+  }
+
+  async delete(id: string) {
+    await this.ensureLoaded();
+    const job = this.jobs.find((item) => item.id === id);
+    if (!job || ["queued", "running", "paused"].includes(job.status)) return;
+    this.jobs = this.jobs.filter((item) => item.id !== id);
+    this.retryTasks.delete(id);
     await this.persist();
   }
 
@@ -152,6 +176,7 @@ export class PublishJobManager {
         job.status = "failed";
         job.error = cause instanceof Error ? cause.message : String(cause);
         job.progressLabel = "Failed";
+        job.retryable = true;
       }
       throw cause;
     } finally {

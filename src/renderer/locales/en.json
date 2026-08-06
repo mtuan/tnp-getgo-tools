@@ -126,18 +126,15 @@
     "resume": "Resume",
     "open": "Open",
     "retry": "Retry",
+    "delete": "Delete job",
+    "deleteConfirm": "Delete {name} from job history?",
     "cancelConfirm": "Cancel {name}? The active operation will be stopped."
   },
   "deployment": {
     "eyebrow": "Release control",
     "title": "Deploy",
-    "description": "Deploy Firebase rules and GetGo Web independently for each environment.",
+    "description": "Deploy Firebase rules and GetGo Web independently to the environment selected in the header.",
     "openJobs": "Deployment jobs",
-    "target": "Target environment",
-    "targetDescription": "Choose where this deployment will run.",
-    "development": "Development",
-    "staging": "Staging",
-    "production": "Production",
     "rulesTitle": "Firebase rules",
     "rulesDescription": "Deploy authorization and data-access policy without rebuilding Web.",
     "firestoreRules": "Firestore security rules",
@@ -160,7 +157,10 @@
     "pause": "Pause",
     "resume": "Resume",
     "cancel": "Cancel",
-    "cancelConfirm": "Cancel {name}? The active deployment process will be stopped."
+    "retry": "Retry",
+    "delete": "Delete deployment",
+    "cancelConfirm": "Cancel {name}? The active deployment process will be stopped.",
+    "deleteConfirm": "Delete {name} from deployment history?"
   },
   "quizPublish": {
     "tab": "Publish",

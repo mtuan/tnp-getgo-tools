@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Pause as PauseIcon, Play, RotateCcw, Trash2, X } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot } from "../core/models";
-import { Button, DataTable, ErrorFrame, PageHeader, SegmentedControl, type DataColumn } from "./ui";
+import { Button, DataTable, ErrorFrame, PageHeader, SegmentedControl, TableActionButton, type DataColumn } from "./ui";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 
@@ -86,6 +86,18 @@ export function JobsPage({
     }
   };
 
+  const terminalAction = async (job: BackgroundJob, action: "retry" | "delete") => {
+    if (action === "delete" && !window.confirm(copy.deleteConfirm.replace("{name}", job.name))) return;
+    setBusyJob(job.id);
+    try {
+      setSnapshot(action === "retry"
+        ? await window.getgo.retryBackgroundJob(job.id)
+        : await window.getgo.deleteBackgroundJob(job.id));
+    } finally {
+      setBusyJob(null);
+    }
+  };
+
   const jobKind = (job: BackgroundJob) =>
     job.kind === "ai-migrate" ? copy.aiMigration : job.kind === "publish" ? copy.publishing : copy.webDeployment;
 
@@ -95,7 +107,7 @@ export function JobsPage({
     { key: "status", title: copy.status, width: 120, render: (job) => <span className={`badge job-status job-status-${job.status}`}>{job.status}</span> },
     { key: "progress", title: copy.progress, width: 180, render: (job) => { const percent = job.total ? Math.min(100, Math.round(job.completed / job.total * 100)) : 0; return <div className="job-table-progress"><div><progress max={100} value={percent} /><strong>{percent}%</strong></div><small>{job.progressLabel}</small></div>; } },
     { key: "time", title: copy.time, width: 90, align: "right", render: (job) => <span className="job-table-time">{durationLabel(job, now)}</span> },
-    { key: "actions", title: copy.action, width: 190, align: "right", render: (job) => job.cancellable ? <div className="job-table-actions"><Button color="neutral" disabled={busyJob === job.id} onClick={(event) => { event.stopPropagation(); void changeExecution(job, job.status === "paused" ? "resume" : "pause"); }}>{job.status === "paused" ? copy.resume : copy.pause}</Button><Button color="danger" loading={busyJob === job.id} onClick={(event) => { event.stopPropagation(); void cancel(job); }}>{copy.cancel}</Button></div> : job.route ? <Button icon={<ExternalLink />} onClick={() => onOpenQuiz(job.route!)}>{copy.open}</Button> : "—" },
+    { key: "actions", title: copy.action, width: 190, align: "right", render: (job) => job.cancellable ? <div className="job-table-actions"><TableActionButton color="neutral" icon={job.status === "paused" ? <Play /> : <PauseIcon />} disabled={busyJob === job.id} aria-label={job.status === "paused" ? copy.resume : copy.pause} title={job.status === "paused" ? copy.resume : copy.pause} onClick={(event) => { event.stopPropagation(); void changeExecution(job, job.status === "paused" ? "resume" : "pause"); }} /><TableActionButton color="danger" icon={<X />} loading={busyJob === job.id} aria-label={copy.cancel} title={copy.cancel} onClick={(event) => { event.stopPropagation(); void cancel(job); }} /></div> : <div className="job-table-actions">{job.retryable && <TableActionButton color="primary" icon={<RotateCcw />} loading={busyJob === job.id} aria-label={copy.retry} title={copy.retry} onClick={() => void terminalAction(job, "retry")} />}{job.route && <TableActionButton color="neutral" icon={<ExternalLink />} aria-label={copy.open} title={copy.open} onClick={() => onOpenQuiz(job.route!)} />}<TableActionButton color="danger" icon={<Trash2 />} aria-label={copy.delete} title={copy.delete} loading={busyJob === job.id} onClick={() => void terminalAction(job, "delete")} /></div> },
   ];
 
   return <section className="jobs-page">

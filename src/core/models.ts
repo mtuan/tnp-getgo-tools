@@ -453,6 +453,7 @@ export interface BackgroundJob {
   finishedAt?: string;
   route?: string;
   cancellable: boolean;
+  retryable?: boolean;
   error?: string;
 }
 export interface BackgroundJobsSnapshot {
@@ -608,6 +609,8 @@ export interface DesktopApi {
   cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
+  retryBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
+  deleteBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   setAiMigrationConcurrency(
     concurrency: number,
   ): Promise<AiMigrationJobsSnapshot>;

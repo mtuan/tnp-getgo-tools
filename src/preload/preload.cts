@@ -176,6 +176,8 @@ const api: DesktopApi = {
   cancelBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:cancel", jobId),
   pauseBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:pause", jobId),
   resumeBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:resume", jobId),
+  retryBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:retry", jobId),
+  deleteBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:delete", jobId),
   setAiMigrationConcurrency: (concurrency) =>
     ipcRenderer.invoke("ai-migration:concurrency", concurrency),
   cancelAiMigrationJob: (jobId) =>

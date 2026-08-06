@@ -60,3 +60,29 @@ test("publish jobs pause, resume, and cancel at safe checkpoints", async () => {
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal((await manager.list())[0]?.status, "cancelled");
 });
+
+test("failed publish jobs retry the operation and terminal jobs can be deleted", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-retry-"));
+  const manager = new PublishJobManager(directory);
+  let attempts = 0;
+  await assert.rejects(
+    manager.track(
+      { name: "Publish quiz", description: "Retryable", route: "/topics/a" },
+      async () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("Temporary failure");
+      },
+    ),
+    /Temporary failure/,
+  );
+  const failed = (await manager.list())[0]!;
+  assert.equal(failed.retryable, true);
+  await manager.retry(failed.id);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const retried = await manager.list();
+  assert.equal(attempts, 2);
+  assert.equal(retried[0]?.status, "completed");
+  await manager.delete(retried[0]!.id);
+  await manager.delete(failed.id);
+  assert.equal((await manager.list()).length, 0);
+});

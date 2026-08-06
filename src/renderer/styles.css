@@ -5079,30 +5079,6 @@ button.danger svg {
   display: grid;
   gap: 18px;
 }
-.deployment-target {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: white;
-}
-.deployment-target > div:first-child {
-  display: grid;
-  gap: 3px;
-}
-.deployment-target strong {
-  font-size: 13px;
-}
-.deployment-target span {
-  color: var(--muted);
-  font-size: 11px;
-}
-.deployment-target .ui-segmented-control {
-  width: min(460px, 50%);
-}
 .deployment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5171,18 +5147,8 @@ button.danger svg {
   .deployment-grid {
     grid-template-columns: 1fr;
   }
-  .deployment-target {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .deployment-target .ui-segmented-control {
-    width: 100%;
-  }
 }
 @media (prefers-color-scheme: dark) {
-  .deployment-target {
-    background: #1e293b;
-  }
   .deployment-card-icon {
     color: #a5b4fc;
     background: #312e8166;

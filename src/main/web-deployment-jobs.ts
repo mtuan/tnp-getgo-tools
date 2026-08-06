@@ -4,7 +4,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { BackgroundJob, DeploymentComponent, WebDeploymentTarget } from "../core/models.js";
 
-type DeploymentJob = BackgroundJob & { kind: "deploy" };
+type DeploymentJob = BackgroundJob & {
+  kind: "deploy";
+  component?: DeploymentComponent;
+  target?: WebDeploymentTarget;
+};
 interface Runtime { child: ChildProcess; cancelled: boolean }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
@@ -42,7 +46,7 @@ export class WebDeploymentJobManager {
       const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[] };
       this.jobs = (stored.jobs ?? []).slice(0, 50).map((job) =>
         ["queued", "running", "paused"].includes(job.status)
-          ? { ...job, status: "failed", cancellable: false, finishedAt: new Date().toISOString(), error: "Deployment was interrupted when GetGo Tools stopped." }
+          ? { ...job, status: "failed", cancellable: false, retryable: Boolean(job.component && job.target), finishedAt: new Date().toISOString(), error: "Deployment was interrupted when GetGo Tools stopped." }
           : job,
       );
     } catch {
@@ -91,6 +95,8 @@ export class WebDeploymentJobManager {
     const job: DeploymentJob = {
       id: randomUUID(),
       kind: "deploy",
+      component,
+      target,
       name: `Deploy ${component === "web" ? "Web" : "Firebase rules"} · ${target}`,
       description: component === "web"
         ? `Build and deploy GetGo Web Hosting to ${target}`
@@ -101,6 +107,7 @@ export class WebDeploymentJobManager {
       progressLabel: "Starting deployment",
       createdAt: new Date().toISOString(),
       cancellable: true,
+      retryable: false,
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -144,6 +151,7 @@ export class WebDeploymentJobManager {
         job.status = "failed";
         job.error = cause?.message ?? `Deployment exited with code ${code ?? "unknown"}.`;
         job.progressLabel = "Failed";
+        job.retryable = true;
       }
     }
     job.cancellable = false;
@@ -194,7 +202,23 @@ export class WebDeploymentJobManager {
     job.status = "cancelled";
     job.progressLabel = "Cancelled";
     job.cancellable = false;
+    job.retryable = true;
     job.finishedAt = new Date().toISOString();
+    await this.persist();
+  }
+
+  async retry(id: string) {
+    await this.ensureLoaded();
+    const job = this.jobs.find((item) => item.id === id);
+    if (!job?.retryable || !job.component || !job.target) return;
+    await this.start(job.component, job.target);
+  }
+
+  async delete(id: string) {
+    await this.ensureLoaded();
+    const job = this.jobs.find((item) => item.id === id);
+    if (!job || ["queued", "running", "paused"].includes(job.status)) return;
+    this.jobs = this.jobs.filter((item) => item.id !== id);
     await this.persist();
   }
 }
