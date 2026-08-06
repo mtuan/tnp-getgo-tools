@@ -295,6 +295,16 @@ export async function scanContentV2Repository(
       publishedHash: topic.publishedHash ?? null,
       publishedAt: topic.publishedAt ?? null,
       quizCount: topicQuizzes.length,
+      ...(topic.type === "competition"
+        ? {
+            subject: topic.subject,
+            rounds: topic.rounds,
+            gradeGroups: topic.gradeGroups,
+          }
+        : {
+            supportedLanguages: topic.supportedLanguages,
+            recommendedAgeRange: topic.recommendedAgeRange,
+          }),
     });
   }
 

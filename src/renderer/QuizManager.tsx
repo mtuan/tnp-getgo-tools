@@ -30,6 +30,7 @@ import type {
   RepositorySnapshot,
   SpeechLanguage,
   SpeechLanguageSettings,
+  DesktopApi,
 } from "../core/models";
 import { questionHasDynamicParams } from "../core/question-dynamics";
 import { alphabetData } from "../core/alphabet-question";
@@ -78,7 +79,32 @@ interface QuizManagerProps {
     language: SpeechLanguage,
     settings: SpeechLanguageSettings,
   ): Promise<void>;
+  api?: QuizManagerApi;
+  routeMode?: "legacy" | "topics";
 }
+
+export type QuizManagerApi = Pick<
+  DesktopApi,
+  | "getAiMigrationJobs"
+  | "loadQuizQuestions"
+  | "loadAlphabetDictionary"
+  | "migrateLegacyQuizzes"
+  | "saveQuizQuestion"
+  | "resetQuizQuestion"
+  | "showQuizQuestionInFolder"
+  | "showInFolder"
+  | "deleteQuiz"
+  | "publishQuiz"
+  | "reorderQuizQuestions"
+  | "createQuizQuestion"
+  | "startAiMigrationJob"
+  | "updateQuiz"
+  | "deleteQuizQuestion"
+  | "deleteContest"
+  | "updateContest"
+  | "createContest"
+  | "createQuiz"
+>;
 
 type ManagerPage =
   | { kind: "contests" }
@@ -167,6 +193,7 @@ function quizReviewStatus(quiz: QuizSummary): {
 function restoredPage(
   snapshot: RepositorySnapshot,
   route?: string,
+  routeMode: "legacy" | "topics" = "legacy",
 ): {
   page: ManagerPage;
   questionNo: string | null;
@@ -174,7 +201,8 @@ function restoredPage(
   alphabetTab: AlphabetEditorTab;
   quizTab: QuizDetailTab;
 } {
-  if (!route?.startsWith("/quizzes/contests/"))
+  const rootRoute = routeMode === "topics" ? "/topics" : "/quizzes/contests";
+  if (!route || (route !== rootRoute && !route.startsWith(`${rootRoute}/`)))
     return {
       page: { kind: "contests" },
       questionNo: null,
@@ -186,7 +214,7 @@ function restoredPage(
   try {
     url = new URL(route, "app://getgo");
   } catch {
-    url = new URL("/quizzes/contests", "app://getgo");
+    url = new URL(rootRoute, "app://getgo");
   }
   const parts = url.pathname
     .split("/")
@@ -198,7 +226,13 @@ function restoredPage(
         return part;
       }
     });
-  const isQuestionRoute = parts[5] === "questions" && Boolean(parts[6]);
+  const contestIndex = routeMode === "topics" ? 1 : 2;
+  const quizMarkerIndex = contestIndex + 1;
+  const quizIndex = contestIndex + 2;
+  const questionMarkerIndex = contestIndex + 3;
+  const questionIndex = contestIndex + 4;
+  const isQuestionRoute =
+    parts[questionMarkerIndex] === "questions" && Boolean(parts[questionIndex]);
   const questionTab =
     url.searchParams.get("tab") === "dynamic" ? "dynamic" : "static";
   const alphabetTab: AlphabetEditorTab =
@@ -208,7 +242,9 @@ function restoredPage(
     requestedQuizTab === "info" || requestedQuizTab === "publish"
       ? requestedQuizTab
       : "questions";
-  const contest = snapshot.contests.find((item) => item.id === parts[2]);
+  const contest = snapshot.contests.find(
+    (item) => item.id === parts[contestIndex],
+  );
   if (!contest)
     return {
       page: { kind: "contests" },
@@ -217,7 +253,7 @@ function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (parts[3] !== "quizzes" || !parts[4])
+  if (parts[quizMarkerIndex] !== "quizzes" || !parts[quizIndex])
     return {
       page: { kind: "contest", contest: contest.id },
       questionNo: null,
@@ -226,7 +262,7 @@ function restoredPage(
       quizTab,
     };
   const quiz = snapshot.quizzes.find(
-    (item) => item.contest === contest.id && item.id === parts[4],
+    (item) => item.contest === contest.id && item.id === parts[quizIndex],
   );
   if (!quiz)
     return {
@@ -238,9 +274,20 @@ function restoredPage(
     };
   if (quizTab !== "info" && quizTab !== "publish")
     quizTab = quiz.type === "question-list" ? "questions" : "alphabets";
+  const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
+  const v2Question = requestedQuestionNo
+    ? snapshot.contentV2.questions.find(
+        (item) =>
+          item.topicId === contest.id &&
+          item.quizId === quiz.id &&
+          item.id === requestedQuestionNo,
+      )
+    : null;
   return {
     page: { kind: "quiz", quiz },
-    questionNo: isQuestionRoute ? parts[6] : null,
+    questionNo: v2Question
+      ? String(v2Question.order + 1)
+      : requestedQuestionNo,
     questionTab,
     alphabetTab,
     quizTab,
@@ -256,10 +303,20 @@ export function QuizManager({
   onRouteChange,
   onBackActionChange,
   onSpeechSettingsChange,
+  api,
+  routeMode = "legacy",
 }: QuizManagerProps) {
+  const managerApi = api ?? window.getgo;
   const toast = useToast();
   const quizPublishCopy = (locale === "vi" ? vi : en).quizPublish;
-  const [restored] = useState(() => restoredPage(snapshot, initialRoute));
+  const [restored] = useState(() =>
+    restoredPage(snapshot, initialRoute, routeMode),
+  );
+  const rootRoute = routeMode === "topics" ? "/topics" : "/quizzes/contests";
+  const contestRoute = (contestId: string) =>
+    `${rootRoute}/${encodeURIComponent(contestId)}`;
+  const quizRoute = (contestId: string, quizId: string) =>
+    `${contestRoute(contestId)}/quizzes/${encodeURIComponent(quizId)}`;
   const [page, setPage] = useState<ManagerPage>(restored.page);
   const [query, setQuery] = useState("");
   const [sourceLoading, setSourceLoading] = useState(false);
@@ -453,7 +510,7 @@ export function QuizManager({
     let active = true;
     const load = async () => {
       try {
-        const next = await window.getgo.getAiMigrationJobs();
+        const next = await managerApi.getAiMigrationJobs();
         if (active) setMigrationJobs(next.jobs);
       } catch (cause) {
         console.error("[GetGo Tools][Quiz migration status]", cause);
@@ -526,16 +583,16 @@ export function QuizManager({
 
   useEffect(() => {
     if (page.kind === "contests") {
-      onRouteChange("/quizzes/contests");
+      onRouteChange(rootRoute);
       if (pendingQuestionNo) setPendingQuestionNo(null);
     }
     if (page.kind === "contest") {
-      onRouteChange(`/quizzes/contests/${encodeURIComponent(page.contest)}`);
+      onRouteChange(contestRoute(page.contest));
       if (pendingQuestionNo) setPendingQuestionNo(null);
     }
     if (page.kind === "quiz")
       onRouteChange(
-        `/quizzes/contests/${encodeURIComponent(page.quiz.contest)}/quizzes/${encodeURIComponent(page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}?tab=${page.quiz.type === "question-list" ? questionEditorTab : alphabetEditorTab}` : `?tab=${quizTab}`}`,
+        `${quizRoute(page.quiz.contest, page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}?tab=${page.quiz.type === "question-list" ? questionEditorTab : alphabetEditorTab}` : `?tab=${quizTab}`}`,
       );
   }, [
     alphabetEditorTab,
@@ -552,10 +609,10 @@ export function QuizManager({
     setSourceLoading(true);
     setSourceError(null);
     Promise.all([
-      window.getgo.loadQuizQuestions(page.quiz.manifestPath),
+      managerApi.loadQuizQuestions(page.quiz.manifestPath),
       page.quiz.type === "alphabet-english" ||
       page.quiz.type === "alphabet-vietnamese"
-        ? window.getgo.loadAlphabetDictionary(page.quiz.manifestPath)
+        ? managerApi.loadAlphabetDictionary(page.quiz.manifestPath)
         : Promise.resolve<AlphabetDictionary>({ schemaVersion: 1, words: [] }),
     ])
       .then(([records, dictionary]) => {
@@ -643,7 +700,7 @@ export function QuizManager({
     )
       return;
     await runButtonAction("migrate-legacy", async () => {
-      const result = await window.getgo.migrateLegacyQuizzes(
+      const result = await managerApi.migrateLegacyQuizzes(
         selectedContest.id,
       );
       onSnapshotChange(result.snapshot);
@@ -686,7 +743,7 @@ export function QuizManager({
         ).length;
         if (!contestLegacyCount) continue;
         try {
-          const result = await window.getgo.migrateLegacyQuizzes(contest.id);
+          const result = await managerApi.migrateLegacyQuizzes(contest.id);
           latestSnapshot = result.snapshot;
           migratedQuizIds.push(
             ...result.migratedQuizIds.map(
@@ -1088,7 +1145,7 @@ export function QuizManager({
             questionNo: questionDraftRecord.question_no,
             dirty: questionDiff(activeQuestion.record, questionDraftRecord),
           });
-          const savedQuestion = await window.getgo.saveQuizQuestion(
+          const savedQuestion = await managerApi.saveQuizQuestion(
             quiz.manifestPath,
             questionDraftRecord,
           );
@@ -1141,7 +1198,7 @@ export function QuizManager({
         setQuestionOperation("reset");
         setSourceError(null);
         try {
-          const reset = await window.getgo.resetQuizQuestion(
+          const reset = await managerApi.resetQuizQuestion(
             quiz.manifestPath,
             questionDraftRecord,
           );
@@ -1182,7 +1239,7 @@ export function QuizManager({
         );
         setSavingVerification(true);
         try {
-          const savedQuestion = await window.getgo.saveQuizQuestion(
+          const savedQuestion = await managerApi.saveQuizQuestion(
             quiz.manifestPath,
             nextRecord,
           );
@@ -1238,7 +1295,7 @@ export function QuizManager({
             updatedAt: new Date().toISOString(),
           };
         else delete nextRecord.feedback;
-        const savedQuestion = await window.getgo.saveQuizQuestion(
+        const savedQuestion = await managerApi.saveQuizQuestion(
           quiz.manifestPath,
           nextRecord,
         );
@@ -1306,7 +1363,7 @@ export function QuizManager({
                 title="Show question in folder"
                 onClick={() =>
                   void runButtonAction("show-question-folder", () =>
-                    window.getgo.showQuizQuestionInFolder(
+                    managerApi.showQuizQuestionInFolder(
                       quiz.manifestPath,
                       activeQuestion.number,
                     ),
@@ -1462,7 +1519,7 @@ export function QuizManager({
               title="Show quiz in folder"
               onClick={() =>
                 void runButtonAction("show-quiz-folder", () =>
-                  window.getgo.showInFolder(quiz.manifestPath),
+                  managerApi.showInFolder(quiz.manifestPath),
                 )
               }
             />
@@ -1483,10 +1540,10 @@ export function QuizManager({
                   )
                     return;
                   void runButtonAction("delete-quiz", async () => {
-                    const next = await window.getgo.deleteQuiz(
+                    const next = await managerApi.deleteQuiz(
                       quiz.manifestPath,
                     );
-                    const parentRoute = `/quizzes/contests/${encodeURIComponent(quiz.contest)}`;
+                    const parentRoute = contestRoute(quiz.contest);
                     onRouteChange(parentRoute);
                     setPage({ kind: "contest", contest: quiz.contest });
                     onSnapshotChange(next);
@@ -1507,7 +1564,7 @@ export function QuizManager({
                 disabled={!quiz.localContentHash || Boolean(buttonAction)}
                 onClick={() =>
                   void runButtonAction("publish-quiz", async () => {
-                    const result = await window.getgo.publishQuiz(
+                    const result = await managerApi.publishQuiz(
                       quiz.contest,
                       quiz.id,
                     );
@@ -1552,7 +1609,7 @@ export function QuizManager({
                   disabled={Boolean(buttonAction)}
                   onClick={() =>
                     void runButtonAction("save-question-order", async () => {
-                      const result = await window.getgo.reorderQuizQuestions(
+                      const result = await managerApi.reorderQuizQuestions(
                         quiz.manifestPath,
                         questionOrder,
                       );
@@ -1579,7 +1636,7 @@ export function QuizManager({
                   disabled={sourceLoading || Boolean(buttonAction)}
                   onClick={() =>
                     void runButtonAction("create-question", async () => {
-                      const result = await window.getgo.createQuizQuestion(
+                      const result = await managerApi.createQuizQuestion(
                         quiz.manifestPath,
                       );
                       const nextRecords = [...questionRecords, result.question];
@@ -1624,7 +1681,7 @@ export function QuizManager({
                             onSelect: () =>
                               void runButtonAction("ai-migrate", async () => {
                                 const job =
-                                  await window.getgo.startAiMigrationJob({
+                                  await managerApi.startAiMigrationJob({
                                     manifestPath: quiz.manifestPath,
                                     context: {
                                       contestId: quiz.contest,
@@ -1678,7 +1735,7 @@ export function QuizManager({
             contest={quizContest}
             onClose={() => undefined}
             onSaved={async (input) => {
-              const next = await window.getgo.updateQuiz(quiz.manifestPath, {
+              const next = await managerApi.updateQuiz(quiz.manifestPath, {
                 title: input.title,
                 type: input.type,
                 grade: input.grade,
@@ -1769,7 +1826,7 @@ export function QuizManager({
             manifestPath={quiz.manifestPath}
             onClose={() => setPreviewQuestion(null)}
             onDelete={async () => {
-              const result = await window.getgo.deleteQuizQuestion(
+              const result = await managerApi.deleteQuizQuestion(
                 quiz.manifestPath,
                 String(previewQuestion.question_no),
               );
@@ -1824,7 +1881,7 @@ export function QuizManager({
               title="Show contest in folder"
               onClick={() =>
                 void runButtonAction("show-contest-folder", () =>
-                  window.getgo.showInFolder(selectedContest.settingsPath),
+                  managerApi.showInFolder(selectedContest.settingsPath),
                 )
               }
             />
@@ -1885,10 +1942,10 @@ export function QuizManager({
                   )
                     return;
                   void runButtonAction("delete-contest", async () => {
-                    const next = await window.getgo.deleteContest(
+                    const next = await managerApi.deleteContest(
                       selectedContest.id,
                     );
-                    onRouteChange("/quizzes/contests");
+                    onRouteChange(rootRoute);
                     setPage({ kind: "contests" });
                     onSnapshotChange(next);
                     toast.show({
@@ -1927,7 +1984,7 @@ export function QuizManager({
           contest={selectedContest}
           onClose={() => undefined}
           onSaved={async (settings) => {
-            const next = await window.getgo.updateContest(
+            const next = await managerApi.updateContest(
               selectedContest.id,
               settings,
             );
@@ -2122,8 +2179,8 @@ export function QuizManager({
           onSaved={async (settings) => {
             const creating = contestDialog === "create";
             const next = creating
-              ? await window.getgo.createContest(settings)
-              : await window.getgo.updateContest(contestDialog.id, settings);
+              ? await managerApi.createContest(settings)
+              : await managerApi.updateContest(contestDialog.id, settings);
             onSnapshotChange(next);
             setContestDialog(null);
             toast.show({
@@ -2135,10 +2192,10 @@ export function QuizManager({
             contestDialog !== "create"
               ? async () => {
                   const title = contestDialog.title;
-                  const next = await window.getgo.deleteContest(
+                  const next = await managerApi.deleteContest(
                     contestDialog.id,
                   );
-                  onRouteChange("/quizzes/contests");
+                  onRouteChange(rootRoute);
                   setContestDialog(null);
                   setPage({ kind: "contests" });
                   onSnapshotChange(next);
@@ -2156,7 +2213,7 @@ export function QuizManager({
           contest={selectedContest}
           onClose={() => setQuizDialog(null)}
           onSaved={async (input: QuizCrudInput) => {
-            const next = await window.getgo.createQuiz(page.contest, {
+            const next = await managerApi.createQuiz(page.contest, {
               ...input,
               status: "imported",
             });

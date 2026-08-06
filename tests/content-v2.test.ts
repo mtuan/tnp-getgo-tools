@@ -7,6 +7,7 @@ import {
   assertContentV2Relationship,
   hashContentV2,
   sanitizeContentV2Topic,
+  sanitizeContentV2Question,
 } from "../src/core/content-v2.js";
 import {
   saveContentV2Question,
@@ -67,6 +68,26 @@ test("v2 hashes ignore authoring and publishing metadata", () => {
     }),
   );
   assert.equal(first, second);
+});
+
+test("v2 publishing excludes editor feedback", () => {
+  const runtime = sanitizeContentV2Question({
+    schemaVersion: 2,
+    id: "q1",
+    type: "competition-question",
+    order: 0,
+    status: "rejected",
+    text: { en: "Question" },
+    assets: [],
+    answer: { type: "input", correct: "1" },
+    feedback: {
+      issues: ["wrong-answer"],
+      note: "Editor-only note",
+      updatedAt: "2026-08-06T00:00:00.000Z",
+    },
+  });
+  assert.equal("status" in runtime, false);
+  assert.equal("feedback" in runtime, false);
 });
 
 test("v2 repository persists and scans typed topic content", async () => {

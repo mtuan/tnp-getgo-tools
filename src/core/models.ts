@@ -95,6 +95,11 @@ export interface ContentV2TopicSummary {
   publishedHash: string | null;
   publishedAt: string | null;
   quizCount: number;
+  subject?: string;
+  rounds?: Array<{ id: string; title: string }>;
+  gradeGroups?: Array<{ id: string; title: string; grades: number[] }>;
+  supportedLanguages?: Array<"en" | "vi">;
+  recommendedAgeRange?: { minimum: number; maximum: number };
 }
 
 export interface ContentV2QuizSummary {

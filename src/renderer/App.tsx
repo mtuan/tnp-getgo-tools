@@ -48,7 +48,7 @@ import { Select, type SelectOption } from "./ui/Select";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
 import { QuizManager } from "./QuizManager";
-import { TopicsManager } from "./TopicsManager";
+import { ContentV2QuizManager } from "./ContentV2QuizManager";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 
@@ -145,7 +145,7 @@ function viewFromRoute(
         (item) =>
           item.topicId === parts[1] &&
           item.quizId === parts[3] &&
-          item.id === parts[5],
+          (item.id === parts[5] || String(item.order + 1) === parts[5]),
       )
     )
       return "not-found";
@@ -819,14 +819,13 @@ export function App() {
               />
             )}
             {settings.repositoryPath && view === "topics" && snapshot && (
-              <TopicsManager
+              <ContentV2QuizManager
                 locale={settings.locale}
                 speechSettings={settings.speech}
                 snapshot={snapshot}
-                route={currentRoute}
+                initialRoute={routeRequest.route}
                 onSnapshotChange={updateSnapshot}
-                onRouteChange={goToRoute}
-                onRouteReplace={setCurrentRoute}
+                onRouteChange={setCurrentRoute}
                 onBackActionChange={updateQuizBackAction}
                 onSpeechSettingsChange={changeSpeechSettings}
               />
