@@ -116,6 +116,8 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
   text_en?: unknown
   text_vn?: unknown
   action?: "generated"
+  status?: string
+  /** @deprecated Legacy compatibility only. Use status. */
   verified?: boolean
   feedback?: QuestionFeedback
   migrationError?: { stage: "origin-render"; message: string }

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import type { ContestSummary, QuizAiMigrationJob, QuizManifest, QuizQuestionRecord, QuizSummary, RepositorySnapshot, ScanIssue } from "../core/models.js"
+import { questionIsVerified } from "../core/question-status.js"
 import { contestSettingsSchema, quizManifestSchema } from "../core/schema.js"
 import { deriveDeploymentStatus } from "../core/status.js"
 import { hashPublishedQuestions, sanitizePublishedQuestion } from "../core/publishing.js"
@@ -23,8 +24,8 @@ async function readQuestionReview(directory: string, inspectRecords: boolean): P
   if (!inspectRecords) return { count: files.length, reviewed: 0, errors: 0, records: [], contentHash: null }
   const states = await Promise.all(files.map(async entry => {
     try {
-      const question = JSON.parse(await fs.readFile(path.join(directory, "questions", entry.name), "utf8")) as { verified?: unknown; migrationError?: unknown }
-      return { reviewed: question.verified === true ? 1 : 0, error: question.migrationError ? 1 : 0, record: question }
+      const question = JSON.parse(await fs.readFile(path.join(directory, "questions", entry.name), "utf8")) as { status?: unknown; verified?: unknown; migrationError?: unknown }
+      return { reviewed: questionIsVerified(question) ? 1 : 0, error: question.migrationError ? 1 : 0, record: question }
     } catch {
       return { reviewed: 0, error: 1, record: null }
     }

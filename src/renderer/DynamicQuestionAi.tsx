@@ -3,6 +3,7 @@ import { History, Sparkles, Wrench } from "lucide-react"
 import { QuizTsService, createDynamicQuestionBuildService } from "@tnp/getgo-logics/authoring"
 import { QuizBuilder, QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder"
 import type { DynamicQuestionProposalResult, QuizQuestionRecord } from "../core/models"
+import { withQuestionStatus } from "../core/question-status"
 import { Button } from "./ui/Button"
 import { Panel } from "./ui/Panel"
 import { useToast } from "./ui/Toast"
@@ -41,7 +42,7 @@ export function DynamicQuestionAi({ record, context, diagnostics, hasGeneratedEx
   useEffect(() => { if (!busy) { setElapsed(0); return }; const startedAt = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 250); return () => window.clearInterval(timer) }, [busy])
   useEffect(() => { const input = instructionsRef.current; if (!input) return; input.style.height = "auto"; const contentHeight = input.scrollHeight; input.style.height = `${Math.min(contentHeight, 76)}px`; input.style.overflowY = contentHeight > 76 ? "auto" : "hidden" }, [instructions])
   async function formatSource(key: typeof sourceKeys[number], source: string) { try { const formatted = (await QuizTsService.formatSnippet(key === "originParamsTs" ? `(${source})` : source)).trim().replace(/^;\s*/, ""); return key === "originParamsTs" ? formatted.replace(/^\(\s*/, "").replace(/\s*\)$/, "") : formatted } catch { return source.trim() } }
-  async function applyGenerated(result: DynamicQuestionProposalResult, startedAt: number, version: number) { const fields = Object.fromEntries(await Promise.all(sourceKeys.map(async key => [key, await formatSource(key, String(result.proposal[key] ?? ""))]))); if (version !== requestVersion.current) return; onApply({ ...record, verified: false, authoringMode: "advanced-dynamic", advancedDynamic: { ...record.advancedDynamic!, ...fields }, aiResponse: { ...result, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt } }) }
+  async function applyGenerated(result: DynamicQuestionProposalResult, startedAt: number, version: number) { const fields = Object.fromEntries(await Promise.all(sourceKeys.map(async key => [key, await formatSource(key, String(result.proposal[key] ?? ""))]))); if (version !== requestVersion.current) return; onApply(withQuestionStatus({ ...record, authoringMode: "advanced-dynamic", advancedDynamic: { ...record.advancedDynamic!, ...fields }, aiResponse: { ...result, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt } }, "pending")) }
   async function submit(event: FormEvent) {
     event.preventDefault(); if (busy) return
     if (mode === "fix" && !instructions.trim()) { toast.show({ title: "Fix instructions required", description: "Describe what the AI should repair.", variant: "error" }); return }
@@ -73,7 +74,7 @@ export function DynamicQuestionAi({ record, context, diagnostics, hasGeneratedEx
         const contentChanges = changedProtectedFields(originalContent, generatedContent)
         if (contentChanges.length) throw new Error(`AI fix changed protected question content (${contentChanges.join(", ")}). Nothing was applied.`)
         const proposal = { ...currentProposal, ...advancedDynamic, ...result.summary }
-        onApply({ ...record, verified: false, advancedDynamic, aiFixHistory: [...history, { ...result, proposal, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt }] })
+        onApply(withQuestionStatus({ ...record, advancedDynamic, aiFixHistory: [...history, { ...result, proposal, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt }] }, "pending"))
         toast.show({ title: "AI fix applied", description: result.summary.warnings[0] ?? result.explanation })
       }
       setInstructions("")

@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 import type { AiMigrationJob, AiMigrationJobsSnapshot, QuizAiMigrationJob, QuizQuestionRecord } from "../core/models.js"
+import { questionIsVerified, withQuestionStatus } from "../core/question-status.js"
 import { questionContainsImages } from "../core/question-images.js"
 import { loadQuizQuestions, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { LocalAiService, type LocalAiConfiguration } from "./local-ai.js"
@@ -75,10 +76,10 @@ export class AiMigrationJobManager {
     const records = await loadQuizQuestions(input.manifestPath)
     const job: AiMigrationJob = {
       id: randomUUID(), contestId, quizId, quizTitle: String(input.context.title ?? quizId), manifestPath: input.manifestPath, context: input.context,
-      status: "queued", total: records.filter(record => record.verified !== true && !questionContainsImages(record)).length,
+      status: "queued", total: records.filter(record => !questionIsVerified(record) && !questionContainsImages(record)).length,
       processed: 0, succeeded: 0, failed: 0,
-      skippedImages: records.filter(record => record.verified !== true && questionContainsImages(record)).length,
-      skippedVerified: records.filter(record => record.verified === true).length,
+      skippedImages: records.filter(record => !questionIsVerified(record) && questionContainsImages(record)).length,
+      skippedVerified: records.filter(questionIsVerified).length,
       errors: [], createdAt: new Date().toISOString(),
     }
     this.jobs.unshift(job); await this.persistJob(job); this.schedule(); return structuredClone(job)
@@ -106,20 +107,20 @@ export class AiMigrationJobManager {
     this.runtimes.set(job.id, runtime); job.status = "running"; job.startedAt = new Date().toISOString(); await this.persistJob(job)
     try {
       const initial = await loadQuizQuestions(job.manifestPath)
-      const queue = initial.filter(record => record.verified !== true && !questionContainsImages(record))
+      const queue = initial.filter(record => !questionIsVerified(record) && !questionContainsImages(record))
       for (const queued of queue) {
         if (runtime.cancelled) break
         const latest = (await loadQuizQuestions(job.manifestPath)).find(record => String(record.question_no) === String(queued.question_no))
-        if (!latest || latest.verified === true || questionContainsImages(latest)) { job.processed += 1; if (latest?.verified === true) job.skippedVerified += 1; else if (latest && questionContainsImages(latest)) job.skippedImages += 1; await this.persistJob(job); continue }
+        if (!latest || questionIsVerified(latest) || questionContainsImages(latest)) { job.processed += 1; if (latest && questionIsVerified(latest)) job.skippedVerified += 1; else if (latest && questionContainsImages(latest)) job.skippedImages += 1; await this.persistJob(job); continue }
         job.currentQuestion = String(latest.question_no); await this.persistJob(job)
         const startedAt = Date.now()
         try {
           const result = await service.createDynamicQuestionProposal({ question: latest, context })
           if (runtime.cancelled) break
           const current = (await loadQuizQuestions(job.manifestPath)).find(record => String(record.question_no) === String(latest.question_no))
-          if (!current || current.verified === true) { job.processed += 1; job.skippedVerified += current?.verified === true ? 1 : 0; await this.persistJob(job); continue }
+          if (!current || questionIsVerified(current)) { job.processed += 1; job.skippedVerified += current && questionIsVerified(current) ? 1 : 0; await this.persistJob(job); continue }
           const proposal = result.proposal
-          await saveQuizQuestion(job.manifestPath, { ...current, verified: false, authoringMode: "advanced-dynamic", advancedDynamic: { ...current.advancedDynamic, paramsGeneratorTs: proposal.paramsGeneratorTs, questionGeneratorTs: proposal.questionGeneratorTs, originParamsTs: proposal.originParamsTs, explanationGeneratorTs: proposal.explanationGeneratorTs }, aiResponse: { ...result, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt } } as QuizQuestionRecord)
+          await saveQuizQuestion(job.manifestPath, withQuestionStatus({ ...current, authoringMode: "advanced-dynamic", advancedDynamic: { ...current.advancedDynamic, paramsGeneratorTs: proposal.paramsGeneratorTs, questionGeneratorTs: proposal.questionGeneratorTs, originParamsTs: proposal.originParamsTs, explanationGeneratorTs: proposal.explanationGeneratorTs }, aiResponse: { ...result, generatedAt: new Date().toISOString(), processingTimeMs: Date.now() - startedAt } } as QuizQuestionRecord, "pending"))
           job.succeeded += 1
         } catch (cause) {
           if (runtime.cancelled) break

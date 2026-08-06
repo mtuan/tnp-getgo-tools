@@ -350,7 +350,7 @@ tbody tr:hover { background: #eef2ff80; }
 .badge-not-uploaded, .badge-unknown { color: #b45309; background: #fef3c7; }
 .badge-outdated { color: #c2410c; background: #ffedd5; }
 .badge-error { color: #b91c1c; background: #fee2e2; }
-.question-status-reviewed { color: #047857; background: #d1fae5; }
+.question-status-verified { color: #047857; background: #d1fae5; }
 .question-status-rejected { color: #b91c1c; background: #fee2e2; }
 .question-status-pending { color: #b45309; background: #fef3c7; }
 .review-status { min-width: 46px; text-align: center; }

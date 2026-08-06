@@ -11,6 +11,8 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
   text_en?: unknown
   text_vn?: unknown
   action?: "generated"
+  status?: string
+  /** @deprecated Legacy compatibility only. Use status. */
   verified?: boolean
   authoringMode?: string
   advancedDynamic?: {
@@ -42,7 +44,7 @@ function answerExpression(value: unknown): string {
 }
 
 function questionGeneratorSource(question: Record<string, unknown>): string {
-  const fields = Object.fromEntries(Object.entries(question).filter(([key]) => !["answer", "action", "verified", "schemaVersion", "authoringMode", "advancedDynamic", "generatorBuild"].includes(key)))
+  const fields = Object.fromEntries(Object.entries(question).filter(([key]) => !["answer", "action", "status", "verified", "schemaVersion", "authoringMode", "advancedDynamic", "generatorBuild"].includes(key)))
   const fieldSource = sourceLiteral(fields).slice(1, -1).trim()
   return `({}) => {\n  return {\n${fieldSource ? `${indent(fieldSource, 4)},\n` : ""}    answer: ${answerExpression(question.answer)},\n  }\n}`
 }
@@ -80,7 +82,7 @@ function normalizeQuestion(question: Record<string, unknown>, index: number): Qu
   return {
     ...normalized,
     schemaVersion: Number(normalized.schemaVersion) || 1,
-    verified: normalized.verified === true,
+    ...(typeof normalized.verified === "boolean" ? { verified: normalized.verified } : {}),
     authoringMode: "advanced-dynamic",
     advancedDynamic: {
       paramsGeneratorTs: "() => {\n  return {}\n}",
@@ -208,7 +210,7 @@ async function questionsFromRawTs(quizDirectory: string): Promise<QuizQuestionRe
       sourceQuestion = generated.question as unknown as Record<string, unknown>
     }
     const withAssets = await extractImages(sourceQuestion, index, path.join(quizDirectory, "assets"))
-    records.push(await formatQuestionCode({ ...withAssets, schemaVersion: 1, verified: false, authoringMode: "advanced-dynamic", advancedDynamic, ...(migrationError ? { migrationError } : {}) } as unknown as QuizQuestionRecord))
+    records.push(await formatQuestionCode({ ...withAssets, schemaVersion: 1, authoringMode: "advanced-dynamic", advancedDynamic, ...(migrationError ? { migrationError } : {}) } as unknown as QuizQuestionRecord))
   }
   return records
 }
@@ -351,7 +353,7 @@ export async function resetQuizQuestion(manifestPath: string, question: QuizQues
   const sourceDefault = defaults.find((item: QuizQuestionRecord) => String(item.question_no) === String(question.question_no))
   const { advancedDynamic: _advancedDynamic, aiResponse: _aiResponse, aiFixHistory: _aiFixHistory, generatorBuild: _generatorBuild, ...sourceQuestion } = question
   const reset = sourceDefault ?? normalizeQuestion(
-    { ...sourceQuestion, authoringMode: undefined, verified: false },
+    { ...sourceQuestion, authoringMode: undefined, status: undefined, verified: undefined },
     Math.max(0, Number(question.question_no) - 1),
   )
   return saveQuizQuestion(manifestPath, reset)
