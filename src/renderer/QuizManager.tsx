@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Check,
   ChevronRight,
+  CloudUpload,
   FolderOpen,
   ListOrdered,
   Pencil,
@@ -57,6 +58,9 @@ import { TableActionButton } from "./ui/TableActionButton";
 import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
+import { QuizPublishPanel } from "./QuizPublishPanel";
+import en from "./locales/en.json";
+import vi from "./locales/vi.json";
 import {
   AlphabetLetterEditor,
   type AlphabetEditorTab,
@@ -80,7 +84,7 @@ type ManagerPage =
   | { kind: "contests" }
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
-type QuizDetailTab = "questions" | "alphabets" | "info";
+type QuizDetailTab = "questions" | "alphabets" | "publish" | "info";
 
 interface QuestionListItem {
   number: string;
@@ -199,9 +203,10 @@ function restoredPage(
     url.searchParams.get("tab") === "dynamic" ? "dynamic" : "static";
   const alphabetTab: AlphabetEditorTab =
     url.searchParams.get("tab") === "related-words" ? "related-words" : "info";
+  const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
-    !isQuestionRoute && url.searchParams.get("tab") === "info"
-      ? "info"
+    requestedQuizTab === "info" || requestedQuizTab === "publish"
+      ? requestedQuizTab
       : "questions";
   const contest = snapshot.contests.find((item) => item.id === parts[2]);
   if (!contest)
@@ -231,7 +236,7 @@ function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (quizTab !== "info")
+  if (quizTab !== "info" && quizTab !== "publish")
     quizTab = quiz.type === "question-list" ? "questions" : "alphabets";
   return {
     page: { kind: "quiz", quiz },
@@ -253,6 +258,7 @@ export function QuizManager({
   onSpeechSettingsChange,
 }: QuizManagerProps) {
   const toast = useToast();
+  const quizPublishCopy = (locale === "vi" ? vi : en).quizPublish;
   const [restored] = useState(() => restoredPage(snapshot, initialRoute));
   const [page, setPage] = useState<ManagerPage>(restored.page);
   const [query, setQuery] = useState("");
@@ -1493,6 +1499,42 @@ export function QuizManager({
               >
                 Delete quiz
               </Button>
+            ) : quizTab === "publish" ? (
+              <Button
+                icon={<CloudUpload size={15} />}
+                variant="solid"
+                loading={buttonAction === "publish-quiz"}
+                disabled={!quiz.localContentHash || Boolean(buttonAction)}
+                onClick={() =>
+                  void runButtonAction("publish-quiz", async () => {
+                    const result = await window.getgo.publishQuiz(
+                      quiz.contest,
+                      quiz.id,
+                    );
+                    const updatedQuiz: QuizSummary = {
+                      ...quiz,
+                      publishedHash: result.contentHash,
+                      publishedAt: result.publishedAt,
+                      localContentHash: result.contentHash,
+                    };
+                    onSnapshotChange({
+                      ...snapshot,
+                      quizzes: snapshot.quizzes.map((item) =>
+                        item.key === quiz.key ? updatedQuiz : item,
+                      ),
+                    });
+                    setPage({ kind: "quiz", quiz: updatedQuiz });
+                    toast.show({
+                      title: quizPublishCopy.successTitle,
+                      description: quizPublishCopy.successDescription,
+                    });
+                  })
+                }
+              >
+                {quiz.publishedHash
+                  ? quizPublishCopy.republish
+                  : quizPublishCopy.publish}
+              </Button>
             ) : questionOrder ? (
               <>
                 <Button
@@ -1560,6 +1602,7 @@ export function QuizManager({
                     : "Add letter"}
                 </Button>
                 <ActionMenu
+                  label={quizPublishCopy.more}
                   disabled={sourceLoading || Boolean(buttonAction)}
                   items={[
                     {
@@ -1625,6 +1668,7 @@ export function QuizManager({
                   badge: questions.length || quiz.questionCount || 0,
                 },
             { id: "info", label: "Info" },
+            { id: "publish", label: quizPublishCopy.tab },
           ]}
         />
         {quizTab === "info" && quizContest && (
@@ -1654,6 +1698,9 @@ export function QuizManager({
               });
             }}
           />
+        )}
+        {quizTab === "publish" && (
+          <QuizPublishPanel quiz={quiz} locale={locale} />
         )}
         {quizTab === "questions" && (
           <>

@@ -233,11 +233,29 @@ export function App() {
     }
   }
   async function changeEnvironment(environment: AppSettings["environment"]) {
-    const next = await window.getgo.setEnvironment(environment);
-    setSettings(next);
-    setEnvironmentReadiness(null);
-    setCheckingEnvironment(true);
+    if (checkingEnvironment || environment === settings.environment) return;
+    const previousSettings = settings;
     const checkId = ++environmentCheckId.current;
+    setCheckingEnvironment(true);
+    setEnvironmentReadiness(null);
+    setSettings((current) => ({ ...current, environment }));
+    let next: AppSettings;
+    try {
+      next = await window.getgo.setEnvironment(environment);
+      if (checkId !== environmentCheckId.current) return;
+      setSettings(next);
+    } catch (cause) {
+      if (checkId === environmentCheckId.current) {
+        setSettings(previousSettings);
+        setCheckingEnvironment(false);
+      }
+      toast.show({
+        title: "Environment change failed",
+        description: cause instanceof Error ? cause.message : String(cause),
+        variant: "error",
+      });
+      return;
+    }
     const readinessCheck = window.getgo.checkEnvironmentReadiness;
     if (typeof readinessCheck !== "function") {
       await auth.refresh();
