@@ -47,6 +47,18 @@ import { FirebaseAuthService } from "./firebase-auth.js";
 import { LocalAiService } from "./local-ai.js";
 import { AiMigrationJobManager } from "./ai-migration-jobs.js";
 import { FirestorePublishingService } from "./firestore-publishing.js";
+import {
+  loadContentV2Assets,
+  loadContentV2Question,
+  loadContentV2Quiz,
+  loadContentV2QuizResources,
+  loadContentV2Topic,
+  recordContentV2Published,
+  saveContentV2Question,
+  saveContentV2Quiz,
+  saveContentV2Topic,
+  scanContentV2Repository,
+} from "../repositories/content-v2-repository.js";
 
 loadEnvironment({
   path: app.isPackaged
@@ -171,6 +183,14 @@ app.whenReady().then(async () => {
       throw new Error(
         "Repository data is not loaded. Restart Tools or choose the repository again.",
       );
+    return repositorySnapshot;
+  };
+  const refreshContentV2 = async (
+    root: string,
+  ): Promise<RepositorySnapshot> => {
+    const snapshot = requireSnapshot();
+    const content = await scanContentV2Repository(root);
+    repositorySnapshot = { ...snapshot, contentV2: content.snapshot };
     return repositorySnapshot;
   };
   const waitForSnapshot = async (
@@ -446,6 +466,216 @@ app.whenReady().then(async () => {
       return snapshot;
     },
   );
+  ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
+    if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
+    return loadContentV2Topic(await repositoryRoot(), topicId);
+  });
+  ipcMain.handle(
+    "content-v2:quiz:load",
+    async (_event, topicId: unknown, quizId: unknown) => {
+      if (typeof topicId !== "string" || typeof quizId !== "string")
+        throw new Error("Invalid quiz selection.");
+      return loadContentV2Quiz(await repositoryRoot(), topicId, quizId);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:question:load",
+    async (_event, topicId: unknown, quizId: unknown, questionId: unknown) => {
+      if (
+        typeof topicId !== "string" ||
+        typeof quizId !== "string" ||
+        typeof questionId !== "string"
+      )
+        throw new Error("Invalid question selection.");
+      return loadContentV2Question(
+        await repositoryRoot(),
+        topicId,
+        quizId,
+        questionId,
+      );
+    },
+  );
+  ipcMain.handle(
+    "content-v2:quiz:resources",
+    async (_event, topicId: unknown, quizId: unknown) => {
+      if (typeof topicId !== "string" || typeof quizId !== "string")
+        throw new Error("Invalid quiz selection.");
+      const root = await repositoryRoot();
+      const quiz = await loadContentV2Quiz(root, topicId, quizId);
+      return loadContentV2QuizResources(root, topicId, quiz);
+    },
+  );
+  ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) => {
+    const root = await repositoryRoot();
+    await saveContentV2Topic(root, value);
+    return refreshContentV2(root);
+  });
+  ipcMain.handle(
+    "content-v2:quiz:save",
+    async (_event, topicId: unknown, value: unknown) => {
+      if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
+      const root = await repositoryRoot();
+      const topic = await loadContentV2Topic(root, topicId);
+      await saveContentV2Quiz(root, topic, value);
+      return refreshContentV2(root);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:question:save",
+    async (_event, topicId: unknown, quizId: unknown, value: unknown) => {
+      if (typeof topicId !== "string" || typeof quizId !== "string")
+        throw new Error("Invalid question selection.");
+      const root = await repositoryRoot();
+      const [topic, quiz] = await Promise.all([
+        loadContentV2Topic(root, topicId),
+        loadContentV2Quiz(root, topicId, quizId),
+      ]);
+      await saveContentV2Question(root, topic, quiz, value);
+      return refreshContentV2(root);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:topic:delete",
+    async (_event, topicId: unknown) => {
+      if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+        throw new Error("Invalid topic ID.");
+      const root = await repositoryRoot();
+      const directory = path.join(root, "content-v2", "topics", topicId);
+      await fs.access(path.join(directory, "topic.json"));
+      await shell.trashItem(directory);
+      return refreshContentV2(root);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:quiz:delete",
+    async (_event, topicId: unknown, quizId: unknown) => {
+      if (
+        typeof topicId !== "string" ||
+        typeof quizId !== "string" ||
+        !/^[a-z][a-z0-9-]*$/.test(topicId) ||
+        !/^[a-z][a-z0-9-]*$/.test(quizId)
+      )
+        throw new Error("Invalid quiz selection.");
+      const root = await repositoryRoot();
+      const directory = path.join(
+        root,
+        "content-v2",
+        "topics",
+        topicId,
+        "quizzes",
+        quizId,
+      );
+      await fs.access(path.join(directory, "quiz.json"));
+      await shell.trashItem(directory);
+      return refreshContentV2(root);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:question:delete",
+    async (_event, topicId: unknown, quizId: unknown, questionId: unknown) => {
+      const ids = [topicId, quizId, questionId];
+      if (
+        ids.some(
+          (value) =>
+            typeof value !== "string" || !/^[a-z][a-z0-9-]*$/.test(value),
+        )
+      )
+        throw new Error("Invalid question selection.");
+      const root = await repositoryRoot();
+      const filePath = path.join(
+        root,
+        "content-v2",
+        "topics",
+        topicId as string,
+        "quizzes",
+        quizId as string,
+        "questions",
+        `${questionId}.json`,
+      );
+      await fs.access(filePath);
+      await shell.trashItem(filePath);
+      return refreshContentV2(root);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:topic:publish",
+    async (_event, topicId: unknown) => {
+      if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
+      const root = await repositoryRoot();
+      const snapshot = requireSnapshot();
+      const summary = snapshot.contentV2.topics.find(
+        (item) => item.id === topicId,
+      );
+      if (!summary) throw new Error("The selected topic was not found.");
+      const topic = await loadContentV2Topic(root, topicId);
+      const quizIds = snapshot.contentV2.quizzes
+        .filter((quiz) => quiz.topicId === topicId)
+        .sort((left, right) => left.order - right.order)
+        .map((quiz) => quiz.id);
+      const result = await publishing.publishContentV2Topic(
+        topic,
+        summary.localHash,
+        quizIds,
+      );
+      await recordContentV2Published(
+        summary.filePath,
+        result.contentHash,
+        result.publishedAt,
+      );
+      await refreshContentV2(root);
+      return result;
+    },
+  );
+  ipcMain.handle(
+    "content-v2:quiz:publish",
+    async (_event, topicId: unknown, quizId: unknown) => {
+      if (typeof topicId !== "string" || typeof quizId !== "string")
+        throw new Error("Invalid quiz selection.");
+      const root = await repositoryRoot();
+      const snapshot = requireSnapshot();
+      const summary = snapshot.contentV2.quizzes.find(
+        (item) => item.topicId === topicId && item.id === quizId,
+      );
+      if (!summary) throw new Error("The selected quiz was not found.");
+      if (summary.questionCount !== summary.reviewedQuestionCount)
+        throw new Error("Review every question before publishing this quiz.");
+      const quiz = await loadContentV2Quiz(root, topicId, quizId);
+      const questionIds = snapshot.contentV2.questions
+        .filter(
+          (question) =>
+            question.topicId === topicId && question.quizId === quizId,
+        )
+        .sort((left, right) => left.order - right.order)
+        .map((question) => question.id);
+      const [questions, resources] = await Promise.all([
+        Promise.all(
+          questionIds.map((questionId) =>
+            loadContentV2Question(root, topicId, quizId, questionId),
+          ),
+        ),
+        loadContentV2QuizResources(root, topicId, quiz),
+      ]);
+      const assets = await loadContentV2Assets(root, topicId, quizId, {
+        questions,
+        resources,
+      });
+      const result = await publishing.publishContentV2Quiz(
+        topicId,
+        quiz,
+        questions,
+        resources,
+        assets,
+        summary.localHash,
+      );
+      await recordContentV2Published(
+        summary.filePath,
+        result.contentHash,
+        result.publishedAt,
+      );
+      await refreshContentV2(root);
+      return result;
+    },
+  );
   ipcMain.handle(
     "settings:environment",
     (_event, environment: AppSettings["environment"]) => {
@@ -542,18 +772,49 @@ app.whenReady().then(async () => {
   ipcMain.handle(
     "quiz-asset:read",
     async (_event, manifestPath: unknown, assetReference: unknown) => {
-      const manifest = await resolveManifest(manifestPath);
+      if (
+        typeof manifestPath !== "string" ||
+        !path.isAbsolute(manifestPath) ||
+        !["manifest.json", "quiz.json"].includes(path.basename(manifestPath))
+      )
+        throw new Error("Invalid quiz manifest path");
+      const current = await settings.read();
+      if (!current.repositoryPath)
+        throw new Error("Choose a quiz repository first.");
+      const manifest = path.resolve(manifestPath);
+      const manifestRelative = path.relative(current.repositoryPath, manifest);
+      if (manifestRelative.startsWith("..") || path.isAbsolute(manifestRelative))
+        throw new Error("Quiz is outside the selected repository");
       if (
         typeof assetReference !== "string" ||
         !assetReference.startsWith("asset:")
       )
         throw new Error("Invalid quiz asset reference");
       const relativeAssetPath = assetReference.slice("asset:".length);
-      const assetsDirectory = path.join(path.dirname(manifest), "assets");
-      const assetPath = path.resolve(assetsDirectory, relativeAssetPath);
-      const relative = path.relative(assetsDirectory, assetPath);
-      if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
+      if (
+        !relativeAssetPath ||
+        path.isAbsolute(relativeAssetPath) ||
+        relativeAssetPath.split(/[\\/]/).includes("..")
+      )
         throw new Error("Quiz asset is outside the assets folder");
+      const quizDirectory = path.dirname(manifest);
+      const assetDirectories = [path.join(quizDirectory, "assets")];
+      if (path.basename(manifest) === "quiz.json")
+        assetDirectories.push(
+          path.join(path.dirname(path.dirname(quizDirectory)), "assets"),
+        );
+      let assetPath: string | null = null;
+      for (const directory of assetDirectories) {
+        const candidate = path.resolve(directory, relativeAssetPath);
+        const relative = path.relative(directory, candidate);
+        if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
+          continue;
+        if (await fs.access(candidate).then(() => true).catch(() => false)) {
+          assetPath = candidate;
+          break;
+        }
+      }
+      if (!assetPath) throw new Error(`Could not load ${assetReference}`);
       const extension = path.extname(assetPath).toLowerCase();
       const mimeType = (
         {

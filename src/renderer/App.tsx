@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   AlertTriangle,
+  Archive,
   ArrowLeft,
   BriefcaseBusiness,
   Check,
@@ -47,6 +48,9 @@ import { Select, type SelectOption } from "./ui/Select";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
 import { QuizManager } from "./QuizManager";
+import { TopicsManager } from "./TopicsManager";
+import en from "./locales/en.json";
+import vi from "./locales/vi.json";
 
 const PublishingPage = lazy(() =>
   import("./PublishingPage").then((module) => ({
@@ -58,10 +62,30 @@ const JobsPage = lazy(() =>
 );
 
 type View =
-  "dashboard" | "quizzes" | "jobs" | "publishing" | "settings" | "not-found";
+  | "dashboard"
+  | "topics"
+  | "quizzes"
+  | "jobs"
+  | "publishing"
+  | "settings"
+  | "not-found";
 type NavigableView = Exclude<View, "not-found">;
 const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
+const emptyContentV2: RepositorySnapshot["contentV2"] = {
+  topics: [],
+  quizzes: [],
+  questions: [],
+  issues: [],
+};
+function normalizeRepositorySnapshot(
+  snapshot: RepositorySnapshot,
+): RepositorySnapshot {
+  return {
+    ...snapshot,
+    contentV2: snapshot.contentV2 ?? emptyContentV2,
+  };
+}
 const readLastRoute = () => {
   try {
     return localStorage.getItem(lastRouteKey) || "/dashboard";
@@ -100,6 +124,33 @@ function viewFromRoute(
         return part;
       }
     });
+  if (parts[0] === "topics") {
+    if (parts.length === 1) return "topics";
+    const topic = snapshot?.contentV2?.topics.find(
+      (item) => item.id === parts[1],
+    );
+    if (snapshot && !topic) return "not-found";
+    if (parts.length === 2) return "topics";
+    if (parts[2] !== "quizzes" || !parts[3]) return "not-found";
+    const quiz = snapshot?.contentV2?.quizzes.find(
+      (item) => item.topicId === parts[1] && item.id === parts[3],
+    );
+    if (snapshot && !quiz) return "not-found";
+    if (parts.length === 4) return "topics";
+    if (parts[4] !== "questions" || !parts[5] || parts.length !== 6)
+      return "not-found";
+    if (
+      snapshot &&
+      !snapshot.contentV2?.questions.some(
+        (item) =>
+          item.topicId === parts[1] &&
+          item.quizId === parts[3] &&
+          item.id === parts[5],
+      )
+    )
+      return "not-found";
+    return "topics";
+  }
   if (parts[0] !== "quizzes" || parts[1] !== "contests") return "not-found";
   if (parts.length === 2) return "quizzes";
   const contestId = parts[2];
@@ -129,7 +180,8 @@ const normalizedRoute = (route: string) => {
 };
 const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "quizzes", label: "Quizzes", icon: Library },
+  { id: "topics", label: "Topics", icon: Library },
+  { id: "quizzes", label: "Legacy quizzes", icon: Archive },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "publishing", label: "Publishing", icon: CloudUpload },
   { id: "settings", label: "Settings", icon: Settings },
@@ -166,7 +218,13 @@ export function App() {
     locale: "en",
     speech: structuredClone(defaultSpeechSettings),
   });
+  const contentCopy = (settings.locale === "vi" ? vi : en).contentV2;
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null);
+  const updateSnapshot = useCallback(
+    (next: RepositorySnapshot) =>
+      setSnapshot(normalizeRepositorySnapshot(next)),
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [choosingRepository, setChoosingRepository] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +251,7 @@ export function App() {
     setLoading(true);
     setRepositoryError(null);
     try {
-      setSnapshot(await window.getgo.scanRepository(path, force));
+      updateSnapshot(await window.getgo.scanRepository(path, force));
       if (announce)
         toast.show({
           title: "Repository refreshed",
@@ -217,7 +275,7 @@ export function App() {
     try {
       const result = await window.getgo.chooseRepository();
       if (result) {
-        setSnapshot(result);
+        updateSnapshot(result);
         setSettings((s) => ({ ...s, repositoryPath: result.repositoryPath }));
         setRepositoryError(null);
         toast.show({
@@ -550,18 +608,24 @@ export function App() {
         <nav>
           {nav.map((item) => {
             const Icon = item.icon;
+            const label =
+              item.id === "topics"
+                ? contentCopy.nav
+                : item.id === "quizzes"
+                  ? contentCopy.legacyNav
+                  : item.label;
             return (
               <button
                 key={item.id}
                 className={view === item.id ? "active" : ""}
-                aria-label={item.label}
-                title={sidebarCollapsed ? item.label : undefined}
+                aria-label={label}
+                title={sidebarCollapsed ? label : undefined}
                 onClick={() => navigate(item.id)}
               >
                 <i>
                   <Icon size={18} strokeWidth={1.8} />
                 </i>
-                <span>{item.label}</span>
+                <span>{label}</span>
               </button>
             );
           })}
@@ -748,8 +812,21 @@ export function App() {
                 speechSettings={settings.speech}
                 snapshot={snapshot}
                 initialRoute={routeRequest.route}
-                onSnapshotChange={setSnapshot}
+                onSnapshotChange={updateSnapshot}
                 onRouteChange={setCurrentRoute}
+                onBackActionChange={updateQuizBackAction}
+                onSpeechSettingsChange={changeSpeechSettings}
+              />
+            )}
+            {settings.repositoryPath && view === "topics" && snapshot && (
+              <TopicsManager
+                locale={settings.locale}
+                speechSettings={settings.speech}
+                snapshot={snapshot}
+                route={currentRoute}
+                onSnapshotChange={updateSnapshot}
+                onRouteChange={goToRoute}
+                onRouteReplace={setCurrentRoute}
                 onBackActionChange={updateQuizBackAction}
                 onSpeechSettingsChange={changeSpeechSettings}
               />

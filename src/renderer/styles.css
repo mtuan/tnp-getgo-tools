@@ -5871,6 +5871,68 @@ button.danger svg {
   color: #b45309;
   background: #fef3c7;
 }
+.publishing-status-published {
+  color: #047857;
+  background: #d1fae5;
+}
+.topics-manager > .ui-data-table,
+.topics-detail-grid > div > .ui-data-table {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+.topics-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.75fr);
+  align-items: start;
+  gap: 18px;
+}
+.topics-detail-grid > .crud-dialog {
+  position: sticky;
+  top: 12px;
+}
+.topic-primary {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.topic-primary strong {
+  overflow: hidden;
+  color: #1e293b;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topic-primary small {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 1120px) {
+  .topics-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .topics-detail-grid > .crud-dialog {
+    position: static;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .topics-manager > .ui-data-table,
+  .topics-detail-grid > div > .ui-data-table {
+    border-color: #334155;
+    background: #0f172a;
+  }
+  .topic-primary strong {
+    color: #f8fafc;
+  }
+  .topic-primary small {
+    color: #94a3b8;
+  }
+}
 .publishing-status-up-to-date {
   color: #047857;
   background: #d1fae5;

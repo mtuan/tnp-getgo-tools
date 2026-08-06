@@ -18,6 +18,31 @@ const api: DesktopApi = {
       path,
       force,
     ) as Promise<RepositorySnapshot>,
+  loadContentV2Topic: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:load", topicId),
+  loadContentV2Quiz: (topicId, quizId) =>
+    ipcRenderer.invoke("content-v2:quiz:load", topicId, quizId),
+  loadContentV2Question: (topicId, quizId, questionId) =>
+    ipcRenderer.invoke("content-v2:question:load", topicId, quizId, questionId),
+  loadContentV2QuizResources: (topicId, quizId) =>
+    ipcRenderer.invoke("content-v2:quiz:resources", topicId, quizId),
+  saveContentV2Topic: (topic) =>
+    ipcRenderer.invoke("content-v2:topic:save", topic),
+  saveContentV2Quiz: (topicId, quiz) =>
+    ipcRenderer.invoke("content-v2:quiz:save", topicId, quiz),
+  saveContentV2Question: (topicId, quizId, question) =>
+    ipcRenderer.invoke("content-v2:question:save", topicId, quizId, question),
+  deleteContentV2Topic: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:delete", topicId),
+  deleteContentV2Quiz: (topicId, quizId) =>
+    ipcRenderer.invoke("content-v2:quiz:delete", topicId, quizId),
+  deleteContentV2Question: (topicId, quizId, questionId) =>
+    ipcRenderer.invoke(
+      "content-v2:question:delete",
+      topicId,
+      quizId,
+      questionId,
+    ),
   setEnvironment: (environment) =>
     ipcRenderer.invoke(
       "settings:environment",
@@ -37,6 +62,10 @@ const api: DesktopApi = {
   getPublishingStatus: () => ipcRenderer.invoke("publishing:status"),
   publishQuiz: (contestId, quizId) =>
     ipcRenderer.invoke("publishing:quiz", contestId, quizId),
+  publishContentV2Topic: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:publish", topicId),
+  publishContentV2Quiz: (topicId, quizId) =>
+    ipcRenderer.invoke("content-v2:quiz:publish", topicId, quizId),
   showInFolder: (path) =>
     ipcRenderer.invoke("shell:show", path) as Promise<void>,
   showQuizQuestionInFolder: (manifestPath, questionNo) =>

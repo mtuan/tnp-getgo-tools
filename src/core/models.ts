@@ -80,6 +80,65 @@ export interface RepositorySnapshot {
   contests: ContestSummary[];
   quizzes: QuizSummary[];
   issues: ScanIssue[];
+  contentV2: ContentV2Snapshot;
+}
+
+export interface ContentV2TopicSummary {
+  id: string;
+  type: "competition" | "alphabet-learning";
+  title: string;
+  description: string;
+  status: "draft" | "pending" | "reviewed" | "rejected";
+  order: number;
+  filePath: string;
+  localHash: string;
+  publishedHash: string | null;
+  publishedAt: string | null;
+  quizCount: number;
+}
+
+export interface ContentV2QuizSummary {
+  key: string;
+  topicId: string;
+  id: string;
+  type: "competition-paper" | "alphabet-course";
+  title: string;
+  description: string;
+  status: "draft" | "pending" | "reviewed" | "rejected";
+  order: number;
+  filePath: string;
+  localHash: string;
+  publishedHash: string | null;
+  publishedAt: string | null;
+  questionCount: number;
+  reviewedQuestionCount: number;
+  grade?: string;
+  round?: string;
+  year?: string;
+  language?: "en" | "vi";
+}
+
+export interface ContentV2QuestionSummary {
+  key: string;
+  topicId: string;
+  quizId: string;
+  id: string;
+  type: "competition-question" | "alphabet-letter";
+  order: number;
+  status: "draft" | "pending" | "reviewed" | "rejected";
+  filePath: string;
+  localHash: string;
+  label: string;
+  category?: string;
+  hasImages?: boolean;
+  dynamic?: boolean;
+}
+
+export interface ContentV2Snapshot {
+  topics: ContentV2TopicSummary[];
+  quizzes: ContentV2QuizSummary[];
+  questions: ContentV2QuestionSummary[];
+  issues: ScanIssue[];
 }
 
 export interface QuizMigrationResult {
@@ -299,6 +358,14 @@ export interface PublishResult {
   publishedAt: string;
 }
 
+export interface ContentV2PublishResult {
+  kind: "topic" | "quiz";
+  topicId: string;
+  quizId?: string;
+  contentHash: string;
+  publishedAt: string;
+}
+
 export type AiMigrationJobStatus =
   "queued" | "running" | "completed" | "cancelled" | "failed";
 export interface AiMigrationJob {
@@ -341,6 +408,37 @@ export interface DesktopApi {
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
+  loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
+  loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;
+  loadContentV2Question(
+    topicId: string,
+    quizId: string,
+    questionId: string,
+  ): Promise<ContentV2Question>;
+  loadContentV2QuizResources(
+    topicId: string,
+    quizId: string,
+  ): Promise<Record<string, unknown>>;
+  saveContentV2Topic(topic: ContentV2Topic): Promise<RepositorySnapshot>;
+  saveContentV2Quiz(
+    topicId: string,
+    quiz: ContentV2Quiz,
+  ): Promise<RepositorySnapshot>;
+  saveContentV2Question(
+    topicId: string,
+    quizId: string,
+    question: ContentV2Question,
+  ): Promise<RepositorySnapshot>;
+  deleteContentV2Topic(topicId: string): Promise<RepositorySnapshot>;
+  deleteContentV2Quiz(
+    topicId: string,
+    quizId: string,
+  ): Promise<RepositorySnapshot>;
+  deleteContentV2Question(
+    topicId: string,
+    quizId: string,
+    questionId: string,
+  ): Promise<RepositorySnapshot>;
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>;
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>;
   setLocale(locale: AppSettings["locale"]): Promise<AppSettings>;
@@ -351,6 +449,11 @@ export interface DesktopApi {
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>;
   getPublishingStatus(): Promise<PublishingSnapshot>;
   publishQuiz(contestId: string, quizId: string): Promise<PublishResult>;
+  publishContentV2Topic(topicId: string): Promise<ContentV2PublishResult>;
+  publishContentV2Quiz(
+    topicId: string,
+    quizId: string,
+  ): Promise<ContentV2PublishResult>;
   showInFolder(path: string): Promise<void>;
   showQuizQuestionInFolder(
     manifestPath: string,
@@ -436,3 +539,8 @@ import type {
   GetGoDynamicQuestionFixResult,
   GetGoDynamicQuestionSummary,
 } from "@tnp/getgo-logics/authoring";
+import type {
+  ContentV2Question,
+  ContentV2Quiz,
+  ContentV2Topic,
+} from "./content-v2.js";
