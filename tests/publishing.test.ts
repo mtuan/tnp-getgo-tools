@@ -107,7 +107,14 @@ test("publishes alphabet questions with their independent runtime contract", () 
     uppercase: "A",
     lowercase: "a",
     pronunciation: "ay",
-    samples: [{ text: "Apple", meaning: "A fruit", image: "asset:apple.png" }],
+    samples: [
+      {
+        text: "dâu tây",
+        classifier: "quả",
+        meaning: "A fruit",
+        image: "asset:strawberry.png",
+      },
+    ],
   });
   assert.deepEqual(question, {
     question_no: 1,
@@ -116,7 +123,14 @@ test("publishes alphabet questions with their independent runtime contract", () 
     uppercase: "A",
     lowercase: "a",
     pronunciation: "ay",
-    samples: [{ text: "Apple", meaning: "A fruit", image: "asset:apple.png" }],
+    samples: [
+      {
+        text: "dâu tây",
+        classifier: "quả",
+        meaning: "A fruit",
+        image: "asset:strawberry.png",
+      },
+    ],
   });
   assert.equal("answer" in question, false);
   assert.equal("text_en" in question, false);

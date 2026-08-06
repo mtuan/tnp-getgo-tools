@@ -31,7 +31,12 @@ export interface PublishedAlphabetQuestion {
   uppercase: string;
   lowercase: string;
   pronunciation?: string;
-  samples: Array<{ text: string; meaning?: string; image?: string }>;
+  samples: Array<{
+    text: string;
+    classifier?: string;
+    meaning?: string;
+    image?: string;
+  }>;
 }
 
 export type PublishedQuestion =
@@ -80,6 +85,13 @@ export function sanitizePublishedQuestion(
         : {}),
       samples: record.samples.map((sample, index) => {
         const text = required(sample?.text, `samples[${index}].text`);
+        if (
+          sample.classifier !== undefined &&
+          typeof sample.classifier !== "string"
+        )
+          throw new Error(
+            `Question ${questionNo} samples[${index}].classifier is invalid.`,
+          );
         if (sample.meaning !== undefined && typeof sample.meaning !== "string")
           throw new Error(
             `Question ${questionNo} samples[${index}].meaning is invalid.`,
@@ -94,6 +106,7 @@ export function sanitizePublishedQuestion(
           );
         return {
           text,
+          ...(sample.classifier ? { classifier: sample.classifier } : {}),
           ...(sample.meaning ? { meaning: sample.meaning } : {}),
           ...(sample.image ? { image: sample.image } : {}),
         };

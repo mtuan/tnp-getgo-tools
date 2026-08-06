@@ -373,7 +373,7 @@ main {
 }
 .profile-summary > i {
   display: grid;
-  width: 48px;
+  width: 36px;
   height: 48px;
   place-items: center;
   border-radius: 14px;
@@ -884,23 +884,46 @@ main {
 .alphabet-table-letter {
   font-size: 1.35rem;
 }
-.alphabet-letter-preview {
-  min-height: 260px;
+.alphabet-word-preview {
   display: flex;
+  min-height: 340px;
+  padding: 24px;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 14px;
+  text-align: center;
 }
-.alphabet-letter-preview strong,
-.alphabet-letter-preview span {
-  font-family: Georgia, serif;
-  font-size: clamp(5rem, 10vw, 8rem);
-  line-height: 1;
+.alphabet-word-preview-image {
+  display: grid;
+  place-items: center;
+  width: min(210px, 100%);
+  aspect-ratio: 1;
+  color: var(--muted);
+}
+.alphabet-word-preview-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.alphabet-word-preview > strong {
   color: var(--text-strong);
+  font-size: 32px;
 }
-.alphabet-letter-preview span {
-  font-family: "Comic Sans MS", cursive;
-  color: var(--primary);
+.alphabet-word-preview > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.alphabet-word-preview-empty {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
 }
 .settings-page h1 {
   margin: 4px 0;
@@ -4480,6 +4503,9 @@ button.danger svg {
 .edit-table tbody tr:hover {
   background: #fafbff;
 }
+.edit-table tbody tr.is-selected {
+  background: #f4f3ff;
+}
 .edit-table .schema-select {
   margin: 0;
 }
@@ -4556,12 +4582,15 @@ button.danger svg {
 .alphabet-sample-image {
   display: grid;
   place-items: center;
-  width: 72px;
-  height: 64px;
+  inline-size: 36px !important;
+  min-inline-size: 36px;
+  max-inline-size: 36px;
+  block-size: 36px;
+  aspect-ratio: 1;
   margin: auto;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
   color: var(--muted);
   background: white;
 }
@@ -4569,7 +4598,7 @@ button.danger svg {
   display: block;
   width: 100%;
   height: 100%;
-  padding: 5px;
+  padding: 3px;
   object-fit: contain;
 }
 .edit-table-empty {

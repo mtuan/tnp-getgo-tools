@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Volume2 } from "lucide-react";
 import { alphabetData } from "../core/alphabet-question";
 import type {
   AlphabetQuestionContent,
@@ -6,6 +8,7 @@ import type {
   QuizType,
 } from "../core/models";
 import { EditTable, type EditColumnDef } from "./ui/EditTable";
+import { Button } from "./ui/Button";
 import { Form, type FormSchema } from "./ui/Form";
 import { Panel } from "./ui/Panel";
 import { PreviewAsset } from "./ui/QuestionPreview";
@@ -30,9 +33,25 @@ export function AlphabetLetterEditor({
   onTabChange,
   onChange,
 }: Props) {
+  const [selectedSampleIndex, setSelectedSampleIndex] = useState(0);
   const language =
     quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
+  const selectedSample =
+    alphabet.samples[
+      Math.min(selectedSampleIndex, Math.max(0, alphabet.samples.length - 1))
+    ];
+  const selectedWord = selectedSample
+    ? [selectedSample.classifier, selectedSample.text].filter(Boolean).join(" ")
+    : "";
+  const speakWord = () => {
+    if (!selectedWord || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(selectedWord);
+    utterance.lang = quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
+    utterance.rate = 0.85;
+    window.speechSynthesis.speak(utterance);
+  };
   const update = (next: AlphabetQuestionContent) =>
     onChange({
       question_no: record.question_no,
@@ -60,6 +79,21 @@ export function AlphabetLetterEditor({
       width: "28%",
       field: { name: "text", type: "text" },
     },
+    ...(quizType === "alphabet-vietnamese"
+      ? ([
+          {
+            key: "classifier",
+            dataKey: "classifier",
+            title: "Classifier",
+            width: "15%",
+            field: {
+              name: "classifier",
+              type: "text",
+              placeholder: "con, cái, quả…",
+            },
+          },
+        ] satisfies EditColumnDef<AlphabetSample>[])
+      : []),
     {
       key: "meaning",
       dataKey: "meaning",
@@ -134,6 +168,8 @@ export function AlphabetLetterEditor({
                 columns={sampleColumns}
                 rows={alphabet.samples}
                 rowKey={(_, index) => String(index)}
+                selectedRowIndex={selectedSampleIndex}
+                onRowClick={(_, index) => setSelectedSampleIndex(index)}
                 addLabel="Add related word"
                 emptyText="No related words yet."
                 onRowAdd={() =>
@@ -141,7 +177,7 @@ export function AlphabetLetterEditor({
                     ...alphabet,
                     samples: [
                       ...alphabet.samples,
-                      { text: "", meaning: "", image: "" },
+                      { text: "", classifier: "", meaning: "", image: "" },
                     ],
                   })
                 }
@@ -155,14 +191,23 @@ export function AlphabetLetterEditor({
                     ),
                   })
                 }
-                onRowDelete={(index) =>
+                onRowDelete={(index) => {
+                  setSelectedSampleIndex((current) =>
+                    Math.max(
+                      0,
+                      Math.min(
+                        current > index ? current - 1 : current,
+                        alphabet.samples.length - 2,
+                      ),
+                    ),
+                  );
                   update({
                     ...alphabet,
                     samples: alphabet.samples.filter(
                       (_, sampleIndex) => sampleIndex !== index,
                     ),
-                  })
-                }
+                  });
+                }}
               />
             </Panel>
           )}
@@ -170,16 +215,38 @@ export function AlphabetLetterEditor({
         <div className="advanced-question-sidebar">
           <Panel
             className="question-preview-panel"
-            title="Preview"
-            description="The learner-facing letter forms."
+            title="Word preview"
+            description="How the selected related word appears to the learner."
           >
-            <div
-              className="alphabet-letter-preview"
-              aria-label={`${language} letter preview`}
-            >
-              <strong>{alphabet.uppercase || "—"}</strong>
-              <span>{alphabet.lowercase || "—"}</span>
-            </div>
+            {selectedSample ? (
+              <div className="alphabet-word-preview">
+                <div className="alphabet-word-preview-image">
+                  {selectedSample.image ? (
+                    <PreviewAsset
+                      manifestPath={manifestPath}
+                      value={selectedSample.image}
+                      alt={`Illustration for ${selectedSample.text}`}
+                    />
+                  ) : (
+                    <span>No image</span>
+                  )}
+                </div>
+                <strong>{selectedWord || "Untitled word"}</strong>
+                <p>{selectedSample.meaning || "No meaning provided."}</p>
+                <Button
+                  variant="solid"
+                  icon={<Volume2 />}
+                  disabled={!selectedWord}
+                  onClick={speakWord}
+                >
+                  Play audio
+                </Button>
+              </div>
+            ) : (
+              <div className="alphabet-word-preview-empty">
+                Add a related word to preview it here.
+              </div>
+            )}
           </Panel>
         </div>
       </div>

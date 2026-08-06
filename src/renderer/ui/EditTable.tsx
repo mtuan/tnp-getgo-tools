@@ -26,6 +26,8 @@ export interface EditTableProps<T extends object> {
   onRowChange(index: number, field: keyof T, value: unknown): void;
   onRowAdd?(): void;
   onRowDelete?(index: number): void;
+  onRowClick?(row: T, index: number): void;
+  selectedRowIndex?: number;
   /** Enables drag handles and keyboard reordering. */
   reorderable?: boolean;
   /** Receives the complete reordered row array. */
@@ -43,6 +45,8 @@ export function EditTable<T extends object>({
   onRowChange,
   onRowAdd,
   onRowDelete,
+  onRowClick,
+  selectedRowIndex,
   reorderable = false,
   onRowsReorder,
   addLabel = "Add row",
@@ -105,7 +109,8 @@ export function EditTable<T extends object>({
               const values = row as FormValues;
               return (
                 <tr
-                  className={`${dragging === rowIndex ? "dragging" : ""} ${dragOver === rowIndex ? "drag-over" : ""}`}
+                  className={`${dragging === rowIndex ? "dragging" : ""} ${dragOver === rowIndex ? "drag-over" : ""} ${selectedRowIndex === rowIndex ? "is-selected" : ""}`}
+                  onClick={() => onRowClick?.(row, rowIndex)}
                   onDragOver={(event) => {
                     if (!reorderable || dragging === null) return;
                     event.preventDefault();

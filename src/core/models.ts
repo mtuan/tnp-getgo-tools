@@ -168,6 +168,7 @@ export interface ContestQuizQuestionRecord extends QuestionRecordBase {
 
 export interface AlphabetSample {
   text: string;
+  classifier?: string;
   meaning?: string;
   image?: string;
 }
