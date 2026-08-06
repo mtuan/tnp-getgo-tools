@@ -25,11 +25,12 @@ function cleanLine(value: string) {
 
 function progressTotal(operation: DeploymentOperation, component: DeploymentComponent) {
   if (operation === "build") return component === "firebase-rules" ? 5 : 4;
-  return component === "firebase-rules" ? 6 : 5;
+  return 3;
 }
 
 function outputPhase(line: string, component: DeploymentComponent) {
   if (line.includes("GetGo Web vendored logics refresh completed")) return "dependencies";
+  if (line.includes("Generating canonical Firebase rules")) return "dependencies";
   if (component === "firebase-rules" && line.includes("Synced firestore.rules")) return "firestore";
   if (component === "firebase-rules" && line.includes("Synced storage.rules")) return "storage";
   if (component === "web" && (line.includes("Building…") || /vite v\d/i.test(line))) return "build";
@@ -168,11 +169,19 @@ export class WebDeploymentJobManager {
 
   async start(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget) {
     await this.ensureLoaded();
-    if (this.jobs.some((job) => job.component === component && ["queued", "running", "paused"].includes(job.status)))
+    const activeJobs = this.jobs.filter((job) => ["queued", "running", "paused"].includes(job.status));
+    if (activeJobs.some((job) => job.component === component))
       throw new Error(`Another ${component === "web" ? "Web" : "Firebase rules"} job is already active.`);
-    if (operation === "deploy" && !this.builds.some((item) => item.component === component && item.target === target))
-      throw new Error("Build this component locally for the selected target before deploying it.");
+    if (operation === "deploy" && activeJobs.some((job) => job.operation === "deploy"))
+      throw new Error("Another deployment is already active.");
     const webRoot = await this.webRoot();
+    if (operation === "deploy") {
+      const build = this.builds.find((item) => item.component === component && item.target === target);
+      if (!build) throw new Error("Build this component locally for the selected target before deploying it.");
+      const currentItems = await this.localItems(component, webRoot);
+      if (build.items.some((builtItem) => currentItems.find((item) => item.id === builtItem.id)?.localHash !== builtItem.localHash))
+        throw new Error("Local deployment artifacts changed after the recorded build. Build this component again before deploying it.");
+    }
     const job: DeploymentJob = {
       id: randomUUID(),
       kind: "deploy",
@@ -195,6 +204,7 @@ export class WebDeploymentJobManager {
     const scope = component === "web" ? "web" : "rules";
     const args = ["run", targetScripts[target], "--", `--scope=${scope}`];
     if (operation === "build") args.push("--build-only", "--no-lint", "--no-typecheck");
+    else args.push("--deploy-only", "--no-lint", "--no-typecheck");
     const child = spawn("npm", args, {
       cwd: webRoot,
       detached: process.platform !== "win32",
