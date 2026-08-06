@@ -1,0 +1,4 @@
+interface:
+  display_name: "GetGo Tools UI"
+  short_description: "Build consistent GetGo Tools interfaces"
+  default_prompt: "Use $getgo-tools-ui to implement this GetGo Tools interface consistently."

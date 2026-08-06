@@ -45,6 +45,18 @@ test("upgrades an empty manually created quiz without reading legacy raw files",
   assert.deepEqual(await fs.readdir(path.join(directory, "questions")), [])
 })
 
+test("creates alphabet question records for alphabet quizzes", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-alphabet-quiz-"))
+  const manifestPath = path.join(directory, "manifest.json")
+  await fs.writeFile(manifestPath, JSON.stringify({ type: "alphabet-vietnamese" }))
+
+  const created = await createQuizQuestion(manifestPath)
+
+  assert.equal(created.type, "alphabet")
+  assert.deepEqual(created.alphabet, { letter: "", uppercase: "", lowercase: "", pronunciation: "", samples: [] })
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(directory, "questions", "q1.json"), "utf8")).alphabet.samples, [])
+})
+
 test("converts raw questions, extracts inline images, and then prefers q files", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-"))
   const manifestPath = path.join(directory, "manifest.json")
