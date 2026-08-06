@@ -1355,6 +1355,7 @@ export function QuizManager({
           {questionDraftRecord &&
             (isAlphabetQuestion ? (
               <AlphabetLetterEditor
+                manifestPath={quiz.manifestPath}
                 quizType={
                   quiz.type === "alphabet-vietnamese"
                     ? "alphabet-vietnamese"

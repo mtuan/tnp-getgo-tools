@@ -8,6 +8,7 @@ import {
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { FormControl, type FormField, type FormValues } from "./Form";
 import { Button } from "./Button";
+import { TableActionButton } from "./TableActionButton";
 
 export interface EditColumnDef<T extends object> {
   key: string;
@@ -169,8 +170,8 @@ export function EditTable<T extends object>({
                   ))}
                   {onRowDelete && (
                     <td className="edit-table-actions">
-                      <Button
-                        variant="icon"
+                      <TableActionButton
+                        variant="solid"
                         color="danger"
                         onClick={() => onRowDelete(rowIndex)}
                         aria-label={`Remove row ${rowIndex + 1}`}

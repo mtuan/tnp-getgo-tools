@@ -8,12 +8,14 @@ import type {
 import { EditTable, type EditColumnDef } from "./ui/EditTable";
 import { Form, type FormSchema } from "./ui/Form";
 import { Panel } from "./ui/Panel";
+import { PreviewAsset } from "./ui/QuestionPreview";
 import { Tabs } from "./ui/Tabs";
 
 export type AlphabetEditorTab = "info" | "related-words";
 
 interface Props {
   quizType: Extract<QuizType, "alphabet-english" | "alphabet-vietnamese">;
+  manifestPath: string;
   record: QuizQuestionRecord;
   tab: AlphabetEditorTab;
   onTabChange(tab: AlphabetEditorTab): void;
@@ -22,6 +24,7 @@ interface Props {
 
 export function AlphabetLetterEditor({
   quizType,
+  manifestPath,
   record,
   tab,
   onTabChange,
@@ -66,9 +69,22 @@ export function AlphabetLetterEditor({
     {
       key: "image",
       dataKey: "image",
-      title: "Image reference",
-      width: "30%",
-      field: { name: "image", type: "text", placeholder: "asset:apple.png" },
+      title: "Image",
+      width: "112px",
+      field: { name: "image", type: "text" },
+      renderView: (value, sample) => (
+        <div className="alphabet-sample-image">
+          {typeof value === "string" && value ? (
+            <PreviewAsset
+              manifestPath={manifestPath}
+              value={value}
+              alt={`Illustration for ${sample.text || "related word"}`}
+            />
+          ) : (
+            <span aria-label="No image">—</span>
+          )}
+        </div>
+      ),
     },
   ];
   return (
@@ -111,7 +127,7 @@ export function AlphabetLetterEditor({
             <Panel
               className="edit-table-panel"
               title="Related words"
-              description="Simple words, meanings, and illustrated image references for this letter."
+              description="Simple words, meanings, and illustrations for this letter."
             >
               <EditTable<AlphabetSample>
                 ariaLabel="Letter samples"

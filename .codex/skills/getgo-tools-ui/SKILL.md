@@ -36,6 +36,18 @@ Treat the repository instructions as authoritative and ship UI that matches the 
 - Let the parent entity type choose list columns and behavior; let the record type choose its detail editor.
 - Keep previews visible where the established editor pattern does so.
 
+## Data and inline-edit tables
+
+- Read `DataTable.tsx`, `EditTable.tsx`, `TableActionButton.tsx`, and their exported contracts before implementing table UI.
+- Use `DataTable` for read/list presentation and row navigation. Use `EditTable` only for schema-driven repeatable fields edited in place.
+- Use row click for the primary table action. Stop propagation from nested actions.
+- Use `TableActionButton` for every compact action inside a table, including edit, preview, delete, move, and similar actions. Select an intentional semantic color; destructive actions use `color="danger"`.
+- Do not use raw buttons, generic icon buttons, or page-specific action-button CSS inside table cells.
+- Keep table action columns compact and centered. Use the shared icon size and accessible localized label.
+- Let page content own vertical scrolling. Table scroll wrappers may provide horizontal overflow for narrow windows, but must not create an independent vertical scrollbar unless a requirement explicitly calls for a fixed-height virtualized table.
+- Do not wrap a table in a second visible border. When a table is the direct content of a panel, use the established flush table-panel composition.
+- Preserve stable row keys, keyboard focus, empty state, disabled state, and light/dark theme behavior.
+
 ## Review before handoff
 
 - Compare the finished screen beside its closest existing counterpart.

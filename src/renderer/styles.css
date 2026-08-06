@@ -4454,6 +4454,7 @@ button.danger svg {
 }
 .edit-table-scroll {
   overflow-x: auto;
+  overflow-y: hidden;
 }
 .edit-table table {
   min-width: 520px;
@@ -4508,7 +4509,8 @@ button.danger svg {
   border-radius: 0;
 }
 .edit-table-actions {
-  width: 44px;
+  width: 56px;
+  padding-inline: 8px !important;
   text-align: center;
 }
 .edit-table-reorder {
@@ -4548,23 +4550,27 @@ button.danger svg {
   background: #eef2ff;
   box-shadow: inset 0 2px #6366f1;
 }
-.edit-table-actions button {
+.edit-table-actions .ui-table-action-button {
+  margin: auto;
+}
+.alphabet-sample-image {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 72px;
+  height: 64px;
   margin: auto;
-  border: 0;
-  border-radius: 8px;
-  color: #94a3b8;
-  background: transparent;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: var(--muted);
+  background: white;
 }
-.edit-table-actions button:hover {
-  color: #e11d48;
-  background: #fff1f2;
-}
-.edit-table-actions svg {
-  width: 14px;
+.alphabet-sample-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  object-fit: contain;
 }
 .edit-table-empty {
   height: 100px !important;
@@ -4599,6 +4605,7 @@ button.danger svg {
 }
 .ui-data-table-scroll {
   overflow-x: auto;
+  overflow-y: hidden;
 }
 .editor-page > .ui-data-table {
   margin-bottom: 14px;
