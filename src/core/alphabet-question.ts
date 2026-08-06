@@ -1,6 +1,6 @@
-import type { AlphabetQuestionData, QuizQuestionRecord } from "./models.js";
+import type { AlphabetQuestionContent, QuizQuestionRecord } from "./models.js";
 
-export const emptyAlphabetData = (): AlphabetQuestionData => ({
+export const emptyAlphabetData = (): AlphabetQuestionContent => ({
   letter: "",
   uppercase: "",
   lowercase: "",
@@ -8,14 +8,16 @@ export const emptyAlphabetData = (): AlphabetQuestionData => ({
   samples: [],
 });
 
-export function alphabetData(record: QuizQuestionRecord): AlphabetQuestionData {
-  if (record.type !== "alphabet" || !record.alphabet)
-    return emptyAlphabetData();
+export function alphabetData(
+  record: QuizQuestionRecord,
+): AlphabetQuestionContent {
+  if (record.type !== "alphabet") return emptyAlphabetData();
   return {
     ...emptyAlphabetData(),
-    ...record.alphabet,
-    samples: Array.isArray(record.alphabet.samples)
-      ? record.alphabet.samples
-      : [],
+    letter: record.letter,
+    uppercase: record.uppercase,
+    lowercase: record.lowercase,
+    pronunciation: record.pronunciation,
+    samples: Array.isArray(record.samples) ? record.samples : [],
   };
 }

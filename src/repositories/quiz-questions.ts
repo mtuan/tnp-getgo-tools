@@ -10,26 +10,7 @@ import {
   QuizBuilder,
   QuizValueSerializer,
 } from "@tnp/getgo-logics/quiz-builder";
-
-export interface QuizQuestionRecord extends Record<string, unknown> {
-  question_no: number | string;
-  type?: string;
-  category?: string;
-  text_en?: unknown;
-  text_vn?: unknown;
-  action?: "generated";
-  status?: string;
-  /** @deprecated Legacy compatibility only. Use status. */
-  verified?: boolean;
-  authoringMode?: string;
-  advancedDynamic?: {
-    paramsGeneratorTs: string;
-    questionGeneratorTs: string;
-    originParamsTs: string;
-    explanationGeneratorTs: string;
-    [key: string]: unknown;
-  };
-}
+import type { QuizQuestionRecord } from "../core/models.js";
 
 const inlineImagePattern =
   /^data:image\/([a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i;
@@ -166,6 +147,45 @@ function normalizeQuestion(
   question: Record<string, unknown>,
   index: number,
 ): QuizQuestionRecord {
+  if (question.type === "alphabet") {
+    const legacy =
+      question.alphabet &&
+      typeof question.alphabet === "object" &&
+      !Array.isArray(question.alphabet)
+        ? (question.alphabet as Record<string, unknown>)
+        : {};
+    const value = (key: string): unknown => question[key] ?? legacy[key];
+    return {
+      question_no:
+        (question.question_no as number | string | undefined) ?? index + 1,
+      type: "alphabet",
+      letter:
+        typeof value("letter") === "string" ? (value("letter") as string) : "",
+      uppercase:
+        typeof value("uppercase") === "string"
+          ? (value("uppercase") as string)
+          : "",
+      lowercase:
+        typeof value("lowercase") === "string"
+          ? (value("lowercase") as string)
+          : "",
+      ...(typeof value("pronunciation") === "string"
+        ? { pronunciation: value("pronunciation") as string }
+        : {}),
+      samples: Array.isArray(value("samples"))
+        ? (structuredClone(value("samples")) as never[])
+        : [],
+      ...(typeof question.status === "string"
+        ? { status: question.status }
+        : {}),
+      ...(typeof question.verified === "boolean"
+        ? { verified: question.verified }
+        : {}),
+      ...(question.feedback && typeof question.feedback === "object"
+        ? { feedback: question.feedback as never }
+        : {}),
+    };
+  }
   const normalized: Record<string, unknown> & { question_no: number | string } =
     {
       ...question,
@@ -456,9 +476,12 @@ export async function loadQuizQuestions(
     await markQuestionsStorage(manifestPath);
     const records = await Promise.all(
       files.map(async (file: string) => {
-        const record = JSON.parse(
-          await fs.readFile(path.join(questionsDirectory, file), "utf8"),
-        ) as QuizQuestionRecord;
+        const record = normalizeQuestion(
+          JSON.parse(
+            await fs.readFile(path.join(questionsDirectory, file), "utf8"),
+          ) as Record<string, unknown>,
+          Math.max(0, questionNumber(file) - 1),
+        );
         if (!record.advancedDynamic) return record;
         try {
           return await formatQuestionCode(record);
@@ -509,7 +532,11 @@ export async function saveQuizQuestion(
     existing.find((item) => String(item.record.question_no) === questionNo)
       ?.file ??
     `q${existing.length ? Math.max(...existing.map((item) => questionNumber(item.file))) + 1 : 1}.json`;
-  const formatted = await formatQuestionCode(question);
+  const normalized = normalizeQuestion(
+    question,
+    Math.max(0, Number(questionNo) - 1),
+  );
+  const formatted = await formatQuestionCode(normalized);
   await fs.writeFile(
     path.join(questionsDirectory, target),
     `${JSON.stringify(formatted, null, 2)}\n`,
@@ -531,9 +558,12 @@ async function storedQuestionFiles(
   return Promise.all(
     files.map(async (file) => ({
       file,
-      record: JSON.parse(
-        await fs.readFile(path.join(questionsDirectory, file), "utf8"),
-      ) as QuizQuestionRecord,
+      record: normalizeQuestion(
+        JSON.parse(
+          await fs.readFile(path.join(questionsDirectory, file), "utf8"),
+        ) as Record<string, unknown>,
+        Math.max(0, questionNumber(file) - 1),
+      ),
     })),
   );
 }
@@ -629,13 +659,11 @@ export async function createQuizQuestion(
         ? {
             question_no: questionNo,
             type: "alphabet",
-            alphabet: {
-              letter: "",
-              uppercase: "",
-              lowercase: "",
-              pronunciation: "",
-              samples: [],
-            },
+            letter: "",
+            uppercase: "",
+            lowercase: "",
+            pronunciation: "",
+            samples: [],
           }
         : {
             question_no: questionNo,

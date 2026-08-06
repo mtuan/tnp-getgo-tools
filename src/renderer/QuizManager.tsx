@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type {
   AiMigrationJob,
+  ContestQuizQuestionRecord,
   ContestSummary,
   QuizAiMigrationJob,
   QuizCrudInput,
@@ -263,7 +264,7 @@ export function QuizManager({
   );
   const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [previewQuestion, setPreviewQuestion] =
-    useState<QuizQuestionRecord | null>(null);
+    useState<ContestQuizQuestionRecord | null>(null);
   const [questionDraftRecord, setQuestionDraftRecord] =
     useState<QuizQuestionRecord | null>(null);
   const [pendingQuestionNo, setPendingQuestionNo] = useState(
@@ -1231,9 +1232,7 @@ export function QuizManager({
           description: `Question ${savedQuestion.question_no} was updated.`,
         });
       };
-      const isAlphabetQuestion =
-        questionDraftRecord?.type === "alphabet" ||
-        quiz.type !== "question-list";
+      const isAlphabetQuestion = questionDraftRecord?.type === "alphabet";
       const letter = questionDraftRecord
         ? alphabetData(questionDraftRecord).letter
         : "";
@@ -1376,7 +1375,7 @@ export function QuizManager({
                 key={`${quiz.key}/${questionDraftRecord.question_no}`}
                 tab={questionEditorTab}
                 onTabChange={setQuestionEditorTab}
-                record={questionDraftRecord}
+                record={questionDraftRecord as ContestQuizQuestionRecord}
                 path={`${quiz.relativePath}/questions/q${questionDraftRecord.question_no}`}
                 manifestPath={quiz.manifestPath}
                 context={{
@@ -1645,7 +1644,10 @@ export function QuizManager({
               onRowClick={
                 questionOrder
                   ? undefined
-                  : (item) => setPreviewQuestion(item.record)
+                  : (item) => {
+                      if (item.record.type !== "alphabet")
+                        setPreviewQuestion(item.record);
+                    }
               }
               onRowMove={questionOrder ? moveOrderedQuestionTo : undefined}
             />

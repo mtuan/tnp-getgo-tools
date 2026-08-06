@@ -1,86 +1,138 @@
-import { QuizTsService, createDynamicQuestionBuildService } from "@tnp/getgo-logics/authoring"
-import { QuizBuilder, QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder"
-import { staticAnswerType } from "../core/answer-types"
-import type { QuizQuestionRecord } from "../core/models"
+import {
+  QuizTsService,
+  createDynamicQuestionBuildService,
+} from "@tnp/getgo-logics/authoring";
+import {
+  QuizBuilder,
+  QuizValueSerializer,
+} from "@tnp/getgo-logics/quiz-builder";
+import { staticAnswerType } from "../core/answer-types";
+import type { ContestQuizQuestionRecord } from "../core/models";
 
 export interface RuntimeQuestion extends Record<string, unknown> {
-  question_no: number
-  category?: string
-  text_en: unknown
-  text_vn?: unknown
-  image_datas?: string[]
-  explanation?: { en?: unknown; vi?: unknown }
-  answer: { type: string; correct: string | number | string[]; choices?: Record<string, unknown>; unit?: string; otherChoiceKey?: string; fixed?: boolean }
+  question_no: number;
+  category?: string;
+  text_en: unknown;
+  text_vn?: unknown;
+  image_datas?: string[];
+  explanation?: { en?: unknown; vi?: unknown };
+  answer: {
+    type: string;
+    correct: string | number | string[];
+    choices?: Record<string, unknown>;
+    unit?: string;
+    otherChoiceKey?: string;
+    fixed?: boolean;
+  };
 }
 
 export interface GeneratedQuestion {
-  question: RuntimeQuestion
-  params?: Record<string, unknown>
+  question: RuntimeQuestion;
+  params?: Record<string, unknown>;
 }
 
 async function sha256(source: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source))
-  return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("")
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(source),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 const dynamicBuilder = createDynamicQuestionBuildService({
   createBuilder: () => new QuizBuilder(),
-  serialize: value => QuizValueSerializer.serialize(value),
-  deserialize: value => QuizValueSerializer.deserialize(value),
+  serialize: (value) => QuizValueSerializer.serialize(value),
+  deserialize: (value) => QuizValueSerializer.deserialize(value),
   hash: sha256,
-})
+});
 
 function shuffle<T>(values: T[]): T[] {
-  const result = [...values]
+  const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(Math.random() * (index + 1))
-    ;[result[index], result[target]] = [result[target], result[index]]
+    const target = Math.floor(Math.random() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
   }
-  return result
+  return result;
 }
 
 class QuestionService {
-  loadStatic(record: QuizQuestionRecord, shuffleChoices = false, current?: RuntimeQuestion): GeneratedQuestion {
-    const sourceAnswer = record.answer && typeof record.answer === "object" && !Array.isArray(record.answer)
-      ? record.answer as RuntimeQuestion["answer"]
-      : { type: "input", correct: "" }
-    const answerType = staticAnswerType(sourceAnswer.type, Boolean(sourceAnswer.choices && Object.keys(sourceAnswer.choices).length))
-    const entries = Object.entries(sourceAnswer.choices ?? {})
-    if (answerType !== "choice" || sourceAnswer.fixed === true || entries.length < 2 || !shuffleChoices) {
-      return { question: { ...record, answer: { ...sourceAnswer, type: answerType } } as unknown as RuntimeQuestion }
+  loadStatic(
+    record: ContestQuizQuestionRecord,
+    shuffleChoices = false,
+    current?: RuntimeQuestion,
+  ): GeneratedQuestion {
+    const sourceAnswer =
+      record.answer &&
+      typeof record.answer === "object" &&
+      !Array.isArray(record.answer)
+        ? (record.answer as RuntimeQuestion["answer"])
+        : { type: "input", correct: "" };
+    const answerType = staticAnswerType(
+      sourceAnswer.type,
+      Boolean(sourceAnswer.choices && Object.keys(sourceAnswer.choices).length),
+    );
+    const entries = Object.entries(sourceAnswer.choices ?? {});
+    if (
+      answerType !== "choice" ||
+      sourceAnswer.fixed === true ||
+      entries.length < 2 ||
+      !shuffleChoices
+    ) {
+      return {
+        question: {
+          ...record,
+          answer: { ...sourceAnswer, type: answerType },
+        } as unknown as RuntimeQuestion,
+      };
     }
 
-    let ordered = shuffle(entries)
-    const currentValues = Object.values(current?.answer.choices ?? {})
-    if (ordered.every(([, value], index) => value === currentValues[index])) [ordered[0], ordered[1]] = [ordered[1], ordered[0]]
+    let ordered = shuffle(entries);
+    const currentValues = Object.values(current?.answer.choices ?? {});
+    if (ordered.every(([, value], index) => value === currentValues[index]))
+      [ordered[0], ordered[1]] = [ordered[1], ordered[0]];
 
-    const correct = new Set((Array.isArray(sourceAnswer.correct) ? sourceAnswer.correct : [sourceAnswer.correct]).map(String))
-    const choices: Record<string, unknown> = {}
-    const correctLabels: string[] = []
-    let otherChoiceKey: string | undefined
+    const correct = new Set(
+      (Array.isArray(sourceAnswer.correct)
+        ? sourceAnswer.correct
+        : [sourceAnswer.correct]
+      ).map(String),
+    );
+    const choices: Record<string, unknown> = {};
+    const correctLabels: string[] = [];
+    let otherChoiceKey: string | undefined;
     ordered.forEach(([sourceLabel, value], index) => {
-      const label = String.fromCharCode(65 + index)
-      choices[label] = value
-      if (correct.has(sourceLabel)) correctLabels.push(label)
-      if (sourceAnswer.otherChoiceKey === sourceLabel) otherChoiceKey = label
-    })
+      const label = String.fromCharCode(65 + index);
+      choices[label] = value;
+      if (correct.has(sourceLabel)) correctLabels.push(label);
+      if (sourceAnswer.otherChoiceKey === sourceLabel) otherChoiceKey = label;
+    });
     const answer = {
       ...sourceAnswer,
       type: answerType,
       choices,
-      correct: Array.isArray(sourceAnswer.correct) ? correctLabels : correctLabels[0] ?? "",
+      correct: Array.isArray(sourceAnswer.correct)
+        ? correctLabels
+        : (correctLabels[0] ?? ""),
       ...(otherChoiceKey ? { otherChoiceKey } : {}),
-    }
-    return { question: { ...record, answer } as unknown as RuntimeQuestion }
+    };
+    return { question: { ...record, answer } as unknown as RuntimeQuestion };
   }
 
-  async generateDynamic(record: QuizQuestionRecord, original = false): Promise<GeneratedQuestion> {
-    if (!record.advancedDynamic) throw new Error("This question does not contain a dynamic generator.")
-    const source = QuizTsService.composeTemplateSource(record.advancedDynamic)
-    const generated = original ? await dynamicBuilder.generateOriginal(source) : await dynamicBuilder.generate(source)
-    if (!generated) throw new Error("Question generation returned no result.")
-    return generated as GeneratedQuestion
+  async generateDynamic(
+    record: ContestQuizQuestionRecord,
+    original = false,
+  ): Promise<GeneratedQuestion> {
+    if (!record.advancedDynamic)
+      throw new Error("This question does not contain a dynamic generator.");
+    const source = QuizTsService.composeTemplateSource(record.advancedDynamic);
+    const generated = original
+      ? await dynamicBuilder.generateOriginal(source)
+      : await dynamicBuilder.generate(source);
+    if (!generated) throw new Error("Question generation returned no result.");
+    return generated as GeneratedQuestion;
   }
 }
 
-export const questionService = new QuestionService()
+export const questionService = new QuestionService();

@@ -1,6 +1,6 @@
 import { alphabetData } from "../core/alphabet-question";
 import type {
-  AlphabetQuestionData,
+  AlphabetQuestionContent,
   AlphabetSample,
   QuizQuestionRecord,
   QuizType,
@@ -30,8 +30,15 @@ export function AlphabetLetterEditor({
   const language =
     quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
-  const update = (next: AlphabetQuestionData) =>
-    onChange({ ...record, type: "alphabet", alphabet: next });
+  const update = (next: AlphabetQuestionContent) =>
+    onChange({
+      question_no: record.question_no,
+      status: record.status,
+      verified: record.verified,
+      feedback: record.feedback,
+      type: "alphabet",
+      ...next,
+    });
   const fields: FormSchema[] = [
     [
       { name: "letter", label: "Letter", type: "text", required: true },

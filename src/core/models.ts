@@ -125,18 +125,20 @@ export interface QuizCrudInput {
   quizBuilderApiVersion?: number;
 }
 
-export interface QuizQuestionRecord extends Record<string, unknown> {
+export interface QuestionRecordBase extends Record<string, unknown> {
   question_no: number | string;
-  type?: string;
-  alphabet?: AlphabetQuestionData;
-  category?: string;
-  text_en?: unknown;
-  text_vn?: unknown;
-  action?: "generated";
   status?: string;
   /** @deprecated Legacy compatibility only. Use status. */
   verified?: boolean;
   feedback?: QuestionFeedback;
+}
+
+export interface ContestQuizQuestionRecord extends QuestionRecordBase {
+  type?: "question";
+  category?: string;
+  text_en?: unknown;
+  text_vn?: unknown;
+  action?: "generated";
   migrationError?: { stage: "origin-render"; message: string };
   authoringMode?: string;
   advancedDynamic?: {
@@ -157,6 +159,11 @@ export interface QuizQuestionRecord extends Record<string, unknown> {
       proposal: DynamicQuestionProposal;
     }
   >;
+  letter?: never;
+  uppercase?: never;
+  lowercase?: never;
+  pronunciation?: never;
+  samples?: unknown;
 }
 
 export interface AlphabetSample {
@@ -165,13 +172,31 @@ export interface AlphabetSample {
   image?: string;
 }
 
-export interface AlphabetQuestionData {
+export interface AlphabetQuestionContent {
   letter: string;
   uppercase: string;
   lowercase: string;
   pronunciation?: string;
   samples: AlphabetSample[];
 }
+
+export interface AlphabetQuestionRecord
+  extends QuestionRecordBase, AlphabetQuestionContent {
+  type: "alphabet";
+  category?: never;
+  text_en?: never;
+  text_vn?: never;
+  answer?: never;
+  image_datas?: never;
+  explanation?: never;
+  authoringMode?: never;
+  advancedDynamic?: never;
+  aiResponse?: never;
+  aiFixHistory?: never;
+}
+
+export type QuizQuestionRecord =
+  ContestQuizQuestionRecord | AlphabetQuestionRecord;
 
 export type QuestionIssue = "missing-image" | "wrong-question" | "wrong-answer";
 export interface QuestionFeedback {
