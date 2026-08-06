@@ -52,6 +52,15 @@ export function AlphabetLetterEditor({
     utterance.rate = 0.85;
     window.speechSynthesis.speak(utterance);
   };
+  const speakLetter = () => {
+    const spokenText = alphabet.pronunciation || alphabet.letter;
+    if (!spokenText || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(spokenText);
+    utterance.lang = quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
+    utterance.rate = 0.75;
+    window.speechSynthesis.speak(utterance);
+  };
   const update = (next: AlphabetQuestionContent) =>
     onChange({
       question_no: record.question_no,
@@ -213,41 +222,67 @@ export function AlphabetLetterEditor({
           )}
         </div>
         <div className="advanced-question-sidebar">
-          <Panel
-            className="question-preview-panel"
-            title="Word preview"
-            description="How the selected related word appears to the learner."
-          >
-            {selectedSample ? (
-              <div className="alphabet-word-preview">
-                <div className="alphabet-word-preview-image">
-                  {selectedSample.image ? (
-                    <PreviewAsset
-                      manifestPath={manifestPath}
-                      value={selectedSample.image}
-                      alt={`Illustration for ${selectedSample.text}`}
-                    />
-                  ) : (
-                    <span>No image</span>
-                  )}
+          {tab === "info" ? (
+            <Panel
+              className="question-preview-panel"
+              title="Letter preview"
+              description="How the letter forms appear to the learner."
+            >
+              <div
+                className="alphabet-letter-preview"
+                aria-label={`${language} letter preview`}
+              >
+                <div className="alphabet-letter-forms">
+                  <strong>{alphabet.uppercase || "—"}</strong>
+                  <span>{alphabet.lowercase || "—"}</span>
                 </div>
-                <strong>{selectedWord || "Untitled word"}</strong>
-                <p>{selectedSample.meaning || "No meaning provided."}</p>
                 <Button
                   variant="solid"
                   icon={<Volume2 />}
-                  disabled={!selectedWord}
-                  onClick={speakWord}
+                  disabled={!alphabet.pronunciation && !alphabet.letter}
+                  onClick={speakLetter}
                 >
                   Play audio
                 </Button>
               </div>
-            ) : (
-              <div className="alphabet-word-preview-empty">
-                Add a related word to preview it here.
-              </div>
-            )}
-          </Panel>
+            </Panel>
+          ) : (
+            <Panel
+              className="question-preview-panel"
+              title="Word preview"
+              description="How the selected related word appears to the learner."
+            >
+              {selectedSample ? (
+                <div className="alphabet-word-preview">
+                  <div className="alphabet-word-preview-image">
+                    {selectedSample.image ? (
+                      <PreviewAsset
+                        manifestPath={manifestPath}
+                        value={selectedSample.image}
+                        alt={`Illustration for ${selectedSample.text}`}
+                      />
+                    ) : (
+                      <span>No image</span>
+                    )}
+                  </div>
+                  <strong>{selectedWord || "Untitled word"}</strong>
+                  <p>{selectedSample.meaning || "No meaning provided."}</p>
+                  <Button
+                    variant="solid"
+                    icon={<Volume2 />}
+                    disabled={!selectedWord}
+                    onClick={speakWord}
+                  >
+                    Play audio
+                  </Button>
+                </div>
+              ) : (
+                <div className="alphabet-word-preview-empty">
+                  Add a related word to preview it here.
+                </div>
+              )}
+            </Panel>
+          )}
         </div>
       </div>
     </>

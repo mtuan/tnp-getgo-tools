@@ -884,6 +884,32 @@ main {
 .alphabet-table-letter {
   font-size: 1.35rem;
 }
+.alphabet-letter-preview {
+  min-height: 340px;
+  display: flex;
+  padding: 24px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.alphabet-letter-forms {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 28px;
+}
+.alphabet-letter-forms strong,
+.alphabet-letter-forms span {
+  color: var(--text-strong);
+  font-family: Georgia, serif;
+  font-size: clamp(5rem, 10vw, 8rem);
+  line-height: 1;
+}
+.alphabet-letter-forms span {
+  color: var(--primary);
+  font-family: "Comic Sans MS", cursive;
+}
 .alphabet-word-preview {
   display: flex;
   min-height: 340px;
