@@ -442,13 +442,20 @@ app.whenReady().then(async () => {
     };
   };
   ipcMain.handle("jobs:list", backgroundJobsSnapshot);
-  ipcMain.handle("deployment:start", async (_event, component: unknown, target: unknown) => {
+  ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown) => {
+    if (!(operation === "build" || operation === "deploy"))
+      throw new Error("Invalid deployment operation.");
     if (!(component === "firebase-rules" || component === "web"))
       throw new Error("Invalid deployment component.");
     if (!(target === "development" || target === "staging" || target === "production"))
       throw new Error("Invalid deployment target.");
-    await webDeploymentJobs.start(component, target);
+    await webDeploymentJobs.start(operation, component, target);
     return backgroundJobsSnapshot();
+  });
+  ipcMain.handle("deployment:state", (_event, target: unknown) => {
+    if (!(target === "development" || target === "staging" || target === "production"))
+      throw new Error("Invalid deployment target.");
+    return webDeploymentJobs.state(target);
   });
   ipcMain.handle("jobs:cancel", async (_event, jobId: unknown) => {
     if (typeof jobId !== "string") throw new Error("Invalid job ID.");

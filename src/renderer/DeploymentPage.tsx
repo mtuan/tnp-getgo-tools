@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { BriefcaseBusiness, Globe2, Pause as PauseIcon, Play, Rocket, RotateCcw, ShieldCheck, Trash2, X } from "lucide-react";
-import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent } from "../core/models";
-import { Button, DataTable, ErrorFrame, PageHeader, Panel, TableActionButton, type DataColumn } from "./ui";
+import { BriefcaseBusiness, Globe2, Rocket, ShieldCheck } from "lucide-react";
+import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent, DeploymentOperation, DeploymentStateSnapshot } from "../core/models";
+import { Button, ErrorFrame, PageHeader, Panel } from "./ui";
+import { BackgroundJobsTable, type BackgroundJobAction } from "./BackgroundJobsTable";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 
@@ -18,15 +19,21 @@ export function DeploymentPage({
   const [busy, setBusy] = useState<DeploymentComponent | null>(null);
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
+  const [deploymentState, setDeploymentState] = useState<DeploymentStateSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setSnapshot(await window.getgo.getBackgroundJobs());
+      const [jobs, state] = await Promise.all([
+        window.getgo.getBackgroundJobs(),
+        window.getgo.getDeploymentState(environment),
+      ]);
+      setSnapshot(jobs);
+      setDeploymentState(state);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
-  }, []);
+  }, [environment]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -34,12 +41,12 @@ export function DeploymentPage({
     return () => window.clearInterval(timer);
   }, [load]);
 
-  const deploy = async (component: DeploymentComponent) => {
-    if (environment === "production" && !window.confirm(copy.productionConfirm.replace("{component}", component === "web" ? copy.webTitle : copy.rulesTitle))) return;
+  const run = async (operation: DeploymentOperation, component: DeploymentComponent) => {
+    if (operation === "deploy" && environment === "production" && !window.confirm(copy.productionConfirm.replace("{component}", component === "web" ? copy.webTitle : copy.rulesTitle))) return;
     setBusy(component);
     setError(null);
     try {
-      setSnapshot(await window.getgo.startDeployment(component, environment));
+      setSnapshot(await window.getgo.startDeployment(operation, component, environment));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -48,7 +55,14 @@ export function DeploymentPage({
   };
 
   const deployments = snapshot?.jobs.filter((job) => job.kind === "deploy") ?? [];
-  const control = async (job: BackgroundJob, action: "pause" | "resume" | "cancel" | "retry" | "delete") => {
+  const activeJobs = deployments.filter((job) => ["queued", "running", "paused"].includes(job.status));
+  const componentIsActive = (component: DeploymentComponent) =>
+    activeJobs.some((job) => job.component === component);
+  const operationIsRunning = (component: DeploymentComponent, operation: DeploymentOperation) =>
+    activeJobs.some((job) => job.status !== "paused" && job.component === component && job.operation === operation);
+  const shortHash = (hash: string | null) => hash ? `${hash.slice(0, 10)}…` : "—";
+  const stateCopy = (status?: string) => status === "up-to-date" ? copy.upToDate : status === "changed" ? copy.changesDetected : status === "not-deployed" ? copy.notDeployed : copy.buildRequired;
+  const control = async (job: BackgroundJob, action: BackgroundJobAction) => {
     if (action === "cancel" && !window.confirm(copy.cancelConfirm.replace("{name}", job.name))) return;
     if (action === "delete" && !window.confirm(copy.deleteConfirm.replace("{name}", job.name))) return;
     setBusyJob(job.id);
@@ -66,12 +80,6 @@ export function DeploymentPage({
       setBusyJob(null);
     }
   };
-  const columns: DataColumn<BackgroundJob>[] = [
-    { key: "name", title: copy.job, render: (job) => <strong>{job.name}</strong> },
-    { key: "status", title: copy.status, width: 120, render: (job) => <span className={`badge job-status job-status-${job.status}`}>{job.status}</span> },
-    { key: "progress", title: copy.progress, render: (job) => <span>{job.progressLabel ?? "—"}</span> },
-    { key: "action", title: copy.action, width: 140, align: "right", render: (job) => job.cancellable ? <div className="job-table-actions"><TableActionButton color="neutral" icon={job.status === "paused" ? <Play /> : <PauseIcon />} disabled={busyJob === job.id} aria-label={job.status === "paused" ? copy.resume : copy.pause} title={job.status === "paused" ? copy.resume : copy.pause} onClick={() => void control(job, job.status === "paused" ? "resume" : "pause")} /><TableActionButton color="danger" icon={<X />} loading={busyJob === job.id} aria-label={copy.cancel} title={copy.cancel} onClick={() => void control(job, "cancel")} /></div> : <div className="job-table-actions">{job.retryable && <TableActionButton color="primary" icon={<RotateCcw />} loading={busyJob === job.id} aria-label={copy.retry} title={copy.retry} onClick={() => void control(job, "retry")} />}<TableActionButton color="danger" icon={<Trash2 />} aria-label={copy.delete} title={copy.delete} loading={busyJob === job.id} onClick={() => void control(job, "delete")} /></div> },
-  ];
 
   return <section className="deployment-page">
     <PageHeader
@@ -84,18 +92,18 @@ export function DeploymentPage({
     <div className="deployment-grid">
       <Panel className="deployment-card">
         <div className="deployment-card-icon"><ShieldCheck /></div>
-        <div className="deployment-card-copy"><h2>{copy.rulesTitle}</h2><p>{copy.rulesDescription}</p><ul><li>{copy.firestoreRules}</li><li>{copy.firestoreIndexes}</li><li>{copy.storageRules}</li></ul></div>
-        <Button variant="solid" icon={<Rocket />} loading={busy === "firebase-rules"} disabled={busy !== null && busy !== "firebase-rules"} onClick={() => void deploy("firebase-rules")}>{copy.deployRules}</Button>
+        <div className="deployment-card-copy"><div className="deployment-card-title"><h2>{copy.rulesTitle}</h2><span className={`badge deployment-state-${deploymentState?.rules.status ?? "build-required"}`}>{stateCopy(deploymentState?.rules.status)}</span></div><p>{copy.rulesDescription}</p><ul>{deploymentState?.rules.items.map((item) => <li key={item.id}><span>{item.id === "firestore-rules" ? copy.firestoreRules : item.id === "firestore-indexes" ? copy.firestoreIndexes : copy.storageRules}</span><code>{shortHash(item.localHash)} / {shortHash(item.deployedHash)}</code><strong>{item.changed ? copy.changed : copy.unchanged}</strong></li>) ?? <li>{copy.buildRequired}</li>}</ul></div>
+        <div className="deployment-card-actions"><Button icon={<Rocket />} loading={busy === "firebase-rules" || operationIsRunning("firebase-rules", "build")} disabled={componentIsActive("firebase-rules")} onClick={() => void run("build", "firebase-rules")}>{deploymentState?.rules.builtAt ? copy.rebuild : copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("firebase-rules", "deploy")} disabled={componentIsActive("firebase-rules") || !deploymentState?.rules.builtAt || deploymentState.rules.status === "up-to-date"} onClick={() => void run("deploy", "firebase-rules")}>{copy.deployRules}</Button></div>
       </Panel>
       <Panel className="deployment-card">
         <div className="deployment-card-icon"><Globe2 /></div>
-        <div className="deployment-card-copy"><h2>{copy.webTitle}</h2><p>{copy.webDescription}</p><ul><li>{copy.webBuild}</li><li>{copy.firebaseHosting}</li></ul></div>
-        <Button variant="solid" icon={<Rocket />} loading={busy === "web"} disabled={busy !== null && busy !== "web"} onClick={() => void deploy("web")}>{copy.deployWeb}</Button>
+        <div className="deployment-card-copy"><div className="deployment-card-title"><h2>{copy.webTitle}</h2><span className={`badge deployment-state-${deploymentState?.web.status ?? "build-required"}`}>{stateCopy(deploymentState?.web.status)}</span></div><p>{copy.webDescription}</p><ul>{deploymentState?.web.items.map((item) => <li key={item.id}><span>{copy.firebaseHosting}</span><code>{shortHash(item.localHash)} / {shortHash(item.deployedHash)}</code><strong>{item.changed ? copy.changed : copy.unchanged}</strong></li>) ?? <li>{copy.buildRequired}</li>}</ul></div>
+        <div className="deployment-card-actions"><Button icon={<Rocket />} loading={busy === "web" || operationIsRunning("web", "build")} disabled={componentIsActive("web")} onClick={() => void run("build", "web")}>{deploymentState?.web.builtAt ? copy.rebuild : copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("web", "deploy")} disabled={componentIsActive("web") || !deploymentState?.web.builtAt || deploymentState.web.status === "up-to-date"} onClick={() => void run("deploy", "web")}>{copy.deployWeb}</Button></div>
       </Panel>
     </div>
     <section className="deployment-jobs">
       <div><h2>{copy.recentDeployments}</h2><Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openAllJobs}</Button></div>
-      <DataTable ariaLabel={copy.recentDeployments} rows={deployments} columns={columns} rowKey={(job) => job.id} emptyText={copy.noDeployments} />
+      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentDeployments} rows={deployments} busyJob={busyJob} emptyText={copy.noDeployments} onAction={(job, action) => void control(job, action)} />
     </section>
   </section>;
 }

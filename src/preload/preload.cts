@@ -171,8 +171,9 @@ const api: DesktopApi = {
     ipcRenderer.invoke("ai-migration:start", input),
   getAiMigrationJobs: () => ipcRenderer.invoke("ai-migration:list"),
   getBackgroundJobs: () => ipcRenderer.invoke("jobs:list"),
-  startDeployment: (component, target) =>
-    ipcRenderer.invoke("deployment:start", component, target),
+  startDeployment: (operation, component, target) =>
+    ipcRenderer.invoke("deployment:start", operation, component, target),
+  getDeploymentState: (target) => ipcRenderer.invoke("deployment:state", target),
   cancelBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:cancel", jobId),
   pauseBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:pause", jobId),
   resumeBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:resume", jobId),

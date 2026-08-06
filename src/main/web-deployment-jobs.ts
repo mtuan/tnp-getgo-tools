@@ -1,15 +1,17 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, DeploymentComponent, WebDeploymentTarget } from "../core/models.js";
+import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, DeploymentItemState, DeploymentOperation, DeploymentStateSnapshot, WebDeploymentTarget } from "../core/models.js";
 
 type DeploymentJob = BackgroundJob & {
   kind: "deploy";
   component?: DeploymentComponent;
   target?: WebDeploymentTarget;
+  operation?: DeploymentOperation;
 };
-interface Runtime { child: ChildProcess; cancelled: boolean }
+interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; builtAt: string; items: DeploymentItemState[] }
+interface Runtime { child: ChildProcess; cancelled: boolean; phases: Set<string>; outputBuffer: string }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
   development: "deploy:getgo:dev",
@@ -21,11 +23,28 @@ function cleanLine(value: string) {
   return value.replace(/\u001b\[[0-9;]*m/g, "").trim().slice(-180);
 }
 
+function progressTotal(operation: DeploymentOperation, component: DeploymentComponent) {
+  if (operation === "build") return component === "firebase-rules" ? 5 : 4;
+  return component === "firebase-rules" ? 6 : 5;
+}
+
+function outputPhase(line: string, component: DeploymentComponent) {
+  if (line.includes("GetGo Web vendored logics refresh completed")) return "dependencies";
+  if (component === "firebase-rules" && line.includes("Synced firestore.rules")) return "firestore";
+  if (component === "firebase-rules" && line.includes("Synced storage.rules")) return "storage";
+  if (component === "web" && (line.includes("Building…") || /vite v\d/i.test(line))) return "build";
+  if (component === "web" && /built in \d/i.test(line)) return "bundle";
+  if (line.includes("Resources to deploy:") || line.includes("Resources (would be deployed):")) return "plan";
+  if (line.includes("Deploying:")) return "deploy";
+  return null;
+}
+
 export class WebDeploymentJobManager {
   private jobs: DeploymentJob[] = [];
   private loadPromise: Promise<void> | null = null;
   private persistChain: Promise<void> = Promise.resolve();
   private runtimes = new Map<string, Runtime>();
+  private builds: BuildRecord[] = [];
 
   constructor(
     private readonly userDataPath: string,
@@ -43,7 +62,8 @@ export class WebDeploymentJobManager {
 
   private async load() {
     try {
-      const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[] };
+      const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[]; builds?: BuildRecord[] };
+      this.builds = stored.builds ?? [];
       this.jobs = (stored.jobs ?? []).slice(0, 50).map((job) =>
         ["queued", "running", "paused"].includes(job.status)
           ? { ...job, status: "failed", cancellable: false, retryable: Boolean(job.component && job.target), finishedAt: new Date().toISOString(), error: "Deployment was interrupted when GetGo Tools stopped." }
@@ -51,12 +71,13 @@ export class WebDeploymentJobManager {
       );
     } catch {
       this.jobs = [];
+      this.builds = [];
     }
     await this.persist();
   }
 
   private async persist() {
-    const contents = JSON.stringify({ jobs: this.jobs.slice(0, 50) }, null, 2);
+    const contents = JSON.stringify({ jobs: this.jobs.slice(0, 50), builds: this.builds }, null, 2);
     this.persistChain = this.persistChain.then(async () => {
       await fs.mkdir(this.userDataPath, { recursive: true });
       await fs.writeFile(this.filePath, contents, "utf8");
@@ -87,23 +108,82 @@ export class WebDeploymentJobManager {
     throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
   }
 
-  async start(component: DeploymentComponent, target: WebDeploymentTarget) {
+  private async hashFile(filePath: string) {
+    try { return createHash("sha256").update(await fs.readFile(filePath)).digest("hex"); }
+    catch { return null; }
+  }
+
+  private async hashDirectory(root: string) {
+    const hash = createHash("sha256");
+    const walk = async (directory: string) => {
+      const entries = await fs.readdir(directory, { withFileTypes: true });
+      entries.sort((left, right) => left.name.localeCompare(right.name));
+      for (const entry of entries) {
+        const full = path.join(directory, entry.name);
+        if (entry.isDirectory()) await walk(full);
+        else { hash.update(full.slice(root.length)); hash.update(await fs.readFile(full)); }
+      }
+    };
+    try { await walk(root); return hash.digest("hex"); }
+    catch { return null; }
+  }
+
+  private async localItems(component: DeploymentComponent, webRoot: string): Promise<DeploymentItemState[]> {
+    const deployRoot = path.join(webRoot, "configs", "deploys", "getgo");
+    if (component === "web")
+      return [{ id: "web", localHash: await this.hashDirectory(path.join(webRoot, "dist")), deployedHash: null, changed: false }];
+    return await Promise.all([
+      ["firestore-rules", "firestore.rules"],
+      ["firestore-indexes", "firestore.indexes.json"],
+      ["storage-rules", "storage.rules"],
+    ].map(async ([id, filename]) => ({ id: id as DeploymentItemState["id"], localHash: await this.hashFile(path.join(deployRoot, filename)), deployedHash: null, changed: false })));
+  }
+
+  private async recordBuild(component: DeploymentComponent, target: WebDeploymentTarget) {
+    const webRoot = await this.webRoot();
+    const record: BuildRecord = { component, target, builtAt: new Date().toISOString(), items: await this.localItems(component, webRoot) };
+    this.builds = [record, ...this.builds.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
+  }
+
+  async state(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot> {
     await this.ensureLoaded();
-    if (this.jobs.some((job) => ["queued", "running", "paused"].includes(job.status)))
-      throw new Error("Another Web deployment is already active.");
+    const webRoot = await this.webRoot();
+    const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
+    const deployed = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, ".deploy-hashes.json"), "utf8").catch(() => "{}")) as Record<string, string>;
+    const componentState = (component: DeploymentComponent): DeploymentComponentState => {
+      const build = this.builds.find((item) => item.component === component && item.target === target);
+      const keys = component === "web"
+        ? [["web", "hosting"]]
+        : [["firestore-rules", "firestore:rules"], ["firestore-indexes", "firestore:indexes"], ["storage-rules", "storage"]];
+      const items = keys.map(([id, key]) => {
+        const localHash = build?.items.find((item) => item.id === id)?.localHash ?? null;
+        const deployedHash = deployed[key] ?? null;
+        return { id: id as DeploymentItemState["id"], localHash, deployedHash, changed: Boolean(localHash && localHash !== deployedHash) };
+      });
+      const status = !build ? "build-required" : items.every((item) => !item.deployedHash) ? "not-deployed" : items.some((item) => item.changed) ? "changed" : "up-to-date";
+      return { component, status, builtAt: build?.builtAt, items };
+    };
+    return { target, rules: componentState("firebase-rules"), web: componentState("web") };
+  }
+
+  async start(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget) {
+    await this.ensureLoaded();
+    if (this.jobs.some((job) => job.component === component && ["queued", "running", "paused"].includes(job.status)))
+      throw new Error(`Another ${component === "web" ? "Web" : "Firebase rules"} job is already active.`);
+    if (operation === "deploy" && !this.builds.some((item) => item.component === component && item.target === target))
+      throw new Error("Build this component locally for the selected target before deploying it.");
     const webRoot = await this.webRoot();
     const job: DeploymentJob = {
       id: randomUUID(),
       kind: "deploy",
       component,
       target,
-      name: `Deploy ${component === "web" ? "Web" : "Firebase rules"} · ${target}`,
-      description: component === "web"
-        ? `Build and deploy GetGo Web Hosting to ${target}`
-        : `Deploy Firestore and Storage rules to ${target}`,
+      operation,
+      name: `${operation === "build" ? "Build" : "Deploy"} ${component === "web" ? "Web" : "Firebase rules"} · ${target}`,
+      description: `${operation === "build" ? "Prepare local" : "Publish"} ${component === "web" ? "GetGo Web" : "Firestore and Storage rules"} for ${target}`,
       status: "queued",
       completed: 0,
-      total: 1,
+      total: progressTotal(operation, component),
       progressLabel: "Starting deployment",
       createdAt: new Date().toISOString(),
       cancellable: true,
@@ -113,13 +193,15 @@ export class WebDeploymentJobManager {
     await this.persist();
 
     const scope = component === "web" ? "web" : "rules";
-    const child = spawn("npm", ["run", targetScripts[target], "--", `--scope=${scope}`], {
+    const args = ["run", targetScripts[target], "--", `--scope=${scope}`];
+    if (operation === "build") args.push("--build-only", "--no-lint", "--no-typecheck");
+    const child = spawn("npm", args, {
       cwd: webRoot,
       detached: process.platform !== "win32",
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const runtime: Runtime = { child, cancelled: false };
+    const runtime: Runtime = { child, cancelled: false, phases: new Set(), outputBuffer: "" };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
@@ -127,9 +209,19 @@ export class WebDeploymentJobManager {
     await this.persist();
 
     const updateOutput = (chunk: Buffer) => {
-      const line = cleanLine(chunk.toString("utf8").split(/\r?\n/).filter(Boolean).at(-1) ?? "");
-      if (!line || runtime.cancelled) return;
-      job.progressLabel = line;
+      runtime.outputBuffer += chunk.toString("utf8");
+      const lines = runtime.outputBuffer.split(/\r?\n/);
+      runtime.outputBuffer = lines.pop() ?? "";
+      for (const raw of lines) {
+        const line = cleanLine(raw);
+        if (!line || runtime.cancelled) continue;
+        job.progressLabel = line;
+        const phase = outputPhase(line, component);
+        if (phase && !runtime.phases.has(phase)) {
+          runtime.phases.add(phase);
+          job.completed = Math.min(job.total - 1, runtime.phases.size);
+        }
+      }
       void this.persist();
     };
     child.stdout?.on("data", updateOutput);
@@ -145,8 +237,10 @@ export class WebDeploymentJobManager {
     if (!runtime.cancelled) {
       if (!cause && code === 0) {
         job.status = "completed";
-        job.completed = 1;
-        job.progressLabel = "Deployed";
+        job.completed = job.total;
+        job.progressLabel = job.operation === "build" ? "Built" : "Deployed";
+        if (job.operation === "build" && job.component && job.target)
+          await this.recordBuild(job.component, job.target);
       } else {
         job.status = "failed";
         job.error = cause?.message ?? `Deployment exited with code ${code ?? "unknown"}.`;
@@ -211,7 +305,7 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const job = this.jobs.find((item) => item.id === id);
     if (!job?.retryable || !job.component || !job.target) return;
-    await this.start(job.component, job.target);
+    await this.start(job.operation ?? "deploy", job.component, job.target);
   }
 
   async delete(id: string) {

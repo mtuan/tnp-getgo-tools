@@ -439,6 +439,24 @@ export interface AiMigrationJobsSnapshot {
 export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy";
 export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase-rules" | "web";
+export type DeploymentOperation = "build" | "deploy";
+export interface DeploymentItemState {
+  id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "web";
+  localHash: string | null;
+  deployedHash: string | null;
+  changed: boolean;
+}
+export interface DeploymentComponentState {
+  component: DeploymentComponent;
+  status: "build-required" | "not-deployed" | "changed" | "up-to-date";
+  builtAt?: string;
+  items: DeploymentItemState[];
+}
+export interface DeploymentStateSnapshot {
+  target: WebDeploymentTarget;
+  rules: DeploymentComponentState;
+  web: DeploymentComponentState;
+}
 export interface BackgroundJob {
   id: string;
   kind: BackgroundJobKind;
@@ -452,6 +470,9 @@ export interface BackgroundJob {
   startedAt?: string;
   finishedAt?: string;
   route?: string;
+  component?: DeploymentComponent;
+  operation?: DeploymentOperation;
+  target?: WebDeploymentTarget;
   cancellable: boolean;
   retryable?: boolean;
   error?: string;
@@ -603,9 +624,11 @@ export interface DesktopApi {
   getAiMigrationJobs(): Promise<AiMigrationJobsSnapshot>;
   getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
   startDeployment(
+    operation: DeploymentOperation,
     component: DeploymentComponent,
     target: WebDeploymentTarget,
   ): Promise<BackgroundJobsSnapshot>;
+  getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
   cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;

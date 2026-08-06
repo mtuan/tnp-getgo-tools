@@ -4994,29 +4994,43 @@ button.danger svg {
 }
 .job-table-name > small,
 .job-table-progress > small {
-  color: #64748b;
-  font-size: 10px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+}
+.job-table-description > span {
+  color: #1e293b;
+  font-weight: 500;
 }
 .job-table-description > small {
   overflow: hidden;
-  color: #be123c;
-  font-size: 10px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.job-table-description > .job-table-current-step {
+  color: #475569;
+  font-weight: 600;
+}
+.job-table-description > .job-table-error {
+  color: #be123c;
+  font-weight: 500;
+}
 .job-table-progress > div {
-  display: flex;
+  display: grid;
+  grid-template-columns: 128px 42px;
   align-items: center;
   gap: 8px;
 }
 .job-table-progress progress {
-  width: 100%;
+  width: 128px;
   height: 7px;
   accent-color: #4f46e5;
 }
 .job-table-progress strong {
-  width: 36px;
-  font-size: 11px;
+  width: 42px;
+  color: #1e293b;
+  font-size: 12px;
   text-align: right;
 }
 .job-table-quiz > strong {
@@ -5111,6 +5125,12 @@ button.danger svg {
   margin: 0;
   font-size: 16px;
 }
+.deployment-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 .deployment-card-copy p {
   margin: 5px 0 12px;
   color: var(--muted);
@@ -5124,9 +5144,38 @@ button.danger svg {
   font-size: 11px;
   line-height: 1.8;
 }
-.deployment-card > .ui-button {
+.deployment-card-copy li {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(150px, auto) auto;
+  align-items: center;
+  gap: 8px;
+}
+.deployment-card-copy li code {
+  color: var(--muted);
+  font-size: 9px;
+}
+.deployment-card-copy li strong {
+  color: var(--muted);
+  font-size: 9px;
+}
+.deployment-card-actions {
   grid-column: 1 / -1;
-  justify-self: end;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.deployment-state-changed,
+.deployment-state-not-deployed {
+  color: #b45309;
+  background: #fef3c7;
+}
+.deployment-state-up-to-date {
+  color: #047857;
+  background: #d1fae5;
+}
+.deployment-state-build-required {
+  color: #64748b;
+  background: #f1f5f9;
 }
 .deployment-jobs {
   display: grid;
