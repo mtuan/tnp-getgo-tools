@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import type { ContestSettings, QuizCrudInput, QuizManifest } from "../core/models.js"
 import { contestSettingsSchema, quizManifestSchema } from "../core/schema.js"
+import { createQuizQuestion } from "./quiz-questions.js"
 
 const safeIdPattern = /^[a-z0-9][a-z0-9_-]*$/
 
@@ -72,10 +73,12 @@ export async function createQuizFiles(root: string, contestId: string, input: Qu
   const quizSource = `import QB from '@src/utils/quiz-builder';\n\nexport default {\n  exam_no: ${JSON.stringify(id)},\n  title: ${JSON.stringify(title)},\n  grade: ${JSON.stringify(input.grade ?? "")},\n  round: ${JSON.stringify(input.round ?? "")},\n  year: ${JSON.stringify(input.year ?? "")},\n  questions: [\n    QB.template(\n      () => ({}),\n      () => ({\n        question_no: 1,\n        category: "",\n        text_en: "",\n        answer: { type: "input", correct: "" },\n      }),\n    ),\n  ],\n};\n`
   const manifest: QuizManifest = {
     schemaVersion: 1,
+    questionStorageVersion: "questions-v1",
     id,
     legacyId: id,
     contest,
     title,
+    type: input.type ?? "question-list",
     grade: input.grade,
     round: input.round,
     year: input.year,
@@ -89,10 +92,12 @@ export async function createQuizFiles(root: string, contestId: string, input: Qu
   }
   await fs.mkdir(directory)
   try {
+    const manifestPath = path.join(directory, "manifest.json")
     await Promise.all([
-      fs.writeFile(path.join(directory, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8"),
+      fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8"),
       fs.writeFile(path.join(directory, "quiz.ts"), quizSource, "utf8"),
     ])
+    await createQuizQuestion(manifestPath)
   } catch (cause) {
     await fs.rm(directory, { recursive: true, force: true })
     throw cause
@@ -111,6 +116,7 @@ export async function updateQuizManifest(manifestPath: string, input: Omit<QuizC
   const updated: QuizManifest = {
     ...manifest,
     title: fields.title,
+    type: input.type ?? manifest.type ?? "question-list",
     grade: input.grade,
     round: input.round,
     year: input.year,

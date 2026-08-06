@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { contentStatuses } from "./models.js"
+import { contentStatuses, quizTypes } from "./models.js"
 
 export const quizManifestSchema = z.object({
   schemaVersion: z.number().int().positive(),
@@ -7,6 +7,7 @@ export const quizManifestSchema = z.object({
   legacyId: z.string().min(1),
   contest: z.string().min(1),
   title: z.string().min(1).optional(),
+  type: z.enum(quizTypes).optional(),
   grade: z.string().nullable().optional(),
   round: z.string().nullable().optional(),
   year: z.string().nullable().optional(),

@@ -229,7 +229,13 @@ async function questionsFromRawJson(quizDirectory: string): Promise<QuizQuestion
 }
 
 async function defaultQuestions(quizDirectory: string): Promise<QuizQuestionRecord[]> {
-  return await questionsFromRawTs(quizDirectory) ?? questionsFromRawJson(quizDirectory)
+  const fromTypeScript = await questionsFromRawTs(quizDirectory)
+  if (fromTypeScript) return fromTypeScript
+  try { return await questionsFromRawJson(quizDirectory) }
+  catch (cause) {
+    if ((cause as NodeJS.ErrnoException)?.code === "ENOENT") return []
+    throw cause
+  }
 }
 
 export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]> {
@@ -248,6 +254,13 @@ export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuest
     return records.sort((left, right) => Number(left.question_no) - Number(right.question_no))
   }
   if (await questionStorageVersion(manifestPath) === "questions-v1") return []
+
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as { source?: { format?: unknown } }
+  if (manifest.source?.format === "manual-v1") {
+    await fs.mkdir(questionsDirectory, { recursive: true })
+    await markQuestionsStorage(manifestPath)
+    return []
+  }
 
   await fs.mkdir(questionsDirectory, { recursive: true })
   const records = await defaultQuestions(quizDirectory)

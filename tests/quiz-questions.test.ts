@@ -35,6 +35,16 @@ test("creates, reorders, and deletes only split question files", async () => {
   assert.equal(await fs.readFile(path.join(directory, "raw.ts"), "utf8"), rawTs)
 })
 
+test("upgrades an empty manually created quiz without reading legacy raw files", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-manual-quiz-"))
+  const manifestPath = path.join(directory, "manifest.json")
+  await fs.writeFile(manifestPath, JSON.stringify({ source: { format: "manual-v1" } }))
+
+  assert.deepEqual(await loadQuizQuestions(manifestPath), [])
+  assert.equal(JSON.parse(await fs.readFile(manifestPath, "utf8")).questionStorageVersion, "questions-v1")
+  assert.deepEqual(await fs.readdir(path.join(directory, "questions")), [])
+})
+
 test("converts raw questions, extracts inline images, and then prefers q files", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-"))
   const manifestPath = path.join(directory, "manifest.json")

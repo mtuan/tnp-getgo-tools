@@ -5,6 +5,8 @@ export const contentStatuses = [
 export type ContentStatus = (typeof contentStatuses)[number]
 export type DeploymentStatus = "not-built" | "not-uploaded" | "uploaded" | "outdated" | "unknown"
 export type QuestionStorageVersion = "legacy" | "questions-v1"
+export const quizTypes = ["question-list", "alphabet-english", "alphabet-vietnamese"] as const
+export type QuizType = (typeof quizTypes)[number]
 
 export interface QuizManifest {
   schemaVersion: number
@@ -12,6 +14,7 @@ export interface QuizManifest {
   legacyId: string
   contest: string
   title?: string
+  type?: QuizType
   grade?: string | null
   round?: string | null
   year?: string | null
@@ -31,6 +34,7 @@ export interface QuizSummary {
   legacyId: string
   contest: string
   title: string
+  type: QuizType
   grade: string | null
   round: string | null
   year: string | null
@@ -103,6 +107,7 @@ export interface ContestSummary {
 export interface QuizCrudInput {
   id: string
   title: string
+  type?: QuizType
   grade: string | null
   round: string | null
   year: string | null
@@ -253,7 +258,7 @@ export interface DesktopApi {
   restartApp(): Promise<void>
   getSettings(): Promise<AppSettings>
   chooseRepository(): Promise<RepositorySnapshot | null>
-  scanRepository(path?: string): Promise<RepositorySnapshot>
+  scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>
   setLocale(locale: AppSettings["locale"]): Promise<AppSettings>

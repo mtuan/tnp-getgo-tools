@@ -125,6 +125,7 @@ async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecord
     legacyId: manifest.legacyId,
     contest: manifest.contest,
     title,
+    type: manifest.type ?? "question-list",
     grade: manifest.grade ?? null,
     round: manifest.round ?? null,
     year: manifest.year ?? null,

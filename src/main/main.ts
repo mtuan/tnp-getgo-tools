@@ -74,13 +74,13 @@ app.whenReady().then(async () => {
   let repositoryScanPromise: Promise<RepositorySnapshot> | null = null
   let repositoryScanPath: string | null = null
   const publishPayloads = new Map<string, LocalPublishPayload>()
-  const scanRepository = async (repositoryPath: string, options?: Parameters<typeof scanQuizRepository>[1]) => {
+  const scanRepository = async (repositoryPath: string, options?: Parameters<typeof scanQuizRepository>[1], force = false) => {
     const resolved = path.resolve(repositoryPath)
-    if (repositorySnapshot?.repositoryPath === resolved) return repositorySnapshot
+    if (!force && repositorySnapshot?.repositoryPath === resolved) return repositorySnapshot
     if (repositoryScanPromise) {
-      if (repositoryScanPath === resolved) return repositoryScanPromise
+      if (!force && repositoryScanPath === resolved) return repositoryScanPromise
       await repositoryScanPromise
-      return scanRepository(resolved, options)
+      return scanRepository(resolved, options, force)
     }
     repositoryScanPath = resolved
     repositoryScanPromise = (async () => {
@@ -228,11 +228,11 @@ app.whenReady().then(async () => {
     await settings.update({ repositoryPath: snapshot.repositoryPath })
     return snapshot
   })
-  ipcMain.handle("repository:scan", async (_event, requestedPath?: string) => {
+  ipcMain.handle("repository:scan", async (_event, requestedPath?: string, force = false) => {
     const current = await settings.read()
     const repositoryPath = requestedPath ?? current.repositoryPath
     if (!repositoryPath) throw new Error("Choose a quiz repository first.")
-    const snapshot = await scanRepository(repositoryPath)
+    const snapshot = await scanRepository(repositoryPath, undefined, force)
     await settings.update({ repositoryPath: snapshot.repositoryPath })
     return snapshot
   })
