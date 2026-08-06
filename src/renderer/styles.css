@@ -937,6 +937,11 @@ main {
   color: var(--text-strong);
   font-size: 32px;
 }
+.alphabet-word-letter {
+  padding: 0;
+  color: #059669;
+  background: transparent;
+}
 .alphabet-word-preview > p {
   margin: 0;
   color: var(--muted);
@@ -5385,6 +5390,10 @@ button.danger svg {
 }
 
 @media (prefers-color-scheme: dark) {
+  .alphabet-word-letter {
+    color: #6ee7b7;
+    background: transparent;
+  }
   .ui-tabs-segmented {
     background: #0f172a;
   }

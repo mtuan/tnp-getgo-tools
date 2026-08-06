@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { alphabetData } from "../core/alphabet-question";
+import { isAlphabetLetterCharacter } from "../core/alphabet-letter";
 import type {
   AlphabetQuestionContent,
   AlphabetSample,
@@ -34,6 +35,7 @@ export function AlphabetLetterEditor({
   onChange,
 }: Props) {
   const [selectedSampleIndex, setSelectedSampleIndex] = useState(0);
+  const speechPauseRef = useRef<number | null>(null);
   const language =
     quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
@@ -44,13 +46,44 @@ export function AlphabetLetterEditor({
   const selectedWord = selectedSample
     ? [selectedSample.classifier, selectedSample.text].filter(Boolean).join(" ")
     : "";
+  const highlightedWord = selectedSample
+    ? Array.from(selectedSample.text).map((character, index) =>
+        isAlphabetLetterCharacter(character, alphabet.letter, language) ? (
+          <mark className="alphabet-word-letter" key={index}>
+            {character}
+          </mark>
+        ) : (
+          character
+        ),
+      )
+    : null;
   const speakWord = () => {
     if (!selectedWord || !("speechSynthesis" in window)) return;
+    if (speechPauseRef.current !== null) {
+      window.clearTimeout(speechPauseRef.current);
+      speechPauseRef.current = null;
+    }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(selectedWord);
-    utterance.lang = quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
-    utterance.rate = 0.85;
-    window.speechSynthesis.speak(utterance);
+    const speechLanguage =
+      quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
+    const wordUtterance = new SpeechSynthesisUtterance(selectedWord);
+    wordUtterance.lang = speechLanguage;
+    wordUtterance.rate = 0.65;
+    wordUtterance.pitch = 1.08;
+    if (selectedSample?.meaning) {
+      wordUtterance.onend = () => {
+        speechPauseRef.current = window.setTimeout(() => {
+          const meaningUtterance = new SpeechSynthesisUtterance(
+            selectedSample.meaning,
+          );
+          meaningUtterance.lang = speechLanguage;
+          meaningUtterance.rate = 1;
+          window.speechSynthesis.speak(meaningUtterance);
+          speechPauseRef.current = null;
+        }, 500);
+      };
+    }
+    window.speechSynthesis.speak(wordUtterance);
   };
   const speakLetter = () => {
     const spokenText = alphabet.pronunciation || alphabet.letter;
@@ -61,6 +94,15 @@ export function AlphabetLetterEditor({
     utterance.rate = 0.75;
     window.speechSynthesis.speak(utterance);
   };
+  useEffect(
+    () => () => {
+      if (speechPauseRef.current !== null) {
+        window.clearTimeout(speechPauseRef.current);
+      }
+      window.speechSynthesis?.cancel();
+    },
+    [selectedSampleIndex, tab],
+  );
   const update = (next: AlphabetQuestionContent) =>
     onChange({
       question_no: record.question_no,
@@ -265,7 +307,12 @@ export function AlphabetLetterEditor({
                       <span>No image</span>
                     )}
                   </div>
-                  <strong>{selectedWord || "Untitled word"}</strong>
+                  <strong>
+                    {selectedSample.classifier
+                      ? `${selectedSample.classifier} `
+                      : null}
+                    {highlightedWord || "Untitled word"}
+                  </strong>
                   <p>{selectedSample.meaning || "No meaning provided."}</p>
                   <Button
                     variant="solid"
