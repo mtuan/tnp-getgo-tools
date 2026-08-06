@@ -3,7 +3,37 @@ import { promises as fs } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { loadQuizQuestions, normalizeLegacyOriginParamsSource, resetQuizQuestion, saveQuizQuestion } from "../src/repositories/quiz-questions.js"
+import { createQuizQuestion, deleteQuizQuestion, loadQuizQuestions, normalizeLegacyOriginParamsSource, reorderQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../src/repositories/quiz-questions.js"
+
+test("creates, reorders, and deletes only split question files", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-question-crud-"))
+  const manifestPath = path.join(directory, "manifest.json")
+  const rawJson = JSON.stringify({ questions: [{ question_no: 99, text_en: "Original JSON" }] })
+  const rawTs = "export default { questions: [] }\n"
+  await fs.writeFile(manifestPath, "{}")
+  await fs.writeFile(path.join(directory, "raw.json"), rawJson)
+  await fs.writeFile(path.join(directory, "raw.ts"), rawTs)
+  await saveQuizQuestion(manifestPath, { question_no: 1, text_en: "First", answer: { type: "input", correct: "1" } })
+  await saveQuizQuestion(manifestPath, { question_no: 2, text_en: "Second", answer: { type: "input", correct: "2" } })
+
+  const created = await createQuizQuestion(manifestPath)
+  assert.equal(created.question_no, 3)
+
+  const reordered = await reorderQuizQuestions(manifestPath, ["3", "1", "2"])
+  assert.deepEqual(reordered.map(question => question.question_no), [1, 2, 3])
+  assert.deepEqual(reordered.map(question => question.text_en), ["", "First", "Second"])
+
+  const remaining = await deleteQuizQuestion(manifestPath, "2")
+  assert.deepEqual(remaining.map(question => question.question_no), [1, 2])
+  assert.deepEqual(remaining.map(question => question.text_en), ["", "Second"])
+  assert.deepEqual((await fs.readdir(path.join(directory, "questions"))).sort(), ["q2.json", "q3.json"])
+  await deleteQuizQuestion(manifestPath, "1")
+  await deleteQuizQuestion(manifestPath, "1")
+  assert.deepEqual(await loadQuizQuestions(manifestPath), [])
+  assert.equal(JSON.parse(await fs.readFile(manifestPath, "utf8")).questionStorageVersion, "questions-v1")
+  assert.equal(await fs.readFile(path.join(directory, "raw.json"), "utf8"), rawJson)
+  assert.equal(await fs.readFile(path.join(directory, "raw.ts"), "utf8"), rawTs)
+})
 
 test("converts raw questions, extracts inline images, and then prefers q files", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-questions-"))

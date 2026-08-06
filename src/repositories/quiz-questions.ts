@@ -127,6 +127,18 @@ function questionNumber(fileName: string): number {
   return Number(fileName.match(/^q(\d+)\.json$/i)?.[1] ?? Number.MAX_SAFE_INTEGER)
 }
 
+async function questionStorageVersion(manifestPath: string): Promise<unknown> {
+  try { return (JSON.parse(await fs.readFile(manifestPath, "utf8")) as Record<string, unknown>).questionStorageVersion }
+  catch { return undefined }
+}
+
+async function markQuestionsStorage(manifestPath: string): Promise<void> {
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as Record<string, unknown>
+  if (manifest.questionStorageVersion === "questions-v1") return
+  manifest.questionStorageVersion = "questions-v1"
+  await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
+}
+
 /** Legacy quizzes sometimes stored the original parameters as `() => ({ ... })`
  * or `() => { return { ... } }`. The current editor stores that field as the
  * independently editable object expression itself. Normalize before formatting;
@@ -222,19 +234,25 @@ export async function loadQuizQuestions(manifestPath: string): Promise<QuizQuest
   const quizDirectory = path.dirname(manifestPath)
   const questionsDirectory = path.join(quizDirectory, "questions")
   const existing = await fs.readdir(questionsDirectory).catch(() => [] as string[])
-  const files = existing.filter((name: string) => /^q\d+\.json$/i.test(name)).sort((a: string, b: string) => questionNumber(a) - questionNumber(b))
-  if (files.length) return Promise.all(files.map(async (file: string) => {
+  const files = existing.filter((name: string) => /^q\d+\.json$/i.test(name))
+  if (files.length) {
+    await markQuestionsStorage(manifestPath)
+    const records = await Promise.all(files.map(async (file: string) => {
     const record = JSON.parse(await fs.readFile(path.join(questionsDirectory, file), "utf8")) as QuizQuestionRecord
     if (!record.advancedDynamic) return record
     try { return await formatQuestionCode(record) }
     catch { return record }
-  }))
+    }))
+    return records.sort((left, right) => Number(left.question_no) - Number(right.question_no))
+  }
+  if (await questionStorageVersion(manifestPath) === "questions-v1") return []
 
   await fs.mkdir(questionsDirectory, { recursive: true })
   const records = await defaultQuestions(quizDirectory)
   for (const record of records) {
     await fs.writeFile(path.join(questionsDirectory, `q${record.question_no}.json`), `${JSON.stringify(record, null, 2)}\n`, "utf8")
   }
+  await markQuestionsStorage(manifestPath)
   return records
 }
 
@@ -243,9 +261,89 @@ export async function saveQuizQuestion(manifestPath: string, question: QuizQuest
   if (!/^\d+$/.test(questionNo)) throw new Error("Invalid question number")
   const questionsDirectory = path.join(path.dirname(manifestPath), "questions")
   await fs.mkdir(questionsDirectory, { recursive: true })
+  const existing = await storedQuestionFiles(manifestPath)
+  const target = existing.find(item => String(item.record.question_no) === questionNo)?.file
+    ?? `q${existing.length ? Math.max(...existing.map(item => questionNumber(item.file))) + 1 : 1}.json`
   const formatted = await formatQuestionCode(question)
-  await fs.writeFile(path.join(questionsDirectory, `q${questionNo}.json`), `${JSON.stringify(formatted, null, 2)}\n`, "utf8")
+  await fs.writeFile(path.join(questionsDirectory, target), `${JSON.stringify(formatted, null, 2)}\n`, "utf8")
   return formatted
+}
+
+async function storedQuestionFiles(manifestPath: string): Promise<Array<{ file: string; record: QuizQuestionRecord }>> {
+  const questionsDirectory = path.join(path.dirname(manifestPath), "questions")
+  const entries = await fs.readdir(questionsDirectory).catch(() => [] as string[])
+  const files = entries.filter(file => /^q\d+\.json$/i.test(file)).sort((left, right) => questionNumber(left) - questionNumber(right))
+  return Promise.all(files.map(async file => ({
+    file,
+    record: JSON.parse(await fs.readFile(path.join(questionsDirectory, file), "utf8")) as QuizQuestionRecord,
+  })))
+}
+
+export async function quizQuestionFile(manifestPath: string, questionNo: string): Promise<string> {
+  const item = (await storedQuestionFiles(manifestPath)).find(candidate => String(candidate.record.question_no) === questionNo)
+  if (!item) throw new Error(`Question ${questionNo} was not found`)
+  return path.join(path.dirname(manifestPath), "questions", item.file)
+}
+
+function renumberQuestion(record: QuizQuestionRecord, questionNo: number): QuizQuestionRecord {
+  if (!record.advancedDynamic) return { ...record, question_no: questionNo }
+  const questionGeneratorTs = record.advancedDynamic.questionGeneratorTs.replace(
+    /(\bquestion_no\s*:\s*)\d+(?=\s*[,}])/,
+    `$1${questionNo}`,
+  )
+  const { draftSourceTs: _draftSourceTs, ...advancedDynamic } = record.advancedDynamic
+  return { ...record, question_no: questionNo, advancedDynamic: { ...advancedDynamic, questionGeneratorTs } }
+}
+
+async function replaceStoredQuestionOrder(manifestPath: string, ordered: Array<{ file: string; record: QuizQuestionRecord }>): Promise<QuizQuestionRecord[]> {
+  const questionsDirectory = path.join(path.dirname(manifestPath), "questions")
+  await fs.mkdir(questionsDirectory, { recursive: true })
+  await markQuestionsStorage(manifestPath)
+  const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const staged = await Promise.all(ordered.map(async (item, index) => {
+    const record = renumberQuestion(item.record, index + 1)
+    const stagedFile = `.getgo-reorder-${token}-${item.file}`
+    await fs.writeFile(path.join(questionsDirectory, stagedFile), `${JSON.stringify(record, null, 2)}\n`, "utf8")
+    return { file: item.file, stagedFile, record }
+  }))
+  try {
+    for (const item of staged) await fs.rename(path.join(questionsDirectory, item.stagedFile), path.join(questionsDirectory, item.file))
+    return staged.map(item => item.record)
+  } catch (cause) {
+    await Promise.all(staged.map(item => fs.unlink(path.join(questionsDirectory, item.stagedFile)).catch(() => undefined)))
+    throw cause
+  }
+}
+
+export async function createQuizQuestion(manifestPath: string): Promise<QuizQuestionRecord> {
+  const existing = await storedQuestionFiles(manifestPath)
+  const questionNo = existing.length ? Math.max(...existing.map(item => Number(item.record.question_no) || 0)) + 1 : 1
+  const created = await saveQuizQuestion(manifestPath, normalizeQuestion({
+    question_no: questionNo,
+    category: "",
+    text_en: "",
+    text_vn: "",
+    answer: { type: "input", correct: "" },
+  }, questionNo - 1))
+  await markQuestionsStorage(manifestPath)
+  return created
+}
+
+export async function reorderQuizQuestions(manifestPath: string, questionNumbers: string[]): Promise<QuizQuestionRecord[]> {
+  const existing = await storedQuestionFiles(manifestPath)
+  const byNumber = new Map(existing.map(item => [String(item.record.question_no), item]))
+  if (questionNumbers.length !== existing.length || new Set(questionNumbers).size !== existing.length || questionNumbers.some(number => !byNumber.has(number))) {
+    throw new Error("Question order must contain every stored question exactly once")
+  }
+  return replaceStoredQuestionOrder(manifestPath, questionNumbers.map(number => byNumber.get(number)!))
+}
+
+export async function deleteQuizQuestion(manifestPath: string, questionNo: string): Promise<QuizQuestionRecord[]> {
+  const existing = await storedQuestionFiles(manifestPath)
+  const target = existing.find(item => String(item.record.question_no) === questionNo)
+  if (!target) throw new Error(`Question ${questionNo} was not found`)
+  await fs.unlink(path.join(path.dirname(manifestPath), "questions", target.file))
+  return replaceStoredQuestionOrder(manifestPath, existing.filter(item => item.file !== target.file).sort((left, right) => Number(left.record.question_no) - Number(right.record.question_no)))
 }
 
 export async function resetQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord> {

@@ -17,6 +17,7 @@ export const quizManifestSchema = z.object({
     quizTsSha256: z.string(),
   }),
   quizBuilderApiVersion: z.number().int().positive().optional(),
+  questionStorageVersion: z.literal("questions-v1").optional(),
   publishedHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   publishedAt: z.string().optional(),
 })

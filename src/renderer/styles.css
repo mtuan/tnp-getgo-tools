@@ -105,14 +105,24 @@ main { grid-column: 2; min-width: 0; }
 .ui-question-navigator-review { flex: 0 0 auto; padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 750; line-height: 1; }
 .ui-question-navigator-review.reviewed { color: #047857; background: #d1fae5; }
 .ui-question-navigator-review.pending { color: #b45309; background: #fef3c7; }
+.question-order-actions { display: inline-flex; align-items: center; gap: 4px; }
+.question-order-actions .icon-button { width: 30px; height: 30px; min-height: 30px; border: 0; background: transparent; box-shadow: none; }
+.question-list-preview-drawer { width: min(720px, calc(100vw - 40px)); }
+.question-list-preview-drawer .question-preview { min-height: 0; }
+.question-list-preview-drawer footer { justify-content: space-between; }
 .settings-page h1 { margin: 4px 0; font: 800 30px/1.18 inherit; letter-spacing: -.65px; }
-.ui-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; white-space: nowrap; }
+.ui-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; white-space: nowrap; cursor: pointer; }
+.ui-button:disabled { cursor: default; }
 .ui-button-icon { width: 1em; height: 1em; flex: 0 0 1em; display: inline-grid; place-items: center; }
 .ui-button-icon > svg { width: 100%; height: 100%; }
 .ui-button-content { display: contents; }
 .ui-button-spinner { width: 1em; height: 1em; display: block; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .75s linear infinite; }
 .ui-button-loading-overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .ui-button.is-loading:not(:has(.ui-button-icon)) .ui-button-content { visibility: hidden; }
+.ui-button.ui-table-action-button { box-sizing: border-box; width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 8px; box-shadow: none; }
+.ui-table-action-button:not(:disabled):hover { transform: none; box-shadow: none; }
+table td .ui-table-action-button .ui-button-icon { display: inline-grid; width: 16px; height: 16px; max-width: none; flex: 0 0 16px; margin: 0; place-items: center; color: inherit; }
+table td .ui-table-action-button .ui-button-icon > svg { width: 16px; height: 16px; }
 .primary, .secondary { padding: 10px 15px; border-radius: 8px; font-weight: 700; font-size: 13px; }.primary { border: 1px solid #1a3025; color: white; background: #1a3025; box-shadow: 0 2px 5px #15291d22; }.primary:hover { background: #254332; }.secondary { border: 1px solid #d5dcd7; color: #405249; background: white; }.secondary:hover { border-color: #aebcb3; }
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }.metrics article { padding: 20px 20px 18px; border: 1px solid #e0e5e0; border-radius: 12px; background: #fff; box-shadow: 0 2px 7px #20332808; }.metrics article > span { display: block; color: #66776e; font-size: 12px; font-weight: 600; }.metrics strong { display: block; margin: 11px 0 5px; font: 800 29px Inter; }.metrics small { color: #8b9891; font-size: 11px; }.metrics .warn { border-color: #edd6ae; background: #fffdf8; }.metrics .warn strong { color: #a66a18; }
 .panel, .table-panel { border: 1px solid #dfe4df; border-radius: 12px; background: white; box-shadow: 0 2px 9px #20332808; overflow: hidden; }.panel-heading { display: flex; justify-content: space-between; align-items: center; padding: 19px 22px; border-bottom: 1px solid #e8ebe8; }.panel-heading h2 { margin: 0 0 3px; font-family: inherit; font-size: 15px; font-weight: 700; line-height: 1.25; }.panel-heading p, .panel-heading > span { margin: 0; color: #89958f; font-size: 11px; }
@@ -510,6 +520,7 @@ tbody tr:hover { background: #eef2ff80; }
 
 .crud-backdrop { position: fixed; z-index: 60; inset: 0; display: flex; justify-content: flex-end; background: #0f172a66; backdrop-filter: blur(4px); animation: fade-in .2s ease both; }
 .crud-dialog { width: min(620px, calc(100vw - 40px)); height: 100%; display: flex; flex-direction: column; color: #0f172a; background: white; box-shadow: -20px 0 60px #0f172a30; animation: drawer-in .35s var(--ease-out) both; }
+.crud-backdrop { overscroll-behavior: contain; }
 .crud-backdrop.presentation-modal { align-items: center; justify-content: center; padding: 32px; }
 .crud-dialog.presentation-modal { width: min(640px, calc(100vw - 64px)); height: auto; max-height: calc(100vh - 64px); border: 1px solid #e2e8f0; border-radius: 18px; box-shadow: 0 28px 80px #0f172a38; animation: modal-in .28s var(--ease-out) both; overflow: hidden; }
 .crud-dialog.presentation-embedded { width: 100%; height: auto; color: inherit; border: 0; border-radius: 0; background: transparent; box-shadow: none; animation: content-in .3s var(--ease-out) both; overflow: visible; }

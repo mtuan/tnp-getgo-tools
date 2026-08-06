@@ -105,6 +105,7 @@ async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecord
   const directory = path.dirname(manifestPath)
   const generated = await readGenerated(root, manifest)
   const review = await readQuestionReview(directory, inspectQuestionRecords)
+  const splitQuestions = manifest.questionStorageVersion === "questions-v1" || review.count > 0
   const stat = await fs.stat(manifestPath)
   const relativePath = path.relative(root, directory)
   let title = manifest.title ?? manifest.id
@@ -135,13 +136,13 @@ async function mapQuiz(root: string, manifestPath: string, inspectQuestionRecord
     hasSourcePdf: await exists(path.join(directory, "source.pdf")),
     hasRawJson: await exists(path.join(directory, "raw.json")),
     hasQuizTs: await exists(path.join(directory, "quiz.ts")),
-    questionStorageVersion: review.count > 0 ? "questions-v1" : "legacy",
+    questionStorageVersion: splitQuestions ? "questions-v1" : "legacy",
     hasGeneratedArtifact: generated.exists,
     artifactHash: generated.hash,
     publishedHash: manifest.publishedHash ?? null,
     publishedAt: manifest.publishedAt ?? null,
     localContentHash: review.contentHash,
-    questionCount: review.count || generated.questionCount,
+    questionCount: splitQuestions ? review.count : generated.questionCount,
     reviewedQuestionCount: review.reviewed,
     migrationErrorCount: review.errors,
     aiMigrationJob: await readAiMigrationJob(directory),

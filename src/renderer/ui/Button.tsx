@@ -15,6 +15,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const spinner = <span className="ui-button-spinner" aria-hidden="true" />
   return <button ref={ref} type={type} disabled={disabled || loading} aria-busy={loading || undefined} className={`ui-button ${variantClass} button-color-${color} ${loading ? "is-loading" : ""} ${className}`.trim()} {...props}>
     {icon ? <span className="ui-button-icon" aria-hidden="true">{loading ? spinner : icon}</span> : loading ? <span className="ui-button-loading-overlay">{spinner}</span> : null}
-    <span className="ui-button-content">{children}</span>
+    {children !== undefined && children !== null && <span className="ui-button-content">{children}</span>}
   </button>
 })

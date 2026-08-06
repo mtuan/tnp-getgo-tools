@@ -18,6 +18,7 @@ export interface QuizManifest {
   status: ContentStatus
   source: { format: string; rawJsonSha256: string; quizTsSha256: string }
   quizBuilderApiVersion?: number
+  questionStorageVersion?: "questions-v1"
   publishedHash?: string
   publishedAt?: string
 }
@@ -265,6 +266,9 @@ export interface DesktopApi {
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>
   migrateLegacyQuizzes(contestId: string): Promise<QuizMigrationResult>
   saveQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord>
+  createQuizQuestion(manifestPath: string): Promise<{ question: QuizQuestionRecord; snapshot: RepositorySnapshot }>
+  reorderQuizQuestions(manifestPath: string, questionNumbers: string[]): Promise<{ questions: QuizQuestionRecord[]; snapshot: RepositorySnapshot }>
+  deleteQuizQuestion(manifestPath: string, questionNo: string): Promise<{ questions: QuizQuestionRecord[]; snapshot: RepositorySnapshot }>
   resetQuizQuestion(manifestPath: string, question: QuizQuestionRecord): Promise<QuizQuestionRecord>
   openExternal(url: string): Promise<void>
   copyText(text: string): Promise<void>

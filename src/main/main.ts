@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import type { AppSettings, RepositorySnapshot } from "../core/models.js"
 import { readContestSummary, readQuizSummary, scanQuizRepository } from "../repositories/quiz-repository.js"
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repositories/quiz-crud.js"
-import { loadQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../repositories/quiz-questions.js"
+import { createQuizQuestion, deleteQuizQuestion, loadQuizQuestions, quizQuestionFile, reorderQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../repositories/quiz-questions.js"
 import { createPublishPayloadFromQuestions, recordPublishedHash, type LocalPublishPayload } from "../repositories/quiz-publishing.js"
 import { SettingsStore } from "./settings.js"
 import { FirebaseAuthService } from "./firebase-auth.js"
@@ -261,7 +261,7 @@ app.whenReady().then(async () => {
     const manifest = await resolveManifest(manifestPath)
     const normalizedQuestionNo = String(questionNo)
     if (!/^\d+$/.test(normalizedQuestionNo)) throw new Error("Invalid question number")
-    shell.showItemInFolder(path.join(path.dirname(manifest), "questions", `q${normalizedQuestionNo}.json`))
+    shell.showItemInFolder(await quizQuestionFile(manifest, normalizedQuestionNo))
   })
   ipcMain.handle("clipboard:write", (_event, text: unknown) => {
     if (typeof text !== "string" || text.length > 2048) throw new Error("Invalid clipboard text")
@@ -350,6 +350,26 @@ app.whenReady().then(async () => {
     const saved = await saveQuizQuestion(manifest, question as Parameters<typeof saveQuizQuestion>[1])
     await replaceQuiz(await repositoryRoot(), manifest)
     return saved
+  })
+  ipcMain.handle("quiz-questions:create", async (_event, manifestPath: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    const question = await createQuizQuestion(manifest)
+    const snapshot = await replaceQuiz(await repositoryRoot(), manifest)
+    return { question, snapshot }
+  })
+  ipcMain.handle("quiz-questions:reorder", async (_event, manifestPath: unknown, questionNumbers: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    if (!Array.isArray(questionNumbers) || questionNumbers.some(value => typeof value !== "string" || !/^\d+$/.test(value))) throw new Error("Invalid question order")
+    const questions = await reorderQuizQuestions(manifest, questionNumbers)
+    const snapshot = await replaceQuiz(await repositoryRoot(), manifest)
+    return { questions, snapshot }
+  })
+  ipcMain.handle("quiz-questions:delete", async (_event, manifestPath: unknown, questionNo: unknown) => {
+    const manifest = await resolveManifest(manifestPath)
+    if (typeof questionNo !== "string" || !/^\d+$/.test(questionNo)) throw new Error("Invalid question number")
+    const questions = await deleteQuizQuestion(manifest, questionNo)
+    const snapshot = await replaceQuiz(await repositoryRoot(), manifest)
+    return { questions, snapshot }
   })
   ipcMain.handle("quiz-questions:reset", async (_event, manifestPath: unknown, question: unknown) => {
     const manifest = await resolveManifest(manifestPath)
