@@ -150,6 +150,8 @@
     "upToDate": "Đã cập nhật",
     "changed": "Đã đổi",
     "unchanged": "Không đổi",
+    "localVersion": "Phiên bản build cục bộ",
+    "deployedVersion": "Phiên bản đã triển khai",
     "webTitle": "GetGo Web",
     "webDescription": "Build theo môi trường đã chọn và chỉ triển khai Firebase Hosting.",
     "webBuild": "Bản build production theo môi trường",

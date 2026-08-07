@@ -460,6 +460,9 @@ export interface DeploymentComponentState {
   component: DeploymentComponent;
   status: "build-required" | "not-deployed" | "changed" | "up-to-date";
   builtAt?: string;
+  buildVersion?: string;
+  deployedAt?: string;
+  deployedVersion?: string;
   items: DeploymentItemState[];
 }
 export interface DeploymentStateSnapshot {

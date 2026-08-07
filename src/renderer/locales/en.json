@@ -150,6 +150,8 @@
     "upToDate": "Up to date",
     "changed": "Changed",
     "unchanged": "Unchanged",
+    "localVersion": "Local build version",
+    "deployedVersion": "Deployed version",
     "webTitle": "GetGo Web",
     "webDescription": "Build the selected environment and deploy Firebase Hosting only.",
     "webBuild": "Environment-specific production build",

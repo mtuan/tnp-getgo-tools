@@ -11,6 +11,7 @@ type DeploymentJob = BackgroundJob & {
   operation?: DeploymentOperation;
 };
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; builtAt: string; items: DeploymentItemState[] }
+interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
 interface Runtime { child: ChildProcess; cancelled: boolean; phases: Set<string>; outputBuffer: string }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
@@ -46,6 +47,7 @@ export class WebDeploymentJobManager {
   private persistChain: Promise<void> = Promise.resolve();
   private runtimes = new Map<string, Runtime>();
   private builds: BuildRecord[] = [];
+  private deployments: DeploymentRecord[] = [];
 
   constructor(
     private readonly userDataPath: string,
@@ -63,8 +65,9 @@ export class WebDeploymentJobManager {
 
   private async load() {
     try {
-      const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[]; builds?: BuildRecord[] };
+      const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[]; builds?: BuildRecord[]; deployments?: DeploymentRecord[] };
       this.builds = stored.builds ?? [];
+      this.deployments = stored.deployments ?? [];
       this.jobs = (stored.jobs ?? []).slice(0, 50).map((job) =>
         ["queued", "running", "paused"].includes(job.status)
           ? { ...job, status: "failed", cancellable: false, retryable: Boolean(job.component && job.target), finishedAt: new Date().toISOString(), error: "Deployment was interrupted when GetGo Tools stopped." }
@@ -73,12 +76,13 @@ export class WebDeploymentJobManager {
     } catch {
       this.jobs = [];
       this.builds = [];
+      this.deployments = [];
     }
     await this.persist();
   }
 
   private async persist() {
-    const contents = JSON.stringify({ jobs: this.jobs.slice(0, 50), builds: this.builds }, null, 2);
+    const contents = JSON.stringify({ jobs: this.jobs.slice(0, 50), builds: this.builds, deployments: this.deployments }, null, 2);
     this.persistChain = this.persistChain.then(async () => {
       await fs.mkdir(this.userDataPath, { recursive: true });
       await fs.writeFile(this.filePath, contents, "utf8");
@@ -146,6 +150,23 @@ export class WebDeploymentJobManager {
     this.builds = [record, ...this.builds.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
   }
 
+  private componentVersion(component: DeploymentComponent, items: DeploymentItemState[], source: "localHash" | "deployedHash") {
+    const values = items
+      .filter((item) => component === "web" ? item.id === "web" : item.id !== "web")
+      .map((item) => `${item.id}:${item[source] ?? ""}`)
+      .sort();
+    if (!values.length || values.some((value) => value.endsWith(":"))) return undefined;
+    return `${component === "web" ? "web" : "rules"}-${createHash("sha256").update(values.join("\n")).digest("hex").slice(0, 12)}`;
+  }
+
+  private async recordDeployment(component: DeploymentComponent, target: WebDeploymentTarget) {
+    const state = await this.state(target);
+    const version = (component === "web" ? state.web : state.rules).deployedVersion;
+    if (!version) return;
+    const record: DeploymentRecord = { component, target, deployedAt: new Date().toISOString(), version };
+    this.deployments = [record, ...this.deployments.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
+  }
+
   async state(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot> {
     await this.ensureLoaded();
     const webRoot = await this.webRoot();
@@ -163,7 +184,10 @@ export class WebDeploymentJobManager {
         return { id: id as DeploymentItemState["id"], localHash, deployedHash, changed: Boolean(localHash && localHash !== deployedHash) };
       });
       const status = !build ? "build-required" : items.every((item) => !item.deployedHash) ? "not-deployed" : items.some((item) => item.changed) ? "changed" : "up-to-date";
-      return { component, status, builtAt: build?.builtAt, items };
+      const deployment = this.deployments.find((item) => item.component === component && item.target === target);
+      const buildVersion = build ? this.componentVersion(component, items, "localHash") : undefined;
+      const deployedVersion = this.componentVersion(component, items, "deployedHash");
+      return { component, status, builtAt: build?.builtAt, buildVersion, deployedAt: deployment && deployment.version === deployedVersion ? deployment.deployedAt : undefined, deployedVersion, items };
     };
     return {
       target,
@@ -259,6 +283,8 @@ export class WebDeploymentJobManager {
         job.progressLabel = job.operation === "build" ? "Built" : "Deployed";
         if (job.operation === "build" && job.component && job.target)
           await this.recordBuild(job.component, job.target);
+        if (job.operation === "deploy" && job.component && job.target)
+          await this.recordDeployment(job.component, job.target);
       } else {
         job.status = "failed";
         job.error = cause?.message ?? `Deployment exited with code ${code ?? "unknown"}.`;
