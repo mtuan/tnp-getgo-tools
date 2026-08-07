@@ -7,7 +7,7 @@ Copy `.env.example` to `.env`, then fill in the Firebase Web API key and numeric
 | App environment | Firebase project |
 | --- | --- |
 | Development | `tnp-getgo-dev` |
-| Staging | `tnp-getgo-staging` |
+| Staging | `tnp-getgo-stg` |
 | Production | `tnp-getgo` |
 
 The Google Desktop OAuth client and Facebook App ID are application credentials and remain shared. Enable the corresponding sign-in providers in all three Firebase projects.

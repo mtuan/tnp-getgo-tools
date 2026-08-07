@@ -150,6 +150,7 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const webRoot = await this.webRoot();
     const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
+    const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as { firebaseProject: string; url: string };
     const deployed = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, ".deploy-hashes.json"), "utf8").catch(() => "{}")) as Record<string, string>;
     const componentState = (component: DeploymentComponent): DeploymentComponentState => {
       const build = this.builds.find((item) => item.component === component && item.target === target);
@@ -164,7 +165,14 @@ export class WebDeploymentJobManager {
       const status = !build ? "build-required" : items.every((item) => !item.deployedHash) ? "not-deployed" : items.some((item) => item.changed) ? "changed" : "up-to-date";
       return { component, status, builtAt: build?.builtAt, items };
     };
-    return { target, rules: componentState("firebase-rules"), web: componentState("web") };
+    return {
+      target,
+      firebaseProject: targetConfig.firebaseProject,
+      firebaseConsoleUrl: `https://console.firebase.google.com/project/${encodeURIComponent(targetConfig.firebaseProject)}/overview`,
+      webUrl: targetConfig.url,
+      rules: componentState("firebase-rules"),
+      web: componentState("web"),
+    };
   }
 
   async start(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget) {

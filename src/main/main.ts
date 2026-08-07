@@ -999,9 +999,22 @@ app.whenReady().then(async () => {
     async (_event, requestedUrl: unknown) => {
       if (typeof requestedUrl !== "string") throw new Error("Invalid URL");
       const url = new URL(requestedUrl);
+      const allowedHosts = new Set([
+        "tnp-getgo-dev.web.app",
+        "tnp-getgo-stg.web.app",
+        "tnp-getgo.web.app",
+        "platform.openai.com",
+      ]);
+      const allowedFirebasePaths = [
+        "/project/tnp-getgo-dev/",
+        "/project/tnp-getgo-stg/",
+        "/project/tnp-getgo/",
+      ];
+      const allowedFirebaseConsole = url.hostname === "console.firebase.google.com" &&
+        allowedFirebasePaths.some((prefix) => url.pathname.startsWith(prefix));
       if (
         url.protocol !== "https:" ||
-        !["tnp-getgo.web.app", "platform.openai.com"].includes(url.hostname)
+        (!allowedHosts.has(url.hostname) && !allowedFirebaseConsole)
       )
         throw new Error("External URL is not allowed");
       await shell.openExternal(url.toString());
