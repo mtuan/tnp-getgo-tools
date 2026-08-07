@@ -273,6 +273,11 @@ export function ContentV2QuizManager(props: Props) {
         const quiz = next.contentV2.quizzes.find((item) => item.topicId === topicId && item.id === quizId);
         return { contestId: topicId, quizId, contentHash: result.contentHash, questionCount: quiz?.questionCount ?? 0, publishedAt: result.publishedAt };
       },
+      publishContentV2Topic: async (topicId) => {
+        const result = await window.getgo.publishContentV2Topic(topicId);
+        if (result.snapshot) refresh(result.snapshot);
+        return result;
+      },
       deleteQuiz: async (manifestPath) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
         return refresh(await window.getgo.deleteContentV2Quiz(quiz.topicId, quiz.id));

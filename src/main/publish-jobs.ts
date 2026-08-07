@@ -4,7 +4,11 @@ import path from "node:path";
 import type { BackgroundJob } from "../core/models.js";
 
 type PublishJob = BackgroundJob & { kind: "publish" };
-export interface PublishJobControl { checkpoint(): Promise<void> }
+export interface PublishJobControl {
+  checkpoint(): Promise<void>;
+  setTotal(total: number, label: string): Promise<void>;
+  advance(label: string, amount?: number): Promise<void>;
+}
 interface Runtime { paused: boolean; cancelled: boolean; resume?: () => void }
 type PublishTask = (control: PublishJobControl) => Promise<unknown>;
 type PublishInput = Pick<PublishJob, "name" | "description" | "route">;
@@ -160,15 +164,26 @@ export class PublishJobManager {
       runtime.resume = undefined;
       if (runtime.cancelled) throw new Error("Publish job was cancelled.");
     };
+    const setTotal = async (total: number, label: string) => {
+      job.total = Math.max(job.completed, Math.floor(total), 1);
+      job.progressLabel = label;
+      await this.persist();
+    };
+    const advance = async (label: string, amount = 1) => {
+      job.completed = Math.min(job.total, job.completed + Math.max(0, Math.floor(amount)));
+      job.progressLabel = label;
+      await this.persist();
+      await checkpoint();
+    };
     job.status = "running";
     job.startedAt = new Date().toISOString();
     job.progressLabel = "Publishing";
     await this.persist();
     try {
-      const result = await task({ checkpoint });
+      const result = await task({ checkpoint, setTotal, advance });
       await checkpoint();
       job.status = "completed";
-      job.completed = 1;
+      job.completed = job.total;
       job.progressLabel = "Published";
       return result;
     } catch (cause) {

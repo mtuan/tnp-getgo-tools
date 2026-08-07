@@ -4,12 +4,45 @@ import path from "node:path";
 import type { LocalWebRuntimeSnapshot } from "../core/models.js";
 
 const LOCAL_WEB_URL = "http://localhost:5173";
+interface PersistedRuntime {
+  pid: number;
+  startedAt: string;
+}
+
 export class LocalWebRuntimeManager {
   private child: ChildProcess | null = null;
   private startedAt: string | null = null;
   private error: string | null = null;
+  private readonly stateFile: string;
 
-  constructor(private readonly toolsAppPath: string) {}
+  constructor(
+    private readonly toolsAppPath: string,
+    userDataPath: string,
+  ) {
+    this.stateFile = path.join(userDataPath, "local-web-runtime.json");
+  }
+
+  private async persistedRuntime(): Promise<PersistedRuntime | null> {
+    try {
+      const value = JSON.parse(await fs.readFile(this.stateFile, "utf8")) as PersistedRuntime;
+      if (!Number.isInteger(value.pid) || value.pid <= 0 || typeof value.startedAt !== "string")
+        return null;
+      process.kill(value.pid, 0);
+      return value;
+    } catch {
+      await fs.rm(this.stateFile, { force: true }).catch(() => undefined);
+      return null;
+    }
+  }
+
+  private async persist(runtime: PersistedRuntime | null) {
+    if (!runtime) {
+      await fs.rm(this.stateFile, { force: true });
+      return;
+    }
+    await fs.mkdir(path.dirname(this.stateFile), { recursive: true });
+    await fs.writeFile(this.stateFile, `${JSON.stringify(runtime, null, 2)}\n`, "utf8");
+  }
 
   private async webRoot() {
     const configured = process.env.GETGO_WEB_ROOT?.trim();
@@ -40,22 +73,28 @@ export class LocalWebRuntimeManager {
 
   async state(): Promise<LocalWebRuntimeSnapshot> {
     const online = await this.isOnline();
-    const managed = Boolean(this.child);
+    const persisted = await this.persistedRuntime();
+    const managed = Boolean(this.child || persisted);
+    const pid = this.child?.pid ?? persisted?.pid;
+    const startedAt = this.startedAt ?? persisted?.startedAt;
     return {
       status: online ? "online" : managed ? "starting" : this.error ? "error" : "offline",
       url: LOCAL_WEB_URL,
       managed,
       target: "development",
-      pid: this.child?.pid,
-      startedAt: this.startedAt ?? undefined,
+      pid,
+      startedAt,
       error: this.error ?? undefined,
     };
   }
 
   async start() {
     if (this.child) return this.state();
-    if (await this.isOnline())
+    const persisted = await this.persistedRuntime();
+    if (await this.isOnline()) {
+      if (persisted) return this.state();
       throw new Error(`Port 5173 is already in use by a process not started by GetGo Tools.`);
+    }
     const webRoot = await this.webRoot();
     this.startedAt = new Date().toISOString();
     this.error = null;
@@ -73,43 +112,44 @@ export class LocalWebRuntimeManager {
         VITE_FIREBASE_PROJECT_ID: projectId,
         VITE_FIREBASE_MESSAGING_SENDER_ID: projectNumber,
       },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: "ignore",
     });
     this.child = child;
-    let recentError = "";
-    child.stdout?.resume();
-    child.stderr?.on("data", (chunk: Buffer) => { recentError = `${recentError}${chunk.toString("utf8")}`.slice(-1200); });
+    child.unref();
+    if (child.pid)
+      await this.persist({ pid: child.pid, startedAt: this.startedAt });
     child.once("error", (cause) => {
       if (this.child !== child) return;
       this.error = cause.message;
       this.child = null;
+      void this.persist(null);
     });
     child.once("close", (code) => {
       if (this.child !== child) return;
       this.child = null;
-      if (code !== 0) this.error = recentError.trim().split(/\r?\n/).at(-1) || `Local Web exited with code ${code ?? "unknown"}.`;
+      void this.persist(null);
+      if (code !== 0) this.error = `Local Web exited with code ${code ?? "unknown"}.`;
     });
     return this.state();
   }
 
-  private terminate() {
-    const child = this.child;
-    if (!child?.pid) return;
-    if (process.platform === "win32") child.kill("SIGTERM");
-    else process.kill(-child.pid, "SIGTERM");
+  private async terminate() {
+    const persisted = await this.persistedRuntime();
+    const pid = this.child?.pid ?? persisted?.pid;
+    if (!pid) return;
+    if (process.platform === "win32") process.kill(pid, "SIGTERM");
+    else process.kill(-pid, "SIGTERM");
     this.child = null;
+    await this.persist(null);
   }
 
   async restart() {
-    if (!this.child && await this.isOnline())
+    if (!this.child && !await this.persistedRuntime() && await this.isOnline())
       throw new Error("The localhost server was not started by GetGo Tools and cannot be restarted here.");
-    this.terminate();
+    await this.terminate();
     for (let attempt = 0; attempt < 15 && await this.isOnline(); attempt += 1)
       await new Promise((resolve) => setTimeout(resolve, 200));
     return this.start();
   }
 
-  dispose() {
-    this.terminate();
-  }
 }

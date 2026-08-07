@@ -34,6 +34,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:question:save", topicId, quizId, question),
   previewContentV2QuizPublish: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:quiz:publish-preview", topicId, quizId),
+  previewContentV2TopicPublish: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:publish-preview", topicId),
   markAllContentV2QuizQuestionsReviewed: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:questions:review-all", topicId, quizId),
   deleteContentV2Topic: (topicId) =>

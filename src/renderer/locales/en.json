@@ -204,6 +204,7 @@
     "lastPublished": "Last published",
     "questions": "Questions",
     "publishedHash": "Published hash",
+    "topicDocument": "Firestore topic document",
     "currentHash": "Current content hash",
     "publishPath": "Publish path",
     "publishStructure": "Published data structure",
@@ -238,6 +239,23 @@
     "republish": "Republish quiz",
     "successTitle": "Quiz published",
     "successDescription": "The local published hash and timestamp were updated."
+  },
+  "topicPublish": {
+    "title": "Publish topic",
+    "description": "Publish this topic document and its ordered quiz references to Firebase.",
+    "notPublished": "Not published",
+    "upToDate": "Up to date",
+    "changed": "Changes detected",
+    "firestorePath": "Firestore document",
+    "documentDetail": "Topic metadata and ordered quiz IDs",
+    "quizzes": "Quizzes",
+    "quizIdsDetail": "Quiz references included in the topic document",
+    "lastPublished": "Last published",
+    "localHash": "Local hash",
+    "publishedHash": "Published hash",
+    "topicDocument": "Firestore topic document",
+    "never": "Never",
+    "none": "None"
   },
   "publishing": {
     "eyebrow": "Firestore synchronization",

@@ -51,6 +51,7 @@ import { PublishJobManager } from "./publish-jobs.js";
 import { WebDeploymentJobManager } from "./web-deployment-jobs.js";
 import { LocalWebRuntimeManager } from "./local-web-runtime.js";
 import {
+  createContentV2TopicPublishPreview,
   createContentV2QuizPublishPreview,
   FirestorePublishingService,
 } from "./firestore-publishing.js";
@@ -278,8 +279,10 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     app.getAppPath(),
   );
-  const localWebRuntime = new LocalWebRuntimeManager(app.getAppPath());
-  app.once("before-quit", () => localWebRuntime.dispose());
+  const localWebRuntime = new LocalWebRuntimeManager(
+    app.getAppPath(),
+    app.getPath("userData"),
+  );
   ipcMain.handle("app:restart", () => {
     if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
       mainWindow?.reload();
@@ -770,6 +773,22 @@ app.whenReady().then(async () => {
     },
   );
   ipcMain.handle(
+    "content-v2:topic:publish-preview",
+    async (_event, topicId: unknown) => {
+      if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
+      const root = await repositoryRoot();
+      const snapshot = requireSnapshot();
+      const summary = snapshot.contentV2.topics.find((item) => item.id === topicId);
+      if (!summary) throw new Error("The selected topic was not found.");
+      const topic = await loadContentV2Topic(root, topicId);
+      const quizIds = snapshot.contentV2.quizzes
+        .filter((quiz) => quiz.topicId === topicId)
+        .sort((left, right) => left.order - right.order)
+        .map((quiz) => quiz.id);
+      return createContentV2TopicPublishPreview(topic, summary.localHash, quizIds);
+    },
+  );
+  ipcMain.handle(
     "content-v2:topic:publish",
     async (_event, topicId: unknown) => {
       if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
@@ -874,6 +893,10 @@ app.whenReady().then(async () => {
           route: `/topics/${encodeURIComponent(topicId)}/quizzes/${encodeURIComponent(quizId)}?tab=publish`,
         },
         async (control) => {
+      await control.setTotal(
+        Math.max(1, summary.questionCount + 1),
+        `Preparing questions 0/${summary.questionCount}`,
+      );
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
       const questionIds = snapshot.contentV2.questions
         .filter(
@@ -882,18 +905,30 @@ app.whenReady().then(async () => {
         )
         .sort((left, right) => left.order - right.order)
         .map((question) => question.id);
+      let preparedQuestions = 0;
       const [questions, resources] = await Promise.all([
-        Promise.all(
-          questionIds.map((questionId) =>
-            loadContentV2Question(root, topicId, quizId, questionId),
-          ),
-        ),
+        Promise.all(questionIds.map(async (questionId) => {
+          const question = await loadContentV2Question(root, topicId, quizId, questionId);
+          preparedQuestions += 1;
+          await control.advance(`Preparing questions ${preparedQuestions}/${questionIds.length}`);
+          return question;
+        })),
         loadContentV2QuizResources(root, topicId, quiz),
       ]);
       const assets = await loadContentV2Assets(root, topicId, quizId, {
         questions,
         resources,
       });
+      const topicSummary = snapshot.contentV2.topics.find(
+        (item) => item.id === topicId,
+      );
+      if (!topicSummary) throw new Error("The containing topic was not found.");
+      const topic = await loadContentV2Topic(root, topicId);
+      const topicQuizIds = snapshot.contentV2.quizzes
+        .filter((item) => item.topicId === topicId)
+        .sort((left, right) => left.order - right.order)
+        .map((item) => item.id);
+      await control.checkpoint();
       if (!firebaseAuth) throw new Error("Publishing is not initialized.");
       const target = await firebaseAuth.publishingTarget();
       const publishState = await readContentV2QuizPublishState(summary.filePath);
@@ -906,11 +941,23 @@ app.whenReady().then(async () => {
         summary.localHash,
         publishState.targets[target.projectId],
         control,
+        2,
+      );
+      const topicResult = await publishing.publishContentV2Topic(
+        topic,
+        topicSummary.localHash,
+        topicQuizIds,
+        control,
       );
       await recordContentV2Published(
         summary.filePath,
         result.contentHash,
         result.publishedAt,
+      );
+      await recordContentV2Published(
+        topicSummary.filePath,
+        topicResult.contentHash,
+        topicResult.publishedAt,
       );
       await writeContentV2QuizPublishState(summary.filePath, {
         schemaVersion: 1,
@@ -936,6 +983,15 @@ app.whenReady().then(async () => {
                     ...item,
                     publishedHash: result.contentHash,
                     publishedAt: result.publishedAt,
+                  }
+                : item,
+            ),
+            topics: repositorySnapshot.contentV2.topics.map((item) =>
+              item.id === topicId
+                ? {
+                    ...item,
+                    publishedHash: topicResult.contentHash,
+                    publishedAt: topicResult.publishedAt,
                   }
                 : item,
             ),

@@ -402,6 +402,16 @@ export interface ContentV2QuizPublishPreview {
     }>;
   };
 }
+export interface ContentV2TopicPublishPreview {
+  firestore: {
+    topicDocument: {
+      operation: "upsert";
+      path: string;
+      data: Record<string, unknown>;
+    };
+  };
+  firebaseStorage: { uploads: [] };
+}
 
 export type AiMigrationJobStatus =
   "queued" | "running" | "paused" | "completed" | "cancelled" | "failed";
@@ -553,6 +563,7 @@ export interface DesktopApi {
     topicId: string,
     quizId: string,
   ): Promise<ContentV2QuizPublishPreview>;
+  previewContentV2TopicPublish(topicId: string): Promise<ContentV2TopicPublishPreview>;
   showInFolder(path: string): Promise<void>;
   showQuizQuestionInFolder(
     manifestPath: string,

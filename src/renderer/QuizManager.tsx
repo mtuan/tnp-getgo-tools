@@ -61,6 +61,7 @@ import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
 import { QuizPublishPanel } from "./QuizPublishPanel";
+import { TopicPublishPanel } from "./TopicPublishPanel";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 import {
@@ -106,6 +107,7 @@ export type QuizManagerApi = Pick<
   | "updateContest"
   | "createContest"
   | "createQuiz"
+  | "publishContentV2Topic"
 >;
 
 type ManagerPage =
@@ -113,6 +115,7 @@ type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
 type QuizDetailTab = "questions" | "alphabets" | "publish" | "info";
+type ContestDetailTab = "info" | "quizzes" | "publish";
 
 interface QuestionListItem {
   number: string;
@@ -335,7 +338,11 @@ export function QuizManager({
   const [quizDialog, setQuizDialog] = useState<QuizSummary | "create" | null>(
     null,
   );
-  const [contestTab, setContestTab] = useState<"info" | "quizzes">("quizzes");
+  const [contestTab, setContestTab] = useState<ContestDetailTab>(() => {
+    if (routeMode !== "topics" || !initialRoute) return "quizzes";
+    try { return new URL(initialRoute, "app://getgo").searchParams.get("tab") === "publish" ? "publish" : "quizzes"; }
+    catch { return "quizzes"; }
+  });
   const [quizTab, setQuizTab] = useState<QuizDetailTab>(restored.quizTab);
   const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null);
   const [questionRecords, setQuestionRecords] = useState<QuizQuestionRecord[]>(
@@ -589,7 +596,7 @@ export function QuizManager({
       if (pendingQuestionNo) setPendingQuestionNo(null);
     }
     if (page.kind === "contest") {
-      onRouteChange(contestRoute(page.contest));
+      onRouteChange(`${contestRoute(page.contest)}${routeMode === "topics" && contestTab !== "quizzes" ? `?tab=${contestTab}` : ""}`);
       if (pendingQuestionNo) setPendingQuestionNo(null);
     }
     if (page.kind === "quiz")
@@ -603,6 +610,7 @@ export function QuizManager({
     pendingQuestionNo,
     questionEditorTab,
     quizTab,
+    contestTab,
   ]);
 
   useEffect(() => {
@@ -1367,7 +1375,7 @@ export function QuizManager({
             eyebrow={isAlphabetQuestion ? "Letter editor" : "Question editor"}
             breadcrumbs={[
               {
-                label: "Contests",
+                label: routeMode === "topics" ? "Topics" : "Contests",
                 onClick: () => setPage({ kind: "contests" }),
               },
               {
@@ -1534,7 +1542,7 @@ export function QuizManager({
         <PageHeader
           eyebrow="Quiz detail"
           breadcrumbs={[
-            { label: "Contests", onClick: () => setPage({ kind: "contests" }) },
+            { label: routeMode === "topics" ? "Topics" : "Contests", onClick: () => setPage({ kind: "contests" }) },
             {
               label: quizContest?.title ?? quiz.contest.toUpperCase(),
               onClick: goBack,
@@ -1892,6 +1900,10 @@ export function QuizManager({
   }
 
   const isContest = page.kind === "contest";
+  const topicMode = routeMode === "topics";
+  const selectedTopic = isContest
+    ? snapshot.contentV2.topics.find((topic) => topic.id === page.contest)
+    : undefined;
   return (
     <section className="manager">
       <PageHeader
@@ -1900,7 +1912,7 @@ export function QuizManager({
           isContest
             ? [
                 {
-                  label: "Contests",
+                  label: topicMode ? "Topics" : "Contests",
                   onClick: () => setPage({ kind: "contests" }),
                 },
               ]
@@ -1909,12 +1921,12 @@ export function QuizManager({
         title={
           isContest
             ? (selectedContest?.title ?? page.contest.toUpperCase())
-            : "Contests"
+            : topicMode ? "Topics" : "Contests"
         }
         description={
           isContest
-            ? `${selectedContest?.quizzes.length ?? 0} quizzes in this contest`
-            : `${contests.length} contests across the local repository`
+            ? `${selectedContest?.quizzes.length ?? 0} quizzes in this ${topicMode ? "topic" : "contest"}`
+            : `${contests.length} ${topicMode ? "topics" : "contests"} across the local repository`
         }
         titleAction={
           isContest && selectedContest ? (
@@ -1923,8 +1935,8 @@ export function QuizManager({
               icon={<FolderOpen />}
               variant="icon"
               disabled={Boolean(buttonAction)}
-              aria-label="Show contest in folder"
-              title="Show contest in folder"
+              aria-label={`Show ${topicMode ? "topic" : "contest"} in folder`}
+              title={`Show ${topicMode ? "topic" : "contest"} in folder`}
               onClick={() =>
                 void runButtonAction("show-contest-folder", () =>
                   managerApi.showInFolder(selectedContest.settingsPath),
@@ -1970,7 +1982,7 @@ export function QuizManager({
                     : setContestDialog("create")
                 }
               >
-                {isContest ? "Create quiz" : "Create contest"}
+                {isContest ? "Create quiz" : `Create ${topicMode ? "topic" : "contest"}`}
               </Button>
             )}
             {isContest && contestTab === "info" && selectedContest && (
@@ -1983,7 +1995,7 @@ export function QuizManager({
                 onClick={() => {
                   if (
                     !window.confirm(
-                      `Delete ${selectedContest.title}? This will move the contest folder to Trash.`,
+                      `Delete ${selectedContest.title}? This will move the ${topicMode ? "topic" : "contest"} folder to Trash.`,
                     )
                   )
                     return;
@@ -1995,23 +2007,38 @@ export function QuizManager({
                     setPage({ kind: "contests" });
                     onSnapshotChange(next);
                     toast.show({
-                      title: "Contest deleted",
+                      title: `${topicMode ? "Topic" : "Contest"} deleted`,
                       description: `${selectedContest.title} was moved to Trash.`,
                     });
                   });
                 }}
               >
-                Delete contest
+                Delete {topicMode ? "topic" : "contest"}
+              </Button>
+            )}
+            {topicMode && isContest && contestTab === "publish" && selectedTopic && (
+              <Button
+                icon={<CloudUpload size={15} />}
+                variant="solid"
+                loading={buttonAction === "publish-topic"}
+                disabled={Boolean(buttonAction)}
+                onClick={() => void runButtonAction("publish-topic", async () => {
+                  const result = await managerApi.publishContentV2Topic(selectedTopic.id);
+                  if (result.snapshot) onSnapshotChange(result.snapshot);
+                  toast.show({ title: "Topic published", description: `${selectedTopic.title} was published.` });
+                })}
+              >
+                {selectedTopic.publishedHash ? "Republish topic" : "Publish topic"}
               </Button>
             )}
           </>
         }
       />
       {isContest && (
-        <Tabs<"info" | "quizzes">
+        <Tabs<ContestDetailTab>
           variant="underline"
           className="contest-detail-tabs"
-          ariaLabel="Contest detail"
+          ariaLabel={`${topicMode ? "Topic" : "Contest"} detail`}
           value={contestTab}
           onChange={setContestTab}
           items={[
@@ -2021,6 +2048,7 @@ export function QuizManager({
               badge: selectedContest?.quizzes.length ?? 0,
             },
             { id: "info", label: "Info" },
+            ...(topicMode ? [{ id: "publish" as const, label: quizPublishCopy.tab }] : []),
           ]}
         />
       )}
@@ -2036,11 +2064,14 @@ export function QuizManager({
             );
             onSnapshotChange(next);
             toast.show({
-              title: "Contest updated",
+              title: `${topicMode ? "Topic" : "Contest"} updated`,
               description: `${settings.book.title} was saved.`,
             });
           }}
         />
+      )}
+      {topicMode && isContest && contestTab === "publish" && selectedTopic && (
+        <TopicPublishPanel topic={selectedTopic} locale={locale} />
       )}
       {(!isContest || contestTab === "quizzes") && (
         <>
@@ -2049,7 +2080,7 @@ export function QuizManager({
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={isContest ? "Search quizzes…" : "Search contests…"}
+              placeholder={isContest ? "Search quizzes…" : `Search ${topicMode ? "topics" : "contests"}…`}
             />
           </div>
           <div className="manager-table">
@@ -2069,7 +2100,7 @@ export function QuizManager({
                     </>
                   ) : (
                     <>
-                      <th>Contest</th>
+                      <th>{topicMode ? "Topic" : "Contest"}</th>
                       <th>Quizzes</th>
                       <th>Ready</th>
                       <th>Builds</th>
@@ -2212,7 +2243,7 @@ export function QuizManager({
             </table>
             {(isContest ? visibleQuizzes : visibleContests).length === 0 && (
               <div className="no-results">
-                No matching {isContest ? "quizzes" : "contests"}.
+                No matching {isContest ? "quizzes" : topicMode ? "topics" : "contests"}.
               </div>
             )}
           </div>
@@ -2230,7 +2261,9 @@ export function QuizManager({
             onSnapshotChange(next);
             setContestDialog(null);
             toast.show({
-              title: creating ? "Contest created" : "Contest updated",
+              title: creating
+                ? `${topicMode ? "Topic" : "Contest"} created`
+                : `${topicMode ? "Topic" : "Contest"} updated`,
               description: `${settings.book.title} was saved.`,
             });
           }}
@@ -2246,7 +2279,7 @@ export function QuizManager({
                   setPage({ kind: "contests" });
                   onSnapshotChange(next);
                   toast.show({
-                    title: "Contest deleted",
+                    title: `${topicMode ? "Topic" : "Contest"} deleted`,
                     description: `${title} was moved to Trash.`,
                   });
                 }

@@ -27,6 +27,26 @@ test("publish jobs persist completed and failed operation history", async () => 
   assert.equal(jobs[1]?.completed, 1);
 });
 
+test("publish jobs expose item-level totals and current-step progress", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-progress-"));
+  const manager = new PublishJobManager(directory);
+  await manager.track(
+    { name: "Publish quiz", description: "Detailed progress", route: "/topics/a" },
+    async (control) => {
+      await control.setTotal(5, "Preparing questions 0/2");
+      await control.advance("Preparing questions 1/2");
+      await control.advance("Preparing questions 2/2");
+      await control.advance("Uploading assets 1/2");
+      await control.advance("Uploading assets 2/2");
+      await control.advance("Verified published quiz");
+    },
+  );
+  const job = (await manager.list())[0]!;
+  assert.equal(job.total, 5);
+  assert.equal(job.completed, 5);
+  assert.equal(job.progressLabel, "Published");
+});
+
 test("publish jobs pause, resume, and cancel at safe checkpoints", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-control-"));
   const manager = new PublishJobManager(directory);
@@ -78,7 +98,8 @@ test("failed publish jobs retry the operation and terminal jobs can be deleted",
   const failed = (await manager.list())[0]!;
   assert.equal(failed.retryable, true);
   await manager.retry(failed.id);
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  for (let attempt = 0; attempt < 40 && attempts < 2; attempt += 1)
+    await new Promise((resolve) => setTimeout(resolve, 5));
   const retried = await manager.list();
   assert.equal(attempts, 2);
   assert.equal(retried[0]?.status, "completed");

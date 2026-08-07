@@ -15,6 +15,7 @@ type FirebaseEnvironmentConfig = {
   apiKey: string;
   projectId: string;
   projectNumber?: string;
+  storageBucket: string;
 };
 type Session = {
   refreshToken: string;
@@ -22,6 +23,33 @@ type Session = {
   expiresAt: number;
   user: AuthUser;
 };
+
+function isFirebaseIdToken(value: string): boolean {
+  const parts = value.split(".");
+  if (parts.length !== 3 || !parts.every(Boolean)) return false;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as {
+      aud?: unknown;
+      iss?: unknown;
+      sub?: unknown;
+      exp?: unknown;
+    };
+    return typeof payload.aud === "string" &&
+      typeof payload.iss === "string" &&
+      payload.iss.startsWith("https://securetoken.google.com/") &&
+      typeof payload.sub === "string" && Boolean(payload.sub) &&
+      typeof payload.exp === "number";
+  } catch {
+    return false;
+  }
+}
+
+function requireFirebaseIdToken(value: unknown): string {
+  const token = typeof value === "string" ? value : "";
+  if (!isFirebaseIdToken(token))
+    throw new Error("Firebase returned an invalid user ID token. Sign in again before publishing.");
+  return token;
+}
 
 function firebaseError(payload: unknown): Error {
   const code =
@@ -59,7 +87,6 @@ async function postJson(
 export class FirebaseAuthService {
   private session: Session | null = null;
   private sessionEnvironment: GetGoEnvironment | null = null;
-  private storageBuckets = new Map<GetGoEnvironment, string>();
   constructor(
     private readonly userDataPath: string,
     private readonly getEnvironment: () => Promise<GetGoEnvironment>,
@@ -75,12 +102,14 @@ export class FirebaseAuthService {
     const projectId = process.env[`${prefix}_PROJECT_ID`]?.trim();
     const projectNumber =
       process.env[`${prefix}_PROJECT_NUMBER`]?.trim() || undefined;
+    const storageBucket = process.env[`${prefix}_STORAGE_BUCKET`]?.trim()
+      || `${projectId}.firebasestorage.app`;
     if (!apiKey || !projectId) {
       throw new Error(
         `Firebase is not configured for ${environment}. Set ${prefix}_API_KEY and ${prefix}_PROJECT_ID in .env.`,
       );
     }
-    return { environment, firebase: { apiKey, projectId, projectNumber } };
+    return { environment, firebase: { apiKey, projectId, projectNumber, storageBucket } };
   }
 
   /** Local publishing metadata only. Unlike checkReadiness, this never makes a
@@ -225,7 +254,7 @@ export class FirebaseAuthService {
       `https://securetoken.googleapis.com/v1/token?key=${apiKey}`,
       { grant_type: "refresh_token", refresh_token: refreshToken },
     )) as Record<string, unknown>;
-    const idToken = String(result.id_token);
+    const idToken = requireFirebaseIdToken(result.id_token);
     const nextRefreshToken = String(result.refresh_token);
     const user = await this.lookup(apiKey, idToken);
     this.session = {
@@ -241,7 +270,11 @@ export class FirebaseAuthService {
   private async activeSession() {
     const { environment, firebase } = await this.config();
     if (this.sessionEnvironment !== environment) this.session = null;
-    if (this.session && this.session.expiresAt > Date.now() + 60_000)
+    if (
+      this.session &&
+      isFirebaseIdToken(this.session.idToken) &&
+      this.session.expiresAt > Date.now() + 60_000
+    )
       return this.session;
     const refreshToken =
       this.session?.refreshToken ?? (await this.savedRefreshToken(environment));
@@ -292,28 +325,9 @@ export class FirebaseAuthService {
     const session = await this.activeSession();
     if (!session) throw new Error("Sign in before changing content assets.");
     const {
-      environment,
-      firebase: { projectId, apiKey },
+      firebase: { projectId, storageBucket },
     } = await this.config();
-    let bucket = this.storageBuckets.get(environment);
-    if (!bucket) {
-      const response = await fetch(
-        `https://firebase.googleapis.com/v1beta1/projects/${encodeURIComponent(projectId)}/adminSdkConfig?key=${encodeURIComponent(apiKey)}`,
-        { signal: AbortSignal.timeout(15_000) },
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        storageBucket?: string;
-        error?: { message?: string };
-      };
-      if (!response.ok || !payload.storageBucket)
-        throw new Error(
-          payload.error?.message ??
-            `Could not resolve the Firebase Storage bucket for ${projectId}.`,
-        );
-      bucket = payload.storageBucket;
-      this.storageBuckets.set(environment, bucket);
-    }
-    return { session, projectId, bucket };
+    return { session, projectId, bucket: storageBucket };
   }
 
   async uploadStorageObject(
@@ -381,7 +395,7 @@ export class FirebaseAuthService {
     const user = this.userFromResponse(result);
     this.session = {
       user,
-      idToken: String(result.idToken),
+      idToken: requireFirebaseIdToken(result.idToken),
       refreshToken: String(result.refreshToken),
       expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000,
     };
@@ -559,7 +573,7 @@ export class FirebaseAuthService {
       const user = this.userFromResponse(result);
       this.session = {
         user,
-        idToken: String(result.idToken),
+        idToken: requireFirebaseIdToken(result.idToken),
         refreshToken: String(result.refreshToken),
         expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000,
       };
@@ -593,7 +607,7 @@ export class FirebaseAuthService {
     if (result.idToken && result.refreshToken) {
       this.session = {
         ...session,
-        idToken: String(result.idToken),
+        idToken: requireFirebaseIdToken(result.idToken),
         refreshToken: String(result.refreshToken),
         expiresAt: Date.now() + Number(result.expiresIn ?? 3600) * 1000,
       };

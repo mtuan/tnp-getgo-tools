@@ -204,6 +204,7 @@
     "lastPublished": "Lần xuất bản gần nhất",
     "questions": "Câu hỏi",
     "publishedHash": "Hash đã xuất bản",
+    "topicDocument": "Tài liệu chủ đề Firestore",
     "currentHash": "Hash nội dung hiện tại",
     "publishPath": "Đường dẫn xuất bản",
     "publishStructure": "Cấu trúc dữ liệu xuất bản",
@@ -238,6 +239,23 @@
     "republish": "Xuất bản lại",
     "successTitle": "Đã xuất bản bộ câu hỏi",
     "successDescription": "Hash và thời gian xuất bản cục bộ đã được cập nhật."
+  },
+  "topicPublish": {
+    "title": "Xuất bản chủ đề",
+    "description": "Xuất bản tài liệu chủ đề và danh sách bài quiz theo thứ tự lên Firebase.",
+    "notPublished": "Chưa xuất bản",
+    "upToDate": "Đã cập nhật",
+    "changed": "Có thay đổi",
+    "firestorePath": "Tài liệu Firestore",
+    "documentDetail": "Thông tin chủ đề và ID quiz theo thứ tự",
+    "quizzes": "Bài quiz",
+    "quizIdsDetail": "Tham chiếu quiz trong tài liệu chủ đề",
+    "lastPublished": "Lần xuất bản gần nhất",
+    "localHash": "Hash cục bộ",
+    "publishedHash": "Hash đã xuất bản",
+    "topicDocument": "Tài liệu chủ đề Firestore",
+    "never": "Chưa bao giờ",
+    "none": "Không có"
   },
   "publishing": {
     "eyebrow": "Đồng bộ Firestore",

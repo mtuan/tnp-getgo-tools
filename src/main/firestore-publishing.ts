@@ -19,6 +19,7 @@ import {
 } from "../core/content-v2.js";
 import type { ContentV2PublishResult } from "../core/models.js";
 import type { ContentV2QuizPublishPreview } from "../core/models.js";
+import type { ContentV2TopicPublishPreview } from "../core/models.js";
 import {
   contentV2PublishedItems,
   diffContentV2PublishedItems,
@@ -26,6 +27,7 @@ import {
   type ContentV2PublishTargetState,
 } from "../core/content-v2-publish-state.js";
 import type { ContentV2Asset } from "../repositories/content-v2-repository.js";
+import type { PublishJobControl } from "./publish-jobs.js";
 
 type FirestoreValue = Record<string, unknown>;
 type FirestoreDocument = {
@@ -85,6 +87,28 @@ function contentV2TopicPath(topicId: string): string {
 
 function contentV2QuizPath(topicId: string, quizId: string): string {
   return `${contentV2TopicPath(topicId)}/quizzes/${encodeURIComponent(quizId)}`;
+}
+
+export function createContentV2TopicPublishPreview(
+  topic: ContentV2Topic,
+  contentHash: string,
+  quizIds: string[],
+): ContentV2TopicPublishPreview {
+  return {
+    firestore: {
+      topicDocument: {
+        operation: "upsert",
+        path: contentV2TopicPath(topic.id),
+        data: {
+          ...sanitizeContentV2Topic(topic),
+          quizIds,
+          contentHash,
+          publishedAt: "<generated at publish time>",
+        },
+      },
+    },
+    firebaseStorage: { uploads: [] },
+  };
 }
 
 export function createContentV2QuizPublishPreview(
@@ -226,7 +250,7 @@ export class FirestorePublishingService {
   async publish(
     quiz: QuizSummary,
     local: LocalPublishPayload,
-    control?: { checkpoint(): Promise<void> },
+    control?: PublishJobControl,
   ): Promise<PublishResult> {
     await control?.checkpoint();
     const path = documentPath(quiz.contest, quiz.id);
@@ -292,9 +316,11 @@ export class FirestorePublishingService {
     topic: ContentV2Topic,
     contentHash: string,
     quizIds: string[],
+    control?: PublishJobControl,
   ): Promise<ContentV2PublishResult> {
     const publishedAt = new Date().toISOString();
     const relativeName = contentV2TopicPath(topic.id);
+    await control?.checkpoint();
     await this.commit([
       {
         update: {
@@ -309,11 +335,14 @@ export class FirestorePublishingService {
         },
       },
     ]);
+    await control?.advance("Published containing topic document");
+    await control?.checkpoint();
     const verified = await this.getDocument(relativeName);
     if (stringField(verified.document, "contentHash") !== contentHash)
       throw new Error(
         "Firestore verification failed: the topic hash does not match.",
       );
+    await control?.advance("Verified containing topic document");
     return { kind: "topic", topicId: topic.id, contentHash, publishedAt };
   }
 
@@ -325,7 +354,8 @@ export class FirestorePublishingService {
     assets: ContentV2Asset[],
     contentHash: string,
     previousState?: ContentV2PublishTargetState,
-    control?: { checkpoint(): Promise<void> },
+    control?: PublishJobControl,
+    followingOperationCount = 0,
   ): Promise<ContentV2PublishResult & {
     environment: string;
     projectId: string;
@@ -355,7 +385,7 @@ export class FirestorePublishingService {
         ]);
     const nextNames = new Set(questions.map((question) => question.id));
     const nextResourceNames = new Set(Object.keys(resources));
-    const writes: Array<Record<string, unknown>> = preview.firestore.questionDocuments
+    const questionWrites: Array<Record<string, unknown>> = preview.firestore.questionDocuments
       .filter((document) => diff.changed.has(publishedItemKey({ kind: "firestore-document", path: document.path })))
       .map((document) => ({
         update: {
@@ -365,52 +395,78 @@ export class FirestorePublishingService {
         },
       }),
     );
+    const cleanupWrites: Array<Record<string, unknown>> = [];
     for (const name of remoteQuestionNames)
       if (!nextNames.has(name.split("/").at(-1)!))
-        writes.push({ delete: name });
-    for (const name of remoteAssetNames) writes.push({ delete: name });
+        cleanupWrites.push({ delete: name });
+    for (const name of remoteAssetNames) cleanupWrites.push({ delete: name });
     for (const name of remoteResourceNames)
       if (!nextResourceNames.has(decodeURIComponent(name.split("/").at(-1)!)))
-        writes.push({ delete: name });
+        cleanupWrites.push({ delete: name });
     for (const item of diff.removed)
-      if (item.kind === "firestore-document") writes.push({ delete: item.path });
-    for (let offset = 0; offset < assets.length; offset += 8) {
-      await Promise.all(
-        assets.slice(offset, offset + 8).map(async (asset, batchIndex) => {
-          await control?.checkpoint();
-          const previewAsset = preview.firebaseStorage.uploads[offset + batchIndex];
-          if (!diff.changed.has(publishedItemKey({ kind: "storage-object", path: previewAsset.destinationPath }))) return;
-          await this.auth.uploadStorageObject(
-            previewAsset.destinationPath,
-            asset.data,
-            asset.mimeType,
-          );
-        }),
-      );
-    }
-    await Promise.all(
-      diff.removed
-        .filter((item) => item.kind === "storage-object")
-        .map(async (item) => { await control?.checkpoint(); await this.auth.deleteStorageObject(item.path); }),
+      if (item.kind === "firestore-document") cleanupWrites.push({ delete: item.path });
+    const changedAssets = assets.filter((_, index) =>
+      diff.changed.has(publishedItemKey({
+        kind: "storage-object",
+        path: preview.firebaseStorage.uploads[index].destinationPath,
+      })),
     );
-    for (const document of preview.firestore.resourceDocuments)
-      if (diff.changed.has(publishedItemKey({ kind: "firestore-document", path: document.path })))
-      writes.push({
+    const removedStorage = diff.removed.filter((item) => item.kind === "storage-object");
+    const resourceWrites: Array<Record<string, unknown>> = preview.firestore.resourceDocuments
+      .filter((document) => diff.changed.has(publishedItemKey({ kind: "firestore-document", path: document.path })))
+      .map((document) => ({
         update: {
           name: "",
           relativeName: document.path,
           fields: fields(document.data),
         },
-      });
-    for (let offset = 0; offset < writes.length; offset += 450)
-      {
+      }));
+    const quizChanged = diff.changed.has(publishedItemKey({ kind: "firestore-document", path: quizPath }));
+    const publishOperationCount = questionWrites.length + resourceWrites.length
+      + changedAssets.length + removedStorage.length + cleanupWrites.length
+      + (quizChanged ? 1 : 0) + 1 + followingOperationCount;
+    await control?.setTotal(
+      questions.length + publishOperationCount,
+      `Publishing ${questionWrites.length}/${questions.length} changed questions · ${changedAssets.length} assets · ${resourceWrites.length} resources`,
+    );
+    let uploadedAssets = 0;
+    for (let offset = 0; offset < changedAssets.length; offset += 8) {
+      await Promise.all(
+        changedAssets.slice(offset, offset + 8).map(async (asset) => {
+          await control?.checkpoint();
+          const previewAsset = preview.firebaseStorage.uploads.find((upload) => upload.reference === asset.reference)!;
+          await this.auth.uploadStorageObject(
+            previewAsset.destinationPath,
+            asset.data,
+            asset.mimeType,
+          );
+          uploadedAssets += 1;
+          await control?.advance(`Uploading assets ${uploadedAssets}/${changedAssets.length}`);
+        }),
+      );
+    }
+    let removedAssetCount = 0;
+    await Promise.all(removedStorage.map(async (item) => {
       await control?.checkpoint();
-      await this.commit(writes.slice(offset, offset + 450));
+      await this.auth.deleteStorageObject(item.path);
+      removedAssetCount += 1;
+      await control?.advance(`Removing obsolete assets ${removedAssetCount}/${removedStorage.length}`);
+    }));
+    const commitGroup = async (writes: Array<Record<string, unknown>>, noun: string) => {
+      for (let offset = 0; offset < writes.length; offset += 450) {
+        const batch = writes.slice(offset, offset + 450);
+      await control?.checkpoint();
+        await this.commit(batch);
+        await control?.advance(`Publishing ${noun} ${Math.min(offset + batch.length, writes.length)}/${writes.length}`, batch.length);
       }
+    };
+    await commitGroup(questionWrites, "questions");
+    await commitGroup(resourceWrites, "resources");
+    await commitGroup(cleanupWrites, "cleanup operations");
     const publishedAt = diff.changed.size || diff.removed.length
       ? new Date().toISOString()
       : previousState?.publishedAt ?? new Date().toISOString();
-    if (diff.changed.has(publishedItemKey({ kind: "firestore-document", path: quizPath })))
+    if (quizChanged)
       {
       await control?.checkpoint();
       await this.commit([
@@ -425,6 +481,7 @@ export class FirestorePublishingService {
           },
         },
       ]);
+      await control?.advance("Published quiz document");
       }
     await control?.checkpoint();
     const verified = await this.getDocument(quizPath);
@@ -432,6 +489,7 @@ export class FirestorePublishingService {
       throw new Error(
         "Firestore verification failed: the quiz hash does not match.",
       );
+    await control?.advance("Verified published quiz");
     return {
       kind: "quiz",
       topicId,
