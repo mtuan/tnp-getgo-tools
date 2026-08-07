@@ -970,9 +970,21 @@ main {
   min-height: 38px;
   white-space: nowrap;
   cursor: pointer;
+  transition: opacity 140ms ease, filter 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 .ui-button:disabled {
   cursor: default;
+}
+.ui-button.is-disabled {
+  opacity: 0.48;
+  filter: grayscale(0.35) saturate(0.45);
+  box-shadow: none;
+  transform: none;
+}
+.ui-button.is-disabled:hover,
+.ui-button.is-disabled:active {
+  box-shadow: none;
+  transform: none;
 }
 .ui-button-icon {
   width: 1em;

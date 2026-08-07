@@ -222,10 +222,10 @@ export class WebDeploymentJobManager {
       target,
       operation,
       name: operation === "build"
-        ? `Build shared ${component === "web" ? "Web" : "Firebase rules"}`
+        ? `Build ${component === "web" ? "Web" : "Firebase rules"}`
         : `Deploy ${component === "web" ? "Web" : "Firebase rules"} · ${target}`,
       description: operation === "build"
-        ? `Prepare one local ${component === "web" ? "GetGo Web artifact" : "Firestore and Storage rules artifact"} for all targets`
+        ? `Prepare local ${component === "web" ? "GetGo Web" : "Firestore and Storage rules"} deployment files`
         : `Publish ${component === "web" ? "GetGo Web" : "Firestore and Storage rules"} to ${target}`,
       status: "queued",
       completed: 0,

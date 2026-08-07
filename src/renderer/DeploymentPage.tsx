@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BriefcaseBusiness, ExternalLink, Globe2, MonitorCog, Power, Rocket, RotateCw, ShieldCheck } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent, DeploymentOperation, DeploymentStateSnapshot, LocalWebRuntimeSnapshot } from "../core/models";
 import { Button, ErrorFrame, PageHeader, Panel } from "./ui";
@@ -23,27 +23,51 @@ export function DeploymentPage({
   const [localWeb, setLocalWeb] = useState<LocalWebRuntimeSnapshot | null>(null);
   const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const environmentRef = useRef(environment);
+  environmentRef.current = environment;
 
-  const load = useCallback(async () => {
+  const loadJobs = useCallback(async () => {
     try {
-      const [jobs, state, local] = await Promise.all([
-        window.getgo.getBackgroundJobs(),
-        window.getgo.getDeploymentState(environment),
-        window.getgo.getLocalWebRuntime(),
-      ]);
-      setSnapshot(jobs);
-      setDeploymentState(state);
-      setLocalWeb(local);
+      setSnapshot(await window.getgo.getBackgroundJobs());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
+  }, []);
+
+  const loadDeploymentState = useCallback(async () => {
+    const requestedEnvironment = environment;
+    try {
+      const state = await window.getgo.getDeploymentState(requestedEnvironment);
+      if (environmentRef.current === requestedEnvironment) setDeploymentState(state);
+    } catch (cause) {
+      if (environmentRef.current === requestedEnvironment) setError(cause instanceof Error ? cause.message : String(cause));
+    }
   }, [environment]);
 
-  useEffect(() => { void load(); }, [load]);
+  const loadLocalWeb = useCallback(async () => {
+    try {
+      setLocalWeb(await window.getgo.getLocalWebRuntime());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }, []);
+
   useEffect(() => {
-    const timer = window.setInterval(() => void load(), 1000);
+    setDeploymentState(null);
+    void loadDeploymentState();
+    const timer = window.setInterval(() => void loadDeploymentState(), 250);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [loadDeploymentState]);
+  useEffect(() => {
+    void loadJobs();
+    const timer = window.setInterval(() => void loadJobs(), 500);
+    return () => window.clearInterval(timer);
+  }, [loadJobs]);
+  useEffect(() => {
+    void loadLocalWeb();
+    const timer = window.setInterval(() => void loadLocalWeb(), 2000);
+    return () => window.clearInterval(timer);
+  }, [loadLocalWeb]);
 
   const run = async (operation: DeploymentOperation, component: DeploymentComponent) => {
     if (operation === "deploy" && environment === "production" && !window.confirm(copy.productionConfirm.replace("{component}", component === "web" ? copy.webTitle : copy.rulesTitle))) return;
@@ -114,12 +138,12 @@ export function DeploymentPage({
       <Panel className="deployment-card">
         <div className="deployment-card-icon"><ShieldCheck /></div>
         <div className="deployment-card-copy"><div className="deployment-card-title"><h2>{copy.rulesTitle}</h2><span className={`badge deployment-state-${deploymentState?.rules.status ?? "build-required"}`}>{stateCopy(deploymentState?.rules.status)}</span></div><p>{copy.rulesDescription}</p><ul>{deploymentState?.rules.items.map((item) => <li key={item.id}><span>{item.id === "firestore-rules" ? copy.firestoreRules : item.id === "firestore-indexes" ? copy.firestoreIndexes : copy.storageRules}</span><code>{shortHash(item.localHash)} / {shortHash(item.deployedHash)}</code><strong>{item.changed ? copy.changed : copy.unchanged}</strong></li>) ?? <li>{copy.buildRequired}</li>}<li><span>{copy.localVersion}</span><code>{deploymentState?.rules.buildVersion ?? "—"}</code><strong>{deploymentState?.rules.builtAt ? new Date(deploymentState.rules.builtAt).toLocaleString(locale) : "—"}</strong></li><li><span>{copy.deployedVersion}</span><code>{deploymentState?.rules.deployedVersion ?? "—"}</code><strong>{deploymentState?.rules.deployedAt ? new Date(deploymentState.rules.deployedAt).toLocaleString(locale) : "—"}</strong></li></ul></div>
-        <div className="deployment-card-actions"><Button icon={<ExternalLink />} disabled={!deploymentState?.firebaseConsoleUrl} onClick={() => deploymentState && void window.getgo.openExternal(deploymentState.firebaseConsoleUrl)}>{copy.openFirebase}</Button><Button icon={<Rocket />} loading={busy === "firebase-rules" || operationIsRunning("firebase-rules", "build")} disabled={componentControlsLocked("firebase-rules")} onClick={() => void run("build", "firebase-rules")}>{deploymentState?.rules.builtAt ? copy.rebuild : copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("firebase-rules", "deploy")} disabled={componentControlsLocked("firebase-rules") || deploymentIsActive || !deploymentState?.rules.builtAt || deploymentState.rules.status === "up-to-date"} onClick={() => void run("deploy", "firebase-rules")}>{copy.deployRules}</Button></div>
+        <div className="deployment-card-actions"><Button icon={<ExternalLink />} disabled={!deploymentState?.firebaseConsoleUrl} onClick={() => deploymentState && void window.getgo.openExternal(deploymentState.firebaseConsoleUrl)}>{copy.openFirebase}</Button><Button icon={<Rocket />} loading={busy === "firebase-rules" || operationIsRunning("firebase-rules", "build")} disabled={componentControlsLocked("firebase-rules")} onClick={() => void run("build", "firebase-rules")}>{copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("firebase-rules", "deploy")} disabled={componentControlsLocked("firebase-rules") || deploymentIsActive || !deploymentState?.rules.builtAt || deploymentState.rules.status === "up-to-date"} onClick={() => void run("deploy", "firebase-rules")}>{copy.deployRules}</Button></div>
       </Panel>
       <Panel className="deployment-card">
         <div className="deployment-card-icon"><Globe2 /></div>
         <div className="deployment-card-copy"><div className="deployment-card-title"><h2>{copy.webTitle}</h2><span className={`badge deployment-state-${deploymentState?.web.status ?? "build-required"}`}>{stateCopy(deploymentState?.web.status)}</span></div><p>{copy.webDescription}</p><ul>{deploymentState?.web.items.map((item) => <li key={item.id}><span>{copy.firebaseHosting}</span><code>{shortHash(item.localHash)} / {shortHash(item.deployedHash)}</code><strong>{item.changed ? copy.changed : copy.unchanged}</strong></li>) ?? <li>{copy.buildRequired}</li>}<li><span>{copy.localVersion}</span><code>{deploymentState?.web.buildVersion ?? "—"}</code><strong>{deploymentState?.web.builtAt ? new Date(deploymentState.web.builtAt).toLocaleString(locale) : "—"}</strong></li><li><span>{copy.deployedVersion}</span><code>{deploymentState?.web.deployedVersion ?? "—"}</code><strong>{deploymentState?.web.deployedAt ? new Date(deploymentState.web.deployedAt).toLocaleString(locale) : "—"}</strong></li></ul></div>
-        <div className="deployment-card-actions"><Button icon={<ExternalLink />} disabled={!deploymentState?.webUrl} onClick={() => deploymentState && void window.getgo.openExternal(deploymentState.webUrl)}>{copy.openWeb}</Button><Button icon={<Rocket />} loading={busy === "web" || operationIsRunning("web", "build")} disabled={componentControlsLocked("web")} onClick={() => void run("build", "web")}>{deploymentState?.web.builtAt ? copy.rebuild : copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("web", "deploy")} disabled={componentControlsLocked("web") || deploymentIsActive || !deploymentState?.web.builtAt || deploymentState.web.status === "up-to-date"} onClick={() => void run("deploy", "web")}>{copy.deployWeb}</Button></div>
+        <div className="deployment-card-actions"><Button icon={<ExternalLink />} disabled={!deploymentState?.webUrl} onClick={() => deploymentState && void window.getgo.openExternal(deploymentState.webUrl)}>{copy.openWeb}</Button><Button icon={<Rocket />} loading={busy === "web" || operationIsRunning("web", "build")} disabled={componentControlsLocked("web")} onClick={() => void run("build", "web")}>{copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("web", "deploy")} disabled={componentControlsLocked("web") || deploymentIsActive || !deploymentState?.web.builtAt || deploymentState.web.status === "up-to-date"} onClick={() => void run("deploy", "web")}>{copy.deployWeb}</Button></div>
       </Panel>
       <Panel className="deployment-card deployment-card-localhost">
         <div className="deployment-card-icon"><MonitorCog /></div>
