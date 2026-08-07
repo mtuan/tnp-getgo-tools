@@ -48,6 +48,7 @@ export class WebDeploymentJobManager {
   private runtimes = new Map<string, Runtime>();
   private builds: BuildRecord[] = [];
   private deployments: DeploymentRecord[] = [];
+  private activeBuildTargets: Partial<Record<DeploymentComponent, WebDeploymentTarget>> = {};
 
   constructor(
     private readonly userDataPath: string,
@@ -65,9 +66,15 @@ export class WebDeploymentJobManager {
 
   private async load() {
     try {
-      const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[]; builds?: BuildRecord[]; deployments?: DeploymentRecord[] };
+      const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[]; builds?: BuildRecord[]; deployments?: DeploymentRecord[]; activeBuildTargets?: Partial<Record<DeploymentComponent, WebDeploymentTarget>> };
       this.builds = stored.builds ?? [];
       this.deployments = stored.deployments ?? [];
+      this.activeBuildTargets = stored.activeBuildTargets ?? Object.fromEntries(
+        (["firebase-rules", "web"] as const).flatMap(component => {
+          const latest = this.builds.find(build => build.component === component);
+          return latest ? [[component, latest.target]] : [];
+        }),
+      );
       this.jobs = (stored.jobs ?? []).slice(0, 50).map((job) =>
         ["queued", "running", "paused"].includes(job.status)
           ? { ...job, status: "failed", cancellable: false, retryable: Boolean(job.component && job.target), finishedAt: new Date().toISOString(), error: "Deployment was interrupted when GetGo Tools stopped." }
@@ -77,12 +84,13 @@ export class WebDeploymentJobManager {
       this.jobs = [];
       this.builds = [];
       this.deployments = [];
+      this.activeBuildTargets = {};
     }
     await this.persist();
   }
 
   private async persist() {
-    const contents = JSON.stringify({ jobs: this.jobs.slice(0, 50), builds: this.builds, deployments: this.deployments }, null, 2);
+    const contents = JSON.stringify({ jobs: this.jobs.slice(0, 50), builds: this.builds, deployments: this.deployments, activeBuildTargets: this.activeBuildTargets }, null, 2);
     this.persistChain = this.persistChain.then(async () => {
       await fs.mkdir(this.userDataPath, { recursive: true });
       await fs.writeFile(this.filePath, contents, "utf8");
@@ -148,6 +156,7 @@ export class WebDeploymentJobManager {
     const webRoot = await this.webRoot();
     const record: BuildRecord = { component, target, builtAt: new Date().toISOString(), items: await this.localItems(component, webRoot) };
     this.builds = [record, ...this.builds.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
+    this.activeBuildTargets[component] = target;
   }
 
   private componentVersion(component: DeploymentComponent, items: DeploymentItemState[], source: "localHash" | "deployedHash") {
@@ -174,7 +183,9 @@ export class WebDeploymentJobManager {
     const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as { firebaseProject: string; url: string };
     const deployed = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, ".deploy-hashes.json"), "utf8").catch(() => "{}")) as Record<string, string>;
     const componentState = (component: DeploymentComponent): DeploymentComponentState => {
-      const build = this.builds.find((item) => item.component === component && item.target === target);
+      const build = this.activeBuildTargets[component] === target
+        ? this.builds.find((item) => item.component === component && item.target === target)
+        : undefined;
       const keys = component === "web"
         ? [["web", "hosting"]]
         : [["firestore-rules", "firestore:rules"], ["firestore-indexes", "firestore:indexes"], ["storage-rules", "storage"]];
@@ -185,9 +196,10 @@ export class WebDeploymentJobManager {
       });
       const status = !build ? "build-required" : items.every((item) => !item.deployedHash) ? "not-deployed" : items.some((item) => item.changed) ? "changed" : "up-to-date";
       const deployment = this.deployments.find((item) => item.component === component && item.target === target);
+      const completedDeployment = this.jobs.find((item) => item.component === component && item.target === target && item.operation === "deploy" && item.status === "completed");
       const buildVersion = build ? this.componentVersion(component, items, "localHash") : undefined;
       const deployedVersion = this.componentVersion(component, items, "deployedHash");
-      return { component, status, builtAt: build?.builtAt, buildVersion, deployedAt: deployment && deployment.version === deployedVersion ? deployment.deployedAt : undefined, deployedVersion, items };
+      return { component, status, builtAt: build?.builtAt, buildVersion, deployedAt: deployment && deployment.version === deployedVersion ? deployment.deployedAt : completedDeployment?.finishedAt, deployedVersion, items };
     };
     return {
       target,
@@ -208,7 +220,9 @@ export class WebDeploymentJobManager {
       throw new Error("Another deployment is already active.");
     const webRoot = await this.webRoot();
     if (operation === "deploy") {
-      const build = this.builds.find((item) => item.component === component && item.target === target);
+      const build = this.activeBuildTargets[component] === target
+        ? this.builds.find((item) => item.component === component && item.target === target)
+        : undefined;
       if (!build) throw new Error("Build this component locally for the selected target before deploying it.");
       const currentItems = await this.localItems(component, webRoot);
       if (build.items.some((builtItem) => currentItems.find((item) => item.id === builtItem.id)?.localHash !== builtItem.localHash))
