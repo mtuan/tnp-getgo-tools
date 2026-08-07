@@ -10,7 +10,7 @@ type DeploymentJob = BackgroundJob & {
   target?: WebDeploymentTarget;
   operation?: DeploymentOperation;
 };
-interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; builtAt: string; items: DeploymentItemState[] }
+interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
 interface Runtime { child: ChildProcess; cancelled: boolean; phases: Set<string>; outputBuffer: string }
 
@@ -146,7 +146,7 @@ export class WebDeploymentJobManager {
 
   private async recordBuild(component: DeploymentComponent, target: WebDeploymentTarget) {
     const webRoot = await this.webRoot();
-    const record: BuildRecord = { component, target, builtAt: new Date().toISOString(), items: await this.localItems(component, webRoot) };
+    const record: BuildRecord = { component, target, format: "shared-v1", builtAt: new Date().toISOString(), items: await this.localItems(component, webRoot) };
     this.builds = [record, ...this.builds.filter((item) => item.component !== component)].slice(0, 12);
   }
 
@@ -174,7 +174,7 @@ export class WebDeploymentJobManager {
     const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as { firebaseProject: string; url: string };
     const deployed = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, ".deploy-hashes.json"), "utf8").catch(() => "{}")) as Record<string, string>;
     const componentState = (component: DeploymentComponent): DeploymentComponentState => {
-      const build = this.builds.find((item) => item.component === component);
+      const build = this.builds.find((item) => item.component === component && item.format === "shared-v1");
       const keys = component === "web"
         ? [["web", "hosting"]]
         : [["firestore-rules", "firestore:rules"], ["firestore-indexes", "firestore:indexes"], ["storage-rules", "storage"]];
@@ -209,7 +209,7 @@ export class WebDeploymentJobManager {
       throw new Error("Another deployment is already active.");
     const webRoot = await this.webRoot();
     if (operation === "deploy") {
-      const build = this.builds.find((item) => item.component === component);
+      const build = this.builds.find((item) => item.component === component && item.format === "shared-v1");
       if (!build) throw new Error("Build this component locally for the selected target before deploying it.");
       const currentItems = await this.localItems(component, webRoot);
       if (build.items.some((builtItem) => currentItems.find((item) => item.id === builtItem.id)?.localHash !== builtItem.localHash))
@@ -221,8 +221,12 @@ export class WebDeploymentJobManager {
       component,
       target,
       operation,
-      name: `${operation === "build" ? "Build" : "Deploy"} ${component === "web" ? "Web" : "Firebase rules"} · ${target}`,
-      description: `${operation === "build" ? "Prepare local" : "Publish"} ${component === "web" ? "GetGo Web" : "Firestore and Storage rules"} for ${target}`,
+      name: operation === "build"
+        ? `Build shared ${component === "web" ? "Web" : "Firebase rules"}`
+        : `Deploy ${component === "web" ? "Web" : "Firebase rules"} · ${target}`,
+      description: operation === "build"
+        ? `Prepare one local ${component === "web" ? "GetGo Web artifact" : "Firestore and Storage rules artifact"} for all targets`
+        : `Publish ${component === "web" ? "GetGo Web" : "Firestore and Storage rules"} to ${target}`,
       status: "queued",
       completed: 0,
       total: progressTotal(operation, component),
