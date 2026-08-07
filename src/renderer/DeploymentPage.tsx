@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { BriefcaseBusiness, ExternalLink, Globe2, Rocket, ShieldCheck } from "lucide-react";
-import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent, DeploymentOperation, DeploymentStateSnapshot } from "../core/models";
+import { BriefcaseBusiness, ExternalLink, Globe2, MonitorCog, Power, Rocket, RotateCw, ShieldCheck } from "lucide-react";
+import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent, DeploymentOperation, DeploymentStateSnapshot, LocalWebRuntimeSnapshot } from "../core/models";
 import { Button, ErrorFrame, PageHeader, Panel } from "./ui";
 import { BackgroundJobsTable, type BackgroundJobAction } from "./BackgroundJobsTable";
 import en from "./locales/en.json";
@@ -20,16 +20,20 @@ export function DeploymentPage({
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
   const [deploymentState, setDeploymentState] = useState<DeploymentStateSnapshot | null>(null);
+  const [localWeb, setLocalWeb] = useState<LocalWebRuntimeSnapshot | null>(null);
+  const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [jobs, state] = await Promise.all([
+      const [jobs, state, local] = await Promise.all([
         window.getgo.getBackgroundJobs(),
         window.getgo.getDeploymentState(environment),
+        window.getgo.getLocalWebRuntime(),
       ]);
       setSnapshot(jobs);
       setDeploymentState(state);
+      setLocalWeb(local);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -51,6 +55,20 @@ export function DeploymentPage({
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(null);
+    }
+  };
+
+  const controlLocalWeb = async (action: "start" | "restart") => {
+    setLocalWebAction(action);
+    setError(null);
+    try {
+      setLocalWeb(action === "start"
+        ? await window.getgo.startLocalWebRuntime()
+        : await window.getgo.restartLocalWebRuntime());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLocalWebAction(null);
     }
   };
 
@@ -100,6 +118,24 @@ export function DeploymentPage({
         <div className="deployment-card-icon"><Globe2 /></div>
         <div className="deployment-card-copy"><div className="deployment-card-title"><h2>{copy.webTitle}</h2><span className={`badge deployment-state-${deploymentState?.web.status ?? "build-required"}`}>{stateCopy(deploymentState?.web.status)}</span></div><p>{copy.webDescription}</p><ul>{deploymentState?.web.items.map((item) => <li key={item.id}><span>{copy.firebaseHosting}</span><code>{shortHash(item.localHash)} / {shortHash(item.deployedHash)}</code><strong>{item.changed ? copy.changed : copy.unchanged}</strong></li>) ?? <li>{copy.buildRequired}</li>}</ul></div>
         <div className="deployment-card-actions"><Button icon={<ExternalLink />} disabled={!deploymentState?.webUrl} onClick={() => deploymentState && void window.getgo.openExternal(deploymentState.webUrl)}>{copy.openWeb}</Button><Button icon={<Rocket />} loading={busy === "web" || operationIsRunning("web", "build")} disabled={componentIsActive("web")} onClick={() => void run("build", "web")}>{deploymentState?.web.builtAt ? copy.rebuild : copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("web", "deploy")} disabled={componentIsActive("web") || deploymentIsActive || !deploymentState?.web.builtAt || deploymentState.web.status === "up-to-date"} onClick={() => void run("deploy", "web")}>{copy.deployWeb}</Button></div>
+      </Panel>
+      <Panel className="deployment-card deployment-card-localhost">
+        <div className="deployment-card-icon"><MonitorCog /></div>
+        <div className="deployment-card-copy">
+          <div className="deployment-card-title"><h2>{copy.localhostTitle}</h2><span className={`badge local-web-state-${localWeb?.status ?? "offline"}`}>{localWeb?.status === "online" ? copy.online : localWeb?.status === "starting" ? copy.starting : localWeb?.status === "error" ? copy.failed : copy.offline}</span></div>
+          <p>{copy.localhostDescription}</p>
+          <ul>
+            <li><span>{copy.localhostAddress}</span><code>{localWeb?.url ?? "http://localhost:5173"}</code><strong>{localWeb?.managed ? copy.managedByTools : copy.notManaged}</strong></li>
+            <li><span>{copy.localhostEnvironment}</span><code>{copy.development}</code><strong>{localWeb?.pid ? `PID ${localWeb.pid}` : "—"}</strong></li>
+          </ul>
+          {localWeb?.error && <p className="local-web-error">{localWeb.error}</p>}
+        </div>
+        <div className="deployment-card-actions">
+          <Button icon={<ExternalLink />} disabled={localWeb?.status !== "online"} onClick={() => localWeb && void window.getgo.openExternal(localWeb.url)}>{copy.openLocalhost}</Button>
+          {localWeb?.managed
+            ? <Button variant="solid" icon={<RotateCw />} loading={localWebAction === "restart"} onClick={() => void controlLocalWeb("restart")}>{copy.restartLocalhost}</Button>
+            : <Button variant="solid" icon={<Power />} loading={localWebAction === "start"} disabled={localWeb?.status === "online"} onClick={() => void controlLocalWeb("start")}>{copy.runLocalhost}</Button>}
+        </div>
       </Panel>
     </div>
     <section className="deployment-jobs">

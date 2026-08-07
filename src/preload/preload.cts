@@ -174,6 +174,9 @@ const api: DesktopApi = {
   startDeployment: (operation, component, target) =>
     ipcRenderer.invoke("deployment:start", operation, component, target),
   getDeploymentState: (target) => ipcRenderer.invoke("deployment:state", target),
+  getLocalWebRuntime: () => ipcRenderer.invoke("local-web:state"),
+  startLocalWebRuntime: () => ipcRenderer.invoke("local-web:start"),
+  restartLocalWebRuntime: () => ipcRenderer.invoke("local-web:restart"),
   cancelBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:cancel", jobId),
   pauseBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:pause", jobId),
   resumeBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:resume", jobId),

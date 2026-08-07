@@ -460,6 +460,15 @@ export interface DeploymentStateSnapshot {
   rules: DeploymentComponentState;
   web: DeploymentComponentState;
 }
+export interface LocalWebRuntimeSnapshot {
+  status: "offline" | "starting" | "online" | "error";
+  url: string;
+  managed: boolean;
+  target?: WebDeploymentTarget;
+  pid?: number;
+  startedAt?: string;
+  error?: string;
+}
 export interface BackgroundJob {
   id: string;
   kind: BackgroundJobKind;
@@ -632,6 +641,9 @@ export interface DesktopApi {
     target: WebDeploymentTarget,
   ): Promise<BackgroundJobsSnapshot>;
   getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
+  getLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
+  startLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
+  restartLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
   cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;

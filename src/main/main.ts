@@ -49,6 +49,7 @@ import { LocalAiService } from "./local-ai.js";
 import { AiMigrationJobManager } from "./ai-migration-jobs.js";
 import { PublishJobManager } from "./publish-jobs.js";
 import { WebDeploymentJobManager } from "./web-deployment-jobs.js";
+import { LocalWebRuntimeManager } from "./local-web-runtime.js";
 import {
   createContentV2QuizPublishPreview,
   FirestorePublishingService,
@@ -277,6 +278,8 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     app.getAppPath(),
   );
+  const localWebRuntime = new LocalWebRuntimeManager(app.getAppPath());
+  app.once("before-quit", () => localWebRuntime.dispose());
   ipcMain.handle("app:restart", () => {
     if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
       mainWindow?.reload();
@@ -457,6 +460,9 @@ app.whenReady().then(async () => {
       throw new Error("Invalid deployment target.");
     return webDeploymentJobs.state(target);
   });
+  ipcMain.handle("local-web:state", () => localWebRuntime.state());
+  ipcMain.handle("local-web:start", () => localWebRuntime.start());
+  ipcMain.handle("local-web:restart", () => localWebRuntime.restart());
   ipcMain.handle("jobs:cancel", async (_event, jobId: unknown) => {
     if (typeof jobId !== "string") throw new Error("Invalid job ID.");
     await Promise.all([
@@ -1012,9 +1018,12 @@ app.whenReady().then(async () => {
       ];
       const allowedFirebaseConsole = url.hostname === "console.firebase.google.com" &&
         allowedFirebasePaths.some((prefix) => url.pathname.startsWith(prefix));
+      const allowedLocalhost = url.protocol === "http:" &&
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+        url.port === "5173";
       if (
-        url.protocol !== "https:" ||
-        (!allowedHosts.has(url.hostname) && !allowedFirebaseConsole)
+        !allowedLocalhost &&
+        (url.protocol !== "https:" || (!allowedHosts.has(url.hostname) && !allowedFirebaseConsole))
       )
         throw new Error("External URL is not allowed");
       await shell.openExternal(url.toString());

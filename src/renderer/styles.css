@@ -5164,6 +5164,29 @@ button.danger svg {
   justify-content: flex-end;
   gap: 8px;
 }
+.deployment-card-localhost {
+  grid-column: 1 / -1;
+}
+.local-web-state-online {
+  color: #047857;
+  background: #d1fae5;
+}
+.local-web-state-starting {
+  color: #b45309;
+  background: #fef3c7;
+}
+.local-web-state-offline {
+  color: #64748b;
+  background: #f1f5f9;
+}
+.local-web-state-error {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+.deployment-card-copy .local-web-error {
+  margin-bottom: 0;
+  color: #b91c1c;
+}
 .deployment-state-changed,
 .deployment-state-not-deployed {
   color: #b45309;
