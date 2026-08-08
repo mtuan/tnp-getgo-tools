@@ -256,6 +256,7 @@ export interface AlphabetLetterResource {
   title: string;
   url: string;
   description?: string;
+  durationSeconds?: number;
 }
 
 export interface AlphabetQuestionRecord
@@ -616,7 +617,7 @@ export interface DesktopApi {
   copyText(text: string): Promise<void>;
   resolveYouTubeResources(
     urls: string[],
-  ): Promise<Array<{ url: string; title?: string; error?: string }>>;
+  ): Promise<Array<{ url: string; title?: string; durationSeconds?: number; error?: string }>>;
   createContest(settings: ContestSettings): Promise<RepositorySnapshot>;
   updateContest(
     id: string,

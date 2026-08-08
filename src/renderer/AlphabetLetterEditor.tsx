@@ -81,11 +81,21 @@ export function AlphabetLetterEditor({
   const [wordFilter, setWordFilter] = useState("");
   const [speechSettingsOpen, setSpeechSettingsOpen] = useState(false);
   const [selectedResourceIndex, setSelectedResourceIndex] = useState(0);
+  const [resolvingResourceDurations, setResolvingResourceDurations] = useState(false);
   const [speechVoices, setSpeechVoices] = useState<SpeechSynthesisVoice[]>([]);
   const speechPauseRef = useRef<number | null>(null);
+  const durationAttemptsRef = useRef(new Set<string>());
+  const recordRef = useRef(record);
+  const onChangeRef = useRef(onChange);
+  recordRef.current = record;
+  onChangeRef.current = onChange;
   const language =
     quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
+  const missingResourceDurationKey = alphabet.resources
+    .filter((resource) => youtubeVideoId(resource.url) && !(typeof resource.durationSeconds === "number" && resource.durationSeconds > 0))
+    .map((resource) => resource.url)
+    .join("\n");
   const selectedResource = alphabet.resources[Math.min(selectedResourceIndex, Math.max(0, alphabet.resources.length - 1))];
   const selectedYouTubeId = selectedResource ? youtubeVideoId(selectedResource.url) : null;
   const copy = (locale === "vi" ? vi : en).alphabetEditor;
@@ -217,6 +227,66 @@ export function AlphabetLetterEditor({
   useEffect(() => setSelectedSampleIndex(0), [alphabet.letter]);
   useEffect(() => setSelectedResourceIndex(0), [alphabet.letter]);
   useEffect(() => setSelectedSampleIndex(0), [wordFilter]);
+  useEffect(() => {
+    if (tab !== "resources") return;
+    const missing = alphabet.resources.filter((resource) =>
+      youtubeVideoId(resource.url) &&
+      !(typeof resource.durationSeconds === "number" && resource.durationSeconds > 0) &&
+      !durationAttemptsRef.current.has(`${record.question_no}:${resource.url}`),
+    );
+    if (!missing.length) return;
+    const resolver = window.getgo.resolveYouTubeResources;
+    if (typeof resolver !== "function") return;
+    for (const resource of missing) {
+      durationAttemptsRef.current.add(`${record.question_no}:${resource.url}`);
+    }
+    let active = true;
+    setResolvingResourceDurations(true);
+    void resolver(missing.map((resource) => resource.url))
+      .then((resolved) => {
+        if (!active) return;
+        const durationsByVideoId = new Map<string, number>();
+        for (const resource of resolved) {
+          const videoId = youtubeVideoId(resource.url);
+          if (videoId && typeof resource.durationSeconds === "number" && resource.durationSeconds > 0) {
+            durationsByVideoId.set(videoId, resource.durationSeconds);
+          }
+        }
+        if (!durationsByVideoId.size) return;
+        const currentRecord = recordRef.current;
+        const currentAlphabet = alphabetData(currentRecord);
+        let changed = false;
+        const resources = currentAlphabet.resources.map((resource) => {
+          if (typeof resource.durationSeconds === "number" && resource.durationSeconds > 0) return resource;
+          const videoId = youtubeVideoId(resource.url);
+          const durationSeconds = videoId ? durationsByVideoId.get(videoId) : undefined;
+          if (!durationSeconds) return resource;
+          changed = true;
+          return { ...resource, durationSeconds };
+        });
+        if (!changed) return;
+        setResolvingResourceDurations(false);
+        onChangeRef.current({
+          question_no: currentRecord.question_no,
+          status: currentRecord.status,
+          verified: currentRecord.verified,
+          feedback: currentRecord.feedback,
+          type: "alphabet",
+          ...currentAlphabet,
+          resources,
+        });
+      })
+      .catch((cause) => console.error("[GetGo Tools][YouTube resources] Failed to fetch missing durations", cause))
+      .finally(() => {
+        if (active) setResolvingResourceDurations(false);
+      });
+    return () => {
+      active = false;
+      for (const resource of missing) {
+        durationAttemptsRef.current.delete(`${record.question_no}:${resource.url}`);
+      }
+    };
+  }, [missingResourceDurationKey, record.question_no, tab]);
   useEffect(() => {
     const refreshVoices = () =>
       setSpeechVoices(window.speechSynthesis.getVoices());
@@ -369,7 +439,12 @@ export function AlphabetLetterEditor({
               className="alphabet-dictionary-panel"
               title={`Resources for ${alphabet.uppercase || alphabet.letter}`}
               description="YouTube videos and other external learning links stored on this letter."
-              meta={<AlphabetResourceImportButton resources={alphabet.resources} onChange={(resources) => update({ ...alphabet, resources })} />}
+              meta={
+                <div className="panel-heading-actions">
+                  {resolvingResourceDurations && <span>Fetching missing durations…</span>}
+                  <AlphabetResourceImportButton resources={alphabet.resources} onChange={(resources) => update({ ...alphabet, resources })} />
+                </div>
+              }
             >
               <AlphabetResourceTable
                 letter={alphabet.uppercase || alphabet.letter}

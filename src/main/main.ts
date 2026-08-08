@@ -1343,10 +1343,38 @@ app.whenReady().then(async () => {
         endpoint.searchParams.set("url", url);
         endpoint.searchParams.set("format", "json");
         const response = await fetch(endpoint, { signal: AbortSignal.timeout(10_000) });
+        const watchResponse = await fetch(`${url}&hl=en`, {
+          headers: { "accept-language": "en-US,en;q=0.9" },
+          signal: AbortSignal.timeout(10_000),
+        }).catch(() => null);
         if (!response.ok) throw new Error(`YouTube returned ${response.status}`);
         const metadata = await response.json() as { title?: unknown };
         if (typeof metadata.title !== "string" || !metadata.title.trim()) throw new Error("YouTube returned no title");
-        return { url, title: metadata.title.trim() };
+        let durationSeconds: number | undefined;
+        const readDuration = (watchHtml: string) => {
+          const secondsMatch = watchHtml.match(/(?:"|\\")lengthSeconds(?:"|\\")\s*:\s*(?:"|\\")?(\d+)/);
+          const millisecondsMatch = watchHtml.match(/(?:"|\\")approxDurationMs(?:"|\\")\s*:\s*(?:"|\\")?(\d+)/);
+          const parsedDuration = secondsMatch
+            ? Number(secondsMatch[1])
+            : millisecondsMatch
+              ? Math.round(Number(millisecondsMatch[1]) / 1000)
+              : Number.NaN;
+          return Number.isSafeInteger(parsedDuration) && parsedDuration > 0 ? parsedDuration : undefined;
+        };
+        if (watchResponse?.ok) {
+          durationSeconds = readDuration(await watchResponse.text());
+        }
+        if (!durationSeconds) {
+          const retryResponse = await fetch(`${url}&hl=en&gl=US&bpctr=9999999999&has_verified=1`, {
+            headers: {
+              "accept-language": "en-US,en;q=0.9",
+              "cache-control": "no-cache",
+            },
+            signal: AbortSignal.timeout(10_000),
+          }).catch(() => null);
+          if (retryResponse?.ok) durationSeconds = readDuration(await retryResponse.text());
+        }
+        return { url, title: metadata.title.trim(), ...(durationSeconds ? { durationSeconds } : {}) };
       } catch (cause) {
         return { url: requestedUrl, error: cause instanceof Error ? cause.message : String(cause) };
       }

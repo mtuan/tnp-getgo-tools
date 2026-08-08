@@ -145,6 +145,7 @@ export const alphabetLetterV2Schema = z.object({
         title: z.string().min(1),
         url: z.string().url(),
         description: z.string().optional(),
+        durationSeconds: z.number().int().positive().optional(),
       }),
     )
     .default([]),
