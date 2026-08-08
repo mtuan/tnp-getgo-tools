@@ -12,6 +12,7 @@ import { DialogFrame } from "./ui/DialogFrame";
 import { Form, type FormSchema } from "./ui/Form";
 import { Button } from "./ui/Button";
 import { Select } from "./ui/Select";
+import { logSpokenContent } from "./speech-log";
 
 interface Props {
   language: SpeechLanguage;
@@ -65,6 +66,7 @@ export function SpeechSettingsDialog({
     utterance.lang = language === "vi" ? "vi-VN" : "en-US";
     utterance.rate = 1;
     if (selectedVoice) utterance.voice = selectedVoice;
+    logSpokenContent(utterance.text, utterance.lang, "voice-demo");
     window.speechSynthesis.speak(utterance);
   }
   const fields: FormSchema[] = [

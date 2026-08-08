@@ -131,6 +131,7 @@ function toManagerQuestion(question: ContentV2Question): QuizQuestionRecord {
       uppercase: question.uppercase,
       lowercase: question.lowercase,
       ...(question.pronunciation ? { pronunciation: question.pronunciation } : {}),
+      resources: question.resources,
       ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}),
     };
   return {
@@ -153,7 +154,7 @@ function reviewStatus(question: QuizQuestionRecord): "pending" | "reviewed" | "r
 
 function fromManagerQuestion(stored: ContentV2Question, question: QuizQuestionRecord): ContentV2Question {
   if (stored.type === "alphabet-letter" && question.type === "alphabet")
-    return { ...stored, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined };
+    return { ...stored, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined, resources: question.resources };
   if (stored.type !== "competition-question" || question.type === "alphabet")
     throw new Error("Question type does not match its stored v2 contract.");
   const dynamic = question.advancedDynamic;
@@ -238,7 +239,7 @@ export function ContentV2QuizManager(props: Props) {
         const order = props.snapshot.contentV2.questions.filter((item) => item.topicId === quiz.topicId && item.quizId === quiz.id).length;
         const id = `q${order + 1}`;
         const record: ContentV2Question = quiz.type === "alphabet-course"
-          ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?" }
+          ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?", resources: [] }
           : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "New question" }, assets: [], answer: { type: "input", correct: "" } };
         const next = await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
         return { question: toManagerQuestion(record), snapshot: refresh(next) };

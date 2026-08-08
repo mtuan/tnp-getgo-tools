@@ -68,6 +68,7 @@ import {
   AlphabetLetterEditor,
   type AlphabetEditorTab,
 } from "./AlphabetLetterEditor";
+import { AlphabetResourcesEditor } from "./AlphabetResourcesEditor";
 
 interface QuizManagerProps {
   locale: AppSettings["locale"];
@@ -114,7 +115,7 @@ type ManagerPage =
   | { kind: "contests" }
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
-type QuizDetailTab = "questions" | "alphabets" | "publish" | "info";
+type QuizDetailTab = "questions" | "alphabets" | "resources" | "publish" | "info";
 type ContestDetailTab = "info" | "quizzes" | "publish";
 
 interface QuestionListItem {
@@ -244,7 +245,7 @@ function restoredPage(
     url.searchParams.get("tab") === "related-words" ? "related-words" : "info";
   const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
-    requestedQuizTab === "info" || requestedQuizTab === "publish"
+    requestedQuizTab === "info" || requestedQuizTab === "publish" || requestedQuizTab === "resources"
       ? requestedQuizTab
       : "questions";
   const contest = snapshot.contests.find(
@@ -277,7 +278,7 @@ function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (quizTab !== "info" && quizTab !== "publish")
+  if (quizTab !== "info" && quizTab !== "publish" && quizTab !== "resources")
     quizTab = quiz.type === "question-list" ? "questions" : "alphabets";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo
@@ -1633,7 +1634,7 @@ export function QuizManager({
                   ? quizPublishCopy.republish
                   : quizPublishCopy.publish}
               </Button>
-            ) : questionOrder ? (
+            ) : quizTab === "resources" ? null : questionOrder ? (
               <>
                 <Button
                   variant="outline"
@@ -1779,6 +1780,14 @@ export function QuizManager({
                   badge: questions.length || quiz.questionCount || 0,
                 },
             { id: "info", label: "Info" },
+            ...(quiz.type === "question-list" ? [] : [{
+              id: "resources" as const,
+              label: "Resources",
+              badge: questionRecords.reduce(
+                (total, record) => total + (record.type === "alphabet" ? record.resources.length : 0),
+                0,
+              ),
+            }]),
             { id: "publish", label: quizPublishCopy.tab },
           ]}
         />
@@ -1812,6 +1821,22 @@ export function QuizManager({
         )}
         {quizTab === "publish" && (
           <QuizPublishPanel quiz={quiz} locale={locale} />
+        )}
+        {quizTab === "resources" && quiz.type !== "question-list" && (
+          <AlphabetResourcesEditor
+            questions={questionRecords}
+            onOpen={window.getgo.openExternal}
+            onSave={(record) => managerApi.saveQuizQuestion(quiz.manifestPath, record)}
+            onSaved={(saved) => {
+              setQuestionRecords((current) => current.map((record) =>
+                String(record.question_no) === String(saved.question_no) ? saved : record,
+              ));
+              toast.show({
+                title: `Resources for ${alphabetData(saved).uppercase} saved`,
+                description: "The letter question file was updated.",
+              });
+            }}
+          />
         )}
         {quizTab === "questions" && (
           <>

@@ -910,6 +910,26 @@ main {
   color: var(--primary);
   font-family: "Comic Sans MS", cursive;
 }
+.alphabet-letter-pronunciation {
+  display: flex;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.alphabet-letter-pronunciation span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.alphabet-letter-pronunciation strong {
+  color: var(--text);
+  font-size: 1.15rem;
+}
 .alphabet-word-preview {
   display: flex;
   min-height: 340px;
@@ -919,6 +939,18 @@ main {
   justify-content: center;
   gap: 14px;
   text-align: center;
+}
+.alphabet-resources-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.32fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.alphabet-resource-links {
+  display: flex;
+  padding: 12px 16px 16px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .alphabet-word-preview-image {
   display: grid;

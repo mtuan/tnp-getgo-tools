@@ -138,6 +138,16 @@ export const alphabetLetterV2Schema = z.object({
   uppercase: z.string().min(1),
   lowercase: z.string().min(1),
   pronunciation: z.string().optional(),
+  resources: z
+    .array(
+      z.object({
+        id: idSchema,
+        title: z.string().min(1),
+        url: z.string().url(),
+        description: z.string().optional(),
+      }),
+    )
+    .default([]),
 });
 
 export const contentV2QuestionSchema = z.discriminatedUnion("type", [

@@ -12,6 +12,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppSettings, RepositorySnapshot } from "../core/models.js";
 import {
+  hashContentV2,
+  sanitizeContentV2Question,
+  sanitizeContentV2Topic,
+} from "../core/content-v2.js";
+import {
   readContestSummary,
   readQuizSummary,
   scanQuizRepository,
@@ -57,16 +62,19 @@ import {
 } from "./firestore-publishing.js";
 import {
   loadContentV2Assets,
+  cachedContentV2QuizHash,
   loadContentV2Question,
   loadContentV2Quiz,
   loadContentV2QuizResources,
   loadContentV2Topic,
   recordContentV2Published,
   readContentV2QuizPublishState,
+  removeCachedContentV2Question,
+  removeCachedContentV2Quiz,
+  removeCachedContentV2Topic,
   saveContentV2Question,
   saveContentV2Quiz,
   saveContentV2Topic,
-  scanContentV2Repository,
   writeContentV2QuizPublishState,
 } from "../repositories/content-v2-repository.js";
 
@@ -193,14 +201,6 @@ app.whenReady().then(async () => {
       throw new Error(
         "Repository data is not loaded. Restart Tools or choose the repository again.",
       );
-    return repositorySnapshot;
-  };
-  const refreshContentV2 = async (
-    root: string,
-  ): Promise<RepositorySnapshot> => {
-    const snapshot = requireSnapshot();
-    const content = await scanContentV2Repository(root);
-    repositorySnapshot = { ...snapshot, contentV2: content.snapshot };
     return repositorySnapshot;
   };
   const waitForSnapshot = async (
@@ -633,8 +633,55 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) => {
     const root = await repositoryRoot();
-    await saveContentV2Topic(root, value);
-    return refreshContentV2(root);
+    const saved = await saveContentV2Topic(root, value);
+    const current = requireSnapshot();
+    const existing = current.contentV2.topics.find(
+      (item) => item.id === saved.id,
+    );
+    const topicQuizzes = current.contentV2.quizzes.filter(
+      (item) => item.topicId === saved.id,
+    );
+    const summary = {
+      ...(existing ?? {}),
+      id: saved.id,
+      type: saved.type,
+      title: saved.title,
+      description: saved.description,
+      status: saved.status,
+      order: saved.order,
+      filePath:
+        existing?.filePath ??
+        path.join(root, "content-v2", "topics", saved.id, "topic.json"),
+      localHash: hashContentV2({
+        topic: sanitizeContentV2Topic(saved),
+        quizzes: topicQuizzes.map(({ id, type, order }) => ({ id, type, order })),
+      }),
+      publishedHash: saved.publishedHash ?? null,
+      publishedAt: saved.publishedAt ?? null,
+      quizCount: topicQuizzes.length,
+      ...(saved.type === "competition"
+        ? {
+            subject: saved.subject,
+            rounds: saved.rounds,
+            gradeGroups: saved.gradeGroups,
+          }
+        : {
+            supportedLanguages: saved.supportedLanguages,
+            recommendedAgeRange: saved.recommendedAgeRange,
+          }),
+    };
+    repositorySnapshot = {
+      ...current,
+      contentV2: {
+        ...current.contentV2,
+        topics: existing
+          ? current.contentV2.topics.map((item) =>
+              item.id === saved.id ? summary : item,
+            )
+          : [...current.contentV2.topics, summary],
+      },
+    };
+    return requireSnapshot();
   });
   ipcMain.handle(
     "content-v2:quiz:save",
@@ -642,8 +689,76 @@ app.whenReady().then(async () => {
       if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
       const root = await repositoryRoot();
       const topic = await loadContentV2Topic(root, topicId);
-      await saveContentV2Quiz(root, topic, value);
-      return refreshContentV2(root);
+      const saved = await saveContentV2Quiz(root, topic, value);
+      const current = requireSnapshot();
+      const existing = current.contentV2.quizzes.find(
+        (item) => item.topicId === topicId && item.id === saved.id,
+      );
+      const quizQuestions = current.contentV2.questions.filter(
+        (item) => item.topicId === topicId && item.quizId === saved.id,
+      );
+      const localHash = cachedContentV2QuizHash(root, topicId, saved.id);
+      if (!localHash)
+        throw new Error("The in-memory quiz index could not be updated.");
+      const summary = {
+        ...(existing ?? {}),
+        key: `${topicId}/${saved.id}`,
+        topicId,
+        id: saved.id,
+        type: saved.type,
+        title: saved.title,
+        description: saved.description,
+        status: saved.status,
+        order: saved.order,
+        filePath:
+          existing?.filePath ??
+          path.join(
+            root,
+            "content-v2",
+            "topics",
+            topicId,
+            "quizzes",
+            saved.id,
+            "quiz.json",
+          ),
+        localHash,
+        publishedHash: saved.publishedHash ?? null,
+        publishedAt: saved.publishedAt ?? null,
+        questionCount: quizQuestions.length,
+        reviewedQuestionCount: quizQuestions.filter(
+          (item) => item.status === "reviewed",
+        ).length,
+        ...(saved.type === "competition-paper"
+          ? { grade: saved.grade, round: saved.round, year: saved.year }
+          : { language: saved.language }),
+      };
+      const quizzes = existing
+        ? current.contentV2.quizzes.map((item) =>
+            item.key === summary.key ? summary : item,
+          )
+        : [...current.contentV2.quizzes, summary];
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          quizzes,
+          topics: current.contentV2.topics.map((item) =>
+            item.id === topicId
+              ? {
+                  ...item,
+                  quizCount: quizzes.filter((quiz) => quiz.topicId === topicId).length,
+                  localHash: hashContentV2({
+                    topic: sanitizeContentV2Topic(topic),
+                    quizzes: quizzes
+                      .filter((quiz) => quiz.topicId === topicId)
+                      .map(({ id, type, order }) => ({ id, type, order })),
+                  }),
+                }
+              : item,
+          ),
+        },
+      };
+      return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -656,8 +771,81 @@ app.whenReady().then(async () => {
         loadContentV2Topic(root, topicId),
         loadContentV2Quiz(root, topicId, quizId),
       ]);
-      await saveContentV2Question(root, topic, quiz, value);
-      return refreshContentV2(root);
+      const saved = await saveContentV2Question(root, topic, quiz, value);
+      const current = requireSnapshot();
+      const key = `${topicId}/${quizId}/${saved.id}`;
+      const existing = current.contentV2.questions.find(
+        (item) => item.key === key,
+      );
+      const localHash = hashContentV2(sanitizeContentV2Question(saved));
+      const questionSummary = {
+        key,
+        topicId,
+        quizId,
+        id: saved.id,
+        type: saved.type,
+        order: saved.order,
+        status: saved.status,
+        filePath:
+          existing?.filePath ??
+          path.join(
+            root,
+            "content-v2",
+            "topics",
+            topicId,
+            "quizzes",
+            quizId,
+            "questions",
+            `${saved.id}.json`,
+          ),
+        localHash,
+        label:
+          saved.type === "alphabet-letter"
+            ? `${saved.uppercase} ${saved.lowercase}`
+            : Array.isArray(saved.text.en)
+              ? saved.text.en.join(" ")
+              : saved.text.en,
+        ...(saved.type === "competition-question"
+          ? {
+              category: saved.category,
+              hasImages: saved.assets.length > 0,
+              dynamic: Boolean(saved.dynamic),
+            }
+          : {}),
+      };
+      const questions = existing
+        ? current.contentV2.questions.map((item) =>
+            item.key === key ? questionSummary : item,
+          )
+        : [...current.contentV2.questions, questionSummary];
+      const quizQuestions = questions.filter(
+        (item) => item.topicId === topicId && item.quizId === quizId,
+      );
+      const quizLocalHash = cachedContentV2QuizHash(root, topicId, quizId);
+      if (!quizLocalHash)
+        throw new Error(
+          "The in-memory quiz index is unavailable. Run the repository scan manually and retry.",
+        );
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          questions,
+          quizzes: current.contentV2.quizzes.map((item) =>
+            item.topicId === topicId && item.id === quizId
+              ? {
+                  ...item,
+                  localHash: quizLocalHash,
+                  questionCount: quizQuestions.length,
+                  reviewedQuestionCount: quizQuestions.filter(
+                    (question) => question.status === "reviewed",
+                  ).length,
+                }
+              : item,
+          ),
+        },
+      };
+      return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -718,7 +906,18 @@ app.whenReady().then(async () => {
       const directory = path.join(root, "content-v2", "topics", topicId);
       await fs.access(path.join(directory, "topic.json"));
       await shell.trashItem(directory);
-      return refreshContentV2(root);
+      const current = requireSnapshot();
+      removeCachedContentV2Topic(root, topicId);
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          topics: current.contentV2.topics.filter((item) => item.id !== topicId),
+          quizzes: current.contentV2.quizzes.filter((item) => item.topicId !== topicId),
+          questions: current.contentV2.questions.filter((item) => item.topicId !== topicId),
+        },
+      };
+      return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -742,7 +941,36 @@ app.whenReady().then(async () => {
       );
       await fs.access(path.join(directory, "quiz.json"));
       await shell.trashItem(directory);
-      return refreshContentV2(root);
+      const current = requireSnapshot();
+      removeCachedContentV2Quiz(root, topicId, quizId);
+      const quizzes = current.contentV2.quizzes.filter(
+        (item) => !(item.topicId === topicId && item.id === quizId),
+      );
+      const topic = await loadContentV2Topic(root, topicId);
+      const topicQuizzes = quizzes.filter((item) => item.topicId === topicId);
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          quizzes,
+          questions: current.contentV2.questions.filter(
+            (item) => !(item.topicId === topicId && item.quizId === quizId),
+          ),
+          topics: current.contentV2.topics.map((item) =>
+            item.id === topicId
+              ? {
+                  ...item,
+                  quizCount: topicQuizzes.length,
+                  localHash: hashContentV2({
+                    topic: sanitizeContentV2Topic(topic),
+                    quizzes: topicQuizzes.map(({ id, type, order }) => ({ id, type, order })),
+                  }),
+                }
+              : item,
+          ),
+        },
+      };
+      return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -769,7 +997,45 @@ app.whenReady().then(async () => {
       );
       await fs.access(filePath);
       await shell.trashItem(filePath);
-      return refreshContentV2(root);
+      const current = requireSnapshot();
+      const typedTopicId = topicId as string;
+      const typedQuizId = quizId as string;
+      const typedQuestionId = questionId as string;
+      const localHash = removeCachedContentV2Question(
+        root,
+        typedTopicId,
+        typedQuizId,
+        typedQuestionId,
+      );
+      if (!localHash)
+        throw new Error("The in-memory quiz index could not be updated.");
+      const questions = current.contentV2.questions.filter(
+        (item) =>
+          !(item.topicId === typedTopicId && item.quizId === typedQuizId && item.id === typedQuestionId),
+      );
+      const quizQuestions = questions.filter(
+        (item) => item.topicId === typedTopicId && item.quizId === typedQuizId,
+      );
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          questions,
+          quizzes: current.contentV2.quizzes.map((item) =>
+            item.topicId === typedTopicId && item.id === typedQuizId
+              ? {
+                  ...item,
+                  localHash,
+                  questionCount: quizQuestions.length,
+                  reviewedQuestionCount: quizQuestions.filter(
+                    (question) => question.status === "reviewed",
+                  ).length,
+                }
+              : item,
+          ),
+        },
+      };
+      return requireSnapshot();
     },
   );
   ipcMain.handle(

@@ -149,6 +149,7 @@ test("creates alphabet question records for alphabet quizzes", async () => {
     uppercase: "",
     lowercase: "",
     pronunciation: "",
+    resources: [],
   });
   assert.equal(
     "samples" in
@@ -195,6 +196,7 @@ test("upgrades the temporary nested alphabet shape without contest-question fiel
     letter: "A",
     uppercase: "A",
     lowercase: "a",
+    resources: [],
   });
 });
 

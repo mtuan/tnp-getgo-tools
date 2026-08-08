@@ -25,6 +25,7 @@ import { PreviewAsset } from "./ui/QuestionPreview";
 import { SearchField } from "./ui/SearchField";
 import { Tabs } from "./ui/Tabs";
 import { SpeechSettingsDialog } from "./SpeechSettingsDialog";
+import { logSpokenContent } from "./speech-log";
 
 export type AlphabetEditorTab = "info" | "related-words";
 
@@ -135,6 +136,14 @@ export function AlphabetLetterEditor({
         ),
       )
     : null;
+  const fallbackLetter =
+    alphabet.lowercase ||
+    alphabet.letter.toLocaleLowerCase(
+      quizType === "alphabet-vietnamese" ? "vi" : "en",
+    );
+  const spokenLetter =
+    alphabet.pronunciation?.trim() ||
+    (fallbackLetter ? `"${fallbackLetter}"` : "");
   const speakWord = () => {
     if (!selectedWord || !("speechSynthesis" in window)) return;
     if (speechPauseRef.current !== null) {
@@ -153,12 +162,12 @@ export function AlphabetLetterEditor({
     );
     wordUtterance.rate = activeSpeechSettings.wordRate;
     wordUtterance.pitch = 1.08;
-    if (selectedSample?.meaning) {
+    logSpokenContent(selectedWord, speechLanguage, "word");
+    const spokenMeaning = selectedSample?.meaning;
+    if (spokenMeaning) {
       wordUtterance.onend = () => {
         speechPauseRef.current = window.setTimeout(() => {
-          const meaningUtterance = new SpeechSynthesisUtterance(
-            selectedSample.meaning,
-          );
+          const meaningUtterance = new SpeechSynthesisUtterance(spokenMeaning);
           meaningUtterance.lang = speechLanguage;
           setPreferredSpeechVoice(
             meaningUtterance,
@@ -166,6 +175,11 @@ export function AlphabetLetterEditor({
             activeSpeechSettings.voiceURI,
           );
           meaningUtterance.rate = activeSpeechSettings.meaningRate;
+          logSpokenContent(
+            spokenMeaning,
+            speechLanguage,
+            "meaning",
+          );
           window.speechSynthesis.speak(meaningUtterance);
           speechPauseRef.current = null;
         }, activeSpeechSettings.pauseMs);
@@ -174,14 +188,9 @@ export function AlphabetLetterEditor({
     window.speechSynthesis.speak(wordUtterance);
   };
   const speakLetter = () => {
-    const spokenText =
-      alphabet.lowercase ||
-      alphabet.letter.toLocaleLowerCase(
-        quizType === "alphabet-vietnamese" ? "vi" : "en",
-      );
-    if (!spokenText || !("speechSynthesis" in window)) return;
+    if (!spokenLetter || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(spokenText);
+    const utterance = new SpeechSynthesisUtterance(spokenLetter);
     utterance.lang = quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
     setPreferredSpeechVoice(
       utterance,
@@ -189,6 +198,7 @@ export function AlphabetLetterEditor({
       activeSpeechSettings.voiceURI,
     );
     utterance.rate = activeSpeechSettings.letterRate;
+    logSpokenContent(spokenLetter, utterance.lang, "letter");
     window.speechSynthesis.speak(utterance);
   };
   useEffect(
@@ -361,13 +371,17 @@ export function AlphabetLetterEditor({
                   <strong>{alphabet.uppercase || "—"}</strong>
                   <span>{alphabet.lowercase || "—"}</span>
                 </div>
+                <div className="alphabet-letter-pronunciation">
+                  <span>Pronunciation hint</span>
+                  <strong>{alphabet.pronunciation?.trim() || "—"}</strong>
+                </div>
                 <Button
                   variant="solid"
                   icon={<Volume2 />}
                   disabled={!alphabet.pronunciation && !alphabet.letter}
                   onClick={speakLetter}
                 >
-                  Play audio
+                  Speak: {spokenLetter || "—"}
                 </Button>
               </div>
             </Panel>
@@ -411,7 +425,7 @@ export function AlphabetLetterEditor({
                     disabled={!selectedWord}
                     onClick={speakWord}
                   >
-                    Play audio
+                    Speak: {selectedWord}
                   </Button>
                 </div>
               ) : (

@@ -14,6 +14,7 @@ import {
   saveContentV2Quiz,
   saveContentV2Topic,
   scanContentV2Repository,
+  cachedContentV2QuizHash,
   readContentV2QuizPublishState,
   writeContentV2QuizPublishState,
 } from "../src/repositories/content-v2-repository.js";
@@ -133,4 +134,37 @@ test("v2 repository persists and scans typed topic content", async () => {
   assert.equal(result.snapshot.quizzes[0]?.reviewedQuestionCount, 1);
   assert.equal(result.snapshot.questions[0]?.label, "A a");
   assert.equal(result.snapshot.issues.length, 0);
+});
+
+test("updates the canonical quiz hash from the startup cache without rescanning", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-v2-cache-"));
+  await saveContentV2Topic(root, alphabetTopic);
+  await saveContentV2Quiz(root, alphabetTopic, alphabetQuiz);
+  const question = {
+    schemaVersion: 2 as const,
+    id: "letter-h",
+    type: "alphabet-letter" as const,
+    order: 0,
+    status: "reviewed" as const,
+    letter: "H",
+    uppercase: "H",
+    lowercase: "h",
+    pronunciation: "hát",
+  };
+  await saveContentV2Question(root, alphabetTopic, alphabetQuiz, question);
+  await scanContentV2Repository(root);
+
+  await saveContentV2Question(root, alphabetTopic, alphabetQuiz, {
+    ...question,
+    pronunciation: "hờ",
+  });
+  const incrementalHash = cachedContentV2QuizHash(
+    root,
+    alphabetTopic.id,
+    alphabetQuiz.id,
+  );
+  const rescannedHash = (await scanContentV2Repository(root)).snapshot.quizzes[0]?.localHash;
+
+  assert.ok(incrementalHash);
+  assert.equal(incrementalHash, rescannedHash);
 });

@@ -10,7 +10,7 @@ import {
   QuizBuilder,
   QuizValueSerializer,
 } from "@tnp/getgo-logics/quiz-builder";
-import type { QuizQuestionRecord } from "../core/models.js";
+import type { AlphabetLetterResource, QuizQuestionRecord } from "../core/models.js";
 import { questionIsVerified, withQuestionStatus } from "../core/question-status.js";
 
 const inlineImagePattern =
@@ -173,6 +173,9 @@ function normalizeQuestion(
       ...(typeof value("pronunciation") === "string"
         ? { pronunciation: value("pronunciation") as string }
         : {}),
+      resources: Array.isArray(value("resources"))
+        ? (value("resources") as AlphabetLetterResource[])
+        : [],
       ...(typeof question.status === "string"
         ? { status: question.status }
         : {}),
@@ -687,6 +690,7 @@ export async function createQuizQuestion(
             uppercase: "",
             lowercase: "",
             pronunciation: "",
+            resources: [],
           }
         : {
             question_no: questionNo,

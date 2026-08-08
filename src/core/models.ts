@@ -248,6 +248,14 @@ export interface AlphabetQuestionContent {
   uppercase: string;
   lowercase: string;
   pronunciation?: string;
+  resources: AlphabetLetterResource[];
+}
+
+export interface AlphabetLetterResource {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
 }
 
 export interface AlphabetQuestionRecord
