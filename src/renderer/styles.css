@@ -195,6 +195,19 @@ main {
 .environment-switcher.compact {
   width: 168px;
 }
+.environment-loading {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-muted);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 700;
+}
 .environment-switcher .schema-select {
   min-width: 0;
   margin: 0;

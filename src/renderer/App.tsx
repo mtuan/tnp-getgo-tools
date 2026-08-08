@@ -219,11 +219,12 @@ export function App() {
   const [view, setView] = useState<View>(() => viewFromRoute(initialRoute));
   const [settings, setSettings] = useState<AppSettings>({
     repositoryPath: null,
-    environment: "staging",
+    environment: "development",
     aiProfile: "thorough",
     locale: "en",
     speech: structuredClone(defaultSpeechSettings),
   });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const contentCopy = (settings.locale === "vi" ? vi : en).contentV2;
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null);
   const updateSnapshot = useCallback(
@@ -409,6 +410,7 @@ export function App() {
       .getSettings()
       .then((value) => {
         setSettings(value);
+        setSettingsLoaded(true);
         document.documentElement.lang = value.locale;
         if (typeof window.getgo.checkEnvironmentReadiness === "function") {
           const checkId = ++environmentCheckId.current;
@@ -428,6 +430,7 @@ export function App() {
         setLoading(false);
       })
       .catch((cause) => {
+        setSettingsLoaded(true);
         setError(String(cause));
         setLoading(false);
       });
@@ -497,6 +500,12 @@ export function App() {
   }
 
   function environmentSwitcher(className?: string) {
+    if (!settingsLoaded)
+      return (
+        <div className={["environment-switcher", className].filter(Boolean).join(" ")}>
+          <span className="environment-loading" role="status">Loading target…</span>
+        </div>
+      );
     const failedChecks = environmentReadiness?.checks
       .filter((check) => !check.ready)
       .map((check) => check.message)

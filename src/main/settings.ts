@@ -5,7 +5,7 @@ import { defaultSpeechSettings } from "../core/speech-settings.js";
 
 const defaults: AppSettings = {
   repositoryPath: null,
-  environment: "staging",
+  environment: "development",
   aiProfile: "thorough",
   locale: "en",
   speech: defaultSpeechSettings,
