@@ -20,6 +20,7 @@ export interface DataTableProps<T> {
   onRowClick?(row: T, index: number): void;
   onRowMove?(fromIndex: number, toIndex: number): void;
   selectedRowIndex?: number;
+  selectedRowKey?: string;
   defaultSort?: { key: string; direction?: "asc" | "desc" };
   sortLocale?: string;
 }
@@ -34,6 +35,7 @@ export function DataTable<T>({
   onRowClick,
   onRowMove,
   selectedRowIndex,
+  selectedRowKey,
   defaultSort,
   sortLocale,
 }: DataTableProps<T>) {
@@ -100,64 +102,69 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {displayedRows.map((row, index) => (
-              <tr
-                draggable={Boolean(onRowMove)}
-                className={[
-                  onRowClick && "clickable",
-                  onRowMove && "reorderable",
-                  selectedRowIndex === index && "is-selected",
-                  dragging === index && "dragging",
-                  dragOver === index && dragging !== index && "drag-over",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                onClick={onRowClick ? () => onRowClick(row, index) : undefined}
-                onDragStart={
-                  onRowMove
-                    ? (event) => {
-                        event.dataTransfer.effectAllowed = "move";
-                        setDragging(index);
-                      }
-                    : undefined
-                }
-                onDragOver={
-                  onRowMove
-                    ? (event) => {
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = "move";
-                        setDragOver(index);
-                      }
-                    : undefined
-                }
-                onDrop={
-                  onRowMove
-                    ? (event) => {
-                        event.preventDefault();
-                        if (dragging !== null && dragging !== index)
-                          onRowMove(dragging, index);
-                        setDragging(null);
-                        setDragOver(null);
-                      }
-                    : undefined
-                }
-                onDragEnd={
-                  onRowMove
-                    ? () => {
-                        setDragging(null);
-                        setDragOver(null);
-                      }
-                    : undefined
-                }
-                key={rowKey(row, index)}
-              >
-                {columns.map((column) => (
-                  <td style={{ textAlign: column.align }} key={column.key}>
-                    {column.render(row, index)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {displayedRows.map((row, index) => {
+              const currentRowKey = rowKey(row, index);
+              return (
+                <tr
+                  draggable={Boolean(onRowMove)}
+                  className={[
+                    onRowClick && "clickable",
+                    onRowMove && "reorderable",
+                    (selectedRowKey !== undefined
+                      ? selectedRowKey === currentRowKey
+                      : selectedRowIndex === index) && "is-selected",
+                    dragging === index && "dragging",
+                    dragOver === index && dragging !== index && "drag-over",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={onRowClick ? () => onRowClick(row, index) : undefined}
+                  onDragStart={
+                    onRowMove
+                      ? (event) => {
+                          event.dataTransfer.effectAllowed = "move";
+                          setDragging(index);
+                        }
+                      : undefined
+                  }
+                  onDragOver={
+                    onRowMove
+                      ? (event) => {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                          setDragOver(index);
+                        }
+                      : undefined
+                  }
+                  onDrop={
+                    onRowMove
+                      ? (event) => {
+                          event.preventDefault();
+                          if (dragging !== null && dragging !== index)
+                            onRowMove(dragging, index);
+                          setDragging(null);
+                          setDragOver(null);
+                        }
+                      : undefined
+                  }
+                  onDragEnd={
+                    onRowMove
+                      ? () => {
+                          setDragging(null);
+                          setDragOver(null);
+                        }
+                      : undefined
+                  }
+                  key={currentRowKey}
+                >
+                  {columns.map((column) => (
+                    <td style={{ textAlign: column.align }} key={column.key}>
+                      {column.render(row, index)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
             {!rows.length && (
               <tr>
                 <td className="ui-data-table-empty" colSpan={columns.length}>

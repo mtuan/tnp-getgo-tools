@@ -536,6 +536,11 @@ export interface DesktopApi {
     topicId: string,
     quizId: string,
   ): Promise<Record<string, unknown>>;
+  saveContentV2QuizDictionary(
+    topicId: string,
+    quizId: string,
+    dictionary: AlphabetDictionary,
+  ): Promise<RepositorySnapshot>;
   saveContentV2Topic(topic: ContentV2Topic): Promise<RepositorySnapshot>;
   saveContentV2Quiz(
     topicId: string,
@@ -586,6 +591,10 @@ export interface DesktopApi {
   saveQuizSource(manifestPath: string, source: string): Promise<void>;
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>;
   loadAlphabetDictionary(manifestPath: string): Promise<AlphabetDictionary>;
+  saveAlphabetDictionary(
+    manifestPath: string,
+    dictionary: AlphabetDictionary,
+  ): Promise<AlphabetDictionary>;
   migrateLegacyQuizzes(contestId: string): Promise<QuizMigrationResult>;
   saveQuizQuestion(
     manifestPath: string,

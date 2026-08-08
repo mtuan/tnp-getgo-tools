@@ -52,21 +52,9 @@ function alphabetWord(value: unknown, index: number): AlphabetSample {
   };
 }
 
-export async function loadAlphabetDictionary(
-  manifestPath: string,
-): Promise<AlphabetDictionary> {
-  const filePath = path.join(path.dirname(manifestPath), "dict.json");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await fs.readFile(filePath, "utf8"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { schemaVersion: 1, words: [] };
-    }
-    throw error;
-  }
+export function parseAlphabetDictionary(parsed: unknown): AlphabetDictionary {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("dict.json must contain an object.");
+    throw new Error("Dictionary must contain an object.");
   }
   const dictionary = parsed as Record<string, unknown>;
   if (dictionary.schemaVersion !== 1 || !Array.isArray(dictionary.words)) {
@@ -76,4 +64,27 @@ export async function loadAlphabetDictionary(
     schemaVersion: 1,
     words: dictionary.words.map(alphabetWord),
   };
+}
+
+export async function loadAlphabetDictionary(
+  manifestPath: string,
+): Promise<AlphabetDictionary> {
+  const filePath = path.join(path.dirname(manifestPath), "dict.json");
+  try {
+    return parseAlphabetDictionary(JSON.parse(await fs.readFile(filePath, "utf8")));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      return { schemaVersion: 1, words: [] };
+    throw error;
+  }
+}
+
+export async function saveAlphabetDictionary(
+  manifestPath: string,
+  value: unknown,
+): Promise<AlphabetDictionary> {
+  const dictionary = parseAlphabetDictionary(value);
+  const filePath = path.join(path.dirname(manifestPath), "dict.json");
+  await fs.writeFile(filePath, `${JSON.stringify(dictionary, null, 2)}\n`, "utf8");
+  return dictionary;
 }

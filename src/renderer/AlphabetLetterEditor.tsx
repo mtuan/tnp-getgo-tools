@@ -65,6 +65,22 @@ interface Props {
   ): Promise<void>;
 }
 
+function highlightAlphabetLetter(
+  text: string,
+  letter: string,
+  language: "English" | "Vietnamese",
+) {
+  return Array.from(text).map((character, index) =>
+    isAlphabetLetterCharacter(character, letter, language) ? (
+      <mark className="alphabet-word-letter" key={index}>
+        {character}
+      </mark>
+    ) : (
+      character
+    ),
+  );
+}
+
 export function AlphabetLetterEditor({
   quizType,
   locale,
@@ -140,15 +156,7 @@ export function AlphabetLetterEditor({
       ? `${selectedSample.classifier.trim()} `
       : "";
   const highlightedWord = selectedSample
-    ? Array.from(selectedSample.text).map((character, index) =>
-        isAlphabetLetterCharacter(character, alphabet.letter, language) ? (
-          <mark className="alphabet-word-letter" key={index}>
-            {character}
-          </mark>
-        ) : (
-          character
-        ),
-      )
+    ? highlightAlphabetLetter(selectedSample.text, alphabet.letter, language)
     : null;
   const fallbackLetter =
     alphabet.lowercase ||
@@ -322,7 +330,12 @@ export function AlphabetLetterEditor({
       key: "text",
       title: "Word",
       width: "28%",
-      render: (word) => <strong>{word.text}</strong>,
+      sortValue: (word) => word.text,
+      render: (word) => (
+        <strong>
+          {highlightAlphabetLetter(word.text, alphabet.letter, language)}
+        </strong>
+      ),
     },
     ...(quizType === "alphabet-vietnamese"
       ? ([
@@ -330,6 +343,7 @@ export function AlphabetLetterEditor({
             key: "classifier",
             title: "Classifier",
             width: "15%",
+            sortValue: (word) => word.classifier || "",
             render: (word) => word.classifier || "—",
           },
         ] satisfies DataColumn<AlphabetSample>[])
@@ -337,6 +351,7 @@ export function AlphabetLetterEditor({
     {
       key: "meaning",
       title: "Simple meaning",
+      sortValue: (word) => word.meaning || "",
       render: (word) => word.meaning || "—",
     },
     {
@@ -344,6 +359,7 @@ export function AlphabetLetterEditor({
       title: "Age",
       width: 72,
       align: "center",
+      sortValue: (word) => word.minimumAge ?? Number.MAX_SAFE_INTEGER,
       render: (word) =>
         Number.isInteger(word.minimumAge) ? `${word.minimumAge}+` : "—",
     },
@@ -352,6 +368,7 @@ export function AlphabetLetterEditor({
       title: "Image",
       width: 72,
       align: "center",
+      sortValue: (word) => word.image || "",
       render: (word) => (
         <div className="alphabet-sample-image">
           {word.image ? (
@@ -429,8 +446,11 @@ export function AlphabetLetterEditor({
                 columns={sampleColumns}
                 rows={filteredRelatedWords}
                 rowKey={(word) => word.text}
-                selectedRowIndex={selectedSampleIndex}
-                onRowClick={(_, index) => setSelectedSampleIndex(index)}
+                selectedRowKey={selectedSample?.text}
+                onRowClick={(word) =>
+                  setSelectedSampleIndex(filteredRelatedWords.indexOf(word))
+                }
+                sortLocale={wordLocale}
                 emptyText="No dictionary words contain this letter."
               />
             </Panel>

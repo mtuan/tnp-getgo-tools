@@ -22,6 +22,7 @@ import type {
   ScanIssue,
 } from "../core/models.js";
 import type { ContentV2QuizPublishState } from "../core/content-v2-publish-state.js";
+import { parseAlphabetDictionary } from "./alphabet-dictionary.js";
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
@@ -504,6 +505,33 @@ export async function loadContentV2QuizResources(
   return {
     dictionary: (await readJson(dictionaryPath)) as Record<string, unknown>,
   };
+}
+
+export async function saveContentV2QuizDictionary(
+  repositoryPath: string,
+  topicId: string,
+  quiz: ContentV2Quiz,
+  value: unknown,
+) {
+  if (quiz.type !== "alphabet-course")
+    throw new Error("Only alphabet quizzes have dictionaries.");
+  const dictionary = parseAlphabetDictionary(value);
+  const quizDirectory = path.join(
+    contentRoot(repositoryPath),
+    validateId(topicId, "Topic ID"),
+    "quizzes",
+    validateId(quiz.id, "Quiz ID"),
+  );
+  const dictionaryPath = path.resolve(quizDirectory, quiz.dictionary);
+  const relative = path.relative(quizDirectory, dictionaryPath);
+  if (relative.startsWith("..") || path.isAbsolute(relative))
+    throw new Error("Dictionary is outside the quiz folder.");
+  await writeJson(dictionaryPath, dictionary);
+  const cached = cachedQuizHashInputs.get(
+    quizCacheKey(repositoryPath, topicId, quiz.id),
+  );
+  if (cached) cached.resources = { ...cached.resources, dictionary };
+  return dictionary;
 }
 
 function collectAssetReferences(

@@ -26,6 +26,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:question:load", topicId, quizId, questionId),
   loadContentV2QuizResources: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:quiz:resources", topicId, quizId),
+  saveContentV2QuizDictionary: (topicId, quizId, dictionary) =>
+    ipcRenderer.invoke("content-v2:quiz:dictionary:save", topicId, quizId, dictionary),
   saveContentV2Topic: (topic) =>
     ipcRenderer.invoke("content-v2:topic:save", topic),
   saveContentV2Quiz: (topicId, quiz) =>
@@ -98,6 +100,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("quiz-questions:load", manifestPath),
   loadAlphabetDictionary: (manifestPath) =>
     ipcRenderer.invoke("alphabet-dictionary:load", manifestPath),
+  saveAlphabetDictionary: (manifestPath, dictionary) =>
+    ipcRenderer.invoke("alphabet-dictionary:save", manifestPath, dictionary),
   migrateLegacyQuizzes: (contestId) =>
     ipcRenderer.invoke("quiz-questions:migrate-legacy", contestId),
   saveQuizQuestion: (manifestPath, question) =>
