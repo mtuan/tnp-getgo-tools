@@ -77,6 +77,7 @@ interface QuizManagerProps {
   initialRoute?: string;
   onSnapshotChange(snapshot: RepositorySnapshot): void;
   onRouteChange(route: string): void;
+  onOpenJobs(): void;
   onBackActionChange(action: (() => void) | null): void;
   onSpeechSettingsChange(
     language: SpeechLanguage,
@@ -311,6 +312,7 @@ export function QuizManager({
   initialRoute,
   onSnapshotChange,
   onRouteChange,
+  onOpenJobs,
   onBackActionChange,
   onSpeechSettingsChange,
   api,
@@ -1612,10 +1614,12 @@ export function QuizManager({
                 disabled={!quiz.localContentHash || Boolean(buttonAction)}
                 onClick={() =>
                   void runButtonAction("publish-quiz", async () => {
-                    const result = await managerApi.publishQuiz(
+                    const publishing = managerApi.publishQuiz(
                       quiz.contest,
                       quiz.id,
                     );
+                    onOpenJobs();
+                    const result = await publishing;
                     const updatedQuiz: QuizSummary = {
                       ...quiz,
                       publishedHash: result.contentHash,

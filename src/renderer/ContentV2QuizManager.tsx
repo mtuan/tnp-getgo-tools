@@ -21,6 +21,7 @@ interface Props {
   initialRoute: string;
   onSnapshotChange(snapshot: RepositorySnapshot): void;
   onRouteChange(route: string): void;
+  onOpenJobs(): void;
   onBackActionChange(action: (() => void) | null): void;
   onSpeechSettingsChange(language: SpeechLanguage, settings: SpeechLanguageSettings): Promise<void>;
 }
@@ -329,5 +330,5 @@ export function ContentV2QuizManager(props: Props) {
       deleteContest: async (id) => refresh(await window.getgo.deleteContentV2Topic(id)),
     };
   }, [managerSnapshot, props]);
-  return <QuizManager locale={props.locale} speechSettings={props.speechSettings} snapshot={managerSnapshot} initialRoute={props.initialRoute} onSnapshotChange={() => undefined} onRouteChange={props.onRouteChange} onBackActionChange={props.onBackActionChange} onSpeechSettingsChange={props.onSpeechSettingsChange} api={api} routeMode="topics" />;
+  return <QuizManager locale={props.locale} speechSettings={props.speechSettings} snapshot={managerSnapshot} initialRoute={props.initialRoute} onSnapshotChange={() => undefined} onRouteChange={props.onRouteChange} onOpenJobs={props.onOpenJobs} onBackActionChange={props.onBackActionChange} onSpeechSettingsChange={props.onSpeechSettingsChange} api={api} routeMode="topics" />;
 }

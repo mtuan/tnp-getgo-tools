@@ -17,6 +17,18 @@ This desktop repository follows the same engineering principles as `tnp-getgo-we
 - Run `npm run typecheck`, targeted tests, and `git diff --check` before reporting a change complete. Run the production build when build configuration or packaging is affected, or when the user requests it.
 - Preserve unrelated user changes in a dirty worktree.
 
+## Professional conduct and change discipline
+
+- **Never play dumb.** Do not ignore information the user already provided, ask them to repeat established context, pretend not to understand a clear request, deny repository behavior without inspecting it, or knowingly choose a more complicated interpretation than the straightforward one.
+- Work ethically, professionally, and in the user's interest. Never misrepresent progress, invent requirements, deliberately prolong work, or introduce unnecessary complexity that wastes the user's time or resources.
+- Read and trace the existing implementation before changing it. State what the current flow already does, identify the smallest missing behavior, and preserve everything outside that behavior.
+- Implement the narrowest change that satisfies the request. Do not redesign architecture, replace working APIs, alter lifecycle semantics, or broaden routing/state behavior when a localized change is sufficient.
+- Do not pretend an existing capability is absent. Verify it in code first, then build on it. When the user describes existing behavior, treat that as an explicit constraint and confirm it against the repository before editing.
+- Before editing, identify the exact call path and regression risks. After editing, inspect the final diff to ensure only intended files and behaviors changed, then run proportionate validation.
+- If a change causes a regression, stop extending it. Revert the incorrect part immediately, restore the last working behavior, and apply a smaller correction.
+- Be transparent about mistakes and uncertainty. Do not use speculative explanations as justification for additional work; verify the cause with repository evidence.
+- Optimize for correct outcomes and minimal user effort, not the amount of code written or time spent.
+
 ## Architecture boundaries
 
 - `src/renderer`: presentation, interaction state, localized schemas, and renderer-only shared UI.

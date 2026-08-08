@@ -820,6 +820,7 @@ export function App() {
                 initialRoute={routeRequest.route}
                 onSnapshotChange={updateSnapshot}
                 onRouteChange={setCurrentRoute}
+                onOpenJobs={() => goToRoute("/jobs")}
                 onBackActionChange={updateQuizBackAction}
                 onSpeechSettingsChange={changeSpeechSettings}
               />
@@ -832,6 +833,7 @@ export function App() {
                 initialRoute={routeRequest.route}
                 onSnapshotChange={updateSnapshot}
                 onRouteChange={setCurrentRoute}
+                onOpenJobs={() => goToRoute("/jobs")}
                 onBackActionChange={updateQuizBackAction}
                 onSpeechSettingsChange={changeSpeechSettings}
               />
