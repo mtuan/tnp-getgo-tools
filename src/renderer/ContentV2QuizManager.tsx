@@ -213,6 +213,17 @@ export function ContentV2QuizManager(props: Props) {
         const resources = await window.getgo.loadContentV2QuizResources(quiz.topicId, quiz.id);
         return (resources.dictionary ?? { schemaVersion: 1, words: [] }) as AlphabetDictionary;
       },
+      saveAlphabetDictionary: async (manifestPath, dictionary) => {
+        const quiz = findQuiz(props.snapshot, manifestPath);
+        refresh(
+          await window.getgo.saveContentV2QuizDictionary(
+            quiz.topicId,
+            quiz.id,
+            dictionary,
+          ),
+        );
+        return dictionary;
+      },
       saveQuizQuestion: async (manifestPath, question) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, question.question_no);

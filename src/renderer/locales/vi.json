@@ -84,6 +84,22 @@
     "clearFilter": "Xóa bộ lọc từ",
     "speechSettings": "Cài đặt giọng đọc"
   },
+  "alphabetDictionary": {
+    "tab": "Từ điển",
+    "title": "Từ điển bài học",
+    "description": "Chỉnh sửa các từ dùng chung cho mọi chữ cái trong bài học này.",
+    "text": "Từ",
+    "classifier": "Danh từ chỉ loại",
+    "meaning": "Nghĩa đơn giản",
+    "image": "Tham chiếu hình ảnh",
+    "age": "Tuổi tối thiểu",
+    "add": "Thêm từ",
+    "empty": "Chưa có từ nào trong từ điển.",
+    "save": "Lưu từ điển",
+    "saved": "Đã lưu từ điển",
+    "savedDescription": "Tệp từ điển của bài học đã được cập nhật.",
+    "saveError": "Không thể lưu từ điển"
+  },
   "speechSettings": {
     "title": "Cài đặt giọng đọc",
     "english": "Tiếng Anh",

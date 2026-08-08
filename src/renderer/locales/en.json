@@ -84,6 +84,22 @@
     "clearFilter": "Clear word filter",
     "speechSettings": "Speech settings"
   },
+  "alphabetDictionary": {
+    "tab": "Dictionary",
+    "title": "Quiz dictionary",
+    "description": "Edit the words available to every letter in this alphabet quiz.",
+    "text": "Word",
+    "classifier": "Classifier",
+    "meaning": "Simple meaning",
+    "image": "Image reference",
+    "age": "Minimum age",
+    "add": "Add word",
+    "empty": "No dictionary words yet.",
+    "save": "Save dictionary",
+    "saved": "Dictionary saved",
+    "savedDescription": "The quiz dictionary file was updated.",
+    "saveError": "Could not save dictionary"
+  },
   "speechSettings": {
     "title": "Speech settings",
     "english": "English",

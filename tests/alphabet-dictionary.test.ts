@@ -3,7 +3,10 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { loadAlphabetDictionary } from "../src/repositories/alphabet-dictionary.js";
+import {
+  loadAlphabetDictionary,
+  saveAlphabetDictionary,
+} from "../src/repositories/alphabet-dictionary.js";
 
 test("loads and sanitizes a quiz-level alphabet dictionary", async () => {
   const directory = await fs.mkdtemp(
@@ -50,6 +53,28 @@ test("returns an empty dictionary when dict.json does not exist", async () => {
     await loadAlphabetDictionary(path.join(directory, "manifest.json")),
     { schemaVersion: 1, words: [] },
   );
+});
+
+test("validates and saves a quiz-level alphabet dictionary", async () => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), "getgo-save-alphabet-dictionary-"),
+  );
+  const manifestPath = path.join(directory, "manifest.json");
+  await fs.writeFile(manifestPath, "{}");
+  const dictionary = {
+    schemaVersion: 1 as const,
+    words: [
+      {
+        text: "Apple",
+        meaning: "A round fruit.",
+        image: "asset:apple.svg",
+        minimumAge: 3,
+      },
+    ],
+  };
+
+  assert.deepEqual(await saveAlphabetDictionary(manifestPath, dictionary), dictionary);
+  assert.deepEqual(await loadAlphabetDictionary(manifestPath), dictionary);
 });
 
 test("rejects a classifier already included in dictionary text", async () => {

@@ -68,7 +68,7 @@ import {
   AlphabetLetterEditor,
   type AlphabetEditorTab,
 } from "./AlphabetLetterEditor";
-import { AlphabetResourcesEditor } from "./AlphabetResourcesEditor";
+import { AlphabetDictionaryEditor } from "./AlphabetDictionaryEditor";
 
 interface QuizManagerProps {
   locale: AppSettings["locale"];
@@ -92,6 +92,7 @@ export type QuizManagerApi = Pick<
   | "getAiMigrationJobs"
   | "loadQuizQuestions"
   | "loadAlphabetDictionary"
+  | "saveAlphabetDictionary"
   | "migrateLegacyQuizzes"
   | "saveQuizQuestion"
   | "markAllQuizQuestionsReviewed"
@@ -116,7 +117,7 @@ type ManagerPage =
   | { kind: "contests" }
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
-type QuizDetailTab = "questions" | "alphabets" | "resources" | "publish" | "info";
+type QuizDetailTab = "questions" | "alphabets" | "dictionary" | "publish" | "info";
 type ContestDetailTab = "info" | "quizzes" | "publish";
 
 interface QuestionListItem {
@@ -250,7 +251,7 @@ function restoredPage(
         : "info";
   const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
-    requestedQuizTab === "info" || requestedQuizTab === "publish" || requestedQuizTab === "resources"
+    requestedQuizTab === "info" || requestedQuizTab === "publish" || requestedQuizTab === "dictionary"
       ? requestedQuizTab
       : "questions";
   const contest = snapshot.contests.find(
@@ -283,7 +284,7 @@ function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (quizTab !== "info" && quizTab !== "publish" && quizTab !== "resources")
+  if (quizTab !== "info" && quizTab !== "publish" && quizTab !== "dictionary")
     quizTab = quiz.type === "question-list" ? "questions" : "alphabets";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo
@@ -1644,7 +1645,7 @@ export function QuizManager({
                   ? quizPublishCopy.republish
                   : quizPublishCopy.publish}
               </Button>
-            ) : quizTab === "resources" ? null : questionOrder ? (
+            ) : quizTab === "dictionary" ? null : questionOrder ? (
               <>
                 <Button
                   variant="outline"
@@ -1791,12 +1792,9 @@ export function QuizManager({
                 },
             { id: "info", label: "Info" },
             ...(quiz.type === "question-list" ? [] : [{
-              id: "resources" as const,
-              label: "Resources",
-              badge: questionRecords.reduce(
-                (total, record) => total + (record.type === "alphabet" && Array.isArray(record.resources) ? record.resources.length : 0),
-                0,
-              ),
+              id: "dictionary" as const,
+              label: (locale === "vi" ? vi : en).alphabetDictionary.tab,
+              badge: alphabetDictionary.words.length,
             }]),
             { id: "publish", label: quizPublishCopy.tab },
           ]}
@@ -1832,18 +1830,21 @@ export function QuizManager({
         {quizTab === "publish" && (
           <QuizPublishPanel quiz={quiz} locale={locale} />
         )}
-        {quizTab === "resources" && quiz.type !== "question-list" && (
-          <AlphabetResourcesEditor
-            questions={questionRecords}
-            onOpen={window.getgo.openExternal}
-            onSave={(record) => managerApi.saveQuizQuestion(quiz.manifestPath, record)}
-            onSaved={(saved) => {
-              setQuestionRecords((current) => current.map((record) =>
-                String(record.question_no) === String(saved.question_no) ? saved : record,
-              ));
+        {quizTab === "dictionary" && quiz.type !== "question-list" && (
+          <AlphabetDictionaryEditor
+            dictionary={alphabetDictionary}
+            locale={locale}
+            quizType={quiz.type}
+            onSave={async (dictionary) => {
+              const saved = await managerApi.saveAlphabetDictionary(
+                quiz.manifestPath,
+                dictionary,
+              );
+              setAlphabetDictionary(saved);
+              const copy = (locale === "vi" ? vi : en).alphabetDictionary;
               toast.show({
-                title: `Resources for ${alphabetData(saved).uppercase} saved`,
-                description: "The letter question file was updated.",
+                title: copy.saved,
+                description: copy.savedDescription,
               });
             }}
           />

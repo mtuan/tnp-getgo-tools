@@ -40,7 +40,10 @@ import {
   resetQuizQuestion,
   saveQuizQuestion,
 } from "../repositories/quiz-questions.js";
-import { loadAlphabetDictionary } from "../repositories/alphabet-dictionary.js";
+import {
+  loadAlphabetDictionary,
+  saveAlphabetDictionary,
+} from "../repositories/alphabet-dictionary.js";
 import { withSpeechLanguageSettings } from "../core/speech-settings.js";
 import type { SpeechLanguage, SpeechLanguageSettings } from "../core/models.js";
 import {
@@ -73,6 +76,7 @@ import {
   removeCachedContentV2Quiz,
   removeCachedContentV2Topic,
   saveContentV2Question,
+  saveContentV2QuizDictionary,
   saveContentV2Quiz,
   saveContentV2Topic,
   writeContentV2QuizPublishState,
@@ -629,6 +633,34 @@ app.whenReady().then(async () => {
       const root = await repositoryRoot();
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
       return loadContentV2QuizResources(root, topicId, quiz);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:quiz:dictionary:save",
+    async (_event, topicId: unknown, quizId: unknown, value: unknown) => {
+      if (typeof topicId !== "string" || typeof quizId !== "string")
+        throw new Error("Invalid quiz selection.");
+      const root = await repositoryRoot();
+      const quiz = await loadContentV2Quiz(root, topicId, quizId);
+      await saveContentV2QuizDictionary(root, topicId, quiz, value);
+      const localHash = cachedContentV2QuizHash(root, topicId, quizId);
+      if (!localHash)
+        throw new Error(
+          "The in-memory quiz index is unavailable. Run the repository scan manually and retry.",
+        );
+      const current = requireSnapshot();
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          quizzes: current.contentV2.quizzes.map((item) =>
+            item.topicId === topicId && item.id === quizId
+              ? { ...item, localHash }
+              : item,
+          ),
+        },
+      };
+      return requireSnapshot();
     },
   );
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) => {
@@ -1534,6 +1566,11 @@ app.whenReady().then(async () => {
     async (_event, manifestPath: unknown) => {
       return loadAlphabetDictionary(await resolveManifest(manifestPath));
     },
+  );
+  ipcMain.handle(
+    "alphabet-dictionary:save",
+    async (_event, manifestPath: unknown, value: unknown) =>
+      saveAlphabetDictionary(await resolveManifest(manifestPath), value),
   );
   ipcMain.handle(
     "quiz-questions:migrate-legacy",
