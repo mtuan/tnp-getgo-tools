@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Settings, Volume2 } from "lucide-react";
+import { ExternalLink, Settings, Volume2 } from "lucide-react";
 import { alphabetData } from "../core/alphabet-question";
 import {
   alphabetWordContainsLetter,
@@ -26,8 +26,9 @@ import { SearchField } from "./ui/SearchField";
 import { Tabs } from "./ui/Tabs";
 import { SpeechSettingsDialog } from "./SpeechSettingsDialog";
 import { logSpokenContent } from "./speech-log";
+import { AlphabetResourceImportButton, AlphabetResourceTable, youtubeVideoId } from "./AlphabetResourceTable";
 
-export type AlphabetEditorTab = "info" | "related-words";
+export type AlphabetEditorTab = "info" | "related-words" | "resources";
 
 function setPreferredSpeechVoice(
   utterance: SpeechSynthesisUtterance,
@@ -79,11 +80,14 @@ export function AlphabetLetterEditor({
   const [selectedSampleIndex, setSelectedSampleIndex] = useState(0);
   const [wordFilter, setWordFilter] = useState("");
   const [speechSettingsOpen, setSpeechSettingsOpen] = useState(false);
+  const [selectedResourceIndex, setSelectedResourceIndex] = useState(0);
   const [speechVoices, setSpeechVoices] = useState<SpeechSynthesisVoice[]>([]);
   const speechPauseRef = useRef<number | null>(null);
   const language =
     quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
+  const selectedResource = alphabet.resources[Math.min(selectedResourceIndex, Math.max(0, alphabet.resources.length - 1))];
+  const selectedYouTubeId = selectedResource ? youtubeVideoId(selectedResource.url) : null;
   const copy = (locale === "vi" ? vi : en).alphabetEditor;
   const wordLocale = quizType === "alphabet-vietnamese" ? "vi" : "en";
   const activeSpeechSettings = speechSettings[wordLocale];
@@ -211,6 +215,7 @@ export function AlphabetLetterEditor({
     [selectedSampleIndex, tab],
   );
   useEffect(() => setSelectedSampleIndex(0), [alphabet.letter]);
+  useEffect(() => setSelectedResourceIndex(0), [alphabet.letter]);
   useEffect(() => setSelectedSampleIndex(0), [wordFilter]);
   useEffect(() => {
     const refreshVoices = () =>
@@ -307,6 +312,11 @@ export function AlphabetLetterEditor({
             label: "Related words",
             badge: relatedWords.length,
           },
+          {
+            id: "resources",
+            label: "Resources",
+            badge: alphabet.resources.length,
+          },
         ]}
       />
       <div className="advanced-question-layout alphabet-letter-editor">
@@ -328,7 +338,7 @@ export function AlphabetLetterEditor({
                 />
               </div>
             </Panel>
-          ) : (
+          ) : tab === "related-words" ? (
             <Panel
               className="alphabet-dictionary-panel"
               title="Related words"
@@ -352,6 +362,21 @@ export function AlphabetLetterEditor({
                 selectedRowIndex={selectedSampleIndex}
                 onRowClick={(_, index) => setSelectedSampleIndex(index)}
                 emptyText="No dictionary words contain this letter."
+              />
+            </Panel>
+          ) : (
+            <Panel
+              className="alphabet-dictionary-panel"
+              title={`Resources for ${alphabet.uppercase || alphabet.letter}`}
+              description="YouTube videos and other external learning links stored on this letter."
+              meta={<AlphabetResourceImportButton resources={alphabet.resources} onChange={(resources) => update({ ...alphabet, resources })} />}
+            >
+              <AlphabetResourceTable
+                letter={alphabet.uppercase || alphabet.letter}
+                resources={alphabet.resources}
+                onChange={(resources) => update({ ...alphabet, resources })}
+                selectedRowIndex={alphabet.resources.length ? Math.min(selectedResourceIndex, alphabet.resources.length - 1) : undefined}
+                onRowSelect={setSelectedResourceIndex}
               />
             </Panel>
           )}
@@ -385,7 +410,7 @@ export function AlphabetLetterEditor({
                 </Button>
               </div>
             </Panel>
-          ) : (
+          ) : tab === "related-words" ? (
             <Panel
               className="question-preview-panel"
               title="Word preview"
@@ -433,6 +458,36 @@ export function AlphabetLetterEditor({
                   Add a related word to preview it here.
                 </div>
               )}
+            </Panel>
+          ) : (
+            <Panel
+              className="question-preview-panel"
+              title="Resource preview"
+              description="Select a resource from the list to preview it."
+            >
+              {selectedResource ? (
+                <div className="alphabet-resource-preview">
+                  {selectedYouTubeId ? (
+                    <div className="alphabet-resource-player">
+                      <iframe
+                        key={selectedYouTubeId}
+                        src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(selectedYouTubeId)}`}
+                        title={selectedResource.title || "YouTube video preview"}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    <div className="alphabet-resource-link-placeholder"><ExternalLink /></div>
+                  )}
+                  <div className="alphabet-resource-preview-copy">
+                    <strong>{selectedResource.title || "Untitled resource"}</strong>
+                    {selectedResource.description && <p>{selectedResource.description}</p>}
+                    <small>{selectedResource.url || "No URL"}</small>
+                    <Button icon={<ExternalLink />} disabled={!selectedResource.url} onClick={() => void window.getgo.openExternal(selectedResource.url)}>Open link</Button>
+                  </div>
+                </div>
+              ) : <div className="alphabet-word-preview-empty">No resource selected.</div>}
             </Panel>
           )}
         </div>

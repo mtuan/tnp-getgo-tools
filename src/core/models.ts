@@ -614,6 +614,9 @@ export interface DesktopApi {
   ): Promise<QuizQuestionRecord>;
   openExternal(url: string): Promise<void>;
   copyText(text: string): Promise<void>;
+  resolveYouTubeResources(
+    urls: string[],
+  ): Promise<Array<{ url: string; title?: string; error?: string }>>;
   createContest(settings: ContestSettings): Promise<RepositorySnapshot>;
   updateContest(
     id: string,

@@ -131,7 +131,7 @@ function toManagerQuestion(question: ContentV2Question): QuizQuestionRecord {
       uppercase: question.uppercase,
       lowercase: question.lowercase,
       ...(question.pronunciation ? { pronunciation: question.pronunciation } : {}),
-      resources: question.resources,
+      resources: Array.isArray(question.resources) ? question.resources : [],
       ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}),
     };
   return {
@@ -154,7 +154,7 @@ function reviewStatus(question: QuizQuestionRecord): "pending" | "reviewed" | "r
 
 function fromManagerQuestion(stored: ContentV2Question, question: QuizQuestionRecord): ContentV2Question {
   if (stored.type === "alphabet-letter" && question.type === "alphabet")
-    return { ...stored, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined, resources: question.resources };
+    return { ...stored, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined, resources: Array.isArray(question.resources) ? question.resources : [] };
   if (stored.type !== "competition-question" || question.type === "alphabet")
     throw new Error("Question type does not match its stored v2 contract.");
   const dynamic = question.advancedDynamic;

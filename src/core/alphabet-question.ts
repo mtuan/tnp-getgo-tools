@@ -18,6 +18,6 @@ export function alphabetData(
     uppercase: record.uppercase,
     lowercase: record.lowercase,
     pronunciation: record.pronunciation,
-    resources: record.resources,
+    resources: Array.isArray(record.resources) ? record.resources : [],
   };
 }

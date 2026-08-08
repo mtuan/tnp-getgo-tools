@@ -242,7 +242,11 @@ function restoredPage(
   const questionTab =
     url.searchParams.get("tab") === "dynamic" ? "dynamic" : "static";
   const alphabetTab: AlphabetEditorTab =
-    url.searchParams.get("tab") === "related-words" ? "related-words" : "info";
+    url.searchParams.get("tab") === "related-words"
+      ? "related-words"
+      : url.searchParams.get("tab") === "resources"
+        ? "resources"
+        : "info";
   const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
     requestedQuizTab === "info" || requestedQuizTab === "publish" || requestedQuizTab === "resources"
@@ -1023,12 +1027,14 @@ export function QuizManager({
         key: "number",
         title: "Order",
         width: 90,
+        sortValue: (item) => Number(item.number),
         render: (item) => <strong>#{item.number}</strong>,
       },
       {
         key: "letter",
         title: "Letter",
         width: 130,
+        sortValue: (item) => alphabetData(item.record).letter,
         render: (item) => {
           const data = alphabetData(item.record);
           return (
@@ -1784,7 +1790,7 @@ export function QuizManager({
               id: "resources" as const,
               label: "Resources",
               badge: questionRecords.reduce(
-                (total, record) => total + (record.type === "alphabet" ? record.resources.length : 0),
+                (total, record) => total + (record.type === "alphabet" && Array.isArray(record.resources) ? record.resources.length : 0),
                 0,
               ),
             }]),
@@ -1882,6 +1888,8 @@ export function QuizManager({
               ariaLabel="Alphabet letters"
               rows={questions}
               columns={alphabetColumns}
+              defaultSort={{ key: "letter" }}
+              sortLocale={quiz.type === "alphabet-vietnamese" ? "vi" : "en"}
               rowKey={(item, index) => `${item.number}-${index}`}
               emptyText={
                 sourceLoading

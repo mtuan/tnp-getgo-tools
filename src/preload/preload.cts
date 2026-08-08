@@ -116,6 +116,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("shell:open-external", url) as Promise<void>,
   copyText: (text) =>
     ipcRenderer.invoke("clipboard:write", text) as Promise<void>,
+  resolveYouTubeResources: (urls) =>
+    ipcRenderer.invoke("resources:youtube:resolve", urls),
   createContest: (settings) =>
     ipcRenderer.invoke(
       "crud:contest:create",

@@ -1322,6 +1322,36 @@ app.whenReady().then(async () => {
       throw new Error("Invalid clipboard text");
     clipboard.writeText(text);
   });
+  ipcMain.handle("resources:youtube:resolve", async (_event, input: unknown) => {
+    if (!Array.isArray(input) || input.length > 100 || input.some((value) => typeof value !== "string")) {
+      throw new Error("Paste up to 100 YouTube links at a time.");
+    }
+    return Promise.all(input.map(async (requestedUrl) => {
+      try {
+        const parsed = new URL(requestedUrl);
+        const host = parsed.hostname.toLowerCase();
+        let videoId = host === "youtu.be" ? parsed.pathname.split("/").filter(Boolean)[0] : parsed.searchParams.get("v");
+        if (!videoId && (host === "youtube.com" || host.endsWith(".youtube.com"))) {
+          const parts = parsed.pathname.split("/").filter(Boolean);
+          if (["shorts", "embed", "live"].includes(parts[0])) videoId = parts[1];
+        }
+        if ((host !== "youtu.be" && host !== "youtube.com" && !host.endsWith(".youtube.com")) || !videoId || !/^[\w-]{6,20}$/.test(videoId)) {
+          throw new Error("Not a valid YouTube video URL");
+        }
+        const url = `https://www.youtube.com/watch?v=${videoId}`;
+        const endpoint = new URL("https://www.youtube.com/oembed");
+        endpoint.searchParams.set("url", url);
+        endpoint.searchParams.set("format", "json");
+        const response = await fetch(endpoint, { signal: AbortSignal.timeout(10_000) });
+        if (!response.ok) throw new Error(`YouTube returned ${response.status}`);
+        const metadata = await response.json() as { title?: unknown };
+        if (typeof metadata.title !== "string" || !metadata.title.trim()) throw new Error("YouTube returned no title");
+        return { url, title: metadata.title.trim() };
+      } catch (cause) {
+        return { url: requestedUrl, error: cause instanceof Error ? cause.message : String(cause) };
+      }
+    }));
+  });
   ipcMain.handle(
     "shell:open-external",
     async (_event, requestedUrl: unknown) => {
@@ -1332,6 +1362,9 @@ app.whenReady().then(async () => {
         "tnp-getgo-stg.web.app",
         "tnp-getgo.web.app",
         "platform.openai.com",
+        "youtube.com",
+        "www.youtube.com",
+        "youtu.be",
       ]);
       const allowedFirebasePaths = [
         "/project/tnp-getgo-dev/",

@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 export interface DataColumn<T> {
   key: string;
@@ -6,6 +7,7 @@ export interface DataColumn<T> {
   width?: string | number;
   align?: "left" | "center" | "right";
   render(row: T, index: number): ReactNode;
+  sortValue?(row: T): string | number;
 }
 
 export interface DataTableProps<T> {
@@ -18,6 +20,8 @@ export interface DataTableProps<T> {
   onRowClick?(row: T, index: number): void;
   onRowMove?(fromIndex: number, toIndex: number): void;
   selectedRowIndex?: number;
+  defaultSort?: { key: string; direction?: "asc" | "desc" };
+  sortLocale?: string;
 }
 
 export function DataTable<T>({
@@ -30,9 +34,38 @@ export function DataTable<T>({
   onRowClick,
   onRowMove,
   selectedRowIndex,
+  defaultSort,
+  sortLocale,
 }: DataTableProps<T>) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  const [sort, setSort] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(() => defaultSort
+    ? { key: defaultSort.key, direction: defaultSort.direction ?? "asc" }
+    : null);
+  const displayedRows = useMemo(() => {
+    if (!sort || onRowMove) return rows;
+    const column = columns.find((item) => item.key === sort.key);
+    if (!column?.sortValue) return rows;
+    const collator = new Intl.Collator(sortLocale, {
+      sensitivity: "base",
+      numeric: true,
+    });
+    return rows
+      .map((row, index) => ({ row, index }))
+      .sort((left, right) => {
+        const leftValue = column.sortValue!(left.row);
+        const rightValue = column.sortValue!(right.row);
+        const comparison =
+          typeof leftValue === "number" && typeof rightValue === "number"
+            ? leftValue - rightValue
+            : collator.compare(String(leftValue), String(rightValue));
+        return (comparison || left.index - right.index) * (sort.direction === "asc" ? 1 : -1);
+      })
+      .map((item) => item.row);
+  }, [columns, onRowMove, rows, sort, sortLocale]);
   return (
     <div className="ui-data-table">
       <div className="ui-data-table-scroll">
@@ -44,13 +77,30 @@ export function DataTable<T>({
                   style={{ width: column.width, textAlign: column.align }}
                   key={column.key}
                 >
-                  {column.title}
+                  {column.sortValue && !onRowMove ? (
+                    <button
+                      type="button"
+                      className="ui-data-table-sort"
+                      aria-label={`Sort by ${String(column.title)}`}
+                      aria-pressed={sort?.key === column.key}
+                      onClick={() => setSort((current) =>
+                        current?.key === column.key
+                          ? { key: column.key, direction: current.direction === "asc" ? "desc" : "asc" }
+                          : { key: column.key, direction: "asc" },
+                      )}
+                    >
+                      <span>{column.title}</span>
+                      {sort?.key === column.key
+                        ? sort.direction === "asc" ? <ArrowUp /> : <ArrowDown />
+                        : <ArrowUpDown />}
+                    </button>
+                  ) : column.title}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
+            {displayedRows.map((row, index) => (
               <tr
                 draggable={Boolean(onRowMove)}
                 className={[
