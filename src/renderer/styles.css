@@ -4989,7 +4989,7 @@ button.danger svg {
   display: grid;
   gap: 6px;
   padding: 14px 16px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 14px;
   background: #fff;
 }

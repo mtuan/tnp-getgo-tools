@@ -49,6 +49,10 @@ import {
 import { withSpeechLanguageSettings } from "../core/speech-settings.js";
 import type { SpeechLanguage, SpeechLanguageSettings } from "../core/models.js";
 import {
+  reviewedTopicQuizzes,
+  shouldPublishContainingTopic,
+} from "../core/content-v2-publish-policy.js";
+import {
   createPublishPayloadFromQuestions,
   recordPublishedHash,
 } from "../repositories/quiz-publishing.js";
@@ -89,6 +93,9 @@ loadEnvironment({
 });
 
 const productName = "GetGo Tools";
+const processStartedAt = Date.now();
+const startupLog = (stage: string, details: Record<string, unknown> = {}) =>
+  console.info(`[GetGo Tools][Startup][+${Date.now() - processStartedAt}ms] ${stage}`, details);
 app.setName(productName);
 process.title = productName;
 
@@ -126,6 +133,7 @@ else
   });
 
 function createWindow(): void {
+  startupLog("Creating main window");
   mainWindow = new BrowserWindow({
     width: 1420,
     height: 900,
@@ -141,6 +149,7 @@ function createWindow(): void {
       sandbox: true,
     },
   });
+  mainWindow.webContents.once("did-finish-load", () => startupLog("Renderer finished loading"));
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) void mainWindow.loadURL(devUrl);
   else
@@ -150,6 +159,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  startupLog("Electron ready");
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath);
   const settings = new SettingsStore(app.getPath("userData"));
   let repositorySnapshot: RepositorySnapshot | null = null;
@@ -170,6 +180,7 @@ app.whenReady().then(async () => {
       || /\.sw[opx]$/i.test(segment)
       || /\.tmp$/i.test(segment));
   const collectRepositoryPaths = async (repositoryPath: string) => {
+    const startedAt = Date.now();
     const result = new Set<string>();
     const visit = async (absolute: string, relative: string): Promise<void> => {
       const entries = await fs.readdir(absolute, { withFileTypes: true }).catch(() => []);
@@ -181,6 +192,10 @@ app.whenReady().then(async () => {
       }));
     };
     await Promise.all(structureRoots.map((name) => visit(path.join(repositoryPath, name), name)));
+    console.info("[GetGo Tools][Repository paths] Collected", {
+      paths: result.size,
+      durationMs: Date.now() - startedAt,
+    });
     return result;
   };
   const samePaths = (left: Set<string>, right: Set<string>) =>
@@ -222,9 +237,14 @@ app.whenReady().then(async () => {
     options?: Parameters<typeof scanQuizRepository>[1],
     force = false,
   ) => {
+    const scanStartedAt = Date.now();
     const resolved = path.resolve(repositoryPath);
-    if (!force && repositorySnapshot?.repositoryPath === resolved)
+    if (!force && repositorySnapshot?.repositoryPath === resolved) {
+      console.info("[GetGo Tools][Repository index] Reused lightweight snapshot", {
+        durationMs: Date.now() - scanStartedAt,
+      });
       return repositorySnapshot;
+    }
     if (repositoryScanPromise) {
       if (!force && repositoryScanPath === resolved)
         return repositoryScanPromise;
@@ -236,6 +256,14 @@ app.whenReady().then(async () => {
       const next = await scanQuizRepository(resolved, options);
       repositorySnapshot = next;
       await startRepositoryWatcher(resolved);
+      console.info("[GetGo Tools][Repository index] Snapshot ready", {
+        contests: next.contests.length,
+        legacyQuizzes: next.quizzes.length,
+        contentV2Topics: next.contentV2.topics.length,
+        contentV2Quizzes: next.contentV2.quizzes.length,
+        contentV2Questions: next.contentV2.questions.length,
+        durationMs: Date.now() - scanStartedAt,
+      });
       return next;
     })();
     try {
@@ -284,10 +312,19 @@ app.whenReady().then(async () => {
     await acceptCurrentRepositoryStructure(root);
     return repositorySnapshot;
   };
+  const settingsStartedAt = Date.now();
   const initialSettings = await settings.read();
+  startupLog("Settings loaded", {
+    durationMs: Date.now() - settingsStartedAt,
+    hasRepository: Boolean(initialSettings.repositoryPath),
+  });
   if (initialSettings.repositoryPath) {
+    const startupScanStartedAt = Date.now();
     try {
       await scanRepository(initialSettings.repositoryPath);
+      startupLog("Startup repository index ready", {
+        durationMs: Date.now() - startupScanStartedAt,
+      });
     } catch (cause) {
       console.error(
         `[GetGo Tools][Repository startup scan] ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -318,6 +355,7 @@ app.whenReady().then(async () => {
     app.getAppPath(),
     app.getPath("userData"),
   );
+  startupLog("Background services initialized");
   ipcMain.handle("app:restart", () => {
     if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
       mainWindow?.reload();
@@ -1060,6 +1098,7 @@ app.whenReady().then(async () => {
           questions: current.contentV2.questions.filter((item) => item.topicId !== topicId),
         },
       };
+      await acceptCurrentRepositoryStructure(root);
       return requireSnapshot();
     },
   );
@@ -1112,6 +1151,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
+      await acceptCurrentRepositoryStructure(root);
       return requireSnapshot();
     },
   );
@@ -1170,6 +1210,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
+      await acceptCurrentRepositoryStructure(root);
       return requireSnapshot();
     },
   );
@@ -1182,10 +1223,10 @@ app.whenReady().then(async () => {
       const summary = snapshot.contentV2.topics.find((item) => item.id === topicId);
       if (!summary) throw new Error("The selected topic was not found.");
       const topic = await loadContentV2Topic(root, topicId);
-      const quizIds = snapshot.contentV2.quizzes
-        .filter((quiz) => quiz.topicId === topicId)
-        .sort((left, right) => left.order - right.order)
-        .map((quiz) => quiz.id);
+      const quizIds = reviewedTopicQuizzes(
+        snapshot.contentV2.quizzes,
+        topicId,
+      ).map((quiz) => quiz.id);
       return createContentV2TopicPublishPreview(topic, summary.localHash, quizIds);
     },
   );
@@ -1200,37 +1241,148 @@ app.whenReady().then(async () => {
       );
       if (!summary) throw new Error("The selected topic was not found.");
       const topic = await loadContentV2Topic(root, topicId);
-      const quizIds = snapshot.contentV2.quizzes
-        .filter((quiz) => quiz.topicId === topicId)
-        .sort((left, right) => left.order - right.order)
-        .map((quiz) => quiz.id);
-      const result = await publishing.publishContentV2Topic(
-        topic,
-        summary.localHash,
-        quizIds,
+      const reviewedQuizzes = reviewedTopicQuizzes(
+        snapshot.contentV2.quizzes,
+        topicId,
       );
-      await recordContentV2Published(
-        summary.filePath,
-        result.contentHash,
-        result.publishedAt,
+      for (const quiz of reviewedQuizzes)
+        if (quiz.questionCount !== quiz.reviewedQuestionCount)
+          throw new Error(
+            `Quiz "${quiz.title}" is marked reviewed but still contains unreviewed questions.`,
+          );
+      return publishJobs.track(
+        {
+          name: `Publish topic · ${summary.title}`,
+          description: `Publish topic and ${reviewedQuizzes.length} reviewed quizzes to Firebase`,
+          route: `/topics/${encodeURIComponent(topicId)}?tab=publish`,
+        },
+        async (control) => {
+          await control.setTotal(
+            reviewedQuizzes.length + 1,
+            `Publishing topic and ${reviewedQuizzes.length} reviewed quizzes`,
+          );
+          if (!firebaseAuth) throw new Error("Publishing is not initialized.");
+          const target = await firebaseAuth.publishingTarget();
+          const publishedQuizResults: Array<{
+            key: string;
+            contentHash: string;
+            publishedAt: string;
+          }> = [];
+          for (const [index, quizSummary] of reviewedQuizzes.entries()) {
+            await control.checkpoint();
+            const quiz = await loadContentV2Quiz(root, topicId, quizSummary.id);
+            const questionIds = snapshot.contentV2.questions
+              .filter(
+                (question) =>
+                  question.topicId === topicId &&
+                  question.quizId === quizSummary.id,
+              )
+              .sort((left, right) => left.order - right.order)
+              .map((question) => question.id);
+            const [questions, resources] = await Promise.all([
+              Promise.all(
+                questionIds.map((questionId) =>
+                  loadContentV2Question(
+                    root,
+                    topicId,
+                    quizSummary.id,
+                    questionId,
+                  ),
+                ),
+              ),
+              loadContentV2QuizResources(root, topicId, quiz),
+            ]);
+            const assets = await loadContentV2Assets(
+              root,
+              topicId,
+              quizSummary.id,
+              { questions, resources },
+            );
+            const publishState = await readContentV2QuizPublishState(
+              quizSummary.filePath,
+            );
+            const quizResult = await publishing.publishContentV2Quiz(
+              topicId,
+              quiz,
+              questions,
+              resources,
+              assets,
+              quizSummary.localHash,
+              publishState.targets[target.projectId],
+            );
+            await recordContentV2Published(
+              quizSummary.filePath,
+              quizResult.contentHash,
+              quizResult.publishedAt,
+            );
+            await writeContentV2QuizPublishState(quizSummary.filePath, {
+              schemaVersion: 1,
+              targets: {
+                ...publishState.targets,
+                [quizResult.projectId]: {
+                  environment: quizResult.environment,
+                  projectId: quizResult.projectId,
+                  contentHash: quizResult.contentHash,
+                  publishedAt: quizResult.publishedAt,
+                  items: quizResult.items,
+                },
+              },
+            });
+            publishedQuizResults.push({
+              key: quizSummary.key,
+              contentHash: quizResult.contentHash,
+              publishedAt: quizResult.publishedAt,
+            });
+            await control.advance(
+              `Published reviewed quiz ${index + 1}/${reviewedQuizzes.length}`,
+            );
+          }
+          // Publish the catalog entry last so it never advertises a reviewed
+          // quiz before that quiz has successfully reached Firebase.
+          const result = await publishing.publishContentV2Topic(
+            topic,
+            summary.localHash,
+            reviewedQuizzes.map((quiz) => quiz.id),
+          );
+          await recordContentV2Published(
+            summary.filePath,
+            result.contentHash,
+            result.publishedAt,
+          );
+          await control.advance("Published topic document");
+          if (repositorySnapshot) {
+            const publishedByKey = new Map(
+              publishedQuizResults.map((item) => [item.key, item]),
+            );
+            repositorySnapshot = {
+              ...repositorySnapshot,
+              contentV2: {
+                ...repositorySnapshot.contentV2,
+                topics: repositorySnapshot.contentV2.topics.map((item) =>
+                  item.id === topicId
+                    ? {
+                        ...item,
+                        publishedHash: result.contentHash,
+                        publishedAt: result.publishedAt,
+                      }
+                    : item,
+                ),
+                quizzes: repositorySnapshot.contentV2.quizzes.map((item) => {
+                  const published = publishedByKey.get(item.key);
+                  return published
+                    ? {
+                        ...item,
+                        publishedHash: published.contentHash,
+                        publishedAt: published.publishedAt,
+                      }
+                    : item;
+                }),
+              },
+            };
+          }
+          return { ...result, snapshot: requireSnapshot() };
+        },
       );
-      if (repositorySnapshot)
-        repositorySnapshot = {
-          ...repositorySnapshot,
-          contentV2: {
-            ...repositorySnapshot.contentV2,
-            topics: repositorySnapshot.contentV2.topics.map((item) =>
-              item.id === topicId
-                ? {
-                    ...item,
-                    publishedHash: result.contentHash,
-                    publishedAt: result.publishedAt,
-                  }
-                : item,
-            ),
-          },
-        };
-      return { ...result, snapshot: requireSnapshot() };
     },
   );
   ipcMain.handle(
@@ -1325,13 +1477,16 @@ app.whenReady().then(async () => {
       );
       if (!topicSummary) throw new Error("The containing topic was not found.");
       const topic = await loadContentV2Topic(root, topicId);
-      const topicQuizIds = snapshot.contentV2.quizzes
-        .filter((item) => item.topicId === topicId)
-        .sort((left, right) => left.order - right.order)
-        .map((item) => item.id);
+      const topicQuizIds = reviewedTopicQuizzes(
+        snapshot.contentV2.quizzes,
+        topicId,
+      ).map((item) => item.id);
       await control.checkpoint();
       if (!firebaseAuth) throw new Error("Publishing is not initialized.");
       const target = await firebaseAuth.publishingTarget();
+      const publishContainingTopic = shouldPublishContainingTopic(
+        await publishing.contentV2TopicExists(topicId),
+      );
       const publishState = await readContentV2QuizPublishState(summary.filePath);
       const result = await publishing.publishContentV2Quiz(
         topicId,
@@ -1342,24 +1497,27 @@ app.whenReady().then(async () => {
         summary.localHash,
         publishState.targets[target.projectId],
         control,
-        2,
+        publishContainingTopic ? 2 : 0,
       );
-      const topicResult = await publishing.publishContentV2Topic(
-        topic,
-        topicSummary.localHash,
-        topicQuizIds,
-        control,
-      );
+      const topicResult = publishContainingTopic
+        ? await publishing.publishContentV2Topic(
+            topic,
+            topicSummary.localHash,
+            topicQuizIds,
+            control,
+          )
+        : null;
       await recordContentV2Published(
         summary.filePath,
         result.contentHash,
         result.publishedAt,
       );
-      await recordContentV2Published(
-        topicSummary.filePath,
-        topicResult.contentHash,
-        topicResult.publishedAt,
-      );
+      if (topicResult)
+        await recordContentV2Published(
+          topicSummary.filePath,
+          topicResult.contentHash,
+          topicResult.publishedAt,
+        );
       await writeContentV2QuizPublishState(summary.filePath, {
         schemaVersion: 1,
         targets: {
@@ -1388,7 +1546,7 @@ app.whenReady().then(async () => {
                 : item,
             ),
             topics: repositorySnapshot.contentV2.topics.map((item) =>
-              item.id === topicId
+              topicResult && item.id === topicId
                 ? {
                     ...item,
                     publishedHash: topicResult.contentHash,
@@ -1811,6 +1969,7 @@ app.whenReady().then(async () => {
           a.id.localeCompare(b.id),
         ),
       };
+      await acceptCurrentRepositoryStructure(root);
       return repositorySnapshot;
     },
   );
@@ -1886,6 +2045,7 @@ app.whenReady().then(async () => {
         contests: snapshot.contests.filter((item) => item.id !== id),
         quizzes: snapshot.quizzes.filter((item) => item.contest !== id),
       };
+      await acceptCurrentRepositoryStructure(root);
       return repositorySnapshot;
     },
   );
@@ -1929,6 +2089,7 @@ app.whenReady().then(async () => {
     },
   );
   ipcMain.handle("crud:quiz:delete", async (_event, manifestPath: unknown) => {
+    const root = await repositoryRoot();
     const manifest = await resolveManifest(manifestPath);
     await shell.trashItem(path.dirname(manifest));
     const snapshot = requireSnapshot();
@@ -1938,8 +2099,10 @@ app.whenReady().then(async () => {
         (item) => item.manifestPath !== manifest,
       ),
     };
+    await acceptCurrentRepositoryStructure(root);
     return repositorySnapshot;
   });
+  startupLog("IPC handlers registered");
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -54,6 +54,10 @@ import { ContentV2QuizManager } from "./ContentV2QuizManager";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 
+const rendererStartedAt = performance.now();
+const rendererStartupLog = (stage: string, details: Record<string, unknown> = {}) =>
+  console.info(`[GetGo Tools][Renderer startup][+${Math.round(performance.now() - rendererStartedAt)}ms] ${stage}`, details);
+
 const PublishingPage = lazy(() =>
   import("./PublishingPage").then((module) => ({
     default: module.PublishingPage,
@@ -258,11 +262,16 @@ export function App() {
   const quizBackAction = useRef<(() => void) | null>(null);
 
   async function scan(path?: string, announce = false, force = false) {
+    const startedAt = performance.now();
     setLoading(true);
     setRepositoryError(null);
     try {
       updateSnapshot(await window.getgo.scanRepository(path, force));
       setRepositoryStructureChange(null);
+      rendererStartupLog("Repository snapshot received", {
+        durationMs: Math.round(performance.now() - startedAt),
+        force,
+      });
       if (announce)
         toast.show({
           title: "Repository refreshed",
@@ -410,6 +419,9 @@ export function App() {
     }
   }
   useEffect(() => {
+    rendererStartupLog("App mounted");
+  }, []);
+  useEffect(() => {
     return window.getgo.onRepositoryStructureChanged((change) => {
       setRepositoryStructureChange(change);
       toast.show({
@@ -422,6 +434,9 @@ export function App() {
     window.getgo
       .getSettings()
       .then((value) => {
+        rendererStartupLog("Settings received", {
+          hasRepository: Boolean(value.repositoryPath),
+        });
         setSettings(value);
         setSettingsLoaded(true);
         document.documentElement.lang = value.locale;

@@ -93,7 +93,9 @@ export interface ContentV2Asset {
 export async function scanContentV2Repository(
   repositoryPath: string,
 ): Promise<LoadedContentV2> {
+  const scanStartedAt = Date.now();
   const root = contentRoot(repositoryPath);
+  console.info("[GetGo Tools][Content V2 index] Started", { root });
   const topics: ContentV2TopicSummary[] = [];
   const quizzes: ContentV2QuizSummary[] = [];
   const questions: ContentV2QuestionSummary[] = [];
@@ -101,6 +103,7 @@ export async function scanContentV2Repository(
   const questionKeys = new Set<string>();
 
   for (const topicDirectoryName of await directories(root)) {
+    const topicStartedAt = Date.now();
     const topicFile = path.join(root, topicDirectoryName, "topic.json");
     let topic: ContentV2Topic;
     try {
@@ -120,6 +123,7 @@ export async function scanContentV2Repository(
     const topicQuizzes: ContentV2QuizSummary[] = [];
     const quizzesRoot = path.join(root, topic.id, "quizzes");
     for (const quizDirectoryName of await directories(quizzesRoot)) {
+      const quizStartedAt = Date.now();
       const quizFile = path.join(quizzesRoot, quizDirectoryName, "quiz.json");
       let quiz: ContentV2Quiz;
       try {
@@ -145,6 +149,7 @@ export async function scanContentV2Repository(
         record: ContentV2Question;
         summary: ContentV2QuestionSummary;
       }> = [];
+      const questionsStartedAt = Date.now();
       for (const questionFile of await questionFiles(
         path.join(path.dirname(quizFile), "questions"),
       )) {
@@ -199,7 +204,9 @@ export async function scanContentV2Repository(
           left.record.id.localeCompare(right.record.id),
       );
       questions.push(...quizQuestions.map((item) => item.summary));
+      const questionsDurationMs = Date.now() - questionsStartedAt;
       let resources: Record<string, unknown> = {};
+      const resourcesStartedAt = Date.now();
       if (quiz.type === "alphabet" || quiz.type === "spelling") {
         const dictionaryPath = sharedDictionaryPath(
           repositoryPath,
@@ -216,7 +223,9 @@ export async function scanContentV2Repository(
           });
         }
       }
+      const resourcesDurationMs = Date.now() - resourcesStartedAt;
       let assetHashes: Array<{ reference: string; contentHash: string }> = [];
+      const assetsStartedAt = Date.now();
       try {
         assetHashes = (
           await loadContentV2Assets(repositoryPath, topic.id, quiz.id, {
@@ -233,6 +242,7 @@ export async function scanContentV2Repository(
           message: cause instanceof Error ? cause.message : String(cause),
         });
       }
+      const assetsDurationMs = Date.now() - assetsStartedAt;
       const localHash = hashContentV2({
         quiz: sanitizeContentV2Quiz(quiz),
         questions: quizQuestions.map((item) =>
@@ -264,6 +274,21 @@ export async function scanContentV2Repository(
       };
       quizzes.push(summary);
       topicQuizzes.push(summary);
+      const quizDurationMs = Date.now() - quizStartedAt;
+      // Keep startup diagnostics useful without printing hundreds of routine
+      // quiz entries (and making the measured startup itself slower).
+      if (quizDurationMs >= 100) {
+        console.info("[GetGo Tools][Content V2 index] Slow quiz indexed", {
+          topicId: topic.id,
+          quizId: quiz.id,
+          questions: quizQuestions.length,
+          assets: assetHashes.length,
+          questionsDurationMs,
+          resourcesDurationMs,
+          assetsDurationMs,
+          durationMs: quizDurationMs,
+        });
+      }
     }
     topicQuizzes.sort(
       (left, right) =>
@@ -299,6 +324,11 @@ export async function scanContentV2Repository(
             recommendedAgeRange: topic.recommendedAgeRange,
           }),
     });
+    console.info("[GetGo Tools][Content V2 index] Topic indexed", {
+      topicId: topic.id,
+      quizzes: topicQuizzes.length,
+      durationMs: Date.now() - topicStartedAt,
+    });
   }
 
   topics.sort(
@@ -318,6 +348,13 @@ export async function scanContentV2Repository(
       left.order - right.order ||
       left.id.localeCompare(right.id),
   );
+  console.info("[GetGo Tools][Content V2 index] Completed", {
+    topics: topics.length,
+    quizzes: quizzes.length,
+    questions: questions.length,
+    issues: issues.length,
+    durationMs: Date.now() - scanStartedAt,
+  });
   return {
     snapshot: { topics, quizzes, questions, issues },
   };

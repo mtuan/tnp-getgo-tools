@@ -349,6 +349,11 @@ export class FirestorePublishingService {
     return { kind: "topic", topicId: topic.id, contentHash, publishedAt };
   }
 
+  async contentV2TopicExists(topicId: string): Promise<boolean> {
+    const result = await this.getDocument(contentV2TopicPath(topicId));
+    return result.document !== null;
+  }
+
   async publishContentV2Quiz(
     topicId: string,
     quiz: ContentV2Quiz,
