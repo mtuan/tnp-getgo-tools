@@ -3278,6 +3278,7 @@ tbody tr:hover {
   width: 32px;
   height: 32px;
   object-fit: contain;
+  border-radius: 8px;
 }
 .manager-list-icon-text { font-size: 20px; }
 .manager-list-icon-default {
