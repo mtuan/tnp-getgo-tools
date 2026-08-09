@@ -228,7 +228,6 @@ export function AiHistoryDrawer({
           {
             id: "parameters" as const,
             label: "Parameters",
-            badge: revision.proposal.parameterizedValues.length,
           },
         ]
       : []),

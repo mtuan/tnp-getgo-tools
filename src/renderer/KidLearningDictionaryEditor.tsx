@@ -82,13 +82,22 @@ export function KidLearningDictionaryEditor({
   onSave(dictionary: KidLearningDictionary): Promise<void>;
 }) {
   const [rows, setRows] = useState(() => rowsFromDictionary(dictionary));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => dictionary.entries[0]?.id ?? null,
+  );
   const [draft, setDraft] = useState<DictionaryRow | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => setRows(rowsFromDictionary(dictionary)), [dictionary]);
+  useEffect(() => {
+    const nextRows = rowsFromDictionary(dictionary);
+    setRows(nextRows);
+    setSelectedId((current) =>
+      current && nextRows.some((row) => row.id === current)
+        ? current
+        : nextRows[0]?.id ?? null);
+  }, [dictionary]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
   useEffect(() => {
     const filename = selected?.image?.replace(/^asset:/, "");
@@ -147,7 +156,7 @@ export function KidLearningDictionaryEditor({
     try {
       await onSave(dictionaryFromRows(nextRows));
       setRows(nextRows);
-      setSelectedId(null);
+      setSelectedId(nextRows[0]?.id ?? null);
       setDraft(null);
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setSaving(false); }
@@ -171,14 +180,15 @@ export function KidLearningDictionaryEditor({
         />
       </Panel>
       <Panel
+        className={draft ? "topic-dictionary-detail-panel is-editing" : "topic-dictionary-detail-panel"}
         title={draft ? `Edit ${selected?.enText || selected?.viText || selected?.id || "word"}` : selected ? (selected.enText || selected.viText || selected.id) : "Word preview"}
         description={draft ? "Update this shared dictionary record." : selected ? selected.image || "No linked image" : "Select a word to see its information and linked image."}
         meta={selected ? draft ? <div className="topic-assets-actions">
           <Button variant="icon" icon={<X />} disabled={saving} aria-label="Cancel editing" title="Cancel" onClick={() => { setDraft(null); setError(null); }} />
-          <Button variant="solid" color="success" className="topic-dictionary-header-action" icon={<Save />} loading={saving} disabled={!draft.id.trim() || draft.minimumAge < 3 || draft.minimumAge > 8} aria-label="Save word" title="Save" onClick={() => void saveDraft()} />
+          <Button variant="solid" color="success" className="topic-header-icon-action" icon={<Save />} loading={saving} disabled={!draft.id.trim() || draft.minimumAge < 3 || draft.minimumAge > 8} aria-label="Save word" title="Save" onClick={() => void saveDraft()} />
         </div> : <div className="topic-assets-actions">
-          <Button variant="solid" color="danger" className="topic-dictionary-header-action" icon={<Trash2 />} disabled={saving} aria-label="Delete word" title="Delete" onClick={() => void deleteSelected()} />
-          <Button variant="solid" className="topic-dictionary-header-action" icon={<Pencil />} disabled={saving} aria-label="Edit word" title="Edit" onClick={() => setDraft({ ...selected })} />
+          <Button variant="solid" color="danger" className="topic-header-icon-action" icon={<Trash2 />} disabled={saving} aria-label="Delete word" title="Delete" onClick={() => void deleteSelected()} />
+          <Button variant="solid" className="topic-header-icon-action" icon={<Pencil />} disabled={saving} aria-label="Edit word" title="Edit" onClick={() => setDraft({ ...selected })} />
         </div> : undefined}
       >
         {draft ? <div className="crud-body topic-dictionary-edit-form"><Form

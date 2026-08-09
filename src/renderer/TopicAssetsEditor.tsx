@@ -21,7 +21,14 @@ export function TopicAssetsEditor({ topicId }: { topicId: string }) {
   useEffect(() => {
     let active = true;
     void window.getgo.listContentV2TopicAssets(topicId)
-      .then((items) => { if (active) setAssets(items); })
+      .then((items) => {
+        if (!active) return;
+        setAssets(items);
+        setSelected((current) =>
+          current && items.some((item) => item.filename === current.filename)
+            ? items.find((item) => item.filename === current.filename) ?? null
+            : items[0] ?? null);
+      })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
     return () => { active = false; };
   }, [topicId]);
@@ -49,7 +56,12 @@ export function TopicAssetsEditor({ topicId }: { topicId: string }) {
           setBusy(asset.filename);
           setError(null);
           void window.getgo.trashContentV2TopicAsset(topicId, asset.filename)
-            .then((items) => { setAssets(items); if (selected?.filename === asset.filename) setSelected(null); })
+            .then((items) => {
+              setAssets(items);
+              setSelected((current) => current?.filename === asset.filename
+                ? items[0] ?? null
+                : current && items.find((item) => item.filename === current.filename) || items[0] || null);
+            })
             .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
             .finally(() => setBusy(null));
         }}
@@ -62,20 +74,29 @@ export function TopicAssetsEditor({ topicId }: { topicId: string }) {
         title="Shared topic assets"
         description="Images in this folder are referenced by every alphabet and spelling quiz using asset:filename. Existing files are never overwritten during import."
         meta={<div className="topic-assets-actions">
-          <Button variant="outline" icon={<FolderOpen />} onClick={() => void window.getgo.showContentV2TopicAssetsFolder(topicId)}>Open folder</Button>
+          <Button variant="icon" icon={<FolderOpen />} aria-label="Open assets folder" title="Open folder" onClick={() => void window.getgo.showContentV2TopicAssetsFolder(topicId)} />
           <Button
             variant="solid"
+            className="topic-header-icon-action"
             icon={<Plus />}
             loading={busy === "import"}
             disabled={Boolean(busy)}
+            aria-label="Import assets"
+            title="Import assets"
             onClick={() => {
               setBusy("import"); setError(null);
               void window.getgo.importContentV2TopicAssets(topicId)
-                .then(setAssets)
+                .then((items) => {
+                  setAssets(items);
+                  setSelected((current) =>
+                    current && items.find((item) => item.filename === current.filename)
+                      || items[0]
+                      || null);
+                })
                 .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
                 .finally(() => setBusy(null));
             }}
-          >Import assets</Button>
+          />
         </div>}
       >
         {error && <div className="error-banner"><strong>Asset operation failed</strong><span>{error}</span></div>}
@@ -90,7 +111,7 @@ export function TopicAssetsEditor({ topicId }: { topicId: string }) {
           emptyText="No shared assets yet."
         />
       </Panel>
-      <Panel title={selected?.filename ?? "Asset preview"} description={selected ? `${selected.mimeType} · ${formatSize(selected.size)}` : "Select an asset to preview it."}>
+      <Panel className="topic-asset-preview-panel" title={selected?.filename ?? "Asset preview"} description={selected ? `${selected.mimeType} · ${formatSize(selected.size)}` : "Select an asset to preview it."}>
         <div className="topic-asset-preview">{preview ? <img src={preview} alt={selected?.filename ?? ""} /> : <span>No asset selected</span>}</div>
       </Panel>
     </div>

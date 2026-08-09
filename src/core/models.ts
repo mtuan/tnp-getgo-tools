@@ -85,6 +85,11 @@ export interface RepositorySnapshot {
   contentV2: ContentV2Snapshot;
 }
 
+export interface RepositoryStructureChange {
+  detectedAt: string;
+  path: string | null;
+}
+
 export interface ContentV2TopicSummary {
   id: string;
   type: "competition" | "kid-learning";
@@ -555,6 +560,9 @@ export interface DesktopApi {
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
+  onRepositoryStructureChanged(
+    listener: (change: RepositoryStructureChange) => void,
+  ): () => void;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;
   loadContentV2Question(

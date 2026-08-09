@@ -397,12 +397,10 @@ export function AlphabetLetterEditor({
           {
             id: "related-words",
             label: "Related words",
-            badge: relatedWords.length,
           },
           {
             id: "resources",
             label: "Resources",
-            badge: alphabet.resources.length,
           },
         ]}
       />

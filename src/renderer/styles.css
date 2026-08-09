@@ -1493,6 +1493,43 @@ td span:not(.badge) {
   background: none;
   font-size: 20px;
 }
+
+.repository-change-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.repository-change-banner > svg {
+  color: #d97706;
+}
+
+.repository-change-banner strong,
+.repository-change-banner span {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  .repository-change-banner {
+    color: #fde68a;
+    border-color: #f59e0b66;
+    background: #78350f4d;
+  }
+  .repository-change-banner span { color: #fcd34d; }
+}
+
+.repository-change-banner span {
+  margin-top: 2px;
+  color: #a16207;
+  font-size: 11px;
+}
 .crud-dialog.presentation-modal.repository-error-dialog {
   width: min(480px, calc(100vw - 48px));
 }
@@ -3203,14 +3240,6 @@ tbody tr:hover {
   background: #4f46e5;
   transform: scaleX(1);
 }
-.ui-tab-badge {
-  min-width: 19px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  color: #6366f1;
-  background: #eef2ff;
-  font-size: 9px;
-}
 .manager-table {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -4843,11 +4872,25 @@ button.danger svg {
   align-items: start;
 }
 
+.topic-assets-layout > .topic-asset-preview-panel {
+  position: sticky;
+  top: calc(var(--routebar-height) + var(--topbar-height) + var(--sticky-content-gap));
+  max-height: calc(100vh - var(--routebar-height) - var(--topbar-height) - var(--sticky-content-gap) * 2);
+  overflow-y: auto;
+}
+
 .topic-dictionary-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 34%);
   gap: 16px;
   align-items: start;
+}
+
+.topic-dictionary-layout > .panel:last-child {
+  position: sticky;
+  top: calc(var(--routebar-height) + var(--topbar-height) + var(--sticky-content-gap));
+  max-height: calc(100vh - var(--routebar-height) - var(--topbar-height) - var(--sticky-content-gap) * 2);
+  overflow-y: auto;
 }
 
 .topic-dictionary-preview {
@@ -4860,7 +4903,22 @@ button.danger svg {
   overflow: visible;
 }
 
-.topic-dictionary-header-action {
+.topic-dictionary-detail-panel.is-editing {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topic-dictionary-detail-panel.is-editing > .panel-heading {
+  flex: 0 0 auto;
+}
+
+.topic-dictionary-detail-panel.is-editing > .topic-dictionary-edit-form {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.topic-header-icon-action {
   width: 38px;
   min-width: 38px;
   padding: 0;
@@ -4995,7 +5053,9 @@ button.danger svg {
 .topic-assets-actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: flex-end;
 }
 
@@ -5020,7 +5080,15 @@ button.danger svg {
 
 @media (max-width: 980px) {
   .topic-assets-layout { grid-template-columns: 1fr; }
+  .topic-assets-layout > .topic-asset-preview-panel {
+    position: static;
+    max-height: none;
+  }
   .topic-dictionary-layout { grid-template-columns: 1fr; }
+  .topic-dictionary-layout > .panel:last-child {
+    position: static;
+    max-height: none;
+  }
 }
 .ui-search-field {
   width: min(280px, 32vw);

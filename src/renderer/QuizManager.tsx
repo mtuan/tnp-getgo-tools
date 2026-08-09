@@ -1805,12 +1805,10 @@ export function QuizManager({
               ? {
                   id: "questions" as const,
                   label: "Questions",
-                  badge: questions.length || quiz.questionCount || 0,
                 }
               : quiz.type.startsWith("alphabet") ? {
                   id: "alphabets" as const,
                   label: "Alphabets",
-                  badge: questions.length || quiz.questionCount || 0,
                 } : null,
             { id: "info" as const, label: "Info" },
             { id: "publish" as const, label: quizPublishCopy.tab },
@@ -2081,11 +2079,10 @@ export function QuizManager({
             {
               id: "quizzes",
               label: "Quizzes",
-              badge: selectedContest?.quizzes.length ?? 0,
             },
             { id: "info", label: "Info" },
             ...(topicMode && selectedTopic?.type === "kid-learning" ? [
-              { id: "dictionaries" as const, label: "Dictionaries", badge: topicDictionary.entries.length },
+              { id: "dictionaries" as const, label: "Dictionaries" },
               { id: "assets" as const, label: "Assets" },
             ] : []),
             ...(topicMode ? [{ id: "publish" as const, label: quizPublishCopy.tab }] : []),

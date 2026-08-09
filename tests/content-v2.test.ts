@@ -14,7 +14,7 @@ import {
   saveContentV2Quiz,
   saveContentV2Topic,
   scanContentV2Repository,
-  cachedContentV2QuizHash,
+  calculateContentV2QuizHash,
   readContentV2QuizPublishState,
   writeContentV2QuizPublishState,
 } from "../src/repositories/content-v2-repository.js";
@@ -138,7 +138,7 @@ test("v2 repository persists and scans typed topic content", async () => {
   assert.equal(result.snapshot.issues.length, 0);
 });
 
-test("updates the canonical quiz hash from the startup cache without rescanning", async () => {
+test("calculates the canonical quiz hash directly from current files", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-v2-cache-"));
   await saveContentV2Topic(root, alphabetTopic);
   await saveContentV2Quiz(root, alphabetTopic, alphabetQuiz);
@@ -154,19 +154,17 @@ test("updates the canonical quiz hash from the startup cache without rescanning"
     pronunciation: "hát",
   };
   await saveContentV2Question(root, alphabetTopic, alphabetQuiz, question);
-  await scanContentV2Repository(root);
-
   await saveContentV2Question(root, alphabetTopic, alphabetQuiz, {
     ...question,
     pronunciation: "hờ",
   });
-  const incrementalHash = cachedContentV2QuizHash(
+  const directHash = await calculateContentV2QuizHash(
     root,
     alphabetTopic.id,
     alphabetQuiz.id,
   );
   const rescannedHash = (await scanContentV2Repository(root)).snapshot.quizzes[0]?.localHash;
 
-  assert.ok(incrementalHash);
-  assert.equal(incrementalHash, rescannedHash);
+  assert.ok(directHash);
+  assert.equal(directHash, rescannedHash);
 });

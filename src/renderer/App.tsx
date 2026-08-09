@@ -34,6 +34,7 @@ import type {
   DeploymentStatus,
   EnvironmentReadiness,
   RepositorySnapshot,
+  RepositoryStructureChange,
 } from "../core/models";
 import { defaultSpeechSettings } from "../core/speech-settings";
 import { useAuth } from "./AuthContext";
@@ -236,6 +237,8 @@ export function App() {
   const [choosingRepository, setChoosingRepository] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [repositoryError, setRepositoryError] = useState<string | null>(null);
+  const [repositoryStructureChange, setRepositoryStructureChange] =
+    useState<RepositoryStructureChange | null>(null);
   const [currentRoute, setCurrentRoute] = useState(initialRoute);
   const [routeDraft, setRouteDraft] = useState(initialRoute);
   const [routeRequest, setRouteRequest] = useState({
@@ -259,6 +262,7 @@ export function App() {
     setRepositoryError(null);
     try {
       updateSnapshot(await window.getgo.scanRepository(path, force));
+      setRepositoryStructureChange(null);
       if (announce)
         toast.show({
           title: "Repository refreshed",
@@ -405,6 +409,15 @@ export function App() {
       });
     }
   }
+  useEffect(() => {
+    return window.getgo.onRepositoryStructureChanged((change) => {
+      setRepositoryStructureChange(change);
+      toast.show({
+        title: "Repository structure changed",
+        description: "Review the detected folder changes and rescan when ready.",
+      });
+    });
+  }, [toast]);
   useEffect(() => {
     window.getgo
       .getSettings()
@@ -689,6 +702,21 @@ export function App() {
           </div>
         </header>
         <div className="content">
+          {repositoryStructureChange && (
+            <div className="repository-change-banner" role="status">
+              <AlertTriangle size={18} />
+              <div>
+                <strong>Repository structure changed</strong>
+                <span>{repositoryStructureChange.path ? `Detected ${repositoryStructureChange.path}. ` : ""}The current index may not include added, removed, or renamed files.</span>
+              </div>
+              <Button
+                variant="solid"
+                icon={<RefreshCw />}
+                loading={loading}
+                onClick={() => void scan(undefined, true, true)}
+              >Rescan repository</Button>
+            </div>
+          )}
           <PageTransition
             key={routeRequest.key}
             trigger={[view, settings.repositoryPath]}

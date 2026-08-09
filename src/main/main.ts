@@ -7,6 +7,7 @@ import {
   shell,
 } from "electron";
 import { config as loadEnvironment } from "dotenv";
+import { watch, type FSWatcher } from "node:fs";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,7 +51,6 @@ import type { SpeechLanguage, SpeechLanguageSettings } from "../core/models.js";
 import {
   createPublishPayloadFromQuestions,
   recordPublishedHash,
-  type LocalPublishPayload,
 } from "../repositories/quiz-publishing.js";
 import { SettingsStore } from "./settings.js";
 import { FirebaseAuthService } from "./firebase-auth.js";
@@ -65,8 +65,8 @@ import {
   FirestorePublishingService,
 } from "./firestore-publishing.js";
 import {
+  calculateContentV2QuizHash,
   loadContentV2Assets,
-  cachedContentV2QuizHash,
   loadContentV2Question,
   loadContentV2Quiz,
   loadContentV2QuizResources,
@@ -74,9 +74,6 @@ import {
   loadContentV2Topic,
   recordContentV2Published,
   readContentV2QuizPublishState,
-  removeCachedContentV2Question,
-  removeCachedContentV2Quiz,
-  removeCachedContentV2Topic,
   saveContentV2Question,
   saveContentV2QuizDictionary,
   saveContentV2TopicDictionary,
@@ -158,7 +155,68 @@ app.whenReady().then(async () => {
   let repositorySnapshot: RepositorySnapshot | null = null;
   let repositoryScanPromise: Promise<RepositorySnapshot> | null = null;
   let repositoryScanPath: string | null = null;
-  const publishPayloads = new Map<string, LocalPublishPayload>();
+  let repositoryWatcher: FSWatcher | null = null;
+  let repositoryWatchTimer: NodeJS.Timeout | null = null;
+  let knownRepositoryPaths = new Set<string>();
+  const structureRoots = ["content-v2", "quizzes", "schemas", "generated"];
+  const ignoredStructureNames = new Set([".DS_Store", "Thumbs.db", "desktop.ini", "publish-state.json"]);
+  const ignoredRepositoryPath = (value: string) => value
+    .split(/[\\/]/)
+    .some((segment) =>
+      ignoredStructureNames.has(segment)
+      || segment.startsWith(".")
+      || segment.endsWith("~")
+      || /^~\$/.test(segment)
+      || /\.sw[opx]$/i.test(segment)
+      || /\.tmp$/i.test(segment));
+  const collectRepositoryPaths = async (repositoryPath: string) => {
+    const result = new Set<string>();
+    const visit = async (absolute: string, relative: string): Promise<void> => {
+      const entries = await fs.readdir(absolute, { withFileTypes: true }).catch(() => []);
+      await Promise.all(entries.map(async (entry) => {
+        const childRelative = path.join(relative, entry.name);
+        if (ignoredRepositoryPath(childRelative)) return;
+        result.add(childRelative);
+        if (entry.isDirectory()) await visit(path.join(absolute, entry.name), childRelative);
+      }));
+    };
+    await Promise.all(structureRoots.map((name) => visit(path.join(repositoryPath, name), name)));
+    return result;
+  };
+  const samePaths = (left: Set<string>, right: Set<string>) =>
+    left.size === right.size && [...left].every((item) => right.has(item));
+  const startRepositoryWatcher = async (repositoryPath: string) => {
+    repositoryWatcher?.close();
+    repositoryWatcher = null;
+    if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
+    knownRepositoryPaths = await collectRepositoryPaths(repositoryPath);
+    repositoryWatcher = watch(repositoryPath, { recursive: true }, (eventType, filename) => {
+      if (eventType !== "rename" || !filename) return;
+      const relative = String(filename);
+      if (ignoredRepositoryPath(relative)) return;
+      if (!structureRoots.some((root) => relative === root || relative.startsWith(`${root}${path.sep}`))) return;
+      if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
+      repositoryWatchTimer = setTimeout(() => {
+        void collectRepositoryPaths(repositoryPath).then((nextPaths) => {
+          if (samePaths(knownRepositoryPaths, nextPaths)) return;
+          knownRepositoryPaths = nextPaths;
+          mainWindow?.webContents.send("repository:structure-changed", {
+            detectedAt: new Date().toISOString(),
+            path: relative,
+          });
+        }).catch((cause) => console.error(`[GetGo Tools][Repository structure watcher] ${cause instanceof Error ? cause.message : String(cause)}`));
+      }, 250);
+    });
+    repositoryWatcher.on("error", (cause) =>
+      console.error(`[GetGo Tools][Repository structure watcher] ${cause.message}`));
+  };
+  const acceptCurrentRepositoryStructure = async (repositoryPath: string) => {
+    if (repositoryWatchTimer) {
+      clearTimeout(repositoryWatchTimer);
+      repositoryWatchTimer = null;
+    }
+    knownRepositoryPaths = await collectRepositoryPaths(repositoryPath);
+  };
   const scanRepository = async (
     repositoryPath: string,
     options?: Parameters<typeof scanQuizRepository>[1],
@@ -175,25 +233,9 @@ app.whenReady().then(async () => {
     }
     repositoryScanPath = resolved;
     repositoryScanPromise = (async () => {
-      const nextPayloads = new Map<string, LocalPublishPayload>();
-      const next = await scanQuizRepository(resolved, {
-        ...options,
-        onQuizQuestions: (quiz, records) => {
-          if (!records.length) return;
-          try {
-            nextPayloads.set(
-              quiz.key,
-              createPublishPayloadFromQuestions(quiz, records),
-            );
-          } catch {
-            /* The snapshot keeps the local error for the publishing page. */
-          }
-        },
-      });
-      publishPayloads.clear();
-      for (const [key, payload] of nextPayloads)
-        publishPayloads.set(key, payload);
+      const next = await scanQuizRepository(resolved, options);
       repositorySnapshot = next;
+      await startRepositoryWatcher(resolved);
       return next;
     })();
     try {
@@ -228,20 +270,7 @@ app.whenReady().then(async () => {
     root: string,
     manifestPath: string,
   ): Promise<RepositorySnapshot> => {
-    let payload: LocalPublishPayload | null = null;
-    const quiz = await readQuizSummary(
-      root,
-      manifestPath,
-      (summary, records) => {
-        if (records.length) {
-          try {
-            payload = createPublishPayloadFromQuestions(summary, records);
-          } catch {
-            payload = null;
-          }
-        }
-      },
-    );
+    const quiz = await readQuizSummary(root, manifestPath);
     const snapshot = requireSnapshot();
     repositorySnapshot = {
       ...snapshot,
@@ -252,8 +281,7 @@ app.whenReady().then(async () => {
         quiz,
       ].sort((a, b) => a.key.localeCompare(b.key)),
     };
-    if (payload) publishPayloads.set(quiz.key, payload);
-    else publishPayloads.delete(quiz.key);
+    await acceptCurrentRepositoryStructure(root);
     return repositorySnapshot;
   };
   const initialSettings = await settings.read();
@@ -542,11 +570,10 @@ app.whenReady().then(async () => {
         (item) => item.contest === contestId && item.id === quizId,
       );
       if (!quiz) throw new Error("The selected quiz was not found.");
-      const payload = publishPayloads.get(quiz.key);
-      if (!payload)
-        throw new Error(
-          "This quiz has no valid cached question data to publish.",
-        );
+      const records = await loadQuizQuestions(quiz.manifestPath);
+      if (!records.length)
+        throw new Error("This quiz has no question data to publish.");
+      const payload = createPublishPayloadFromQuestions(quiz, records);
       return publishJobs.track(
         {
           name: `Publish · ${quiz.title}`,
@@ -654,25 +681,13 @@ app.whenReady().then(async () => {
       const root = await repositoryRoot();
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
       await saveContentV2QuizDictionary(root, topicId, quiz, value);
-      const localHashes = new Map(
-        requireSnapshot().contentV2.quizzes
-          .filter((item) => item.topicId === topicId)
-          .map((item) => [item.id, cachedContentV2QuizHash(root, topicId, item.id)]),
-      );
-      if (!localHashes.get(quizId))
-        throw new Error(
-          "The in-memory quiz index is unavailable. Run the repository scan manually and retry.",
-        );
       const current = requireSnapshot();
       repositorySnapshot = {
         ...current,
         contentV2: {
           ...current.contentV2,
           quizzes: current.contentV2.quizzes.map((item) =>
-            item.topicId === topicId && localHashes.get(item.id)
-              ? { ...item, localHash: localHashes.get(item.id)! }
-              : item,
-          ),
+            item.topicId === topicId ? { ...item, localHash: "" } : item),
         },
       };
       return requireSnapshot();
@@ -691,11 +706,8 @@ app.whenReady().then(async () => {
       ...current,
       contentV2: {
         ...current.contentV2,
-        quizzes: current.contentV2.quizzes.map((item) => {
-          if (item.topicId !== topicId) return item;
-          const localHash = cachedContentV2QuizHash(root, topicId, item.id);
-          return localHash ? { ...item, localHash } : item;
-        }),
+        quizzes: current.contentV2.quizzes.map((item) =>
+          item.topicId === topicId ? { ...item, localHash: "" } : item),
       },
     };
     return requireSnapshot();
@@ -742,6 +754,7 @@ app.whenReady().then(async () => {
     const duplicates = selection.filePaths.map((file) => path.basename(file)).filter((name) => existing.has(name));
     if (duplicates.length) throw new Error(`Already exists: ${duplicates.join(", ")}`);
     await Promise.all(selection.filePaths.map((file) => fs.copyFile(file, path.join(directory, path.basename(file)))));
+    await acceptCurrentRepositoryStructure(await repositoryRoot());
     return listTopicAssets(topicId);
   });
   ipcMain.handle("content-v2:topic:asset:trash", async (_event, topicId: unknown, filename: unknown) => {
@@ -759,6 +772,7 @@ app.whenReady().then(async () => {
     if (referencingQuestion)
       throw new Error("This asset is still referenced by a quiz question.");
     await shell.trashItem(path.join(await topicAssetsDirectory(topicId), filename));
+    await acceptCurrentRepositoryStructure(root);
     return listTopicAssets(topicId);
   });
   ipcMain.handle("content-v2:topic:assets:show", async (_event, topicId: unknown) => {
@@ -814,6 +828,7 @@ app.whenReady().then(async () => {
           : [...current.contentV2.topics, summary],
       },
     };
+    await acceptCurrentRepositoryStructure(root);
     return requireSnapshot();
   });
   ipcMain.handle(
@@ -830,9 +845,7 @@ app.whenReady().then(async () => {
       const quizQuestions = current.contentV2.questions.filter(
         (item) => item.topicId === topicId && item.quizId === saved.id,
       );
-      const localHash = cachedContentV2QuizHash(root, topicId, saved.id);
-      if (!localHash)
-        throw new Error("The in-memory quiz index could not be updated.");
+      const localHash = await calculateContentV2QuizHash(root, topicId, saved.id);
       const summary = {
         ...(existing ?? {}),
         key: `${topicId}/${saved.id}`,
@@ -891,6 +904,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
+      await acceptCurrentRepositoryStructure(root);
       return requireSnapshot();
     },
   );
@@ -954,11 +968,7 @@ app.whenReady().then(async () => {
       const quizQuestions = questions.filter(
         (item) => item.topicId === topicId && item.quizId === quizId,
       );
-      const quizLocalHash = cachedContentV2QuizHash(root, topicId, quizId);
-      if (!quizLocalHash)
-        throw new Error(
-          "The in-memory quiz index is unavailable. Run the repository scan manually and retry.",
-        );
+      const quizLocalHash = await calculateContentV2QuizHash(root, topicId, quizId);
       repositorySnapshot = {
         ...current,
         contentV2: {
@@ -978,6 +988,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
+      await acceptCurrentRepositoryStructure(root);
       return requireSnapshot();
     },
   );
@@ -1040,7 +1051,6 @@ app.whenReady().then(async () => {
       await fs.access(path.join(directory, "topic.json"));
       await shell.trashItem(directory);
       const current = requireSnapshot();
-      removeCachedContentV2Topic(root, topicId);
       repositorySnapshot = {
         ...current,
         contentV2: {
@@ -1075,7 +1085,6 @@ app.whenReady().then(async () => {
       await fs.access(path.join(directory, "quiz.json"));
       await shell.trashItem(directory);
       const current = requireSnapshot();
-      removeCachedContentV2Quiz(root, topicId, quizId);
       const quizzes = current.contentV2.quizzes.filter(
         (item) => !(item.topicId === topicId && item.id === quizId),
       );
@@ -1134,14 +1143,7 @@ app.whenReady().then(async () => {
       const typedTopicId = topicId as string;
       const typedQuizId = quizId as string;
       const typedQuestionId = questionId as string;
-      const localHash = removeCachedContentV2Question(
-        root,
-        typedTopicId,
-        typedQuizId,
-        typedQuestionId,
-      );
-      if (!localHash)
-        throw new Error("The in-memory quiz index could not be updated.");
+      const localHash = await calculateContentV2QuizHash(root, typedTopicId, typedQuizId);
       const questions = current.contentV2.questions.filter(
         (item) =>
           !(item.topicId === typedTopicId && item.quizId === typedQuizId && item.id === typedQuestionId),
@@ -1860,7 +1862,6 @@ app.whenReady().then(async () => {
         quizzes: snapshot.quizzes.filter((item) => item.contest !== current),
       };
       for (const oldQuiz of affected) {
-        publishPayloads.delete(oldQuiz.key);
         await replaceQuiz(
           root,
           path.join(root, "quizzes", next, oldQuiz.id, "manifest.json"),
@@ -1880,8 +1881,6 @@ app.whenReady().then(async () => {
       await fs.access(directory);
       await shell.trashItem(directory);
       const snapshot = requireSnapshot();
-      for (const quiz of snapshot.quizzes.filter((item) => item.contest === id))
-        publishPayloads.delete(quiz.key);
       repositorySnapshot = {
         ...snapshot,
         contests: snapshot.contests.filter((item) => item.id !== id),
@@ -1933,10 +1932,6 @@ app.whenReady().then(async () => {
     const manifest = await resolveManifest(manifestPath);
     await shell.trashItem(path.dirname(manifest));
     const snapshot = requireSnapshot();
-    const removed = snapshot.quizzes.find(
-      (item) => item.manifestPath === manifest,
-    );
-    if (removed) publishPayloads.delete(removed.key);
     repositorySnapshot = {
       ...snapshot,
       quizzes: snapshot.quizzes.filter(

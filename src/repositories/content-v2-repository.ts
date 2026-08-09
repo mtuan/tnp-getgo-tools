@@ -29,19 +29,6 @@ import {
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
-interface CachedQuizHashInput {
-  quiz: ContentV2Quiz;
-  questions: Map<string, ContentV2Question>;
-  resources: Record<string, unknown>;
-  assets: Array<{ reference: string; contentHash: string }>;
-}
-
-const cachedQuizHashInputs = new Map<string, CachedQuizHashInput>();
-
-function quizCacheKey(repositoryPath: string, topicId: string, quizId: string) {
-  return `${path.resolve(repositoryPath)}\0${topicId}\0${quizId}`;
-}
-
 function sharedDictionaryPath(
   repositoryPath: string,
   topicId: string,
@@ -52,60 +39,6 @@ function sharedDictionaryPath(
     "resources",
     "dictionary.json",
   );
-}
-
-function hashCachedQuiz(input: CachedQuizHashInput): string {
-  const questions = [...input.questions.values()].sort(
-    (left, right) => left.order - right.order || left.id.localeCompare(right.id),
-  );
-  return hashContentV2({
-    quiz: sanitizeContentV2Quiz(input.quiz),
-    questions: questions.map(sanitizeContentV2Question),
-    resources: input.resources,
-    assets: input.assets,
-  });
-}
-
-export function cachedContentV2QuizHash(
-  repositoryPath: string,
-  topicId: string,
-  quizId: string,
-): string | null {
-  const input = cachedQuizHashInputs.get(
-    quizCacheKey(repositoryPath, topicId, quizId),
-  );
-  return input ? hashCachedQuiz(input) : null;
-}
-
-export function removeCachedContentV2Question(
-  repositoryPath: string,
-  topicId: string,
-  quizId: string,
-  questionId: string,
-): string | null {
-  const input = cachedQuizHashInputs.get(
-    quizCacheKey(repositoryPath, topicId, quizId),
-  );
-  if (!input) return null;
-  input.questions.delete(questionId);
-  return hashCachedQuiz(input);
-}
-
-export function removeCachedContentV2Quiz(
-  repositoryPath: string,
-  topicId: string,
-  quizId: string,
-) {
-  cachedQuizHashInputs.delete(quizCacheKey(repositoryPath, topicId, quizId));
-}
-
-export function removeCachedContentV2Topic(
-  repositoryPath: string,
-  topicId: string,
-) {
-  const prefix = `${path.resolve(repositoryPath)}\0${topicId}\0`;
-  for (const key of cachedQuizHashInputs.keys())
-    if (key.startsWith(prefix)) cachedQuizHashInputs.delete(key);
 }
 
 function validateId(value: string, label: string): string {
@@ -147,9 +80,6 @@ async function questionFiles(directory: string): Promise<string[]> {
 
 export interface LoadedContentV2 {
   snapshot: ContentV2Snapshot;
-  topicRecords: Map<string, ContentV2Topic>;
-  quizRecords: Map<string, ContentV2Quiz>;
-  questionRecords: Map<string, ContentV2Question>;
 }
 
 export interface ContentV2Asset {
@@ -163,17 +93,12 @@ export interface ContentV2Asset {
 export async function scanContentV2Repository(
   repositoryPath: string,
 ): Promise<LoadedContentV2> {
-  const cachePrefix = `${path.resolve(repositoryPath)}\0`;
-  for (const key of cachedQuizHashInputs.keys())
-    if (key.startsWith(cachePrefix)) cachedQuizHashInputs.delete(key);
   const root = contentRoot(repositoryPath);
   const topics: ContentV2TopicSummary[] = [];
   const quizzes: ContentV2QuizSummary[] = [];
   const questions: ContentV2QuestionSummary[] = [];
   const issues: ScanIssue[] = [];
-  const topicRecords = new Map<string, ContentV2Topic>();
-  const quizRecords = new Map<string, ContentV2Quiz>();
-  const questionRecords = new Map<string, ContentV2Question>();
+  const questionKeys = new Set<string>();
 
   for (const topicDirectoryName of await directories(root)) {
     const topicFile = path.join(root, topicDirectoryName, "topic.json");
@@ -184,7 +109,6 @@ export async function scanContentV2Repository(
         throw new Error(
           `Topic ID “${topic.id}” does not match directory “${topicDirectoryName}”.`,
         );
-      topicRecords.set(topic.id, topic);
     } catch (cause) {
       issues.push({
         path: path.relative(repositoryPath, topicFile),
@@ -209,7 +133,6 @@ export async function scanContentV2Repository(
             `Quiz topicId “${quiz.topicId}” does not match topic “${topic.id}”.`,
           );
         assertContentV2Relationship(topic.type, quiz.type, "quiz");
-        quizRecords.set(`${topic.id}/${quiz.id}`, quiz);
       } catch (cause) {
         issues.push({
           path: path.relative(repositoryPath, quizFile),
@@ -231,11 +154,11 @@ export async function scanContentV2Repository(
           );
           assertContentV2Relationship(quiz.type, question.type, "question");
           const key = `${topic.id}/${quiz.id}/${question.id}`;
-          if (questionRecords.has(key))
+          if (questionKeys.has(key))
             throw new Error(
               `Question ID “${question.id}” occurs more than once.`,
             );
-          questionRecords.set(key, question);
+          questionKeys.add(key);
           quizQuestions.push({
             record: question,
             summary: {
@@ -314,14 +237,6 @@ export async function scanContentV2Repository(
         quiz: sanitizeContentV2Quiz(quiz),
         questions: quizQuestions.map((item) =>
           sanitizeContentV2Question(item.record),
-        ),
-        resources,
-        assets: assetHashes,
-      });
-      cachedQuizHashInputs.set(quizCacheKey(repositoryPath, topic.id, quiz.id), {
-        quiz,
-        questions: new Map(
-          quizQuestions.map((item) => [item.record.id, item.record]),
         ),
         resources,
         assets: assetHashes,
@@ -405,9 +320,6 @@ export async function scanContentV2Repository(
   );
   return {
     snapshot: { topics, quizzes, questions, issues },
-    topicRecords,
-    quizRecords,
-    questionRecords,
   };
 }
 
@@ -512,10 +424,6 @@ export async function saveContentV2TopicDictionary(
 ) {
   const dictionary = parseKidLearningDictionary(value);
   await writeJson(sharedDictionaryPath(repositoryPath, topicId), dictionary);
-  for (const cached of cachedQuizHashInputs.values()) {
-    if (cached.quiz.topicId === topicId && (cached.quiz.type === "alphabet" || cached.quiz.type === "spelling"))
-      cached.resources = { ...cached.resources, dictionary };
-  }
   return dictionary;
 }
 
@@ -559,10 +467,6 @@ export async function saveContentV2QuizDictionary(
   }
   shared.entries = shared.entries.filter((entry) => Object.keys(entry.translations).length > 0);
   await writeJson(dictionaryPath, shared);
-  for (const cached of cachedQuizHashInputs.values()) {
-    if (cached.quiz.topicId === topicId && (cached.quiz.type === "alphabet" || cached.quiz.type === "spelling"))
-      cached.resources = { ...cached.resources, dictionary: shared };
-  }
   return dictionary;
 }
 
@@ -648,6 +552,39 @@ export async function loadContentV2Assets(
   return result;
 }
 
+/** Reads the current quiz files and calculates the hash without retaining
+ * quiz, question, dictionary, or asset contents in memory. */
+export async function calculateContentV2QuizHash(
+  repositoryPath: string,
+  topicId: string,
+  quizId: string,
+): Promise<string> {
+  const quiz = await loadContentV2Quiz(repositoryPath, topicId, quizId);
+  const questionDirectory = path.join(
+    contentRoot(repositoryPath),
+    topicId,
+    "quizzes",
+    quizId,
+    "questions",
+  );
+  const questions = await Promise.all(
+    (await questionFiles(questionDirectory)).map(async (filePath) =>
+      contentV2QuestionSchema.parse(await readJson(filePath))),
+  );
+  questions.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+  const resources = await loadContentV2QuizResources(repositoryPath, topicId, quiz);
+  const assets = (await loadContentV2Assets(repositoryPath, topicId, quizId, {
+    questions,
+    resources,
+  })).map((asset) => ({ reference: asset.reference, contentHash: asset.contentHash }));
+  return hashContentV2({
+    quiz: sanitizeContentV2Quiz(quiz),
+    questions: questions.map(sanitizeContentV2Question),
+    resources,
+    assets,
+  });
+}
+
 export async function saveContentV2Quiz(
   repositoryPath: string,
   topic: ContentV2Topic,
@@ -671,20 +608,6 @@ export async function saveContentV2Quiz(
   if (existing?.type && existing.type !== quiz.type)
     throw new Error("A quiz type cannot be changed after creation.");
   await writeJson(filePath, quiz);
-  const cached = cachedQuizHashInputs.get(
-    quizCacheKey(repositoryPath, topic.id, quiz.id),
-  );
-  if (cached) cached.quiz = quiz;
-  else
-    cachedQuizHashInputs.set(quizCacheKey(repositoryPath, topic.id, quiz.id), {
-      quiz,
-      questions: new Map(),
-      resources:
-        quiz.type === "alphabet" || quiz.type === "spelling"
-          ? { dictionary: { schemaVersion: 2, entries: [] } }
-          : {},
-      assets: [],
-    });
   if (quiz.type === "alphabet" || quiz.type === "spelling") {
     const dictionaryPath = sharedDictionaryPath(
       repositoryPath,
@@ -726,10 +649,6 @@ export async function saveContentV2Question(
   if (existing?.type && existing.type !== question.type)
     throw new Error("A question type cannot be changed after creation.");
   await writeJson(filePath, question);
-  const cached = cachedQuizHashInputs.get(
-    quizCacheKey(repositoryPath, topic.id, quiz.id),
-  );
-  if (cached) cached.questions.set(question.id, question);
   return question;
 }
 
