@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   alphabetWordStartsWithLetter,
+  relatedAlphabetWords,
   formatAlphabetWord,
   isAlphabetLetterCharacter,
 } from "../src/core/alphabet-letter.js";
@@ -10,6 +11,21 @@ test("matches English alphabet letters without case sensitivity", () => {
   assert.equal(isAlphabetLetterCharacter("D", "d", "English"), true);
   assert.equal(isAlphabetLetterCharacter("d", "D", "English"), true);
   assert.equal(isAlphabetLetterCharacter("Đ", "D", "English"), false);
+});
+
+test("returns unique related words in alphabetical order", () => {
+  const words = [
+    { text: "Ball", minimumAge: 5 },
+    { text: "baby", minimumAge: 3 },
+    { text: "Apple", minimumAge: 3 },
+    { text: "BABY", minimumAge: 4 },
+    { text: "Banana", minimumAge: 2 },
+  ];
+
+  assert.deepEqual(
+    relatedAlphabetWords(words, "B", "English").map((word) => word.text),
+    ["baby", "Ball", "Banana"],
+  );
 });
 
 test("filters dictionary words starting with the active letter", () => {

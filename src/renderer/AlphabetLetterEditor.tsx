@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Settings, Volume2 } from "lucide-react";
 import { alphabetData } from "../core/alphabet-question";
 import {
-  alphabetWordStartsWithLetter,
   formatAlphabetWord,
   isAlphabetLetterCharacter,
+  relatedAlphabetWords,
 } from "../core/alphabet-letter";
 import type {
   AppSettings,
@@ -117,18 +117,11 @@ export function AlphabetLetterEditor({
   const copy = (locale === "vi" ? vi : en).alphabetEditor;
   const wordLocale = quizType === "alphabet-vietnamese" ? "vi" : "en";
   const activeSpeechSettings = speechSettings[wordLocale];
-  const relatedWords = dictionaryWords
-    .filter((word) =>
-      alphabetWordStartsWithLetter(word.text, alphabet.letter, language),
-    )
-    .sort(
-      (left, right) =>
-        (left.minimumAge ?? Number.MAX_SAFE_INTEGER) -
-          (right.minimumAge ?? Number.MAX_SAFE_INTEGER) ||
-        left.text.localeCompare(right.text, wordLocale, {
-          sensitivity: "base",
-        }),
-    );
+  const relatedWords = relatedAlphabetWords(
+    dictionaryWords,
+    alphabet.letter,
+    language,
+  );
   const normalizedWordFilter = wordFilter.trim().toLocaleLowerCase(wordLocale);
   const filteredRelatedWords = normalizedWordFilter
     ? relatedWords.filter((word) =>

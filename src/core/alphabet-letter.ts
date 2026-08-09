@@ -44,6 +44,27 @@ export function alphabetWordStartsWithLetter(
     isAlphabetLetterCharacter(firstCharacter, letter, language);
 }
 
+export function relatedAlphabetWords<T extends { text: string }>(
+  words: readonly T[],
+  letter: string,
+  language: "English" | "Vietnamese",
+): T[] {
+  const locale = language === "Vietnamese" ? "vi" : "en";
+  const seen = new Set<string>();
+  return words
+    .filter((word) => alphabetWordStartsWithLetter(word.text, letter, language))
+    .filter((word) => {
+      const key = word.text.trim().toLocaleLowerCase(locale);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => left.text.localeCompare(right.text, locale, {
+      sensitivity: "base",
+      numeric: true,
+    }));
+}
+
 export function formatAlphabetWord(
   text: string,
   classifier?: string,
