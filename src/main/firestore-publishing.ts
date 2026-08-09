@@ -28,6 +28,7 @@ import {
 } from "../core/content-v2-publish-state.js";
 import type { ContentV2Asset } from "../repositories/content-v2-repository.js";
 import type { PublishJobControl } from "./publish-jobs.js";
+import { stalePublishedQuizIds } from "../core/content-v2-publish-policy.js";
 
 type FirestoreValue = Record<string, unknown>;
 type FirestoreDocument = {
@@ -280,6 +281,22 @@ export class FirestorePublishingService {
       }
     const publishedAt = new Date().toISOString();
     await this.commit([
+      ...(local.contest ? [{
+        update: {
+          name: "",
+          relativeName: `/getgo-contests/${encodeURIComponent(local.contest.id)}`,
+          fields: fields({
+            name: local.contest.id,
+            displayName: local.contest.title,
+            description: local.contest.description,
+            icon: local.contest.icon,
+            image: local.contest.icon,
+            subject: local.contest.subject,
+            isActive: local.contest.isActive,
+            _settings: local.contest.settings,
+          }),
+        },
+      }] : []),
       {
         update: {
           name: "",
@@ -287,6 +304,7 @@ export class FirestorePublishingService {
           fields: fields({
             id: local.quiz.quizId,
             title: local.quiz.title,
+            icon: local.quiz.icon,
             grade: local.quiz.grade,
             round: local.quiz.round,
             year: local.quiz.year,
@@ -352,6 +370,49 @@ export class FirestorePublishingService {
   async contentV2TopicExists(topicId: string): Promise<boolean> {
     const result = await this.getDocument(contentV2TopicPath(topicId));
     return result.document !== null;
+  }
+
+  async staleContentV2TopicQuizIds(
+    topicId: string,
+    localQuizIds: string[],
+  ): Promise<string[]> {
+    const remoteNames = await this.listDocumentNames(
+      contentV2TopicPath(topicId),
+      "quizzes",
+    );
+    return stalePublishedQuizIds(
+      remoteNames.map((name) => decodeURIComponent(name.split("/").at(-1)!)),
+      localQuizIds,
+    );
+  }
+
+  async deleteContentV2TopicQuizzes(
+    topicId: string,
+    quizIds: string[],
+    control?: PublishJobControl,
+  ): Promise<void> {
+    for (const [index, quizId] of quizIds.entries()) {
+      await control?.checkpoint();
+      const quizPath = contentV2QuizPath(topicId, quizId);
+      const childNames = (
+        await Promise.all([
+          this.listDocumentNames(quizPath, "questions"),
+          this.listDocumentNames(quizPath, "resources"),
+          this.listDocumentNames(quizPath, "assets"),
+        ])
+      ).flat();
+      const writes: Array<Record<string, unknown>> = [
+        ...childNames.map((name) => ({ delete: name })),
+        { delete: quizPath },
+      ];
+      for (let offset = 0; offset < writes.length; offset += 450) {
+        await control?.checkpoint();
+        await this.commit(writes.slice(offset, offset + 450));
+      }
+      await control?.advance(
+        `Removed deleted quiz ${index + 1}/${quizIds.length} · ${quizId}`,
+      );
+    }
   }
 
   async publishContentV2Quiz(

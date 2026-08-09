@@ -1,14 +1,23 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import type { PublishableQuiz, QuizQuestionRecord, QuizSummary } from "../core/models.js"
-import { hashPublishedQuestions, sanitizePublishedQuestion, type PublishedQuestion } from "../core/publishing.js"
+import type { ContestSummary, PublishableQuiz, QuizQuestionRecord, QuizSummary } from "../core/models.js"
+import { hashPublishedQuestions, hashPublishedQuiz, sanitizePublishedQuestion, type PublishedQuestion } from "../core/publishing.js"
 
 export interface LocalPublishPayload {
   quiz: PublishableQuiz
+  contest?: {
+    id: string
+    title: string
+    description: string
+    icon?: string
+    subject: number
+    isActive: boolean
+    settings: ContestSummary["settings"]
+  }
   questions: PublishedQuestion[]
 }
 
-export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unknown[]): LocalPublishPayload {
+export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unknown[], contest?: ContestSummary): LocalPublishPayload {
   if (!values.length) throw new Error("This quiz has no question files to publish.")
   const questions = values.map(value => sanitizePublishedQuestion(value as QuizQuestionRecord)).sort((left, right) => left.question_no - right.question_no)
   const seen = new Set<number>()
@@ -16,17 +25,28 @@ export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unk
     if (seen.has(question.question_no)) throw new Error(`Question ${question.question_no} occurs more than once.`)
     seen.add(question.question_no)
   }
+  const contentHash = hashPublishedQuiz(quiz, hashPublishedQuestions(questions))
   return {
     quiz: {
       contestId: quiz.contest,
       quizId: quiz.id,
       title: quiz.title,
+      icon: quiz.icon,
       grade: quiz.grade,
       round: quiz.round,
       year: quiz.year,
       questionCount: questions.length,
-      contentHash: hashPublishedQuestions(questions),
+      contentHash,
     },
+    contest: contest ? {
+      id: contest.id,
+      title: contest.title,
+      description: contest.description,
+      icon: contest.settings.book.icon,
+      subject: contest.subject,
+      isActive: contest.isActive,
+      settings: contest.settings,
+    } : undefined,
     questions,
   }
 }

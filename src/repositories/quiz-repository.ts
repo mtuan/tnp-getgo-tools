@@ -14,6 +14,7 @@ import { questionIsVerified } from "../core/question-status.js";
 import { contestSettingsSchema, quizManifestSchema } from "../core/schema.js";
 import { deriveDeploymentStatus } from "../core/status.js";
 import {
+  hashPublishedQuiz,
   hashPublishedQuestions,
   sanitizePublishedQuestion,
 } from "../core/publishing.js";
@@ -217,6 +218,7 @@ async function mapQuiz(
     legacyId: manifest.legacyId,
     contest: manifest.contest,
     title,
+    icon: manifest.icon,
     type: manifest.type ?? "question-list",
     grade: manifest.grade ?? null,
     round: manifest.round ?? null,
@@ -235,7 +237,7 @@ async function mapQuiz(
     artifactHash: generated.hash,
     publishedHash: manifest.publishedHash ?? null,
     publishedAt: manifest.publishedAt ?? null,
-    localContentHash: review.contentHash,
+    localContentHash: review.contentHash ? hashPublishedQuiz({ title, icon: manifest.icon, grade: manifest.grade ?? null, round: manifest.round ?? null, year: manifest.year ?? null }, review.contentHash) : null,
     questionCount: splitQuestions ? review.count : generated.questionCount,
     reviewedQuestionCount: review.reviewed,
     migrationErrorCount: review.errors,

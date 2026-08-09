@@ -201,7 +201,7 @@ main {
   min-height: 38px;
   padding: 0 12px;
   align-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 9px;
   color: var(--text-muted);
   background: #fff;
@@ -3898,6 +3898,63 @@ tbody tr:hover {
 .schema-field > small.field-error {
   color: #e11d48;
 }
+.schema-image-field {
+  display: flex;
+  align-items: center;
+  margin-top: 7px;
+  min-height: 39px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  overflow: hidden;
+}
+.schema-image-field:focus-within {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px #6366f11f;
+}
+.schema-image-field.dragging {
+  border-color: #6366f1;
+  background: #eef2ff;
+  box-shadow: 0 0 0 3px #6366f126;
+}
+.schema-image-select {
+  display: flex !important;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 37px;
+  margin: 0 !important;
+  padding: 4px 10px;
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  cursor: pointer;
+}
+.schema-image-select:hover { background: var(--soft); }
+.schema-image-select.disabled { cursor: default; opacity: .55; }
+.schema-image-select > img {
+  width: 29px;
+  height: 29px;
+  object-fit: contain;
+  border-radius: 5px;
+}
+.schema-image-select > svg { width: 18px; height: 18px; }
+.schema-image-select input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.schema-image-remove {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 38px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  color: #e11d48;
+  background: transparent;
+}
+.schema-image-remove:hover { background: #fff1f2; }
+.schema-image-remove svg { width: 16px; height: 16px; }
 .schema-field.invalid input:not([type="checkbox"]),
 .schema-field.invalid select,
 .schema-field.invalid textarea {
@@ -5037,6 +5094,11 @@ button.danger svg {
 }
 
 @media (prefers-color-scheme: dark) {
+  .schema-image-field { border-color: #ffffff1a; background: #0f172a; }
+  .schema-image-field.dragging { border-color: #818cf8; background: #312e8138; }
+  .schema-image-select:hover { background: #1e293b; }
+  .schema-image-remove { border-color: #ffffff1a; }
+  .schema-image-remove:hover { background: #88133738; }
   .topic-dictionary-preview-image,
   .topic-dictionary-language-card {
     background: #ffffff08;

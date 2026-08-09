@@ -62,6 +62,7 @@ function managerSettings(topic: RepositorySnapshot["contentV2"]["topics"][number
       code: topic.id,
       title: topic.title,
       description: topic.description,
+      icon: topic.icon,
       subject: definition.subject,
       isActive: true,
     },
@@ -97,6 +98,7 @@ export function adaptContentV2Snapshot(snapshot: RepositorySnapshot): Repository
     legacyId: quiz.id,
     contest: quiz.topicId,
     title: quiz.title,
+    icon: quiz.icon,
     type: contentV2ManagerRegistry.quizzes[quiz.type].managerType(quiz),
     grade: quiz.grade ?? null,
     round: quiz.round ?? null,
@@ -302,23 +304,23 @@ export function ContentV2QuizManager(props: Props) {
         const summary = findQuiz(props.snapshot, manifestPath);
         const stored = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
         const next: ContentV2Quiz = stored.type === "competition-paper"
-          ? { ...stored, title: input.title, grade: input.grade ?? stored.grade, round: input.round ?? stored.round, year: input.year ?? stored.year, status: input.status === "reviewed" ? "reviewed" : stored.status }
-          : { ...stored, title: input.title, language: input.type?.endsWith("vietnamese") ? "vi" : input.type?.endsWith("english") ? "en" : stored.language };
+          ? { ...stored, title: input.title, icon: input.icon || undefined, grade: input.grade ?? stored.grade, round: input.round ?? stored.round, year: input.year ?? stored.year, status: input.status === "reviewed" ? "reviewed" : stored.status }
+          : { ...stored, title: input.title, icon: input.icon || undefined, language: input.type?.endsWith("vietnamese") ? "vi" : input.type?.endsWith("english") ? "en" : stored.language };
         return refresh(await window.getgo.saveContentV2Quiz(summary.topicId, next));
       },
       createQuiz: async (topicId, input: QuizCrudInput) => {
         const topic = await window.getgo.loadContentV2Topic(topicId);
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
-          ? { schemaVersion: 2, id: input.id, topicId, type: input.type?.startsWith("spelling") ? "spelling" : "alphabet", title: input.title, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en" }
-          : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, description: "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
+          ? { schemaVersion: 2, id: input.id, topicId, type: input.type?.startsWith("spelling") ? "spelling" : "alphabet", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en" }
+          : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         return refresh(await window.getgo.saveContentV2Quiz(topicId, quiz));
       },
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
         const topic: ContentV2Topic = settings.book.subject === 2
-          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: settings.book.title, description: settings.book.description ?? "", status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
-          : { schemaVersion: 2, id: settings.book.code, type: "competition", title: settings.book.title, description: settings.book.description ?? "", status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
+          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
+          : { schemaVersion: 2, id: settings.book.code, type: "competition", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
         return refresh(await window.getgo.saveContentV2Topic(topic));
       },
       updateContest: async (id, settings) => {
@@ -327,6 +329,7 @@ export function ContentV2QuizManager(props: Props) {
           ? {
               ...stored,
               title: settings.book.title,
+              icon: settings.book.icon || undefined,
               description: settings.book.description ?? "",
               rounds: settings.rounds.map((round, index) => ({
                 id: String(round.roundCode ?? `round-${index + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `round-${index + 1}`,
@@ -338,7 +341,7 @@ export function ContentV2QuizManager(props: Props) {
                 grades: Array.isArray(grade.grades) ? grade.grades.filter((value): value is number => typeof value === "number") : [],
               })),
             }
-          : { ...stored, title: settings.book.title, description: settings.book.description ?? "" };
+          : { ...stored, title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "" };
         return refresh(await window.getgo.saveContentV2Topic(next));
       },
       deleteContest: async (id) => refresh(await window.getgo.deleteContentV2Topic(id)),

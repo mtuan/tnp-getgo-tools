@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   reviewedTopicQuizzes,
   shouldPublishContainingTopic,
+  stalePublishedQuizIds,
 } from "../src/core/content-v2-publish-policy.js";
 import type { ContentV2QuizSummary } from "../src/core/models.js";
 
@@ -50,4 +51,14 @@ test("topic publishing selects quizzes with no unreviewed questions, including e
 test("quiz publishing creates its parent topic only when it is missing", () => {
   assert.equal(shouldPublishContainingTopic(false), true);
   assert.equal(shouldPublishContainingTopic(true), false);
+});
+
+test("topic publishing removes only quizzes that no longer exist locally", () => {
+  assert.deepEqual(
+    stalePublishedQuizIds(
+      ["old-spelling", "english-alphabet", "removed-quiz"],
+      ["english-alphabet", "draft-local-quiz"],
+    ),
+    ["old-spelling", "removed-quiz"],
+  );
 });

@@ -64,6 +64,32 @@ async function writeJson(filePath: string, value: unknown): Promise<void> {
   await fs.rename(temporary, filePath);
 }
 
+async function saveMetadataIcon(
+  assetsDirectory: string,
+  ownerId: string,
+  dataUrl: string,
+): Promise<string> {
+  const match = /^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([\s\S]+)$/.exec(dataUrl);
+  if (!match) throw new Error("The selected icon is not a supported image.");
+  const extensions: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+  };
+  const extension = extensions[match[1]];
+  const basename = `${validateId(ownerId, "Icon owner ID")}-icon`;
+  await fs.mkdir(assetsDirectory, { recursive: true });
+  await Promise.all(
+    Object.values(extensions).map((candidate) =>
+      fs.rm(path.join(assetsDirectory, `${basename}.${candidate}`), { force: true }),
+    ),
+  );
+  const filename = `${basename}.${extension}`;
+  await fs.writeFile(path.join(assetsDirectory, filename), Buffer.from(match[2], "base64"));
+  return `asset:${filename}`;
+}
+
 async function directories(directory: string): Promise<string[]> {
   return (await fs.readdir(directory, { withFileTypes: true }).catch(() => []))
     .filter((entry) => entry.isDirectory())
@@ -229,6 +255,8 @@ export async function scanContentV2Repository(
       try {
         assetHashes = (
           await loadContentV2Assets(repositoryPath, topic.id, quiz.id, {
+            topic,
+            quiz,
             questions: quizQuestions.map((item) => item.record),
             resources,
           })
@@ -257,6 +285,7 @@ export async function scanContentV2Repository(
         id: quiz.id,
         type: quiz.type,
         title: quiz.title,
+        icon: quiz.icon,
         description: quiz.description,
         status: quiz.status,
         order: quiz.order,
@@ -298,6 +327,7 @@ export async function scanContentV2Repository(
       id: topic.id,
       type: topic.type,
       title: topic.title,
+      icon: topic.icon,
       description: topic.description,
       status: topic.status,
       order: topic.order,
@@ -364,7 +394,11 @@ export async function saveContentV2Topic(
   repositoryPath: string,
   value: unknown,
 ): Promise<ContentV2Topic> {
-  const topic = contentV2TopicSchema.parse(value);
+  const rawTopic = value as { id?: unknown; icon?: unknown };
+  const normalizedTopic = typeof rawTopic?.icon === "string" && rawTopic.icon.startsWith("data:image/")
+    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), validateId(String(rawTopic.id), "Topic ID"), "assets"), "topic", rawTopic.icon) }
+    : value;
+  const topic = contentV2TopicSchema.parse(normalizedTopic);
   const filePath = path.join(
     contentRoot(repositoryPath),
     validateId(topic.id, "Topic ID"),
@@ -596,6 +630,7 @@ export async function calculateContentV2QuizHash(
   topicId: string,
   quizId: string,
 ): Promise<string> {
+  const topic = await loadContentV2Topic(repositoryPath, topicId);
   const quiz = await loadContentV2Quiz(repositoryPath, topicId, quizId);
   const questionDirectory = path.join(
     contentRoot(repositoryPath),
@@ -611,6 +646,8 @@ export async function calculateContentV2QuizHash(
   questions.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
   const resources = await loadContentV2QuizResources(repositoryPath, topicId, quiz);
   const assets = (await loadContentV2Assets(repositoryPath, topicId, quizId, {
+    topic,
+    quiz,
     questions,
     resources,
   })).map((asset) => ({ reference: asset.reference, contentHash: asset.contentHash }));
@@ -627,7 +664,11 @@ export async function saveContentV2Quiz(
   topic: ContentV2Topic,
   value: unknown,
 ): Promise<ContentV2Quiz> {
-  const quiz = contentV2QuizSchema.parse(value);
+  const rawQuiz = value as { id?: unknown; icon?: unknown };
+  const normalizedQuiz = typeof rawQuiz?.icon === "string" && rawQuiz.icon.startsWith("data:image/")
+    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), topic.id, "assets"), validateId(String(rawQuiz.id), "Quiz ID"), rawQuiz.icon) }
+    : value;
+  const quiz = contentV2QuizSchema.parse(normalizedQuiz);
   if (quiz.topicId !== topic.id)
     throw new Error("Quiz topicId does not match its parent topic.");
   assertContentV2Relationship(topic.type, quiz.type, "quiz");

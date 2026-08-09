@@ -36,6 +36,20 @@ export interface PublishedAlphabetQuestion {
 export type PublishedQuestion =
   PublishedContestQuestion | PublishedAlphabetQuestion;
 
+export function hashPublishedQuiz(
+  metadata: { title: string; icon?: string; grade: string | null; round: string | null; year: string | null },
+  questionHash: string,
+): string {
+  return createHash("sha256").update(JSON.stringify({
+    title: metadata.title,
+    icon: metadata.icon ?? null,
+    grade: metadata.grade,
+    round: metadata.round,
+    year: metadata.year,
+    questionHash,
+  })).digest("hex");
+}
+
 function text(
   value: unknown,
   field: string,

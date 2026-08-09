@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { Check, ChevronDown, X } from "lucide-react"
+import { Check, ChevronDown, ImagePlus, X } from "lucide-react"
 import { Select, useSelectDropdown, type SelectOption } from "./Select"
 import { SegmentedControl } from "./SegmentedControl"
 import { Toggle } from "./Toggle"
@@ -27,6 +27,7 @@ interface FieldBase {
 export type FormField =
   | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number })
+  | (FieldBase & { type: "image"; accept?: string; maxBytes?: number })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
   | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
@@ -73,6 +74,34 @@ function MultiSelectControl({ field, value, disabled, autoFocus, onChange }: { f
   </div>
 }
 
+function ImageControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "image" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
+  const [dragging, setDragging] = useState(false)
+  const source = typeof value === "string" ? value : ""
+  const previewable = source.startsWith("data:image/") || source.startsWith("http://") || source.startsWith("https://")
+  const load = (file?: File) => {
+    if (!file) return
+    if (!file.type.startsWith("image/")) return
+    if (field.maxBytes && file.size > field.maxBytes) return
+    const reader = new FileReader()
+    reader.onload = () => onChange(String(reader.result ?? ""))
+    reader.readAsDataURL(file)
+  }
+  return <div className={`schema-image-field ${dragging ? "dragging" : ""}`}>
+    <label
+      className={`schema-image-select ${disabled ? "disabled" : ""}`}
+      onDragEnter={event => { event.preventDefault(); if (!disabled) setDragging(true) }}
+      onDragOver={event => { event.preventDefault(); if (!disabled) event.dataTransfer.dropEffect = "copy" }}
+      onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }}
+      onDrop={event => { event.preventDefault(); setDragging(false); if (!disabled) load(event.dataTransfer.files?.[0]) }}
+    >
+      {previewable ? <img src={source} alt="Selected image preview" /> : <ImagePlus />}
+      <span>{source.startsWith("asset:") ? source.slice("asset:".length) : source ? "Replace image" : "Select or drop image"}</span>
+      <input type="file" accept={field.accept ?? "image/png,image/jpeg,image/webp,image/svg+xml"} disabled={disabled} autoFocus={autoFocus} onChange={event => { load(event.target.files?.[0]); event.currentTarget.value = "" }} />
+    </label>
+    {source && <button type="button" className="schema-image-remove" disabled={disabled} aria-label="Remove selected image" title="Remove image" onClick={() => onChange("")}><X /></button>}
+  </div>
+}
+
 export function validateSchema(schema: FormSchema[], values: FormValues): FormErrors {
   const errors: FormErrors = {}
   for (const field of flattenSchema(schema, values)) {
@@ -100,6 +129,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   if (field.type === "toggle") return <div className="schema-toggle-control"><Toggle name={field.name} ariaLabel={String(field.label ?? field.name)} checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onCheckedChange={checked => onChange(field.name, checked)} /></div>
   if (field.type === "checkbox") return <label className="schema-checkbox"><input name={field.name} type="checkbox" checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><span>{field.label}</span></label>
   if (field.type === "textarea") return <textarea name={field.name} rows={field.rows} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
+  if (field.type === "image") return <ImageControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "number") return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null ? "" : Number(value)} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />

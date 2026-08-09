@@ -16,3 +16,13 @@ export function reviewedTopicQuizzes(
 export function shouldPublishContainingTopic(topicExists: boolean): boolean {
   return !topicExists;
 }
+
+export function stalePublishedQuizIds(
+  remoteQuizIds: readonly string[],
+  localQuizIds: readonly string[],
+): string[] {
+  const local = new Set(localQuizIds);
+  return remoteQuizIds
+    .filter((quizId) => !local.has(quizId))
+    .sort((left, right) => left.localeCompare(right));
+}

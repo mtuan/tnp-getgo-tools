@@ -143,6 +143,7 @@ export async function createQuizFiles(
     legacyId: id,
     contest,
     title,
+    icon: input.icon?.trim() || undefined,
     type: input.type ?? "question-list",
     grade: input.grade,
     round: input.round,
@@ -209,6 +210,7 @@ export async function updateQuizManifest(
   const updated: QuizManifest = {
     ...manifest,
     title: fields.title,
+    icon: input.icon?.trim() || undefined,
     type: input.type ?? manifest.type ?? "question-list",
     grade: input.grade,
     round: input.round,

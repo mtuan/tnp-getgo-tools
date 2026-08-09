@@ -33,7 +33,10 @@ const generalFields: FormSchema[] = [
       { type: "text", name: "code", label: "Contest ID", required: true, rules: { pattern: { value: /^[a-z][-a-z0-9]*$/, message: "Use lowercase letters, numbers, and hyphens." } } },
       { type: "text", name: "title", label: "Display title", required: true },
     ],
-    { type: "textarea", name: "description", label: "Description", rows: 3 },
+    [
+      { type: "image", name: "icon", label: "Icon image", maxBytes: 2097152, helper: "PNG, JPEG, WebP, or SVG. Maximum 2 MB." },
+      { type: "textarea", name: "description", label: "Description", rows: 3 },
+    ],
     [
       { type: "select", name: "subject", label: "Subject", options: ["Mathematics", "English", "Vietnamese", "Physics", "Chemistry", "Biology", "History", "Geography"].map((label, index) => ({ label, value: String(index + 1) })) },
       { type: "toggle", name: "isActive", label: "Active contest" },
@@ -140,12 +143,12 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     { key: "categories", title: "Categories", width: "12%", render: rule => Array.isArray(rule.categories) ? rule.categories.length : 0 },
     { key: "actions", title: "", width: 84, render: (_rule, index) => <div className="ui-row-actions"><button type="button" onClick={() => setRuleEditor(index)} aria-label={`Edit rule ${index + 1}`}><Pencil /></button><button type="button" onClick={() => remove("quizRules", index)} aria-label={`Delete rule ${index + 1}`}><Trash2 /></button></div> },
   ]
-  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, description: settings.book.description ?? "", subject: String(settings.book.subject), isActive: settings.book.isActive !== false }
+  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, icon: settings.book.icon ?? "", description: settings.book.description ?? "", subject: String(settings.book.subject), isActive: settings.book.isActive !== false }
   const updateGeneral = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     if (name === "subject") setBook({ subject: Number(value) })
     else if (name === "isActive") setBook({ isActive: Boolean(value) })
-    else if (name === "code" || name === "title" || name === "description") setBook({ [name]: String(value) })
+    else if (name === "code" || name === "title" || name === "description" || name === "icon") setBook({ [name]: String(value) })
   }
   const discard = (id: Tab) => {
     const saved = structuredClone(contest?.settings ?? emptySettings())

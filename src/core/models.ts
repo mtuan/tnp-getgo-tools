@@ -26,6 +26,7 @@ export interface QuizManifest {
   legacyId: string;
   contest: string;
   title?: string;
+  icon?: string;
   type?: QuizType;
   grade?: string | null;
   round?: string | null;
@@ -46,6 +47,7 @@ export interface QuizSummary {
   legacyId: string;
   contest: string;
   title: string;
+  icon?: string;
   type: QuizType;
   grade: string | null;
   round: string | null;
@@ -95,6 +97,7 @@ export interface ContentV2TopicSummary {
   type: "competition" | "kid-learning";
   title: string;
   description: string;
+  icon?: string;
   status: "draft" | "pending" | "reviewed" | "rejected";
   order: number;
   filePath: string;
@@ -116,6 +119,7 @@ export interface ContentV2QuizSummary {
   type: "competition-paper" | "alphabet" | "spelling";
   title: string;
   description: string;
+  icon?: string;
   status: "draft" | "pending" | "reviewed" | "rejected";
   order: number;
   filePath: string;
@@ -166,6 +170,7 @@ export interface ContestSettings {
     code: string;
     title: string;
     description?: string;
+    icon?: string;
     subject: number;
     isActive?: boolean;
   };
@@ -188,6 +193,7 @@ export interface ContestSummary {
 export interface QuizCrudInput {
   id: string;
   title: string;
+  icon?: string;
   type?: QuizType;
   grade: string | null;
   round: string | null;
@@ -370,6 +376,7 @@ export interface PublishableQuiz {
   contestId: string;
   quizId: string;
   title: string;
+  icon?: string;
   grade: string | null;
   round: string | null;
   year: string | null;

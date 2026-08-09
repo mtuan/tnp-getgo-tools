@@ -611,7 +611,8 @@ app.whenReady().then(async () => {
       const records = await loadQuizQuestions(quiz.manifestPath);
       if (!records.length)
         throw new Error("This quiz has no question data to publish.");
-      const payload = createPublishPayloadFromQuestions(quiz, records);
+      const contest = snapshot.contests.find((item) => item.id === contestId);
+      const payload = createPublishPayloadFromQuestions(quiz, records, contest);
       return publishJobs.track(
         {
           name: `Publish · ${quiz.title}`,
@@ -1257,12 +1258,19 @@ app.whenReady().then(async () => {
           route: `/topics/${encodeURIComponent(topicId)}?tab=publish`,
         },
         async (control) => {
-          await control.setTotal(
-            reviewedQuizzes.length + 1,
-            `Publishing topic and ${reviewedQuizzes.length} reviewed quizzes`,
-          );
           if (!firebaseAuth) throw new Error("Publishing is not initialized.");
           const target = await firebaseAuth.publishingTarget();
+          const localQuizIds = snapshot.contentV2.quizzes
+            .filter((quiz) => quiz.topicId === topicId)
+            .map((quiz) => quiz.id);
+          const staleQuizIds = await publishing.staleContentV2TopicQuizIds(
+            topicId,
+            localQuizIds,
+          );
+          await control.setTotal(
+            reviewedQuizzes.length + staleQuizIds.length + 1,
+            `Publishing ${reviewedQuizzes.length} reviewed quizzes · removing ${staleQuizIds.length} deleted quizzes`,
+          );
           const publishedQuizResults: Array<{
             key: string;
             contentHash: string;
@@ -1296,7 +1304,7 @@ app.whenReady().then(async () => {
               root,
               topicId,
               quizSummary.id,
-              { questions, resources },
+              { topic, quiz, questions, resources },
             );
             const publishState = await readContentV2QuizPublishState(
               quizSummary.filePath,
@@ -1337,6 +1345,11 @@ app.whenReady().then(async () => {
               `Published reviewed quiz ${index + 1}/${reviewedQuizzes.length}`,
             );
           }
+          await publishing.deleteContentV2TopicQuizzes(
+            topicId,
+            staleQuizIds,
+            control,
+          );
           // Publish the catalog entry last so it never advertises a reviewed
           // quiz before that quiz has successfully reached Firebase.
           const result = await publishing.publishContentV2Topic(
@@ -1397,6 +1410,7 @@ app.whenReady().then(async () => {
       );
       if (!summary) throw new Error("The selected quiz was not found.");
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
+      const topic = await loadContentV2Topic(root, topicId);
       const questionIds = snapshot.contentV2.questions
         .filter(
           (question) =>
@@ -1413,6 +1427,8 @@ app.whenReady().then(async () => {
         loadContentV2QuizResources(root, topicId, quiz),
       ]);
       const assets = await loadContentV2Assets(root, topicId, quizId, {
+        topic,
+        quiz,
         questions,
         resources,
       });
@@ -1451,6 +1467,7 @@ app.whenReady().then(async () => {
         `Preparing questions 0/${summary.questionCount}`,
       );
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
+      const topic = await loadContentV2Topic(root, topicId);
       const questionIds = snapshot.contentV2.questions
         .filter(
           (question) =>
@@ -1469,6 +1486,8 @@ app.whenReady().then(async () => {
         loadContentV2QuizResources(root, topicId, quiz),
       ]);
       const assets = await loadContentV2Assets(root, topicId, quizId, {
+        topic,
+        quiz,
         questions,
         resources,
       });
@@ -1476,7 +1495,6 @@ app.whenReady().then(async () => {
         (item) => item.id === topicId,
       );
       if (!topicSummary) throw new Error("The containing topic was not found.");
-      const topic = await loadContentV2Topic(root, topicId);
       const topicQuizIds = reviewedTopicQuizzes(
         snapshot.contentV2.quizzes,
         topicId,

@@ -19,6 +19,7 @@ const baseRecord = {
   id: idSchema,
   title: z.string().min(1),
   description: z.string().default(""),
+  icon: z.string().startsWith("asset:").optional(),
   status: z.enum(contentV2ReviewStatuses).default("draft"),
   order: z.number().int().nonnegative().default(0),
   publishedHash: hashSchema,
