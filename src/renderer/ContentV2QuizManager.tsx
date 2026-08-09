@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ContentV2Question, ContentV2Quiz, ContentV2Topic } from "../core/content-v2";
 import type {
   AlphabetDictionary,
@@ -191,7 +191,51 @@ function findQuestionSummary(snapshot: RepositorySnapshot, topicId: string, quiz
 }
 
 export function ContentV2QuizManager(props: Props) {
-  const managerSnapshot = useMemo(() => adaptContentV2Snapshot(props.snapshot), [props.snapshot]);
+  const [metadataSnapshot, setMetadataSnapshot] = useState(props.snapshot);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const [topics, quizzes] = await Promise.all([
+        Promise.all(props.snapshot.contentV2.topics.map(async (summary) => {
+          const record = await window.getgo.loadContentV2Topic(summary.id);
+          return { summary, record };
+        })),
+        Promise.all(props.snapshot.contentV2.quizzes.map(async (summary) => {
+          const record = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
+          return { summary, record };
+        })),
+      ]);
+      if (!active) return;
+      setMetadataSnapshot({
+        ...props.snapshot,
+        contentV2: {
+          ...props.snapshot.contentV2,
+          topics: topics.map(({ summary, record }) => ({
+            ...summary,
+            title: record.title,
+            description: record.description,
+            icon: record.icon,
+            status: record.status,
+            order: record.order,
+          })),
+          quizzes: quizzes.map(({ summary, record }) => ({
+            ...summary,
+            title: record.title,
+            description: record.description,
+            icon: record.icon,
+            status: record.status,
+            order: record.order,
+            ...(record.type === "competition-paper"
+              ? { grade: record.grade, round: record.round, year: record.year }
+              : { language: record.language }),
+          })),
+        },
+      });
+    };
+    void load().catch((error) => console.error("[GetGo Tools][Content V2 metadata] Could not load current files", error));
+    return () => { active = false; };
+  }, [props.initialRoute, props.snapshot]);
+  const managerSnapshot = useMemo(() => adaptContentV2Snapshot(metadataSnapshot), [metadataSnapshot]);
   const api = useMemo<QuizManagerApi>(() => {
     const refresh = (next: RepositorySnapshot) => {
       props.onSnapshotChange(next);
