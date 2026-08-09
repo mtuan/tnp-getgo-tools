@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  BookOpen,
   Check,
   CheckCheck,
   ChevronRight,
@@ -198,6 +199,28 @@ function quizReviewStatus(quiz: QuizSummary): {
   if (reviewed > 0)
     return { kind: "partial", label: "Partially reviewed", reviewed, total };
   return { kind: "none", label: "Not reviewed", reviewed, total };
+}
+
+function ManagerListIcon({ topicId, reference, label, kind }: { topicId: string; reference?: string; label: string; kind: "topic" | "quiz" }) {
+  const [source, setSource] = useState(() => reference?.startsWith("data:image/") ? reference : "")
+  useEffect(() => {
+    if (!reference) { setSource(""); return }
+    if (reference.startsWith("data:image/") || reference.startsWith("http://") || reference.startsWith("https://")) {
+      setSource(reference)
+      return
+    }
+    if (!reference.startsWith("asset:")) { setSource(""); return }
+    let active = true
+    void window.getgo.readContentV2TopicAsset(topicId, reference.slice("asset:".length))
+      .then(value => { if (active) setSource(value) })
+      .catch(() => { if (active) setSource("") })
+    return () => { active = false }
+  }, [reference, topicId])
+  if (source) return <span className="manager-list-icon"><img src={source} alt={`${label} icon`} /></span>
+  if (reference && !reference.startsWith("asset:")) return <span className="manager-list-icon manager-list-icon-text" aria-hidden="true">{reference}</span>
+  return <span className="manager-list-icon manager-list-icon-default" aria-hidden="true">
+    {kind === "topic" ? <BookOpen /> : <ListOrdered />}
+  </span>
 }
 
 function restoredPage(
@@ -2198,8 +2221,10 @@ export function QuizManager({
                           }}
                         >
                           <td>
-                            <strong>{quiz.title}</strong>
-                            <span>{quiz.id}</span>
+                            <div className="manager-list-identity">
+                              <ManagerListIcon topicId={quiz.contest} reference={quiz.icon} label={quiz.title} kind="quiz" />
+                              <div><strong>{quiz.title}</strong><span>{quiz.id}</span></div>
+                            </div>
                           </td>
                           <td>
                             <span
@@ -2282,10 +2307,13 @@ export function QuizManager({
                           }}
                         >
                           <td>
-                            <strong>{contest.title}</strong>
-                            <span>
-                              {contest.description || contest.id.toUpperCase()}
-                            </span>
+                            <div className="manager-list-identity">
+                              <ManagerListIcon topicId={contest.id} reference={contest.settings.book.icon} label={contest.title} kind="topic" />
+                              <div>
+                                <strong>{contest.title}</strong>
+                                <span>{contest.description || contest.id.toUpperCase()}</span>
+                              </div>
+                            </div>
                           </td>
                           <td>{contest.quizzes.length}</td>
                           <td>{ready}</td>

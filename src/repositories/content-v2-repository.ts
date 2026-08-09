@@ -68,6 +68,7 @@ async function saveMetadataIcon(
   assetsDirectory: string,
   ownerId: string,
   dataUrl: string,
+  referenceDirectory = "icons",
 ): Promise<string> {
   const match = /^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([\s\S]+)$/.exec(dataUrl);
   if (!match) throw new Error("The selected icon is not a supported image.");
@@ -87,7 +88,7 @@ async function saveMetadataIcon(
   );
   const filename = `${basename}.${extension}`;
   await fs.writeFile(path.join(assetsDirectory, filename), Buffer.from(match[2], "base64"));
-  return `asset:${filename}`;
+  return `asset:${referenceDirectory}/${filename}`;
 }
 
 async function directories(directory: string): Promise<string[]> {
@@ -396,7 +397,7 @@ export async function saveContentV2Topic(
 ): Promise<ContentV2Topic> {
   const rawTopic = value as { id?: unknown; icon?: unknown };
   const normalizedTopic = typeof rawTopic?.icon === "string" && rawTopic.icon.startsWith("data:image/")
-    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), validateId(String(rawTopic.id), "Topic ID"), "assets"), "topic", rawTopic.icon) }
+    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), validateId(String(rawTopic.id), "Topic ID"), "assets", "icons"), "topic", rawTopic.icon) }
     : value;
   const topic = contentV2TopicSchema.parse(normalizedTopic);
   const filePath = path.join(
@@ -666,7 +667,7 @@ export async function saveContentV2Quiz(
 ): Promise<ContentV2Quiz> {
   const rawQuiz = value as { id?: unknown; icon?: unknown };
   const normalizedQuiz = typeof rawQuiz?.icon === "string" && rawQuiz.icon.startsWith("data:image/")
-    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), topic.id, "assets"), validateId(String(rawQuiz.id), "Quiz ID"), rawQuiz.icon) }
+    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), topic.id, "assets", "icons"), validateId(String(rawQuiz.id), "Quiz ID"), rawQuiz.icon) }
     : value;
   const quiz = contentV2QuizSchema.parse(normalizedQuiz);
   if (quiz.topicId !== topic.id)

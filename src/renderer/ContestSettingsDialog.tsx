@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { BookOpen, Layers3, Pencil, Plus, RotateCcw, Save, Settings2, Tags, Trash2, UsersRound } from "lucide-react"
 import type { ContestSettings, ContestSummary } from "../core/models"
 import { DialogFrame } from "./ui/DialogFrame"
@@ -96,6 +96,19 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   const [busyScope, setBusyScope] = useState<Tab | "all" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
+  const [iconPreview, setIconPreview] = useState("")
+  useEffect(() => {
+    const reference = settings.book.icon
+    if (!contest || !reference?.startsWith("asset:") || !contest.settingsPath.includes("content-v2")) {
+      setIconPreview("")
+      return
+    }
+    let active = true
+    void window.getgo.readContentV2TopicAsset(contest.id, reference.slice("asset:".length))
+      .then(value => { if (active) setIconPreview(value) })
+      .catch(() => { if (active) setIconPreview("") })
+    return () => { active = false }
+  }, [contest, settings.book.icon])
   const setBook = (patch: Partial<ContestSettings["book"]>) => setSettings(current => ({ ...current, book: { ...current.book, ...patch } }))
   const setList = (key: "rounds" | "grades" | "categories" | "quizRules", list: Item[]) => setSettings(current => ({ ...current, [key]: list }))
   const update = (key: "rounds" | "grades" | "categories" | "quizRules", index: number, patch: Item) => {
@@ -165,7 +178,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   return <DialogFrame presentation={embedded ? "embedded" : "drawer"} title={embedded ? "Contest information" : contest ? "Edit contest" : "Create contest"} submitLabel={contest ? "Save changes" : "Create"} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) } } : undefined}>
     {contest && !embedded && <div className="settings-tabs" role="tablist">{tabs.map(item => { const Icon = item.icon; const count = item.id === "rounds" ? rounds.length : item.id === "grades" ? grades.length : item.id === "categories" ? categories.length : item.id === "rules" ? rules.length : null; return <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}><Icon />{item.label}{count !== null && <i>{count}</i>}</button> })}</div>}
     <div className="settings-tab-content" key={tab}>
-      {renderSection("general", "General information", "Identity, subject, and contest visibility.", <Form fields={generalFields.map(entry => "section" in entry ? { ...entry, fields: entry.fields.map(row => Array.isArray(row) ? row.map(field => field.name === "code" ? { ...field, readOnly: Boolean(contest) } : field) : row.name === "code" ? { ...row, readOnly: Boolean(contest) } : row) } : entry)} values={generalValues} errors={fieldErrors} onChange={updateGeneral} />)}
+      {renderSection("general", "General information", "Identity, subject, and contest visibility.", <Form fields={generalFields.map(entry => "section" in entry ? { ...entry, fields: entry.fields.map(row => Array.isArray(row) ? row.map(field => field.name === "code" ? { ...field, readOnly: Boolean(contest) } : field.name === "icon" && field.type === "image" ? { ...field, previewSrc: iconPreview } : field) : row.name === "code" ? { ...row, readOnly: Boolean(contest) } : row.name === "icon" && row.type === "image" ? { ...row, previewSrc: iconPreview } : row) } : entry)} values={generalValues} errors={fieldErrors} onChange={updateGeneral} />)}
       {renderSection("rounds", "Contest rounds", "Stages and practice availability.", <><div className="section-heading"><div><h3>Contest rounds</h3><p>Edit stages and practice availability inline.</p></div></div><EditTable ariaLabel="Contest rounds" columns={roundColumns} rows={rounds} reorderable onRowsReorder={rows => setList("rounds", rows)} onRowChange={(index, field, value) => update("rounds", index, field === "roundCode" ? { roundCode: String(value).toUpperCase() } : { [field]: value })} onRowAdd={() => add("rounds", { roundCode: "", roundName: "", description: "", hasPractice: false })} onRowDelete={index => remove("rounds", index)} addLabel="Add round" emptyText="No rounds yet." /></>)}
       {renderSection("grades", "Grade mappings", "Grade names and numeric school grades.", <><div className="section-heading"><div><h3>Grade mappings</h3><p>Edit grade names and their numeric school grades inline.</p></div></div><EditTable ariaLabel="Contest grade mappings" columns={gradeColumns} rows={grades} reorderable onRowsReorder={rows => setList("grades", rows)} onRowChange={(index, field, value) => update("grades", index, field === "grades" ? { grades: (value as string[]).map(Number).sort((a, b) => a - b) } : { gradeName: String(value) })} onRowAdd={() => add("grades", { gradeName: "", grades: [] })} onRowDelete={index => remove("grades", index)} addLabel="Add grade" emptyText="No grade mappings yet." /></>)}
       {renderSection("categories", "Question categories", "Normalized names and source matching patterns.", <EditTable ariaLabel="Question categories" columns={categoryColumns} rows={categories} reorderable onRowsReorder={rows => setList("categories", rows)} onRowChange={(index, field, value) => { if (field === "roundCodes") update("categories", index, { roundCodes: (value as string[]).map(code => code.toUpperCase()) }); else if (field === "patterns") update("categories", index, { patterns: parseStrings(String(value)) }); else if (field === "roundHint") update("categories", index, { roundHint: String(value).trim() || undefined }); else update("categories", index, { categoryName: String(value) }) }} onRowAdd={() => add("categories", { categoryName: "", roundCodes: [], patterns: [] })} onRowDelete={index => remove("categories", index)} addLabel="Add category" emptyText="No categories yet." />)}

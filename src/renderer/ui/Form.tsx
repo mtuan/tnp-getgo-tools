@@ -27,7 +27,7 @@ interface FieldBase {
 export type FormField =
   | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number })
-  | (FieldBase & { type: "image"; accept?: string; maxBytes?: number })
+  | (FieldBase & { type: "image"; accept?: string; maxBytes?: number; previewSrc?: string })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
   | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
@@ -77,7 +77,8 @@ function MultiSelectControl({ field, value, disabled, autoFocus, onChange }: { f
 function ImageControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "image" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
   const [dragging, setDragging] = useState(false)
   const source = typeof value === "string" ? value : ""
-  const previewable = source.startsWith("data:image/") || source.startsWith("http://") || source.startsWith("https://")
+  const directPreview = source.startsWith("data:image/") || source.startsWith("http://") || source.startsWith("https://")
+  const previewSource = directPreview ? source : field.previewSrc ?? ""
   const load = (file?: File) => {
     if (!file) return
     if (!file.type.startsWith("image/")) return
@@ -94,7 +95,7 @@ function ImageControl({ field, value, disabled, autoFocus, onChange }: { field: 
       onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }}
       onDrop={event => { event.preventDefault(); setDragging(false); if (!disabled) load(event.dataTransfer.files?.[0]) }}
     >
-      {previewable ? <img src={source} alt="Selected image preview" /> : <ImagePlus />}
+      {previewSource ? <img src={previewSource} alt="Selected image preview" /> : <ImagePlus />}
       <span>{source.startsWith("asset:") ? source.slice("asset:".length) : source ? "Replace image" : "Select or drop image"}</span>
       <input type="file" accept={field.accept ?? "image/png,image/jpeg,image/webp,image/svg+xml"} disabled={disabled} autoFocus={autoFocus} onChange={event => { load(event.target.files?.[0]); event.currentTarget.value = "" }} />
     </label>

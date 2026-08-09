@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { quizTypes, supportedQuizBuilderApiVersions, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../core/models"
 import { Form, validateSchema, type FormErrors, type FormSchema, type FormValues } from "./ui/Form"
 import { DialogFrame } from "./ui/DialogFrame"
@@ -47,15 +47,28 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
+  const [iconPreview, setIconPreview] = useState("")
+  useEffect(() => {
+    const reference = input.icon
+    if (!reference?.startsWith("asset:") || !contest.settingsPath.includes("content-v2")) {
+      setIconPreview("")
+      return
+    }
+    let active = true
+    void window.getgo.readContentV2TopicAsset(contest.id, reference.slice("asset:".length))
+      .then(value => { if (active) setIconPreview(value) })
+      .catch(() => { if (active) setIconPreview("") })
+    return () => { active = false }
+  }, [contest.id, contest.settingsPath, input.icon])
   const fields = useMemo<FormSchema[]>(() => [
     { type: "text", name: "id", label: "Quiz ID", required: true, readOnly: Boolean(quiz), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
     { type: "text", name: "title", label: "Title", required: true },
-    { type: "image", name: "icon", label: "Icon image", maxBytes: 2097152, helper: "PNG, JPEG, WebP, or SVG. Maximum 2 MB." },
+    { type: "image", name: "icon", label: "Icon image", maxBytes: 2097152, previewSrc: iconPreview, helper: "PNG, JPEG, WebP, or SVG. Maximum 2 MB." },
     { type: "select", name: "type", label: "Quiz type", required: true, presentation: "segmented", options: quizTypes.map(value => ({ value, label: value === "question-list" ? "Question list" : value === "alphabet-english" ? "English alphabet" : value === "alphabet-vietnamese" ? "Vietnamese alphabet" : value === "spelling-english" ? "English spelling" : "Vietnamese spelling" })) },
     { type: "select", name: "grade", label: "Grade", required: true, options: gradeMappings.map(item => ({ value: item.name, label: `${item.name} · ${item.grades.map(grade => grade === 0 ? "K" : grade).join(", ")}` })) },
     [{ type: "number", name: "year", label: "Year", min: 1900, max: 2100, step: 1, rules: { validate: value => !Number.isInteger(Number(value)) ? "Year must be a whole number." : Number(value) < 1900 || Number(value) > 2100 ? "Year must be between 1900 and 2100." : null } }, { type: "select", name: "round", label: "Round", options: contest.settings.rounds.map(item => ({ value: String(item.roundCode ?? ""), label: String(item.roundName ?? item.roundCode ?? "") })).filter(item => item.value) }],
     ...(quiz ? [[{ type: "select", name: "status", label: "Content status", options: ["imported", "normalized", "generated", "reviewed", "validated", "published"].map(value => ({ value, label: value })) }, { type: "select", name: "quizBuilderApiVersion", label: "QuizBuilder API version", options: supportedQuizBuilderApiVersions.map(version => ({ value: String(version), label: `Version ${version}` })) }]] as FormSchema[] : [{ type: "select", name: "quizBuilderApiVersion", label: "QuizBuilder API version", options: supportedQuizBuilderApiVersions.map(version => ({ value: String(version), label: `Version ${version}` })) } as FormSchema]),
-  ], [contest, gradeMappings, quiz])
+  ], [contest, gradeMappings, iconPreview, quiz])
   const values: FormValues = { ...input, year: input.year ? Number(input.year) : undefined, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0]) }
   const change = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })

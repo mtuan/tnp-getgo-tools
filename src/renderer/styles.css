@@ -3255,6 +3255,39 @@ tbody tr:hover {
 .manager-table tbody tr:hover td:last-child {
   color: #4f46e5;
 }
+.manager-list-identity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.manager-list-identity > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.manager-list-icon {
+  display: grid !important;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  overflow: hidden;
+}
+.manager-list-icon img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.manager-list-icon-text { font-size: 20px; }
+.manager-list-icon-default {
+  color: #64748b;
+}
+.manager-list-icon-default svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.7;
+}
 .question-image-indicator {
   display: inline-flex;
   align-items: center;

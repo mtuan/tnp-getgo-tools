@@ -763,23 +763,38 @@ app.whenReady().then(async () => {
       ".avif": "image/avif", ".gif": "image/gif", ".jpeg": "image/jpeg",
       ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp",
     };
-    const assets = await Promise.all((await fs.readdir(directory, { withFileTypes: true }))
-      .filter((entry) => entry.isFile() && supported[path.extname(entry.name).toLowerCase()])
-      .map(async (entry) => ({
-        filename: entry.name,
-        size: (await fs.stat(path.join(directory, entry.name))).size,
-        mimeType: supported[path.extname(entry.name).toLowerCase()]!,
-      })));
+    const files: string[] = [];
+    const visit = async (current: string) => {
+      for (const entry of await fs.readdir(current, { withFileTypes: true })) {
+        const absolute = path.join(current, entry.name);
+        if (entry.isDirectory()) await visit(absolute);
+        else if (entry.isFile() && supported[path.extname(entry.name).toLowerCase()])
+          files.push(path.relative(directory, absolute).replaceAll(path.sep, "/"));
+      }
+    };
+    await visit(directory);
+    const assets = await Promise.all(files.map(async (filename) => ({
+      filename,
+      size: (await fs.stat(path.join(directory, filename))).size,
+      mimeType: supported[path.extname(filename).toLowerCase()]!,
+    })));
     return assets.sort((left, right) => left.filename.localeCompare(right.filename));
   };
   ipcMain.handle("content-v2:topic:assets:list", (_event, topicId: unknown) => listTopicAssets(topicId));
   ipcMain.handle("content-v2:topic:asset:read", async (_event, topicId: unknown, filename: unknown) => {
-    if (typeof filename !== "string" || path.basename(filename) !== filename)
+    if (typeof filename !== "string" || path.isAbsolute(filename) || filename.split(/[\\/]/).some((part) => !part || part === "." || part === ".."))
       throw new Error("Invalid asset selection.");
     const directory = await topicAssetsDirectory(topicId);
-    const asset = (await listTopicAssets(topicId)).find((item) => item.filename === filename);
-    if (!asset) throw new Error("The selected asset was not found.");
-    return `data:${asset.mimeType};base64,${(await fs.readFile(path.join(directory, filename))).toString("base64")}`;
+    const assetPath = path.resolve(directory, filename);
+    if (!assetPath.startsWith(`${path.resolve(directory)}${path.sep}`)) throw new Error("Invalid asset selection.");
+    const mimeTypes: Record<string, string> = {
+      ".avif": "image/avif", ".gif": "image/gif", ".jpeg": "image/jpeg",
+      ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp",
+    };
+    const mimeType = mimeTypes[path.extname(assetPath).toLowerCase()];
+    if (!mimeType || !(await fs.stat(assetPath).then((value) => value.isFile()).catch(() => false)))
+      throw new Error("The selected asset was not found.");
+    return `data:${mimeType};base64,${(await fs.readFile(assetPath)).toString("base64")}`;
   });
   ipcMain.handle("content-v2:topic:assets:import", async (_event, topicId: unknown) => {
     const directory = await topicAssetsDirectory(topicId);
@@ -797,7 +812,7 @@ app.whenReady().then(async () => {
     return listTopicAssets(topicId);
   });
   ipcMain.handle("content-v2:topic:asset:trash", async (_event, topicId: unknown, filename: unknown) => {
-    if (typeof filename !== "string" || path.basename(filename) !== filename)
+    if (typeof filename !== "string" || path.isAbsolute(filename) || filename.split(/[\\/]/).some((part) => !part || part === "." || part === ".."))
       throw new Error("Invalid asset selection.");
     const dictionary = await loadContentV2TopicDictionary(await repositoryRoot(), String(topicId));
     if (JSON.stringify(dictionary).includes(`asset:${filename}`))
@@ -810,7 +825,10 @@ app.whenReady().then(async () => {
     )).some((question) => JSON.stringify(question).includes(`asset:${filename}`));
     if (referencingQuestion)
       throw new Error("This asset is still referenced by a quiz question.");
-    await shell.trashItem(path.join(await topicAssetsDirectory(topicId), filename));
+    const assetsDirectory = await topicAssetsDirectory(topicId);
+    const assetPath = path.resolve(assetsDirectory, filename);
+    if (!assetPath.startsWith(`${path.resolve(assetsDirectory)}${path.sep}`)) throw new Error("Invalid asset selection.");
+    await shell.trashItem(assetPath);
     await acceptCurrentRepositoryStructure(root);
     return listTopicAssets(topicId);
   });
