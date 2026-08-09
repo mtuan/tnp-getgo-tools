@@ -38,12 +38,15 @@ type QuizDefinition = {
 export const contentV2ManagerRegistry = {
   topics: {
     competition: { subject: 1, defaultQuizType: "question-list" },
-    "alphabet-learning": { subject: 2, defaultQuizType: "alphabet-english" },
+    "kid-learning": { subject: 2, defaultQuizType: "alphabet-english" },
   } satisfies Record<ContentV2Topic["type"], TopicDefinition>,
   quizzes: {
     "competition-paper": { managerType: () => "question-list" },
-    "alphabet-course": {
+    alphabet: {
       managerType: (quiz) => quiz.language === "vi" ? "alphabet-vietnamese" : "alphabet-english",
+    },
+    spelling: {
+      managerType: (quiz) => quiz.language === "vi" ? "spelling-vietnamese" : "spelling-english",
     },
   } satisfies Record<ContentV2Quiz["type"], QuizDefinition>,
   questions: {
@@ -250,7 +253,7 @@ export function ContentV2QuizManager(props: Props) {
         const quiz = findQuiz(props.snapshot, manifestPath);
         const order = props.snapshot.contentV2.questions.filter((item) => item.topicId === quiz.topicId && item.quizId === quiz.id).length;
         const id = `q${order + 1}`;
-        const record: ContentV2Question = quiz.type === "alphabet-course"
+        const record: ContentV2Question = quiz.type === "alphabet"
           ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?", resources: [] }
           : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "New question" }, assets: [], answer: { type: "input", correct: "" } };
         const next = await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
@@ -300,21 +303,21 @@ export function ContentV2QuizManager(props: Props) {
         const stored = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
         const next: ContentV2Quiz = stored.type === "competition-paper"
           ? { ...stored, title: input.title, grade: input.grade ?? stored.grade, round: input.round ?? stored.round, year: input.year ?? stored.year, status: input.status === "reviewed" ? "reviewed" : stored.status }
-          : { ...stored, title: input.title, language: input.type === "alphabet-vietnamese" ? "vi" : input.type === "alphabet-english" ? "en" : stored.language };
+          : { ...stored, title: input.title, language: input.type?.endsWith("vietnamese") ? "vi" : input.type?.endsWith("english") ? "en" : stored.language };
         return refresh(await window.getgo.saveContentV2Quiz(summary.topicId, next));
       },
       createQuiz: async (topicId, input: QuizCrudInput) => {
         const topic = await window.getgo.loadContentV2Topic(topicId);
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
-        const quiz: ContentV2Quiz = topic.type === "alphabet-learning"
-          ? { schemaVersion: 2, id: input.id, topicId, type: "alphabet-course", title: input.title, description: "", status: "pending", order, language: input.type === "alphabet-vietnamese" ? "vi" : "en", dictionary: "resources/dictionary.json" }
+        const quiz: ContentV2Quiz = topic.type === "kid-learning"
+          ? { schemaVersion: 2, id: input.id, topicId, type: input.type?.startsWith("spelling") ? "spelling" : "alphabet", title: input.title, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en" }
           : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, description: "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         return refresh(await window.getgo.saveContentV2Quiz(topicId, quiz));
       },
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
         const topic: ContentV2Topic = settings.book.subject === 2
-          ? { schemaVersion: 2, id: settings.book.code, type: "alphabet-learning", title: settings.book.title, description: settings.book.description ?? "", status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
+          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: settings.book.title, description: settings.book.description ?? "", status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
           : { schemaVersion: 2, id: settings.book.code, type: "competition", title: settings.book.title, description: settings.book.description ?? "", status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
         return refresh(await window.getgo.saveContentV2Topic(topic));
       },

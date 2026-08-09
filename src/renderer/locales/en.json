@@ -45,9 +45,10 @@
     },
     "typeNames": {
       "competition": "Competition",
-      "alphabet-learning": "Alphabet learning",
+      "kid-learning": "Kids learning",
       "competition-paper": "Competition paper",
-      "alphabet-course": "Alphabet course",
+      "alphabet": "Alphabet",
+      "spelling": "Spelling",
       "competition-question": "Competition question",
       "alphabet-letter": "Alphabet letter"
     },
@@ -86,8 +87,8 @@
   },
   "alphabetDictionary": {
     "tab": "Dictionary",
-    "title": "Quiz dictionary",
-    "description": "Edit the words available to every letter in this alphabet quiz.",
+    "title": "Shared kids-learning dictionary",
+    "description": "Edit this quiz language in the multilingual dictionary shared by alphabet and spelling quizzes.",
     "text": "Word",
     "classifier": "Classifier",
     "meaning": "Simple meaning",
@@ -97,7 +98,7 @@
     "empty": "No dictionary words yet.",
     "save": "Save dictionary",
     "saved": "Dictionary saved",
-    "savedDescription": "The quiz dictionary file was updated.",
+    "savedDescription": "The shared multilingual dictionary was updated.",
     "saveError": "Could not save dictionary"
   },
   "speechSettings": {

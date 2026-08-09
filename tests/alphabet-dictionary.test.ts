@@ -4,9 +4,27 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  localizedAlphabetDictionary,
   loadAlphabetDictionary,
+  parseKidLearningDictionary,
   saveAlphabetDictionary,
 } from "../src/repositories/alphabet-dictionary.js";
+
+test("expands multilingual aliases into localized quiz words", () => {
+  const shared = parseKidLearningDictionary({
+    schemaVersion: 2,
+    entries: [{
+      id: "apple",
+      image: "asset:apple.svg",
+      minimumAge: 3,
+      translations: {
+        en: { text: "Apple", meaning: "A round fruit." },
+        vi: { text: "táo", classifier: "quả", meaning: "Một loại quả.", aliases: [{ text: "quả táo" }] },
+      },
+    }],
+  });
+  assert.deepEqual(localizedAlphabetDictionary(shared, "vi").words.map((word) => word.text), ["táo", "quả táo"]);
+});
 
 test("loads and sanitizes a quiz-level alphabet dictionary", async () => {
   const directory = await fs.mkdtemp(

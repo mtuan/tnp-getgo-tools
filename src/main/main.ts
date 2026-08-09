@@ -42,6 +42,7 @@ import {
 } from "../repositories/quiz-questions.js";
 import {
   loadAlphabetDictionary,
+  localizedAlphabetDictionary,
   saveAlphabetDictionary,
 } from "../repositories/alphabet-dictionary.js";
 import { withSpeechLanguageSettings } from "../core/speech-settings.js";
@@ -69,6 +70,7 @@ import {
   loadContentV2Question,
   loadContentV2Quiz,
   loadContentV2QuizResources,
+  loadContentV2TopicDictionary,
   loadContentV2Topic,
   recordContentV2Published,
   readContentV2QuizPublishState,
@@ -77,6 +79,7 @@ import {
   removeCachedContentV2Topic,
   saveContentV2Question,
   saveContentV2QuizDictionary,
+  saveContentV2TopicDictionary,
   saveContentV2Quiz,
   saveContentV2Topic,
   writeContentV2QuizPublishState,
@@ -632,7 +635,15 @@ app.whenReady().then(async () => {
         throw new Error("Invalid quiz selection.");
       const root = await repositoryRoot();
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
-      return loadContentV2QuizResources(root, topicId, quiz);
+      const resources = await loadContentV2QuizResources(root, topicId, quiz);
+      if (quiz.type !== "alphabet" && quiz.type !== "spelling") return resources;
+      return {
+        ...resources,
+        dictionary: localizedAlphabetDictionary(
+          resources.dictionary as Parameters<typeof localizedAlphabetDictionary>[0],
+          quiz.language,
+        ),
+      };
     },
   );
   ipcMain.handle(
@@ -643,8 +654,12 @@ app.whenReady().then(async () => {
       const root = await repositoryRoot();
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
       await saveContentV2QuizDictionary(root, topicId, quiz, value);
-      const localHash = cachedContentV2QuizHash(root, topicId, quizId);
-      if (!localHash)
+      const localHashes = new Map(
+        requireSnapshot().contentV2.quizzes
+          .filter((item) => item.topicId === topicId)
+          .map((item) => [item.id, cachedContentV2QuizHash(root, topicId, item.id)]),
+      );
+      if (!localHashes.get(quizId))
         throw new Error(
           "The in-memory quiz index is unavailable. Run the repository scan manually and retry.",
         );
@@ -654,8 +669,8 @@ app.whenReady().then(async () => {
         contentV2: {
           ...current.contentV2,
           quizzes: current.contentV2.quizzes.map((item) =>
-            item.topicId === topicId && item.id === quizId
-              ? { ...item, localHash }
+            item.topicId === topicId && localHashes.get(item.id)
+              ? { ...item, localHash: localHashes.get(item.id)! }
               : item,
           ),
         },
@@ -663,6 +678,92 @@ app.whenReady().then(async () => {
       return requireSnapshot();
     },
   );
+  ipcMain.handle("content-v2:topic:dictionary:load", async (_event, topicId: unknown) => {
+    if (typeof topicId !== "string") throw new Error("Invalid topic selection.");
+    return loadContentV2TopicDictionary(await repositoryRoot(), topicId);
+  });
+  ipcMain.handle("content-v2:topic:dictionary:save", async (_event, topicId: unknown, value: unknown) => {
+    if (typeof topicId !== "string") throw new Error("Invalid topic selection.");
+    const root = await repositoryRoot();
+    await saveContentV2TopicDictionary(root, topicId, value);
+    const current = requireSnapshot();
+    repositorySnapshot = {
+      ...current,
+      contentV2: {
+        ...current.contentV2,
+        quizzes: current.contentV2.quizzes.map((item) => {
+          if (item.topicId !== topicId) return item;
+          const localHash = cachedContentV2QuizHash(root, topicId, item.id);
+          return localHash ? { ...item, localHash } : item;
+        }),
+      },
+    };
+    return requireSnapshot();
+  });
+  const topicAssetsDirectory = async (topicId: unknown) => {
+    if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+      throw new Error("Invalid topic selection.");
+    return path.join(await repositoryRoot(), "content-v2", "topics", topicId, "assets");
+  };
+  const listTopicAssets = async (topicId: unknown) => {
+    const directory = await topicAssetsDirectory(topicId);
+    await fs.mkdir(directory, { recursive: true });
+    const supported: Record<string, string> = {
+      ".avif": "image/avif", ".gif": "image/gif", ".jpeg": "image/jpeg",
+      ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp",
+    };
+    const assets = await Promise.all((await fs.readdir(directory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && supported[path.extname(entry.name).toLowerCase()])
+      .map(async (entry) => ({
+        filename: entry.name,
+        size: (await fs.stat(path.join(directory, entry.name))).size,
+        mimeType: supported[path.extname(entry.name).toLowerCase()]!,
+      })));
+    return assets.sort((left, right) => left.filename.localeCompare(right.filename));
+  };
+  ipcMain.handle("content-v2:topic:assets:list", (_event, topicId: unknown) => listTopicAssets(topicId));
+  ipcMain.handle("content-v2:topic:asset:read", async (_event, topicId: unknown, filename: unknown) => {
+    if (typeof filename !== "string" || path.basename(filename) !== filename)
+      throw new Error("Invalid asset selection.");
+    const directory = await topicAssetsDirectory(topicId);
+    const asset = (await listTopicAssets(topicId)).find((item) => item.filename === filename);
+    if (!asset) throw new Error("The selected asset was not found.");
+    return `data:${asset.mimeType};base64,${(await fs.readFile(path.join(directory, filename))).toString("base64")}`;
+  });
+  ipcMain.handle("content-v2:topic:assets:import", async (_event, topicId: unknown) => {
+    const directory = await topicAssetsDirectory(topicId);
+    const selection = await dialog.showOpenDialog(mainWindow!, {
+      title: "Import shared topic assets",
+      properties: ["openFile", "multiSelections"],
+      filters: [{ name: "Images", extensions: ["avif", "gif", "jpeg", "jpg", "png", "svg", "webp"] }],
+    });
+    if (selection.canceled) return listTopicAssets(topicId);
+    const existing = new Set((await listTopicAssets(topicId)).map((item) => item.filename));
+    const duplicates = selection.filePaths.map((file) => path.basename(file)).filter((name) => existing.has(name));
+    if (duplicates.length) throw new Error(`Already exists: ${duplicates.join(", ")}`);
+    await Promise.all(selection.filePaths.map((file) => fs.copyFile(file, path.join(directory, path.basename(file)))));
+    return listTopicAssets(topicId);
+  });
+  ipcMain.handle("content-v2:topic:asset:trash", async (_event, topicId: unknown, filename: unknown) => {
+    if (typeof filename !== "string" || path.basename(filename) !== filename)
+      throw new Error("Invalid asset selection.");
+    const dictionary = await loadContentV2TopicDictionary(await repositoryRoot(), String(topicId));
+    if (JSON.stringify(dictionary).includes(`asset:${filename}`))
+      throw new Error("This asset is still referenced by the shared dictionary.");
+    const root = await repositoryRoot();
+    const referencingQuestion = (await Promise.all(
+      requireSnapshot().contentV2.questions
+        .filter((question) => question.topicId === topicId)
+        .map((question) => loadContentV2Question(root, question.topicId, question.quizId, question.id)),
+    )).some((question) => JSON.stringify(question).includes(`asset:${filename}`));
+    if (referencingQuestion)
+      throw new Error("This asset is still referenced by a quiz question.");
+    await shell.trashItem(path.join(await topicAssetsDirectory(topicId), filename));
+    return listTopicAssets(topicId);
+  });
+  ipcMain.handle("content-v2:topic:assets:show", async (_event, topicId: unknown) => {
+    await shell.openPath(await topicAssetsDirectory(topicId));
+  });
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) => {
     const root = await repositoryRoot();
     const saved = await saveContentV2Topic(root, value);

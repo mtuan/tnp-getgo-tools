@@ -21,9 +21,9 @@ import {
 
 const alphabetTopic = {
   schemaVersion: 2 as const,
-  id: "alphabet",
-  type: "alphabet-learning" as const,
-  title: "Alphabet",
+  id: "kid-learning",
+  type: "kid-learning" as const,
+  title: "Kids Learning",
   description: "",
   status: "reviewed" as const,
   order: 0,
@@ -34,14 +34,13 @@ const alphabetTopic = {
 const alphabetQuiz = {
   schemaVersion: 2 as const,
   id: "english-alphabet",
-  topicId: "alphabet",
-  type: "alphabet-course" as const,
+  topicId: "kid-learning",
+  type: "alphabet" as const,
   title: "English alphabet",
   description: "",
   status: "reviewed" as const,
   order: 0,
   language: "en" as const,
-  dictionary: "resources/dictionary.json",
 };
 
 test("stores content-v2 publish state separately for each Firebase project", async () => {
@@ -67,14 +66,17 @@ test("stores content-v2 publish state separately for each Firebase project", asy
 
 test("v2 type registry rejects incompatible parent and child types", () => {
   assert.doesNotThrow(() =>
-    assertContentV2Relationship("alphabet-learning", "alphabet-course", "quiz"),
+    assertContentV2Relationship("kid-learning", "alphabet", "quiz"),
+  );
+  assert.doesNotThrow(() =>
+    assertContentV2Relationship("kid-learning", "spelling", "quiz"),
   );
   assert.throws(() =>
-    assertContentV2Relationship("competition", "alphabet-course", "quiz"),
+    assertContentV2Relationship("competition", "alphabet", "quiz"),
   );
   assert.throws(() =>
     assertContentV2Relationship(
-      "alphabet-course",
+      "alphabet",
       "competition-question",
       "question",
     ),

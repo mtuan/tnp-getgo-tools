@@ -15,6 +15,8 @@ export const quizTypes = [
   "question-list",
   "alphabet-english",
   "alphabet-vietnamese",
+  "spelling-english",
+  "spelling-vietnamese",
 ] as const;
 export type QuizType = (typeof quizTypes)[number];
 
@@ -85,7 +87,7 @@ export interface RepositorySnapshot {
 
 export interface ContentV2TopicSummary {
   id: string;
-  type: "competition" | "alphabet-learning";
+  type: "competition" | "kid-learning";
   title: string;
   description: string;
   status: "draft" | "pending" | "reviewed" | "rejected";
@@ -106,7 +108,7 @@ export interface ContentV2QuizSummary {
   key: string;
   topicId: string;
   id: string;
-  type: "competition-paper" | "alphabet-course";
+  type: "competition-paper" | "alphabet" | "spelling";
   title: string;
   description: string;
   status: "draft" | "pending" | "reviewed" | "rejected";
@@ -232,7 +234,16 @@ export interface ContestQuizQuestionRecord extends QuestionRecordBase {
 
 export interface AlphabetSample {
   text: string;
+  aliases?: Array<{
+    text: string;
+    classifier?: string;
+    spelling?: string;
+    pronunciation?: string;
+    meaning?: string;
+  }>;
   classifier?: string;
+  spelling?: string;
+  pronunciation?: string;
   meaning?: string;
   image?: string;
   minimumAge: number;
@@ -241,6 +252,25 @@ export interface AlphabetSample {
 export interface AlphabetDictionary {
   schemaVersion: 1;
   words: AlphabetSample[];
+}
+
+export interface KidLearningDictionaryEntry {
+  id: string;
+  image?: string;
+  audio?: string;
+  minimumAge: number;
+  translations: Partial<Record<"en" | "vi", Omit<AlphabetSample, "image" | "minimumAge">>>;
+}
+
+export interface KidLearningDictionary {
+  schemaVersion: 2;
+  entries: KidLearningDictionaryEntry[];
+}
+
+export interface ContentV2TopicAssetSummary {
+  filename: string;
+  size: number;
+  mimeType: string;
 }
 
 export interface AlphabetQuestionContent {
@@ -541,6 +571,16 @@ export interface DesktopApi {
     quizId: string,
     dictionary: AlphabetDictionary,
   ): Promise<RepositorySnapshot>;
+  loadContentV2TopicDictionary(topicId: string): Promise<KidLearningDictionary>;
+  saveContentV2TopicDictionary(
+    topicId: string,
+    dictionary: KidLearningDictionary,
+  ): Promise<RepositorySnapshot>;
+  listContentV2TopicAssets(topicId: string): Promise<ContentV2TopicAssetSummary[]>;
+  readContentV2TopicAsset(topicId: string, filename: string): Promise<string>;
+  importContentV2TopicAssets(topicId: string): Promise<ContentV2TopicAssetSummary[]>;
+  trashContentV2TopicAsset(topicId: string, filename: string): Promise<ContentV2TopicAssetSummary[]>;
+  showContentV2TopicAssetsFolder(topicId: string): Promise<void>;
   saveContentV2Topic(topic: ContentV2Topic): Promise<RepositorySnapshot>;
   saveContentV2Quiz(
     topicId: string,

@@ -22,7 +22,10 @@ import type {
   ScanIssue,
 } from "../core/models.js";
 import type { ContentV2QuizPublishState } from "../core/content-v2-publish-state.js";
-import { parseAlphabetDictionary } from "./alphabet-dictionary.js";
+import {
+  parseAlphabetDictionary,
+  parseKidLearningDictionary,
+} from "./alphabet-dictionary.js";
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
@@ -37,6 +40,18 @@ const cachedQuizHashInputs = new Map<string, CachedQuizHashInput>();
 
 function quizCacheKey(repositoryPath: string, topicId: string, quizId: string) {
   return `${path.resolve(repositoryPath)}\0${topicId}\0${quizId}`;
+}
+
+function sharedDictionaryPath(
+  repositoryPath: string,
+  topicId: string,
+) {
+  return path.join(
+    contentRoot(repositoryPath),
+    validateId(topicId, "Topic ID"),
+    "resources",
+    "dictionary.json",
+  );
 }
 
 function hashCachedQuiz(input: CachedQuizHashInput): string {
@@ -262,37 +277,20 @@ export async function scanContentV2Repository(
       );
       questions.push(...quizQuestions.map((item) => item.summary));
       let resources: Record<string, unknown> = {};
-      if (quiz.type === "alphabet-course") {
-        const dictionaryPath = path.resolve(
-          path.dirname(quizFile),
-          quiz.dictionary,
+      if (quiz.type === "alphabet" || quiz.type === "spelling") {
+        const dictionaryPath = sharedDictionaryPath(
+          repositoryPath,
+          topic.id,
         );
-        const relativeDictionary = path.relative(
-          path.dirname(quizFile),
-          dictionaryPath,
-        );
-        if (
-          relativeDictionary.startsWith("..") ||
-          path.isAbsolute(relativeDictionary)
-        ) {
+        try {
+          resources = {
+            dictionary: parseKidLearningDictionary(await readJson(dictionaryPath)),
+          };
+        } catch (cause) {
           issues.push({
             path: path.relative(repositoryPath, dictionaryPath),
-            message: "Dictionary is outside the quiz folder.",
+            message: cause instanceof Error ? cause.message : String(cause),
           });
-        } else {
-          try {
-            resources = {
-              dictionary: (await readJson(dictionaryPath)) as Record<
-                string,
-                unknown
-              >,
-            };
-          } catch (cause) {
-            issues.push({
-              path: path.relative(repositoryPath, dictionaryPath),
-              message: cause instanceof Error ? cause.message : String(cause),
-            });
-          }
         }
       }
       let assetHashes: Array<{ reference: string; contentHash: string }> = [];
@@ -491,20 +489,34 @@ export async function loadContentV2QuizResources(
   topicId: string,
   quiz: ContentV2Quiz,
 ): Promise<Record<string, unknown>> {
-  if (quiz.type !== "alphabet-course") return {};
-  const quizDirectory = path.join(
-    contentRoot(repositoryPath),
-    validateId(topicId, "Topic ID"),
-    "quizzes",
-    validateId(quiz.id, "Quiz ID"),
-  );
-  const dictionaryPath = path.resolve(quizDirectory, quiz.dictionary);
-  const relative = path.relative(quizDirectory, dictionaryPath);
-  if (relative.startsWith("..") || path.isAbsolute(relative))
-    throw new Error("Dictionary is outside the quiz folder.");
+  if (quiz.type !== "alphabet" && quiz.type !== "spelling") return {};
+  const dictionaryPath = sharedDictionaryPath(repositoryPath, topicId);
   return {
-    dictionary: (await readJson(dictionaryPath)) as Record<string, unknown>,
+    dictionary: parseKidLearningDictionary(await readJson(dictionaryPath)),
   };
+}
+
+export async function loadContentV2TopicDictionary(
+  repositoryPath: string,
+  topicId: string,
+) {
+  return parseKidLearningDictionary(
+    await readJson(sharedDictionaryPath(repositoryPath, topicId)),
+  );
+}
+
+export async function saveContentV2TopicDictionary(
+  repositoryPath: string,
+  topicId: string,
+  value: unknown,
+) {
+  const dictionary = parseKidLearningDictionary(value);
+  await writeJson(sharedDictionaryPath(repositoryPath, topicId), dictionary);
+  for (const cached of cachedQuizHashInputs.values()) {
+    if (cached.quiz.topicId === topicId && (cached.quiz.type === "alphabet" || cached.quiz.type === "spelling"))
+      cached.resources = { ...cached.resources, dictionary };
+  }
+  return dictionary;
 }
 
 export async function saveContentV2QuizDictionary(
@@ -513,24 +525,44 @@ export async function saveContentV2QuizDictionary(
   quiz: ContentV2Quiz,
   value: unknown,
 ) {
-  if (quiz.type !== "alphabet-course")
-    throw new Error("Only alphabet quizzes have dictionaries.");
+  if (quiz.type !== "alphabet" && quiz.type !== "spelling")
+    throw new Error("Only alphabet and spelling quizzes have dictionaries.");
   const dictionary = parseAlphabetDictionary(value);
-  const quizDirectory = path.join(
-    contentRoot(repositoryPath),
-    validateId(topicId, "Topic ID"),
-    "quizzes",
-    validateId(quiz.id, "Quiz ID"),
+  const dictionaryPath = sharedDictionaryPath(repositoryPath, topicId);
+  const shared = parseKidLearningDictionary(await readJson(dictionaryPath));
+  const available = new Set(shared.entries.map((entry) => entry.id));
+  const claimed = new Set<string>();
+  const normalized = (text: string) => text.trim().toLocaleLowerCase(quiz.language);
+  const translations = new Map(
+    shared.entries.flatMap((entry) => {
+      const translation = entry.translations[quiz.language];
+      return translation ? [[normalized(translation.text), entry] as const] : [];
+    }),
   );
-  const dictionaryPath = path.resolve(quizDirectory, quiz.dictionary);
-  const relative = path.relative(quizDirectory, dictionaryPath);
-  if (relative.startsWith("..") || path.isAbsolute(relative))
-    throw new Error("Dictionary is outside the quiz folder.");
-  await writeJson(dictionaryPath, dictionary);
-  const cached = cachedQuizHashInputs.get(
-    quizCacheKey(repositoryPath, topicId, quiz.id),
-  );
-  if (cached) cached.resources = { ...cached.resources, dictionary };
+  for (const entry of shared.entries) delete entry.translations[quiz.language];
+  for (const word of dictionary.words) {
+    const existing = translations.get(normalized(word.text))
+      ?? shared.entries.find((entry) => !claimed.has(entry.id) && entry.image && entry.image === word.image);
+    const base = normalized(word.text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "word";
+    let id = existing?.id ?? base;
+    for (let suffix = 2; available.has(id) && !existing; suffix += 1) id = `${base}-${suffix}`;
+    const target = existing ?? { id, minimumAge: word.minimumAge, translations: {} };
+    if (!existing) {
+      available.add(id);
+      shared.entries.push(target);
+    }
+    claimed.add(target.id);
+    target.minimumAge = word.minimumAge;
+    if (word.image) target.image = word.image;
+    const { image: _image, minimumAge: _minimumAge, ...localizedWord } = word;
+    target.translations[quiz.language] = localizedWord;
+  }
+  shared.entries = shared.entries.filter((entry) => Object.keys(entry.translations).length > 0);
+  await writeJson(dictionaryPath, shared);
+  for (const cached of cachedQuizHashInputs.values()) {
+    if (cached.quiz.topicId === topicId && (cached.quiz.type === "alphabet" || cached.quiz.type === "spelling"))
+      cached.resources = { ...cached.resources, dictionary: shared };
+  }
   return dictionary;
 }
 
@@ -648,26 +680,23 @@ export async function saveContentV2Quiz(
       quiz,
       questions: new Map(),
       resources:
-        quiz.type === "alphabet-course"
-          ? { dictionary: { schemaVersion: 1, words: [] } }
+        quiz.type === "alphabet" || quiz.type === "spelling"
+          ? { dictionary: { schemaVersion: 2, entries: [] } }
           : {},
       assets: [],
     });
-  if (quiz.type === "alphabet-course") {
-    const dictionaryPath = path.resolve(
-      path.dirname(filePath),
-      quiz.dictionary,
+  if (quiz.type === "alphabet" || quiz.type === "spelling") {
+    const dictionaryPath = sharedDictionaryPath(
+      repositoryPath,
+      topic.id,
     );
-    const relative = path.relative(path.dirname(filePath), dictionaryPath);
-    if (relative.startsWith("..") || path.isAbsolute(relative))
-      throw new Error("Dictionary is outside the quiz folder.");
     if (
       !(await fs
         .access(dictionaryPath)
         .then(() => true)
         .catch(() => false))
     )
-      await writeJson(dictionaryPath, { schemaVersion: 1, words: [] });
+      await writeJson(dictionaryPath, { schemaVersion: 2, entries: [] });
   }
   return quiz;
 }

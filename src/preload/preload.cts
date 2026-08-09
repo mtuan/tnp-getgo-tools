@@ -28,6 +28,20 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:quiz:resources", topicId, quizId),
   saveContentV2QuizDictionary: (topicId, quizId, dictionary) =>
     ipcRenderer.invoke("content-v2:quiz:dictionary:save", topicId, quizId, dictionary),
+  loadContentV2TopicDictionary: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:dictionary:load", topicId),
+  saveContentV2TopicDictionary: (topicId, dictionary) =>
+    ipcRenderer.invoke("content-v2:topic:dictionary:save", topicId, dictionary),
+  listContentV2TopicAssets: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:assets:list", topicId),
+  readContentV2TopicAsset: (topicId, filename) =>
+    ipcRenderer.invoke("content-v2:topic:asset:read", topicId, filename),
+  importContentV2TopicAssets: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:assets:import", topicId),
+  trashContentV2TopicAsset: (topicId, filename) =>
+    ipcRenderer.invoke("content-v2:topic:asset:trash", topicId, filename),
+  showContentV2TopicAssetsFolder: (topicId) =>
+    ipcRenderer.invoke("content-v2:topic:assets:show", topicId),
   saveContentV2Topic: (topic) =>
     ipcRenderer.invoke("content-v2:topic:save", topic),
   saveContentV2Quiz: (topicId, quiz) =>

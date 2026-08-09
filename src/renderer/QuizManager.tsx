@@ -21,6 +21,7 @@ import type {
   AiMigrationJob,
   AppSettings,
   AlphabetDictionary,
+  KidLearningDictionary,
   ContestQuizQuestionRecord,
   ContestSummary,
   QuizAiMigrationJob,
@@ -68,7 +69,8 @@ import {
   AlphabetLetterEditor,
   type AlphabetEditorTab,
 } from "./AlphabetLetterEditor";
-import { AlphabetDictionaryEditor } from "./AlphabetDictionaryEditor";
+import { KidLearningDictionaryEditor } from "./KidLearningDictionaryEditor";
+import { TopicAssetsEditor } from "./TopicAssetsEditor";
 
 interface QuizManagerProps {
   locale: AppSettings["locale"];
@@ -118,7 +120,7 @@ type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
 type QuizDetailTab = "questions" | "alphabets" | "dictionary" | "publish" | "info";
-type ContestDetailTab = "info" | "quizzes" | "publish";
+type ContestDetailTab = "info" | "quizzes" | "dictionaries" | "assets" | "publish";
 
 interface QuestionListItem {
   number: string;
@@ -251,7 +253,7 @@ function restoredPage(
         : "info";
   const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
-    requestedQuizTab === "info" || requestedQuizTab === "publish" || requestedQuizTab === "dictionary"
+    requestedQuizTab === "info" || requestedQuizTab === "publish"
       ? requestedQuizTab
       : "questions";
   const contest = snapshot.contests.find(
@@ -284,8 +286,12 @@ function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (quizTab !== "info" && quizTab !== "publish" && quizTab !== "dictionary")
-    quizTab = quiz.type === "question-list" ? "questions" : "alphabets";
+  if (quizTab !== "info" && quizTab !== "publish")
+    quizTab = quiz.type === "question-list"
+      ? "questions"
+      : quiz.type.startsWith("spelling")
+        ? "info"
+        : "alphabets";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo
     ? snapshot.contentV2.questions.find(
@@ -348,7 +354,10 @@ export function QuizManager({
   );
   const [contestTab, setContestTab] = useState<ContestDetailTab>(() => {
     if (routeMode !== "topics" || !initialRoute) return "quizzes";
-    try { return new URL(initialRoute, "app://getgo").searchParams.get("tab") === "publish" ? "publish" : "quizzes"; }
+    try {
+      const tab = new URL(initialRoute, "app://getgo").searchParams.get("tab");
+      return tab === "publish" || tab === "info" || tab === "dictionaries" || tab === "assets" ? tab : "quizzes";
+    }
     catch { return "quizzes"; }
   });
   const [quizTab, setQuizTab] = useState<QuizDetailTab>(restored.quizTab);
@@ -358,6 +367,8 @@ export function QuizManager({
   );
   const [alphabetDictionary, setAlphabetDictionary] =
     useState<AlphabetDictionary>({ schemaVersion: 1, words: [] });
+  const [topicDictionary, setTopicDictionary] = useState<KidLearningDictionary>({ schemaVersion: 2, entries: [] });
+  const [topicResourceError, setTopicResourceError] = useState<string | null>(null);
   const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [previewQuestion, setPreviewQuestion] =
     useState<ContestQuizQuestionRecord | null>(null);
@@ -628,8 +639,7 @@ export function QuizManager({
     setSourceError(null);
     Promise.all([
       managerApi.loadQuizQuestions(page.quiz.manifestPath),
-      page.quiz.type === "alphabet-english" ||
-      page.quiz.type === "alphabet-vietnamese"
+      page.quiz.type !== "question-list"
         ? managerApi.loadAlphabetDictionary(page.quiz.manifestPath)
         : Promise.resolve<AlphabetDictionary>({ schemaVersion: 1, words: [] }),
     ])
@@ -661,6 +671,18 @@ export function QuizManager({
       active = false;
     };
   }, [page]);
+
+  useEffect(() => {
+    if (page.kind !== "contest" || contestTab !== "dictionaries") return;
+    const topic = snapshot.contentV2.topics.find((item) => item.id === page.contest);
+    if (topic?.type !== "kid-learning") return;
+    let active = true;
+    setTopicResourceError(null);
+    void window.getgo.loadContentV2TopicDictionary(topic.id)
+      .then((dictionary) => { if (active) setTopicDictionary(dictionary); })
+      .catch((cause) => { if (active) setTopicResourceError(cause instanceof Error ? cause.message : String(cause)); });
+    return () => { active = false; };
+  }, [contestTab, page, snapshot.contentV2.topics]);
 
   const backToQuestions = useCallback(() => {
     setSelectedQuestion(null);
@@ -1785,19 +1807,14 @@ export function QuizManager({
                   label: "Questions",
                   badge: questions.length || quiz.questionCount || 0,
                 }
-              : {
+              : quiz.type.startsWith("alphabet") ? {
                   id: "alphabets" as const,
                   label: "Alphabets",
                   badge: questions.length || quiz.questionCount || 0,
-                },
-            { id: "info", label: "Info" },
-            ...(quiz.type === "question-list" ? [] : [{
-              id: "dictionary" as const,
-              label: (locale === "vi" ? vi : en).alphabetDictionary.tab,
-              badge: alphabetDictionary.words.length,
-            }]),
-            { id: "publish", label: quizPublishCopy.tab },
-          ]}
+                } : null,
+            { id: "info" as const, label: "Info" },
+            { id: "publish" as const, label: quizPublishCopy.tab },
+          ].filter((item): item is Exclude<typeof item, null> => Boolean(item))}
         />
         {quizTab === "info" && quizContest && (
           <QuizCrudDialog
@@ -1829,25 +1846,6 @@ export function QuizManager({
         )}
         {quizTab === "publish" && (
           <QuizPublishPanel quiz={quiz} locale={locale} />
-        )}
-        {quizTab === "dictionary" && quiz.type !== "question-list" && (
-          <AlphabetDictionaryEditor
-            dictionary={alphabetDictionary}
-            locale={locale}
-            quizType={quiz.type}
-            onSave={async (dictionary) => {
-              const saved = await managerApi.saveAlphabetDictionary(
-                quiz.manifestPath,
-                dictionary,
-              );
-              setAlphabetDictionary(saved);
-              const copy = (locale === "vi" ? vi : en).alphabetDictionary;
-              toast.show({
-                title: copy.saved,
-                description: copy.savedDescription,
-              });
-            }}
-          />
         )}
         {quizTab === "questions" && (
           <>
@@ -2086,6 +2084,10 @@ export function QuizManager({
               badge: selectedContest?.quizzes.length ?? 0,
             },
             { id: "info", label: "Info" },
+            ...(topicMode && selectedTopic?.type === "kid-learning" ? [
+              { id: "dictionaries" as const, label: "Dictionaries", badge: topicDictionary.entries.length },
+              { id: "assets" as const, label: "Assets" },
+            ] : []),
             ...(topicMode ? [{ id: "publish" as const, label: quizPublishCopy.tab }] : []),
           ]}
         />
@@ -2110,6 +2112,24 @@ export function QuizManager({
       )}
       {topicMode && isContest && contestTab === "publish" && selectedTopic && (
         <TopicPublishPanel topic={selectedTopic} locale={locale} />
+      )}
+      {topicMode && isContest && contestTab === "dictionaries" && selectedTopic?.type === "kid-learning" && (
+        <>
+          {topicResourceError && <div className="error-banner"><strong>Could not load shared dictionary</strong><span>{topicResourceError}</span></div>}
+          <KidLearningDictionaryEditor
+            topicId={selectedTopic.id}
+            dictionary={topicDictionary}
+            onSave={async (dictionary) => {
+              const next = await window.getgo.saveContentV2TopicDictionary(selectedTopic.id, dictionary);
+              setTopicDictionary(dictionary);
+              onSnapshotChange(next);
+              toast.show({ title: "Shared dictionary saved", description: "Alphabet and spelling quizzes now use the updated concepts." });
+            }}
+          />
+        </>
+      )}
+      {topicMode && isContest && contestTab === "assets" && selectedTopic?.type === "kid-learning" && (
+        <TopicAssetsEditor topicId={selectedTopic.id} />
       )}
       {(!isContest || contestTab === "quizzes") && (
         <>

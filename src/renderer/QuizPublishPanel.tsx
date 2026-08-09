@@ -81,10 +81,10 @@ export function QuizPublishPanel({ quiz, locale }: Props) {
     ? `/getgo-content-v2/catalog/topics/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}`
     : `/getgo-contests/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}`;
   const publishStructure = isContentV2
-    ? quiz.type === "alphabet-english" || quiz.type === "alphabet-vietnamese"
+    ? quiz.type !== "question-list"
       ? `${publishPath}
-  { schemaVersion, id, type: "alphabet-course", topicId, title,
-    description, order, language, dictionary, contentHash, publishedAt }
+  { schemaVersion, id, type: "alphabet", topicId, title,
+    description, order, language, contentHash, publishedAt }
 
 ${publishPath}/questions/{questionId}
   { schemaVersion, id, type: "alphabet-letter", order,

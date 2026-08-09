@@ -138,8 +138,11 @@ export function createContentV2QuizPublishPreview(
       })),
       resourceDocuments: Object.entries(resources).map(([id, data]) => ({
         operation: "upsert",
-        path: `${quizPath}/resources/${encodeURIComponent(id)}`,
-        data: { id, data },
+        path: `${contentV2TopicPath(topicId)}/resources/${encodeURIComponent(id)}`,
+        data: {
+          id,
+          data,
+        },
       })),
       cleanup: [
         `${quizPath}/questions/* not present in questionDocuments`,
@@ -154,7 +157,7 @@ export function createContentV2QuizPublishPreview(
           operation: "upload",
           reference: asset.reference,
           localSourcePath: asset.sourcePath,
-          destinationPath: `getgo-content-v2/topics/${topicId}/quizzes/${quiz.id}/assets/${reference.replaceAll("\\", "/")}`,
+          destinationPath: `getgo-content-v2/topics/${topicId}/assets/${reference.replaceAll("\\", "/")}`,
           contentHash: asset.contentHash,
           mimeType: asset.mimeType,
         };

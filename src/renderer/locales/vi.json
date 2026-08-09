@@ -45,9 +45,10 @@
     },
     "typeNames": {
       "competition": "Cuộc thi",
-      "alphabet-learning": "Học bảng chữ cái",
+      "kid-learning": "Học tập cho trẻ em",
       "competition-paper": "Đề thi",
-      "alphabet-course": "Khóa bảng chữ cái",
+      "alphabet": "Bảng chữ cái",
+      "spelling": "Đánh vần",
       "competition-question": "Câu hỏi cuộc thi",
       "alphabet-letter": "Chữ cái"
     },
@@ -86,8 +87,8 @@
   },
   "alphabetDictionary": {
     "tab": "Từ điển",
-    "title": "Từ điển bài học",
-    "description": "Chỉnh sửa các từ dùng chung cho mọi chữ cái trong bài học này.",
+    "title": "Từ điển học tập trẻ em dùng chung",
+    "description": "Chỉnh sửa ngôn ngữ của bài này trong từ điển đa ngôn ngữ dùng chung cho bảng chữ cái và đánh vần.",
     "text": "Từ",
     "classifier": "Danh từ chỉ loại",
     "meaning": "Nghĩa đơn giản",
@@ -97,7 +98,7 @@
     "empty": "Chưa có từ nào trong từ điển.",
     "save": "Lưu từ điển",
     "saved": "Đã lưu từ điển",
-    "savedDescription": "Tệp từ điển của bài học đã được cập nhật.",
+    "savedDescription": "Từ điển đa ngôn ngữ dùng chung đã được cập nhật.",
     "saveError": "Không thể lưu từ điển"
   },
   "speechSettings": {

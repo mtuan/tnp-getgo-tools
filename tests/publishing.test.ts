@@ -15,20 +15,19 @@ import {
   diffContentV2PublishedItems,
 } from "../src/core/content-v2-publish-state.js";
 
-test("content v2 assets publish directly to quiz-scoped Storage paths", () => {
+test("content v2 assets publish to shared topic Storage paths", () => {
   const preview = createContentV2QuizPublishPreview(
-    "alphabet",
+    "kid-learning",
     {
       schemaVersion: 2,
       id: "english-alphabet",
-      topicId: "alphabet",
-      type: "alphabet-course",
+      topicId: "kid-learning",
+      type: "alphabet",
       title: "English Alphabet",
       description: "",
       status: "reviewed",
       order: 0,
       language: "en",
-      dictionary: "resources/dictionary.json",
     },
     [],
     {},
@@ -46,7 +45,7 @@ test("content v2 assets publish directly to quiz-scoped Storage paths", () => {
 
   assert.equal(
     preview.firebaseStorage.uploads[0]?.destinationPath,
-    "getgo-content-v2/topics/alphabet/quizzes/english-alphabet/assets/book.png",
+    "getgo-content-v2/topics/kid-learning/assets/book.png",
   );
   assert.equal(
     preview.firebaseStorage.uploads[0]?.localSourcePath,
@@ -68,7 +67,7 @@ test("content v2 assets publish directly to quiz-scoped Storage paths", () => {
   assert.deepEqual(removed, [
     {
       kind: "storage-object",
-      path: "getgo-content-v2/topics/alphabet/quizzes/english-alphabet/assets/book.png",
+      path: "getgo-content-v2/topics/kid-learning/assets/book.png",
       hash: "a".repeat(64),
     },
   ]);

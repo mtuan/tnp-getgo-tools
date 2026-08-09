@@ -15,7 +15,7 @@ import { Panel } from "./ui/Panel";
 interface Props {
   dictionary: AlphabetDictionary;
   locale: AppSettings["locale"];
-  quizType: Extract<QuizType, "alphabet-english" | "alphabet-vietnamese">;
+  quizType: Exclude<QuizType, "question-list">;
   onSave(dictionary: AlphabetDictionary): Promise<void>;
 }
 
@@ -46,7 +46,7 @@ export function AlphabetDictionaryEditor({
         width: "18%",
         field: { name: "text", label: copy.text, type: "text", required: true },
       },
-      ...(quizType === "alphabet-vietnamese"
+      ...(quizType.endsWith("vietnamese")
         ? [{
             key: "classifier",
             dataKey: "classifier" as const,

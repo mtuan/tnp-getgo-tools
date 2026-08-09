@@ -43,9 +43,9 @@ export const competitionTopicSchema = z.object({
     .default([]),
 });
 
-export const alphabetLearningTopicSchema = z.object({
+export const kidLearningTopicSchema = z.object({
   ...baseRecord,
-  type: z.literal("alphabet-learning"),
+  type: z.literal("kid-learning"),
   supportedLanguages: z.array(z.enum(["en", "vi"])).min(1),
   recommendedAgeRange: z
     .object({
@@ -60,7 +60,7 @@ export const alphabetLearningTopicSchema = z.object({
 
 export const contentV2TopicSchema = z.discriminatedUnion("type", [
   competitionTopicSchema,
-  alphabetLearningTopicSchema,
+  kidLearningTopicSchema,
 ]);
 export type ContentV2Topic = z.infer<typeof contentV2TopicSchema>;
 export type ContentV2TopicType = ContentV2Topic["type"];
@@ -78,16 +78,22 @@ export const competitionPaperQuizSchema = z.object({
   year: z.string().min(1),
 });
 
-export const alphabetCourseQuizSchema = z.object({
+export const alphabetQuizSchema = z.object({
   ...baseQuiz,
-  type: z.literal("alphabet-course"),
+  type: z.literal("alphabet"),
   language: z.enum(["en", "vi"]),
-  dictionary: z.string().default("resources/dictionary.json"),
+});
+
+export const spellingQuizSchema = z.object({
+  ...baseQuiz,
+  type: z.literal("spelling"),
+  language: z.enum(["en", "vi"]),
 });
 
 export const contentV2QuizSchema = z.discriminatedUnion("type", [
   competitionPaperQuizSchema,
-  alphabetCourseQuizSchema,
+  alphabetQuizSchema,
+  spellingQuizSchema,
 ]);
 export type ContentV2Quiz = z.infer<typeof contentV2QuizSchema>;
 export type ContentV2QuizType = ContentV2Quiz["type"];
@@ -167,7 +173,7 @@ export interface ContentTypeDefinition {
 export const contentV2Registry = {
   topics: {
     competition: { type: "competition", schemaVersion: 2 },
-    "alphabet-learning": { type: "alphabet-learning", schemaVersion: 2 },
+    "kid-learning": { type: "kid-learning", schemaVersion: 2 },
   },
   quizzes: {
     "competition-paper": {
@@ -175,10 +181,15 @@ export const contentV2Registry = {
       schemaVersion: 2,
       allowedParentTypes: ["competition"],
     },
-    "alphabet-course": {
-      type: "alphabet-course",
+    alphabet: {
+      type: "alphabet",
       schemaVersion: 2,
-      allowedParentTypes: ["alphabet-learning"],
+      allowedParentTypes: ["kid-learning"],
+    },
+    spelling: {
+      type: "spelling",
+      schemaVersion: 2,
+      allowedParentTypes: ["kid-learning"],
     },
   },
   questions: {
@@ -190,7 +201,7 @@ export const contentV2Registry = {
     "alphabet-letter": {
       type: "alphabet-letter",
       schemaVersion: 2,
-      allowedParentTypes: ["alphabet-course"],
+      allowedParentTypes: ["alphabet"],
     },
   },
 } as const satisfies Record<string, Record<string, ContentTypeDefinition>>;
