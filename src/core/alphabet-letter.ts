@@ -34,14 +34,14 @@ export function isAlphabetLetterCharacter(
     : candidate === normalizedLetter.toLocaleLowerCase("vi");
 }
 
-export function alphabetWordContainsLetter(
+export function alphabetWordStartsWithLetter(
   word: string,
   letter: string,
   language: "English" | "Vietnamese",
 ): boolean {
-  return Array.from(word).some((character) =>
-    isAlphabetLetterCharacter(character, letter, language),
-  );
+  const firstCharacter = Array.from(word.trim())[0];
+  return Boolean(firstCharacter) &&
+    isAlphabetLetterCharacter(firstCharacter, letter, language);
 }
 
 export function formatAlphabetWord(

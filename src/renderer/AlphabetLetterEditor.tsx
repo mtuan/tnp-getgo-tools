@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Settings, Volume2 } from "lucide-react";
 import { alphabetData } from "../core/alphabet-question";
 import {
-  alphabetWordContainsLetter,
+  alphabetWordStartsWithLetter,
   formatAlphabetWord,
   isAlphabetLetterCharacter,
 } from "../core/alphabet-letter";
@@ -119,7 +119,7 @@ export function AlphabetLetterEditor({
   const activeSpeechSettings = speechSettings[wordLocale];
   const relatedWords = dictionaryWords
     .filter((word) =>
-      alphabetWordContainsLetter(word.text, alphabet.letter, language),
+      alphabetWordStartsWithLetter(word.text, alphabet.letter, language),
     )
     .sort(
       (left, right) =>

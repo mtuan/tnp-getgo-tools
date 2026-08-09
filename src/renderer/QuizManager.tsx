@@ -36,7 +36,7 @@ import type {
 } from "../core/models";
 import { questionHasDynamicParams } from "../core/question-dynamics";
 import { alphabetData } from "../core/alphabet-question";
-import { alphabetWordContainsLetter } from "../core/alphabet-letter";
+import { alphabetWordStartsWithLetter } from "../core/alphabet-letter";
 import { questionContainsImages } from "../core/question-images";
 import { isCurrentQuestionDraftChange } from "../core/question-draft";
 import {
@@ -1097,7 +1097,7 @@ export function QuizManager({
           const language =
             quiz.type === "alphabet-vietnamese" ? "Vietnamese" : "English";
           return alphabetDictionary.words.filter((word) =>
-            alphabetWordContainsLetter(word.text, letter, language),
+            alphabetWordStartsWithLetter(word.text, letter, language),
           ).length;
         },
       },

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  alphabetWordContainsLetter,
+  alphabetWordStartsWithLetter,
   formatAlphabetWord,
   isAlphabetLetterCharacter,
 } from "../src/core/alphabet-letter.js";
@@ -12,10 +12,12 @@ test("matches English alphabet letters without case sensitivity", () => {
   assert.equal(isAlphabetLetterCharacter("Đ", "D", "English"), false);
 });
 
-test("filters dictionary words containing the active letter", () => {
-  assert.equal(alphabetWordContainsLetter("banana", "A", "English"), true);
-  assert.equal(alphabetWordContainsLetter("quả táo", "A", "Vietnamese"), true);
-  assert.equal(alphabetWordContainsLetter("dâu tây", "Ă", "Vietnamese"), false);
+test("filters dictionary words starting with the active letter", () => {
+  assert.equal(alphabetWordStartsWithLetter("Apple", "A", "English"), true);
+  assert.equal(alphabetWordStartsWithLetter("banana", "A", "English"), false);
+  assert.equal(alphabetWordStartsWithLetter("áo", "A", "Vietnamese"), true);
+  assert.equal(alphabetWordStartsWithLetter("táo", "A", "Vietnamese"), false);
+  assert.equal(alphabetWordStartsWithLetter("dâu tây", "Ă", "Vietnamese"), false);
 });
 
 test("matches Vietnamese tone variants while preserving distinct letters", () => {
