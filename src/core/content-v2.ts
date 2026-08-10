@@ -71,6 +71,22 @@ const baseQuiz = {
   topicId: idSchema,
 };
 
+export const defaultQuizSpeechSettings = {
+  letterRate: 0.75,
+  spellingRate: 0.5,
+  wordRate: 0.65,
+  meaningRate: 1,
+  pauseMs: 500,
+} as const;
+
+const quizSpeechSettingsSchema = z.object({
+  letterRate: z.number().min(0.25).max(2).default(0.75),
+  spellingRate: z.number().min(0.25).max(2).default(0.5),
+  wordRate: z.number().min(0.25).max(2).default(0.65),
+  meaningRate: z.number().min(0.25).max(2).default(1),
+  pauseMs: z.number().int().min(0).max(3000).default(500),
+});
+
 export const competitionPaperQuizSchema = z.object({
   ...baseQuiz,
   type: z.literal("competition-paper"),
@@ -83,6 +99,7 @@ export const alphabetQuizSchema = z.object({
   ...baseQuiz,
   type: z.literal("alphabet"),
   language: z.enum(["en", "vi"]),
+  speech: quizSpeechSettingsSchema.default(defaultQuizSpeechSettings),
 });
 
 export const spellingQuizSchema = z.object({

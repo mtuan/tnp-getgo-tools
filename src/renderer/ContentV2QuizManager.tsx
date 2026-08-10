@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ContentV2Question, ContentV2Quiz, ContentV2Topic } from "../core/content-v2";
+import { defaultQuizSpeechSettings } from "../core/content-v2";
 import type {
   AlphabetDictionary,
   AppSettings,
@@ -356,7 +357,9 @@ export function ContentV2QuizManager(props: Props) {
         const topic = await window.getgo.loadContentV2Topic(topicId);
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
-          ? { schemaVersion: 2, id: input.id, topicId, type: input.type?.startsWith("spelling") ? "spelling" : "alphabet", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en" }
+          ? input.type?.startsWith("spelling")
+            ? { schemaVersion: 2, id: input.id, topicId, type: "spelling", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en" }
+            : { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en", speech: defaultQuizSpeechSettings }
           : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         return refresh(await window.getgo.saveContentV2Quiz(topicId, quiz));
       },
