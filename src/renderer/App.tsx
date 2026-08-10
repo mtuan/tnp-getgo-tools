@@ -17,6 +17,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   Library,
+  Images,
   LogIn,
   PanelLeftClose,
   PanelLeftOpen,
@@ -69,6 +70,9 @@ const JobsPage = lazy(() =>
 const DeploymentPage = lazy(() =>
   import("./DeploymentPage").then((module) => ({ default: module.DeploymentPage })),
 );
+const ImagePdfPage = lazy(() =>
+  import("./ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
+);
 
 type View =
   | "dashboard"
@@ -77,6 +81,7 @@ type View =
   | "jobs"
   | "deploy"
   | "publishing"
+  | "image-pdf"
   | "settings"
   | "not-found";
 type NavigableView = Exclude<View, "not-found">;
@@ -120,7 +125,7 @@ function viewFromRoute(
   } catch {
     pathname = route.split("?")[0];
   }
-  const staticView = ["dashboard", "jobs", "deploy", "publishing", "settings"].find(
+  const staticView = ["dashboard", "jobs", "deploy", "publishing", "image-pdf", "settings"].find(
     (value) => pathname === `/${value}`,
   );
   if (staticView) return staticView as NavigableView;
@@ -195,6 +200,7 @@ const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "publishing", label: "Publishing", icon: CloudUpload },
+  { id: "image-pdf", label: "Image to PDF", icon: Images },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 const environmentOptions: SelectOption[] = [
@@ -231,6 +237,7 @@ export function App() {
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const contentCopy = (settings.locale === "vi" ? vi : en).contentV2;
+  const imagePdfCopy = (settings.locale === "vi" ? vi : en).imagePdf;
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null);
   const updateSnapshot = useCallback(
     (next: RepositorySnapshot) =>
@@ -656,6 +663,8 @@ export function App() {
                 ? contentCopy.nav
                 : item.id === "quizzes"
                   ? contentCopy.legacyNav
+                  : item.id === "image-pdf"
+                    ? imagePdfCopy.nav
                   : item.label;
             return (
               <button
@@ -762,7 +771,7 @@ export function App() {
                 </Button>
               </section>
             )}
-            {!settings.repositoryPath && !loading && view !== "not-found" ? (
+            {!settings.repositoryPath && !loading && view !== "not-found" && view !== "image-pdf" ? (
               <section className="welcome">
                 <div className="welcome-mark">
                   <GetGoIcon size={56} />
@@ -907,6 +916,11 @@ export function App() {
                   repository={snapshot}
                   locale={settings.locale}
                 />
+              </Suspense>
+            )}
+            {view === "image-pdf" && (
+              <Suspense fallback={null}>
+                <ImagePdfPage locale={settings.locale} />
               </Suspense>
             )}
             {settings.repositoryPath && view === "settings" && (

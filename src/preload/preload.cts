@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   AppSettings,
   DesktopApi,
@@ -8,6 +8,10 @@ import type {
 
 const api: DesktopApi = {
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
+  browseImagePdfInputs: (mode) => ipcRenderer.invoke("utility:pdf:browse", mode),
+  loadImagePdfInputs: (paths) => ipcRenderer.invoke("utility:pdf:load-inputs", paths),
+  resolveDroppedFilePath: (file) => webUtils.getPathForFile(file),
+  saveGeneratedPdf: (data, suggestedName, defaultDirectory) => ipcRenderer.invoke("utility:pdf:save", data, suggestedName, defaultDirectory),
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,
   chooseRepository: () =>
     ipcRenderer.invoke(

@@ -7,5 +7,5 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, "title"> {
 }
 
 export function Panel({ title, description, meta, children, className = "", ...props }: PanelProps) {
-  return <section className={`panel ${className}`.trim()} {...props}>{(title || description || meta) && <header className="panel-heading"><div>{title && <h2>{title}</h2>}{description && <p>{description}</p>}</div>{meta && <span>{meta}</span>}</header>}{children}</section>
+  return <section className={`panel ${className}`.trim()} {...props}>{(title || description || meta) && <header className="panel-heading"><div>{title && <h2>{title}</h2>}{description && <p>{description}</p>}</div>{meta && <div className="panel-heading-meta">{meta}</div>}</header>}{children}</section>
 }

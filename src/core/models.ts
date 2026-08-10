@@ -558,12 +558,30 @@ export interface BackgroundJobsSnapshot {
   jobs: BackgroundJob[];
 }
 
+export interface ImagePdfInput {
+  path: string;
+  directory: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  data: ArrayBuffer;
+}
+
+export interface ImagePdfSelection {
+  images: ImagePdfInput[];
+  defaultDirectory: string | null;
+}
+
 export type DynamicQuestionProposal = GetGoDynamicQuestionProposal;
 export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult;
 export type DynamicQuestionFixResult = GetGoDynamicQuestionFixResult;
 
 export interface DesktopApi {
   restartApp(): Promise<void>;
+  browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
+  loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;
+  resolveDroppedFilePath(file: File): string;
+  saveGeneratedPdf(data: ArrayBuffer, suggestedName: string, defaultDirectory?: string | null): Promise<{ filePath: string } | null>;
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;

@@ -11,7 +11,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AppSettings, RepositorySnapshot } from "../core/models.js";
+import type { AppSettings, ImagePdfInput, ImagePdfSelection, RepositorySnapshot } from "../core/models.js";
 import {
   hashContentV2,
   sanitizeContentV2Question,
@@ -105,6 +105,47 @@ const appIconPath = app.isPackaged
   : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-app-icon.png");
 let mainWindow: BrowserWindow | null = null;
 let firebaseAuth: FirebaseAuthService | null = null;
+
+const imagePdfMimeTypes: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".bmp": "image/bmp",
+  ".svg": "image/svg+xml",
+};
+
+async function loadImagePdfSelection(inputPaths: string[]): Promise<ImagePdfSelection> {
+  if (!Array.isArray(inputPaths) || !inputPaths.length || inputPaths.some(value => typeof value !== "string" || !path.isAbsolute(value))) {
+    throw new Error("Select valid image files or folders.");
+  }
+  const files: string[] = [];
+  let selectedDirectory: string | null = null;
+  for (const inputPath of inputPaths) {
+    const stats = await fs.stat(inputPath);
+    if (stats.isDirectory()) {
+      selectedDirectory ??= inputPath;
+      const entries = await fs.readdir(inputPath, { withFileTypes: true });
+      files.push(...entries.filter(entry => entry.isFile() && imagePdfMimeTypes[path.extname(entry.name).toLowerCase()]).map(entry => path.join(inputPath, entry.name)));
+    } else if (stats.isFile() && imagePdfMimeTypes[path.extname(inputPath).toLowerCase()]) {
+      files.push(inputPath);
+    }
+  }
+  const uniqueFiles = [...new Set(files)];
+  const images: ImagePdfInput[] = await Promise.all(uniqueFiles.map(async filePath => {
+    const [stats, bytes] = await Promise.all([fs.stat(filePath), fs.readFile(filePath)]);
+    return {
+      path: filePath,
+      directory: path.dirname(filePath),
+      name: path.basename(filePath),
+      size: stats.size,
+      mimeType: imagePdfMimeTypes[path.extname(filePath).toLowerCase()],
+      data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    };
+  }));
+  return { images, defaultDirectory: selectedDirectory ?? images[0]?.directory ?? null };
+}
 
 async function runAiIpc<T>(
   operation: "generate" | "fix",
@@ -363,6 +404,44 @@ app.whenReady().then(async () => {
     }
     app.relaunch();
     app.exit(0);
+  });
+  ipcMain.handle("utility:pdf:browse", async (_event, mode: unknown) => {
+    if (mode !== "files" && mode !== "folder") throw new Error("Invalid image browse mode.");
+    const selection = await dialog.showOpenDialog({
+      title: mode === "folder" ? "Choose image folder" : "Choose images",
+      properties: mode === "folder" ? ["openDirectory"] : ["openFile", "multiSelections"],
+      filters: mode === "files" ? [{ name: "Images", extensions: Object.keys(imagePdfMimeTypes).map(value => value.slice(1)) }] : undefined,
+    });
+    if (selection.canceled || !selection.filePaths.length) return null;
+    return loadImagePdfSelection(selection.filePaths);
+  });
+  ipcMain.handle("utility:pdf:load-inputs", (_event, inputPaths: unknown) => {
+    if (!Array.isArray(inputPaths) || inputPaths.some(value => typeof value !== "string")) throw new Error("Invalid dropped paths.");
+    return loadImagePdfSelection(inputPaths);
+  });
+  ipcMain.handle("utility:pdf:save", async (_event, data: unknown, suggestedName: unknown, defaultDirectory: unknown) => {
+    if (!(data instanceof ArrayBuffer)) throw new Error("Generated PDF data is invalid.");
+    if (data.byteLength < 5 || data.byteLength > 250 * 1024 * 1024) throw new Error("Generated PDF size is invalid.");
+    const safeName = typeof suggestedName === "string"
+      ? path.basename(suggestedName).replace(/[^a-zA-Z0-9._-]/g, "-")
+      : "images.pdf";
+    const filename = safeName.toLowerCase().endsWith(".pdf") ? safeName : `${safeName}.pdf`;
+    let outputDirectory = app.getPath("documents");
+    if (typeof defaultDirectory === "string" && path.isAbsolute(defaultDirectory)) {
+      try {
+        if ((await fs.stat(defaultDirectory)).isDirectory()) outputDirectory = defaultDirectory;
+      } catch {
+        // Fall back to Documents when the original image folder is unavailable.
+      }
+    }
+    const selection = await dialog.showSaveDialog({
+      title: "Save image PDF",
+      defaultPath: path.join(outputDirectory, filename),
+      filters: [{ name: "PDF document", extensions: ["pdf"] }],
+    });
+    if (selection.canceled || !selection.filePath) return null;
+    await fs.writeFile(selection.filePath, Buffer.from(data));
+    return { filePath: selection.filePath };
   });
   ipcMain.handle("auth:state", () => firebaseAuth!.state());
   ipcMain.handle("environment:readiness", () => firebaseAuth!.checkReadiness());
