@@ -118,7 +118,7 @@ export function ImagePdfPage({ locale }: { locale: "en" | "vi" }) {
   return <section className="image-pdf-page">
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={<Button variant="solid" icon={<FileText />} loading={generating} disabled={!images.length} onClick={() => void generate()}>{copy.generate}</Button>} />
     <Panel
-      title={copy.pagesTitle}
+      title={copy.pagesTitleWithCount.replace("{count}", String(images.length))}
       description={copy.pagesDescription}
       className={`image-pdf-panel ${dragging ? "is-dragging" : ""}`}
       onDragEnter={(event) => { event.preventDefault(); if (!generating && !browsing) setDragging(true); }}
@@ -126,8 +126,7 @@ export function ImagePdfPage({ locale }: { locale: "en" | "vi" }) {
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
       onDrop={(event) => void drop(event)}
       meta={<span className="image-pdf-panel-meta">
-        <span>{copy.pageCount.replace("{count}", String(images.length))}</span>
-        <ActionMenu label={copy.browse} disabled={browsing || generating} items={[
+        <ActionMenu label={copy.browse} variant="solid" color="primary" disabled={browsing || generating} items={[
           { id: "files", label: copy.browseFiles, icon: Files, onSelect: () => void browse("files") },
           { id: "folder", label: copy.browseFolder, icon: FolderOpen, onSelect: () => void browse("folder") },
         ]} />

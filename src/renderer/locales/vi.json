@@ -15,6 +15,7 @@
     "noImagesTitle": "Không tìm thấy ảnh",
     "noImagesDescription": "Các tệp hoặc thư mục đã chọn không chứa ảnh được hỗ trợ.",
     "pagesTitle": "Các trang PDF",
+    "pagesTitleWithCount": "Các trang PDF ({count} trang)",
     "pagesDescription": "Ảnh được tự động sắp xếp tự nhiên theo tên và số. Bạn vẫn có thể đổi thứ tự thủ công khi cần.",
     "pageCount": "{count} trang",
     "emptyTitle": "Chưa chọn ảnh",

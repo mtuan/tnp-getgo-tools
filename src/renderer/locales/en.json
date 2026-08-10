@@ -15,6 +15,7 @@
     "noImagesTitle": "No images found",
     "noImagesDescription": "The selected files or folder do not contain supported images.",
     "pagesTitle": "PDF pages",
+    "pagesTitleWithCount": "PDF pages ({count} pages)",
     "pagesDescription": "Images are sorted naturally by filename and number. Reorder them manually when needed.",
     "pageCount": "{count} pages",
     "emptyTitle": "No images selected",
