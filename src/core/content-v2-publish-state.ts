@@ -1,6 +1,11 @@
 import type { ContentV2QuizPublishPreview } from "./models.js";
 import { hashContentV2 } from "./content-v2.js";
 
+// Increment when the serialized Firestore document contract changes. Including
+// this in item hashes forces one corrective rewrite even when an older publish
+// state incorrectly claimed that the current local payload reached Firestore.
+const FIRESTORE_PUBLISH_CONTRACT_VERSION = 2;
+
 export interface ContentV2PublishedItem {
   kind: "firestore-document" | "storage-object";
   path: string;
@@ -37,7 +42,10 @@ export function contentV2PublishedItems(
     return {
       kind: "firestore-document" as const,
       path: document.path,
-      hash: hashContentV2(data),
+      hash: hashContentV2({
+        publishContractVersion: FIRESTORE_PUBLISH_CONTRACT_VERSION,
+        data,
+      }),
     };
   });
   const storage = preview.firebaseStorage.uploads.map((upload) => ({
