@@ -12,6 +12,12 @@ export interface PublishedContestQuestion {
     type: string;
     correct: string | number | string[];
     choices?: Record<string, string | number | Record<string, unknown>>;
+    inputs?: Array<{
+      question_en: string;
+      question_vn?: string;
+      inputType?: "text" | "number" | "date";
+      unit?: string;
+    }>;
     unit?: string;
     otherChoiceKey?: string;
     fixed?: boolean;
@@ -144,6 +150,31 @@ export function sanitizePublishedQuestion(
     result.answer.choices = structuredClone(
       plainRecord(answer.choices, `Question ${questionNo} answer.choices`),
     ) as PublishedContestQuestion["answer"]["choices"];
+  if (answer.inputs !== undefined) {
+    if (!Array.isArray(answer.inputs))
+      throw new Error(`Question ${questionNo} answer.inputs must be an array.`);
+    if (answer.type !== "multiple_input")
+      throw new Error(`Question ${questionNo} answer.inputs requires answer.type multiple_input.`);
+    if (!Array.isArray(correct) || correct.length !== answer.inputs.length || answer.inputs.length < 2)
+      throw new Error(`Question ${questionNo} multiple inputs and correct answers must have the same length of at least two.`);
+    result.answer.inputs = answer.inputs.map((rawPart, index) => {
+      const part = plainRecord(rawPart, `Question ${questionNo} answer.inputs[${index}]`);
+      if (typeof part.question_en !== "string" || !part.question_en.trim())
+        throw new Error(`Question ${questionNo} input part ${index + 1} requires question_en.`);
+      if (part.question_vn !== undefined && typeof part.question_vn !== "string")
+        throw new Error(`Question ${questionNo} input part ${index + 1} question_vn is invalid.`);
+      if (part.inputType !== undefined && !["text", "number", "date"].includes(String(part.inputType)))
+        throw new Error(`Question ${questionNo} input part ${index + 1} inputType is invalid.`);
+      if (part.unit !== undefined && typeof part.unit !== "string")
+        throw new Error(`Question ${questionNo} input part ${index + 1} unit is invalid.`);
+      return {
+        question_en: part.question_en,
+        ...(typeof part.question_vn === "string" && part.question_vn ? { question_vn: part.question_vn } : {}),
+        ...(typeof part.inputType === "string" ? { inputType: part.inputType as "text" | "number" | "date" } : {}),
+        ...(typeof part.unit === "string" && part.unit ? { unit: part.unit } : {}),
+      };
+    });
+  }
   if (typeof answer.unit === "string") result.answer.unit = answer.unit;
   if (typeof answer.otherChoiceKey === "string")
     result.answer.otherChoiceKey = answer.otherChoiceKey;

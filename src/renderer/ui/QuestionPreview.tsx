@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import type { RuntimeQuestion } from "../question-service";
 import { displayQuestionValue } from "../../core/question-value-display";
 
@@ -84,6 +85,17 @@ function PreviewValue({
   return <>{questionText(value)}</>;
 }
 
+function CorrectAnswerPreview({ value, unit }: { value: unknown; unit?: unknown }) {
+  return (
+    <div className="question-preview-correct-answer">
+      <span>
+        Correct answer: <strong>{questionText(value)}{unit ? ` ${String(unit)}` : ""}</strong>
+      </span>
+      <Check size={16} strokeWidth={2.5} aria-hidden="true" />
+    </div>
+  );
+}
+
 export function QuestionPreview({
   question,
   params,
@@ -94,6 +106,9 @@ export function QuestionPreview({
   manifestPath: string;
 }) {
   const choices = Object.entries(question.answer?.choices ?? {});
+  const inputParts = Array.isArray(question.answer?.inputs)
+    ? question.answer.inputs as Array<Record<string, unknown>>
+    : [];
   const correct = Array.isArray(question.answer?.correct)
     ? question.answer.correct.map(String)
     : [String(question.answer?.correct ?? "")];
@@ -123,7 +138,21 @@ export function QuestionPreview({
             />
           </div>
         ))}
-        {choices.length ? (
+        {inputParts.length ? (
+          <div className="question-preview-multiple-inputs">
+            {inputParts.map((part, index) => (
+              <section className="question-preview-input-part" key={index}>
+                <p>{questionText(part.question_en)}</p>
+                {questionText(part.question_vn).trim() && (
+                  <p className="question-preview-translation">
+                    {questionText(part.question_vn)}
+                  </p>
+                )}
+                <CorrectAnswerPreview value={correct[index] ?? ""} unit={part.unit} />
+              </section>
+            ))}
+          </div>
+        ) : choices.length ? (
           <div className="question-preview-choices">
             {choices.map(([label, value]) => (
               <div
@@ -146,13 +175,7 @@ export function QuestionPreview({
             ))}
           </div>
         ) : (
-          <div className="question-preview-answer">
-            <span>Correct answer</span>
-            <strong>
-              {questionText(question.answer?.correct)}
-              {question.answer?.unit ? ` ${question.answer.unit}` : ""}
-            </strong>
-          </div>
+          <CorrectAnswerPreview value={question.answer?.correct} unit={question.answer?.unit} />
         )}
         {hasExplanation && (
           <section className="question-preview-explanation">

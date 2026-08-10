@@ -1,4 +1,4 @@
-export type StaticAnswerType = "input" | "choice"
+export type StaticAnswerType = "input" | "multiple_input" | "choice"
 
 export interface AnswerTypeDefinition {
   id: StaticAnswerType
@@ -8,6 +8,7 @@ export interface AnswerTypeDefinition {
 /** Central extension point for the Static question answer editor. */
 export const answerTypeDefinitions: readonly AnswerTypeDefinition[] = [
   { id: "input", label: "Input" },
+  { id: "multiple_input", label: "Multiple inputs" },
   { id: "choice", label: "Choice" },
 ] as const
 
@@ -17,5 +18,6 @@ export function staticAnswerType(type: unknown, hasChoices = false): StaticAnswe
   const id = String(type ?? "")
   if (choiceAliases.has(id)) return "choice"
   if (["input", "numeric", "text"].includes(id)) return "input"
+  if (id === "multiple_input") return "multiple_input"
   return hasChoices ? "choice" : "input"
 }

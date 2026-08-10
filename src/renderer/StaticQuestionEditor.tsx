@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Zap } from "lucide-react";
+import { Plus, Zap } from "lucide-react";
 import { answerTypeDefinitions, staticAnswerType } from "../core/answer-types";
 import type {
   ContestQuizQuestionRecord,
@@ -112,6 +112,19 @@ export function StaticQuestionEditor({
                 correct: "",
                 choices: answer.choices ?? {},
               }
+            : value === "multiple_input"
+              ? {
+                  ...answer,
+                  type: "multiple_input",
+                  correct: Array.isArray(answer.correct) && answer.correct.length >= 2 ? answer.correct : ["", ""],
+                  choices: undefined,
+                  inputs: answer.inputs && answer.inputs.length >= 2
+                    ? answer.inputs
+                    : [
+                        { question_en: "", inputType: "text" },
+                        { question_en: "", inputType: "text" },
+                      ],
+                }
             : {
                 ...answer,
                 type: "input",
@@ -125,6 +138,23 @@ export function StaticQuestionEditor({
       return;
     }
     onChange({ ...record, [name]: value });
+  };
+  const addMultipleInput = () => {
+    const inputs = answer.inputs ?? [];
+    const correct = Array.isArray(answer.correct) ? answer.correct.map(String) : [];
+    onChange({
+      ...record,
+      answer: {
+        ...answer,
+        type: "multiple_input",
+        choices: undefined,
+        correct: [...correct, ""],
+        inputs: [...inputs, {
+          question_en: "",
+          inputType: "text",
+        }],
+      },
+    });
   };
 
   return (
@@ -148,13 +178,20 @@ export function StaticQuestionEditor({
         <Panel
           className="static-question-form-panel"
           title="Answer details"
+          meta={answerType === "multiple_input" ? (
+            <Button variant="primary" icon={<Plus size={16} />} onClick={addMultipleInput}>
+              Add input
+            </Button>
+          ) : undefined}
           description={
             answerType === "input"
               ? "Configure the accepted value and input control."
+              : answerType === "multiple_input"
+                ? "Configure each question part and its corresponding input answer."
               : "Configure options and mark one or more correct choices."
           }
         >
-          <div className="static-question-fields">
+          <div className={`static-question-fields ${answerType === "multiple_input" ? "multiple-input-answer-fields" : ""}`}>
             <AnswerDetails
               answer={{
                 ...answer,
