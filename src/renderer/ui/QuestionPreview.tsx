@@ -105,8 +105,12 @@ export function QuestionPreview({
   params?: Record<string, unknown>;
   manifestPath: string;
 }) {
+  const indexedPartText = (value: unknown, index: number) => {
+    const text = questionText(value).replace(/^\s*(?:[a-z]|\d+)[.)]\s*/i, "");
+    return `${String.fromCharCode(97 + index)}. ${text}`;
+  };
   const choices = Object.entries(question.answer?.choices ?? {});
-  const inputParts = Array.isArray(question.answer?.inputs)
+  const inputParts = question.answer?.type === "multiple_input" && Array.isArray(question.answer?.inputs)
     ? question.answer.inputs as Array<Record<string, unknown>>
     : [];
   const correct = Array.isArray(question.answer?.correct)
@@ -142,10 +146,10 @@ export function QuestionPreview({
           <div className="question-preview-multiple-inputs">
             {inputParts.map((part, index) => (
               <section className="question-preview-input-part" key={index}>
-                <p>{questionText(part.question_en)}</p>
+                <p>{indexedPartText(part.question_en, index)}</p>
                 {questionText(part.question_vn).trim() && (
                   <p className="question-preview-translation">
-                    {questionText(part.question_vn)}
+                    {indexedPartText(part.question_vn, index)}
                   </p>
                 )}
                 <CorrectAnswerPreview value={correct[index] ?? ""} unit={part.unit} />

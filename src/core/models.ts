@@ -660,6 +660,7 @@ export interface DesktopApi {
     questionNo: number | string,
   ): Promise<void>;
   readQuizAsset(manifestPath: string, assetReference: string): Promise<string>;
+  saveQuizAsset(manifestPath: string, suggestedName: string, dataUrl: string): Promise<{ reference: string; preview: string }>;
   readQuizSource(manifestPath: string): Promise<string>;
   saveQuizSource(manifestPath: string, source: string): Promise<void>;
   loadQuizQuestions(manifestPath: string): Promise<QuizQuestionRecord[]>;

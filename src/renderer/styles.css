@@ -4011,6 +4011,13 @@ tbody tr:hover {
   margin-left: 3px;
   color: #f43f5e;
 }
+.schema-field > .ui-segmented-control {
+  margin-top: 7px;
+}
+.schema-field textarea.auto-compact {
+  min-height: 42px;
+  resize: none;
+}
 .schema-field > small {
   display: block;
   margin-top: 5px;
@@ -5398,36 +5405,69 @@ button.danger svg {
 .static-question-fields .edit-table textarea {
   margin-top: 0;
 }
-.multiple-input-forms {
+.multiple-input-text-cell,
+.multiple-input-type-unit-cell {
   display: grid;
-  gap: 16px;
-}
-.multiple-input-form {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-}
-.multiple-input-form > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 52px;
-  padding: 8px 12px 8px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-muted);
-}
-.multiple-input-form > header > span {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
-}
-.multiple-input-form .schema-form {
-  padding: 16px;
 }
 .static-question-fields.multiple-input-answer-fields {
   padding: 0;
+}
+.question-images-editor {
+  display: grid;
+  gap: 8px;
+}
+.question-asset-input {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #dbe1e8;
+  border-radius: 9px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.question-asset-input:focus-within,
+.question-asset-input.dragging {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px #6366f11f;
+}
+.question-asset-value {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 5px 9px;
+  color: var(--muted);
+  text-align: left;
+}
+.question-asset-value img,
+.question-asset-value svg {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  object-fit: contain;
+}
+.question-asset-value span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.question-asset-input > .button {
+  align-self: stretch;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+}
+.question-asset-input > small { position: absolute; left: 9px; bottom: 2px; }
+.choice-image-value { color: var(--muted); font-size: 11px; }
+.edit-table .question-asset-input { min-width: 220px; }
+.multiple-input-answer-fields > .schema-form:first-child {
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
 }
 .advanced-question-editor-panel {
   min-width: 0;

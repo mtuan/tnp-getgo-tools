@@ -16,4 +16,6 @@ export interface EditableAnswer extends Record<string, unknown> {
 export interface AnswerDetailsProps {
   answer: EditableAnswer
   onChange(answer: EditableAnswer): void
+  manifestPath?: string
+  questionNo?: string | number
 }

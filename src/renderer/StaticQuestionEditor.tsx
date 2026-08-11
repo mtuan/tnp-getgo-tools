@@ -10,6 +10,7 @@ import { Form, type FormSchema } from "./ui/Form";
 import { Button } from "./ui/Button";
 import { Panel } from "./ui/Panel";
 import { QuestionPreview } from "./ui/QuestionPreview";
+import { QuestionAssetInput } from "./ui/QuestionAssetInput";
 import { questionService } from "./question-service";
 import { QuestionFeedback } from "./QuestionFeedback";
 
@@ -57,35 +58,35 @@ export function StaticQuestionEditor({
   };
   const fields: FormSchema[] = [
     { name: "category", label: "Category", type: "text" },
-    { name: "text_en", label: "English question", type: "textarea", rows: 5 },
+    { name: "text_en", label: "English question", type: "textarea", autoCompact: true, maxLines: 8 },
     {
       name: "text_vn",
       label: "Vietnamese question",
       type: "textarea",
-      rows: 5,
+      autoCompact: true,
+      maxLines: 8,
     },
     {
       name: "explanation_en",
       label: "English explanation",
       type: "textarea",
-      rows: 4,
+      autoCompact: true,
+      maxLines: 6,
     },
     {
       name: "explanation_vi",
       label: "Vietnamese explanation",
       type: "textarea",
-      rows: 4,
-    },
-    {
-      name: "answer_type",
-      label: "Answer type",
-      type: "select",
-      options: answerTypeDefinitions.map((definition) => ({
-        value: definition.id,
-        label: definition.label,
-      })),
+      autoCompact: true,
+      maxLines: 6,
     },
   ];
+  const answerTypeFields: FormSchema[] = [{
+    name: "answer_type",
+    label: "Answer type",
+    type: "select",
+    options: answerTypeDefinitions.map((definition) => ({ value: definition.id, label: definition.label })),
+  }];
   const updateQuestion = (name: string, value: unknown) => {
     if (name === "explanation_en" || name === "explanation_vi") {
       onChange({
@@ -111,6 +112,7 @@ export function StaticQuestionEditor({
                 type: "choice",
                 correct: "",
                 choices: answer.choices ?? {},
+                inputs: undefined,
               }
             : value === "multiple_input"
               ? {
@@ -121,8 +123,8 @@ export function StaticQuestionEditor({
                   inputs: answer.inputs && answer.inputs.length >= 2
                     ? answer.inputs
                     : [
-                        { question_en: "", inputType: "text" },
-                        { question_en: "", inputType: "text" },
+                        { question_en: "", inputType: "number" },
+                        { question_en: "", inputType: "number" },
                       ],
                 }
             : {
@@ -130,6 +132,7 @@ export function StaticQuestionEditor({
                 type: "input",
                 correct: firstCorrect,
                 choices: undefined,
+                inputs: undefined,
                 inputType:
                   answer.inputType ??
                   (answer.type === "numeric" ? "number" : "text"),
@@ -151,10 +154,19 @@ export function StaticQuestionEditor({
         correct: [...correct, ""],
         inputs: [...inputs, {
           question_en: "",
-          inputType: "text",
+          inputType: "number",
         }],
       },
     });
+  };
+  const questionImages = Array.isArray(record.image_datas)
+    ? record.image_datas.filter((value): value is string => typeof value === "string" && value.startsWith("asset:"))
+    : [];
+  const updateQuestionImage = (index: number, value: string) => {
+    const next = [...questionImages];
+    if (value) next[index] = value;
+    else next.splice(index, 1);
+    onChange({ ...record, image_datas: next });
   };
 
   return (
@@ -177,6 +189,28 @@ export function StaticQuestionEditor({
         </Panel>
         <Panel
           className="static-question-form-panel"
+          title="Question images"
+          description="Browse, drop, or focus an image field and paste from the clipboard."
+        >
+          <div className="static-question-fields question-images-editor">
+            {questionImages.map((image, index) => <QuestionAssetInput
+              key={`${image}-${index}`}
+              manifestPath={manifestPath}
+              suggestedName={`question-${record.question_no}${index ? `-${index + 1}` : ""}`}
+              value={image}
+              label={`Question image ${index + 1}`}
+              onChange={value => updateQuestionImage(index, value)}
+            />)}
+            <QuestionAssetInput
+              manifestPath={manifestPath}
+              suggestedName={`question-${record.question_no}${questionImages.length ? `-${questionImages.length + 1}` : ""}`}
+              label="New question image"
+              onChange={value => { if (value) onChange({ ...record, image_datas: [...questionImages, value] }) }}
+            />
+          </div>
+        </Panel>
+        <Panel
+          className="static-question-form-panel"
           title="Answer details"
           meta={answerType === "multiple_input" ? (
             <Button variant="primary" icon={<Plus size={16} />} onClick={addMultipleInput}>
@@ -192,6 +226,13 @@ export function StaticQuestionEditor({
           }
         >
           <div className={`static-question-fields ${answerType === "multiple_input" ? "multiple-input-answer-fields" : ""}`}>
+            <Form
+              fields={answerTypeFields}
+              values={values}
+              autoFocus={false}
+              autoSelectSingleOption={false}
+              onChange={updateQuestion}
+            />
             <AnswerDetails
               answer={{
                 ...answer,
@@ -204,6 +245,8 @@ export function StaticQuestionEditor({
                     }
                   : {}),
               }}
+              manifestPath={manifestPath}
+              questionNo={record.question_no}
               onChange={(nextAnswer) =>
                 onChange({ ...record, answer: nextAnswer })
               }

@@ -17,6 +17,11 @@ export interface EditColumnDef<T extends object> {
   width?: CSSProperties["width"];
   field: FormField;
   renderView?: (value: unknown, row: T) => ReactNode;
+  renderEdit?: (context: {
+    row: T;
+    rowIndex: number;
+    onChange(field: keyof T, value: unknown): void;
+  }) => ReactNode;
 }
 
 export interface EditTableProps<T extends object> {
@@ -156,7 +161,14 @@ export function EditTable<T extends object>({
                   )}
                   {columns.map((column) => (
                     <td key={column.key}>
-                      {column.renderView ? (
+                      {column.renderEdit ? (
+                        column.renderEdit({
+                          row,
+                          rowIndex,
+                          onChange: (field, value) =>
+                            onRowChange(rowIndex, field, value),
+                        })
+                      ) : column.renderView ? (
                         column.renderView(row[column.dataKey], row)
                       ) : (
                         <FormControl

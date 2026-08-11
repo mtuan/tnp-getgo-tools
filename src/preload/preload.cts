@@ -112,6 +112,13 @@ const api: DesktopApi = {
       manifestPath,
       assetReference,
     ) as Promise<string>,
+  saveQuizAsset: (manifestPath, suggestedName, dataUrl) =>
+    ipcRenderer.invoke(
+      "quiz-asset:save",
+      manifestPath,
+      suggestedName,
+      dataUrl,
+    ) as Promise<{ reference: string; preview: string }>,
   readQuizSource: (manifestPath) =>
     ipcRenderer.invoke("quiz-source:read", manifestPath) as Promise<string>,
   saveQuizSource: (manifestPath, source) =>

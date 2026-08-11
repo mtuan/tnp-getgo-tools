@@ -1911,6 +1911,37 @@ app.whenReady().then(async () => {
       return `data:${mimeType};base64,${(await fs.readFile(assetPath)).toString("base64")}`;
     },
   );
+  ipcMain.handle(
+    "quiz-asset:save",
+    async (_event, manifestPath: unknown, suggestedName: unknown, dataUrl: unknown) => {
+      if (typeof manifestPath !== "string" || !path.isAbsolute(manifestPath))
+        throw new Error("Invalid quiz manifest path");
+      if (typeof suggestedName !== "string" || !suggestedName.trim())
+        throw new Error("Invalid asset filename");
+      if (typeof dataUrl !== "string") throw new Error("Invalid image data");
+      const current = await settings.read();
+      if (!current.repositoryPath) throw new Error("Choose a quiz repository first.");
+      const manifest = path.resolve(manifestPath);
+      const manifestRelative = path.relative(current.repositoryPath, manifest);
+      if (manifestRelative.startsWith("..") || path.isAbsolute(manifestRelative))
+        throw new Error("Quiz is outside the selected repository");
+      const match = /^data:(image\/(?:avif|gif|jpeg|png|svg\+xml|webp));base64,([\s\S]+)$/.exec(dataUrl);
+      if (!match) throw new Error("Paste or select a supported image file.");
+      const extensions: Record<string, string> = {
+        "image/avif": "avif", "image/gif": "gif", "image/jpeg": "jpg",
+        "image/png": "png", "image/svg+xml": "svg", "image/webp": "webp",
+      };
+      const stem = path.basename(suggestedName, path.extname(suggestedName))
+        .toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+      if (!stem) throw new Error("Invalid asset filename");
+      const filename = `${stem}.${extensions[match[1]]}`;
+      const assetsDirectory = path.join(path.dirname(manifest), "assets");
+      await fs.mkdir(assetsDirectory, { recursive: true });
+      await fs.writeFile(path.join(assetsDirectory, filename), Buffer.from(match[2].replace(/\s/g, ""), "base64"));
+      await acceptCurrentRepositoryStructure(current.repositoryPath);
+      return { reference: `asset:${filename}`, preview: dataUrl };
+    },
+  );
   ipcMain.handle("quiz-source:read", async (_event, manifestPath: unknown) => {
     return fs.readFile(await resolveQuizSource(manifestPath), "utf8");
   });

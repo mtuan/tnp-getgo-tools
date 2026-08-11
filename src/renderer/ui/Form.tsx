@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Check, ChevronDown, ImagePlus, X } from "lucide-react"
 import { Select, useSelectDropdown, type SelectOption } from "./Select"
@@ -26,7 +26,7 @@ interface FieldBase {
 
 export type FormField =
   | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
-  | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number })
+  | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number; autoCompact?: boolean; maxLines?: number })
   | (FieldBase & { type: "image"; accept?: string; maxBytes?: number; previewSrc?: string })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
@@ -103,6 +103,51 @@ function ImageControl({ field, value, disabled, autoFocus, onChange }: { field: 
   </div>
 }
 
+function TextareaControl({ field, value, disabled, autoFocus, onChange }: {
+  field: Extract<FormField, { type: "textarea" }>
+  value: unknown
+  disabled: boolean
+  autoFocus: boolean
+  onChange(value: string): void
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const resize = () => {
+    const element = ref.current
+    if (!element || !field.autoCompact) return
+    element.style.height = "auto"
+    const styles = window.getComputedStyle(element)
+    const lineHeight = Number.parseFloat(styles.lineHeight) || Number.parseFloat(styles.fontSize) * 1.5
+    const verticalChrome = Number.parseFloat(styles.paddingTop)
+      + Number.parseFloat(styles.paddingBottom)
+      + Number.parseFloat(styles.borderTopWidth)
+      + Number.parseFloat(styles.borderBottomWidth)
+    const maximum = lineHeight * Math.max(1, field.maxLines ?? 8) + verticalChrome
+    element.style.height = `${Math.min(element.scrollHeight, maximum)}px`
+    element.style.overflowY = element.scrollHeight > maximum ? "auto" : "hidden"
+  }
+  useLayoutEffect(resize, [field.autoCompact, field.maxLines, value])
+  useEffect(() => {
+    if (!field.autoCompact) return
+    window.addEventListener("resize", resize)
+    return () => window.removeEventListener("resize", resize)
+  })
+  return <textarea
+    ref={ref}
+    className={field.autoCompact ? "auto-compact" : undefined}
+    name={field.name}
+    rows={field.autoCompact ? 1 : field.rows}
+    placeholder={field.placeholder}
+    value={String(value ?? "")}
+    disabled={disabled}
+    readOnly={field.readOnly}
+    autoFocus={autoFocus}
+    onChange={event => {
+      onChange(event.target.value)
+      window.requestAnimationFrame(resize)
+    }}
+  />
+}
+
 export function validateSchema(schema: FormSchema[], values: FormValues): FormErrors {
   const errors: FormErrors = {}
   for (const field of flattenSchema(schema, values)) {
@@ -129,7 +174,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   if (field.type === "custom") return field.render({ value, values, disabled, onChange: next => onChange(field.name, next) })
   if (field.type === "toggle") return <div className="schema-toggle-control"><Toggle name={field.name} ariaLabel={String(field.label ?? field.name)} checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onCheckedChange={checked => onChange(field.name, checked)} /></div>
   if (field.type === "checkbox") return <label className="schema-checkbox"><input name={field.name} type="checkbox" checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><span>{field.label}</span></label>
-  if (field.type === "textarea") return <textarea name={field.name} rows={field.rows} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
+  if (field.type === "textarea") return <TextareaControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "image") return <ImageControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
