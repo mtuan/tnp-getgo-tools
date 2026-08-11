@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, DeploymentItemState, DeploymentOperation, DeploymentStateSnapshot, WebDeploymentTarget } from "../core/models.js";
+import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, DeploymentItemState, DeploymentJobReportStep, DeploymentOperation, DeploymentStateSnapshot, WebDeploymentTarget } from "../core/models.js";
 
 type DeploymentJob = BackgroundJob & {
   kind: "deploy";
@@ -12,7 +12,7 @@ type DeploymentJob = BackgroundJob & {
 };
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
-interface Runtime { child: ChildProcess; cancelled: boolean; phases: Set<string>; outputBuffer: string }
+interface Runtime { child: ChildProcess; cancelled: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
   development: "deploy:getgo:dev",
@@ -30,8 +30,7 @@ function progressTotal(operation: DeploymentOperation, component: DeploymentComp
 }
 
 function outputPhase(line: string, component: DeploymentComponent) {
-  if (line.includes("GetGo Web vendored logics refresh completed")) return "dependencies";
-  if (line.includes("Generating canonical Firebase rules")) return "dependencies";
+  if (line.includes("Generating shared editor types") || line.includes("Generating canonical Firebase rules") || line.includes("Checking and building @tnp/getgo-logics")) return "dependencies";
   if (component === "firebase-rules" && line.includes("Synced firestore.rules")) return "firestore";
   if (component === "firebase-rules" && line.includes("Synced storage.rules")) return "storage";
   if (component === "web" && (line.includes("Building…") || /vite v\d/i.test(line))) return "build";
@@ -40,6 +39,18 @@ function outputPhase(line: string, component: DeploymentComponent) {
   if (line.includes("Deploying:")) return "deploy";
   return null;
 }
+
+const phaseLabels: Record<string, string> = {
+  startup: "Initialize job",
+  dependencies: "Prepare shared dependencies",
+  firestore: "Generate Firestore rules and indexes",
+  storage: "Generate Cloud Storage rules",
+  build: "Compile Web application",
+  bundle: "Finalize Web bundle",
+  plan: "Compare deployment artifacts",
+  deploy: "Publish to Firebase",
+  complete: "Finalize report",
+};
 
 export class WebDeploymentJobManager {
   private jobs: DeploymentJob[] = [];
@@ -167,6 +178,45 @@ export class WebDeploymentJobManager {
     this.deployments = [record, ...this.deployments.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
   }
 
+  private closeReportStep(job: DeploymentJob, status: DeploymentJobReportStep["status"] = "completed") {
+    const step = job.report?.steps.at(-1);
+    if (!step || step.finishedAt) return;
+    step.finishedAt = new Date().toISOString();
+    step.durationMs = Math.max(0, Date.parse(step.finishedAt) - Date.parse(step.startedAt));
+    step.status = status;
+  }
+
+  private beginReportStep(job: DeploymentJob, runtime: Runtime, id: string, detail?: string) {
+    if (!job.report) return;
+    if (runtime.reportPhase !== id) {
+      this.closeReportStep(job);
+      runtime.reportPhase = id;
+      job.report.steps.push({ id, label: phaseLabels[id] ?? id, status: "completed", startedAt: new Date().toISOString(), details: [] });
+    }
+    if (detail) {
+      const step = job.report.steps.at(-1)!;
+      step.details.push(detail);
+      if (step.details.length > 20) step.details.shift();
+    }
+  }
+
+  private async finalizeReport(job: DeploymentJob, status: DeploymentJobReportStep["status"]) {
+    if (!job.report || !job.component || !job.target) return;
+    this.closeReportStep(job, status);
+    const now = new Date().toISOString();
+    job.report.steps.push({ id: "complete", label: phaseLabels.complete, status, startedAt: now, finishedAt: now, durationMs: 0, details: job.error ? [job.error] : [] });
+    job.report.finishedAt = now;
+    job.report.durationMs = Math.max(0, Date.parse(now) - Date.parse(job.report.startedAt));
+    try {
+      const state = await this.state(job.target);
+      const componentState = job.component === "web" ? state.web : state.rules;
+      job.report.version = job.operation === "build" ? componentState.buildVersion : componentState.deployedVersion;
+      job.report.items = componentState.items;
+    } catch (cause) {
+      job.report.steps.at(-1)!.details.push(`Could not collect artifact metadata: ${cause instanceof Error ? cause.message : String(cause)}`);
+    }
+  }
+
   async state(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot> {
     await this.ensureLoaded();
     const webRoot = await this.webRoot();
@@ -234,6 +284,14 @@ export class WebDeploymentJobManager {
       createdAt: new Date().toISOString(),
       cancellable: true,
       retryable: false,
+      report: {
+        operation,
+        component,
+        target,
+        startedAt: new Date().toISOString(),
+        items: [],
+        steps: [{ id: "startup", label: phaseLabels.startup, status: "completed", startedAt: new Date().toISOString(), details: ["Deployment process queued."] }],
+      },
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -248,7 +306,7 @@ export class WebDeploymentJobManager {
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const runtime: Runtime = { child, cancelled: false, phases: new Set(), outputBuffer: "" };
+    const runtime: Runtime = { child, cancelled: false, phases: new Set(), outputBuffer: "", reportPhase: "startup" };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
@@ -264,6 +322,7 @@ export class WebDeploymentJobManager {
         if (!line || runtime.cancelled) continue;
         job.progressLabel = line;
         const phase = outputPhase(line, component);
+        this.beginReportStep(job, runtime, phase ?? runtime.reportPhase ?? "startup", line);
         if (phase && !runtime.phases.has(phase)) {
           runtime.phases.add(phase);
           job.completed = Math.min(job.total - 1, runtime.phases.size);
@@ -290,11 +349,13 @@ export class WebDeploymentJobManager {
           await this.recordBuild(job.component, job.target);
         if (job.operation === "deploy" && job.component && job.target)
           await this.recordDeployment(job.component, job.target);
+        await this.finalizeReport(job, "completed");
       } else {
         job.status = "failed";
         job.error = cause?.message ?? `Deployment exited with code ${code ?? "unknown"}.`;
         job.progressLabel = "Failed";
         job.retryable = true;
+        await this.finalizeReport(job, "failed");
       }
     }
     job.cancellable = false;
@@ -347,6 +408,7 @@ export class WebDeploymentJobManager {
     job.cancellable = false;
     job.retryable = true;
     job.finishedAt = new Date().toISOString();
+    await this.finalizeReport(job, "cancelled");
     await this.persist();
   }
 

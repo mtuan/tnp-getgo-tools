@@ -28,6 +28,13 @@ const baseRecord = {
   order: z.number().int().nonnegative().default(0),
   publishedHash: hashSchema,
   publishedAt: z.string().datetime().optional(),
+  publisherId: idSchema.optional(),
+  publisher: z.object({
+    id: idSchema,
+    displayName: z.string().min(1),
+    verified: z.boolean().default(false),
+  }).optional(),
+  marketplace: z.record(z.string(), z.unknown()).optional(),
 };
 
 export const competitionTopicSchema = z.object({

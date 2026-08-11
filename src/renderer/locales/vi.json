@@ -1,4 +1,5 @@
 {
+  "publishers": { "nav": "Nhà phát hành", "title": "Quản lý nhà phát hành", "description": "Quản lý danh tính nhà phát hành và tạo dữ liệu cho kho nội dung.", "list": "Nhà phát hành", "new": "Thêm nhà phát hành", "create": "Tạo nhà phát hành", "edit": "Sửa nhà phát hành", "generate": "Tạo dữ liệu kho nội dung", "save": "Lưu", "discard": "Bỏ thay đổi", "delete": "Xóa nhà phát hành", "deleteConfirm": "Xóa nhà phát hành này?", "saved": "Đã lưu nhà phát hành", "generated": "Đã tạo dữ liệu cho {topics} chủ đề và {quizzes} bài học.", "identity": "Danh tính", "links": "Thương hiệu và liên kết", "active": "Hoạt động", "suspended": "Tạm ngưng", "fields": { "id": "Mã nhà phát hành", "status": "Trạng thái", "nameEn": "Tên tiếng Anh", "nameVi": "Tên tiếng Việt", "descriptionEn": "Mô tả tiếng Anh", "descriptionVi": "Mô tả tiếng Việt", "verified": "Nhà phát hành đã xác minh", "website": "Trang web", "supportUrl": "Trang hỗ trợ", "logo": "Tham chiếu logo", "banner": "Tham chiếu ảnh bìa" } },
   "imagePdf": {
     "nav": "Ảnh thành PDF",
     "eyebrow": "Tiện ích",
@@ -181,10 +182,32 @@
     "pause": "Tạm dừng",
     "resume": "Tiếp tục",
     "open": "Mở",
+    "viewReport": "Xem báo cáo",
     "retry": "Thử lại",
     "delete": "Xóa công việc",
     "deleteConfirm": "Xóa {name} khỏi lịch sử công việc?",
-    "cancelConfirm": "Hủy {name}? Tác vụ đang chạy sẽ bị dừng."
+    "cancelConfirm": "Hủy {name}? Tác vụ đang chạy sẽ bị dừng.",
+    "report": {
+      "title": "Báo cáo {name}",
+      "operation": "Thao tác",
+      "component": "Thành phần",
+      "environment": "Môi trường",
+      "result": "Kết quả",
+      "version": "Phiên bản",
+      "totalTime": "Tổng thời gian",
+      "started": "Bắt đầu",
+      "finished": "Hoàn tất",
+      "steps": "Hiệu năng từng bước",
+      "step": "Bước",
+      "status": "Trạng thái",
+      "duration": "Thời gian",
+      "artifacts": "Phiên bản và mã băm",
+      "artifact": "Tệp triển khai",
+      "localHash": "Mã băm cục bộ",
+      "deployedHash": "Mã băm đã triển khai",
+      "noSteps": "Chưa ghi nhận chi tiết bước.",
+      "noArtifacts": "Không có mã băm tệp triển khai."
+    }
   },
   "deployment": {
     "eyebrow": "Quản lý phát hành",

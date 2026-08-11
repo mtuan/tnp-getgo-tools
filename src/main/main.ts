@@ -86,6 +86,12 @@ import {
   saveContentV2Topic,
   writeContentV2QuizPublishState,
 } from "../repositories/content-v2-repository.js";
+import {
+  deleteMarketplacePublisher,
+  generateMarketplaceMetadata,
+  listMarketplacePublishers,
+  saveMarketplacePublisher,
+} from "../repositories/publisher-repository.js";
 
 loadEnvironment({
   path: app.isPackaged
@@ -864,6 +870,16 @@ app.whenReady().then(async () => {
       return snapshot;
     },
   );
+  ipcMain.handle("marketplace:publishers:list", async () =>
+    listMarketplacePublishers(await repositoryRoot()));
+  ipcMain.handle("marketplace:publishers:save", async (_event, value: unknown) =>
+    saveMarketplacePublisher(await repositoryRoot(), value as Parameters<typeof saveMarketplacePublisher>[1]));
+  ipcMain.handle("marketplace:publishers:delete", async (_event, publisherId: unknown) => {
+    if (typeof publisherId !== "string") throw new Error("Invalid publisher ID.");
+    await deleteMarketplacePublisher(await repositoryRoot(), publisherId);
+  });
+  ipcMain.handle("marketplace:metadata:generate", async () =>
+    generateMarketplaceMetadata(await repositoryRoot()));
   ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
     if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
     return loadContentV2Topic(await repositoryRoot(), topicId);

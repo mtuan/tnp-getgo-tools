@@ -535,6 +535,26 @@ export interface LocalWebRuntimeSnapshot {
   startedAt?: string;
   error?: string;
 }
+export interface DeploymentJobReportStep {
+  id: string;
+  label: string;
+  status: "completed" | "failed" | "cancelled";
+  startedAt: string;
+  finishedAt?: string;
+  durationMs?: number;
+  details: string[];
+}
+export interface DeploymentJobReport {
+  operation: DeploymentOperation;
+  component: DeploymentComponent;
+  target: WebDeploymentTarget;
+  startedAt: string;
+  finishedAt?: string;
+  durationMs?: number;
+  version?: string;
+  items: DeploymentItemState[];
+  steps: DeploymentJobReportStep[];
+}
 export interface BackgroundJob {
   id: string;
   kind: BackgroundJobKind;
@@ -554,6 +574,7 @@ export interface BackgroundJob {
   cancellable: boolean;
   retryable?: boolean;
   error?: string;
+  report?: DeploymentJobReport;
 }
 export interface BackgroundJobsSnapshot {
   aiConcurrency: number;
@@ -598,6 +619,10 @@ export interface DesktopApi {
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
+  listMarketplacePublishers(): Promise<MarketplacePublisherRecord[]>;
+  saveMarketplacePublisher(value: MarketplacePublisherRecord): Promise<MarketplacePublisherRecord>;
+  deleteMarketplacePublisher(publisherId: string): Promise<void>;
+  generateMarketplaceMetadata(): Promise<{ topics: number; quizzes: number }>;
   onRepositoryStructureChanged(
     listener: (change: RepositoryStructureChange) => void,
   ): () => void;
@@ -775,6 +800,18 @@ export interface DesktopApi {
     concurrency: number,
   ): Promise<AiMigrationJobsSnapshot>;
   cancelAiMigrationJob(jobId: string): Promise<AiMigrationJobsSnapshot>;
+}
+
+export interface MarketplacePublisherRecord {
+  id: string;
+  name: { en: string; vi: string };
+  description: { en: string; vi: string };
+  logo?: string;
+  banner?: string;
+  website?: string;
+  supportUrl?: string;
+  verified: boolean;
+  status: "active" | "suspended";
 }
 import type {
   GetGoDynamicQuestionProposal,

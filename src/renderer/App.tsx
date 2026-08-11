@@ -25,6 +25,7 @@ import {
   Rocket,
   RotateCcw,
   Settings,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -73,6 +74,9 @@ const DeploymentPage = lazy(() =>
 const ImagePdfPage = lazy(() =>
   import("./ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
+const PublisherManagerPage = lazy(() =>
+  import("./PublisherManagerPage").then((module) => ({ default: module.PublisherManagerPage })),
+);
 
 type View =
   | "dashboard"
@@ -82,6 +86,7 @@ type View =
   | "deploy"
   | "publishing"
   | "image-pdf"
+  | "publishers"
   | "settings"
   | "not-found";
 type NavigableView = Exclude<View, "not-found">;
@@ -125,7 +130,7 @@ function viewFromRoute(
   } catch {
     pathname = route.split("?")[0];
   }
-  const staticView = ["dashboard", "jobs", "deploy", "publishing", "image-pdf", "settings"].find(
+  const staticView = ["dashboard", "jobs", "deploy", "publishing", "image-pdf", "publishers", "settings"].find(
     (value) => pathname === `/${value}`,
   );
   if (staticView) return staticView as NavigableView;
@@ -196,6 +201,7 @@ const normalizedRoute = (route: string) => {
 const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "topics", label: "Topics", icon: Library },
+  { id: "publishers", label: "Publishers", icon: Store },
   { id: "quizzes", label: "Legacy quizzes", icon: Archive },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
@@ -661,6 +667,8 @@ export function App() {
             const label =
               item.id === "topics"
                 ? contentCopy.nav
+                : item.id === "publishers"
+                  ? (settings.locale === "vi" ? vi : en).publishers.nav
                 : item.id === "quizzes"
                   ? contentCopy.legacyNav
                   : item.id === "image-pdf"
@@ -898,6 +906,9 @@ export function App() {
                 onBackActionChange={updateQuizBackAction}
                 onSpeechSettingsChange={changeSpeechSettings}
               />
+            )}
+            {settings.repositoryPath && view === "publishers" && (
+              <Suspense fallback={null}><PublisherManagerPage locale={settings.locale} /></Suspense>
             )}
             {settings.repositoryPath && view === "jobs" && (
               <Suspense fallback={null}>

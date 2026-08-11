@@ -5836,6 +5836,59 @@ button.danger svg {
 .job-table-actions .ui-button {
   min-width: 0 !important;
 }
+.crud-dialog.deployment-report-drawer {
+  width: min(880px, calc(100vw - 32px));
+}
+.deployment-report-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.deployment-report-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.deployment-report-summary small,
+.deployment-report-step small {
+  color: #64748b;
+  font-size: 11px;
+}
+.deployment-report-summary code,
+.deployment-report-hash {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.deployment-report-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.deployment-report-section h3 {
+  margin: 0;
+}
+.deployment-report-step {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+@media (max-width: 720px) {
+  .deployment-report-summary { grid-template-columns: 1fr; }
+}
+@media (prefers-color-scheme: dark) {
+  .deployment-report-summary > div {
+    border-color: #ffffff1a;
+    background: #0f172a;
+  }
+  .deployment-report-summary small,
+  .deployment-report-step small {
+    color: #94a3b8;
+  }
+}
 .jobs-load-error {
   display: flex;
   align-items: center;
@@ -7371,3 +7424,4 @@ button.danger svg {
     background: #1e293b;
   }
 }
+.publisher-manager-layout{display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:20px;align-items:start}.publisher-manager-list{display:flex;flex-direction:column;gap:8px;padding:16px}.publisher-manager-list .ui-button{justify-content:flex-start;width:100%}.publisher-manager-layout .schema-form{padding:20px}.publisher-manager-layout .form-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}@media(max-width:800px){.publisher-manager-layout{grid-template-columns:1fr}}

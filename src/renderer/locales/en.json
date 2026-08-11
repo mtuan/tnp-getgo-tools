@@ -1,4 +1,5 @@
 {
+  "publishers": { "nav": "Publishers", "title": "Publisher manager", "description": "Manage marketplace publisher identities and generate catalog metadata.", "list": "Publishers", "new": "New publisher", "create": "Create publisher", "edit": "Edit publisher", "generate": "Generate marketplace metadata", "save": "Save", "discard": "Discard", "delete": "Delete publisher", "deleteConfirm": "Delete this publisher?", "saved": "Publisher saved", "generated": "Generated metadata for {topics} topics and {quizzes} quizzes.", "identity": "Identity", "links": "Brand and links", "active": "Active", "suspended": "Suspended", "fields": { "id": "Publisher ID", "status": "Status", "nameEn": "English name", "nameVi": "Vietnamese name", "descriptionEn": "English description", "descriptionVi": "Vietnamese description", "verified": "Verified publisher", "website": "Website", "supportUrl": "Support URL", "logo": "Logo reference", "banner": "Banner reference" } },
   "imagePdf": {
     "nav": "Image to PDF",
     "eyebrow": "Utilities",
@@ -181,10 +182,32 @@
     "pause": "Pause",
     "resume": "Resume",
     "open": "Open",
+    "viewReport": "View report",
     "retry": "Retry",
     "delete": "Delete job",
     "deleteConfirm": "Delete {name} from job history?",
-    "cancelConfirm": "Cancel {name}? The active operation will be stopped."
+    "cancelConfirm": "Cancel {name}? The active operation will be stopped.",
+    "report": {
+      "title": "{name} report",
+      "operation": "Operation",
+      "component": "Component",
+      "environment": "Environment",
+      "result": "Result",
+      "version": "Version",
+      "totalTime": "Total time",
+      "started": "Started",
+      "finished": "Finished",
+      "steps": "Step performance",
+      "step": "Step",
+      "status": "Status",
+      "duration": "Duration",
+      "artifacts": "Versions and hashes",
+      "artifact": "Artifact",
+      "localHash": "Local hash",
+      "deployedHash": "Deployed hash",
+      "noSteps": "No step details were recorded.",
+      "noArtifacts": "No artifact hashes were available."
+    }
   },
   "deployment": {
     "eyebrow": "Release control",
