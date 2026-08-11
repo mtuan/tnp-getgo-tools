@@ -574,7 +574,10 @@ export interface ImagePdfSelection {
 
 export interface ImagePdfOrientation {
   path: string;
-  rotation: 0 | 90 | 180 | 270;
+  rotation: number;
+  rawRotation?: 0 | 90 | 180 | 270;
+  sourceOrientation?: 0 | 90 | 180 | 270;
+  deskewRotation?: number;
   confidence?: number;
   detected: boolean;
 }

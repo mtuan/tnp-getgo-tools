@@ -78,6 +78,8 @@
 .image-pdf-item > div:not(.image-pdf-actions) { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .image-pdf-item > div > strong { overflow: hidden; color: var(--text); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .image-pdf-item > div > span { color: var(--muted); font-size: 12px; }
+.image-pdf-item > div > .image-pdf-rotation { color: #4f46e5; font-weight: 600; }
+.image-pdf-item > div > .image-pdf-rotation.is-undetected { color: #b45309; }
 .image-pdf-actions { display: flex; align-items: center; gap: 4px; }
 
 @media (prefers-color-scheme: dark) {

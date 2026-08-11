@@ -6,7 +6,7 @@ import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 import { ActionMenu, Button, PageHeader, Panel, useToast } from "./ui";
 
-interface ImageItem { id: string; path: string; directory: string; name: string; size: number; previewUrl: string; rotation: 0 | 90 | 180 | 270 }
+interface ImageItem { id: string; path: string; directory: string; name: string; size: number; previewUrl: string; rotation: number; rotationDetected: boolean | null; rotationConfidence?: number }
 const filenameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 export function ImagePdfPage({ locale }: { locale: "en" | "vi" }) {
@@ -36,6 +36,7 @@ export function ImagePdfPage({ locale }: { locale: "en" | "vi" }) {
       size: image.size,
       previewUrl: URL.createObjectURL(new Blob([image.data], { type: image.mimeType })),
       rotation: 0 as const,
+      rotationDetected: null,
     }));
     setImages(current => {
       const existing = new Set(current.map(item => item.path));
@@ -123,7 +124,10 @@ export function ImagePdfPage({ locale }: { locale: "en" | "vi" }) {
       const startedAt = performance.now();
       const results = await window.getgo.detectImagePdfOrientations(images.map(item => item.path));
       const byPath = new Map(results.map(result => [result.path, result]));
-      setImages(current => current.map(item => ({ ...item, rotation: byPath.get(item.path)?.rotation ?? item.rotation })));
+      setImages(current => current.map(item => {
+        const result = byPath.get(item.path);
+        return result ? { ...item, rotation: result.rotation, rotationDetected: result.detected, rotationConfidence: result.confidence } : item;
+      }));
       const rotated = results.filter(result => result.detected && result.rotation !== 0).length;
       const undetected = results.filter(result => !result.detected).length;
       console.info("[GetGo Tools][Image PDF] Text orientation detection completed", { count: results.length, rotated, undetected, durationMs: Math.round(performance.now() - startedAt), results });
@@ -169,7 +173,17 @@ export function ImagePdfPage({ locale }: { locale: "en" | "vi" }) {
         {images.map((item, index) => <article className="image-pdf-item" key={item.id}>
           <span className="image-pdf-page-number">{index + 1}</span>
           <span className="image-pdf-thumbnail"><img src={item.previewUrl} alt="" style={{ transform: `rotate(${item.rotation}deg)` }} /></span>
-          <div><strong title={item.name}>{item.name}</strong><span>{(item.size / 1024).toLocaleString(locale, { maximumFractionDigits: 0 })} KB{item.rotation ? ` · ${item.rotation}°` : ""}</span></div>
+          <div>
+            <strong title={item.name}>{item.name}</strong>
+            <span>{(item.size / 1024).toLocaleString(locale, { maximumFractionDigits: 0 })} KB</span>
+            <span className={`image-pdf-rotation ${item.rotationDetected === false ? "is-undetected" : ""}`}>
+              {item.rotationDetected === null
+                ? copy.rotationNotAnalyzed
+                : item.rotationDetected
+                  ? copy.rotationApplied.replace("{angle}", String(item.rotation))
+                  : copy.rotationUndetected}
+            </span>
+          </div>
           <div className="image-pdf-actions">
             <Button variant="icon" icon={<ArrowUp />} disabled={index === 0 || generating} aria-label={copy.moveUp} title={copy.moveUp} onClick={() => move(index, -1)} />
             <Button variant="icon" icon={<ArrowDown />} disabled={index === images.length - 1 || generating} aria-label={copy.moveDown} title={copy.moveDown} onClick={() => move(index, 1)} />

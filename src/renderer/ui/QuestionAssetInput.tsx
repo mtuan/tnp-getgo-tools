@@ -43,6 +43,13 @@ export function QuestionAssetInput({ manifestPath, suggestedName, value, label, 
       // immediately. An empty field is an add-row: keep that row visually
       // empty and let the parent create a separate populated row.
       if (value) setPreview(result.preview)
+      window.dispatchEvent(new CustomEvent("getgo:quiz-asset-updated", {
+        detail: {
+          manifestPath,
+          reference: result.reference,
+          preview: result.preview,
+        },
+      }))
       onChange(result.reference)
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { setBusy(false) }

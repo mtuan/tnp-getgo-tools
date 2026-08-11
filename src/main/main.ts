@@ -165,6 +165,20 @@ async function detectImageOrientation(filePath: string): Promise<ImagePdfOrienta
       // Try the next explicit path, then fall back to PATH lookup.
     }
   }
+  const sourceOrientation = await new Promise<0 | 90 | 180 | 270>(resolve => {
+    if (!/\.jpe?g$/i.test(filePath) || process.platform !== "darwin") {
+      resolve(0);
+      return;
+    }
+    const child = spawn("/usr/bin/sips", ["-g", "orientation", filePath], { stdio: ["ignore", "pipe", "ignore"] });
+    let output = "";
+    child.stdout.on("data", chunk => { output += String(chunk); });
+    child.on("error", () => resolve(0));
+    child.on("close", () => {
+      const orientation = Number(output.match(/orientation:\s*(\d+)/i)?.[1]);
+      resolve(orientation === 3 || orientation === 4 ? 180 : orientation === 5 || orientation === 6 ? 90 : orientation === 7 || orientation === 8 ? 270 : 0);
+    });
+  });
   return new Promise((resolve, reject) => {
     const child = spawn(executable, [filePath, "stdout", "--psm", "0"], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -179,16 +193,53 @@ async function detectImageOrientation(filePath: string): Promise<ImagePdfOrienta
       }
       reject(cause);
     });
-    child.on("close", () => {
-      const rotation = Number(output.match(/Rotate:\s*(0|90|180|270)/i)?.[1]);
+    child.on("close", async () => {
+      const rawRotation = Number(output.match(/Rotate:\s*(0|90|180|270)/i)?.[1]);
       const confidence = Number(output.match(/Orientation confidence:\s*([\d.]+)/i)?.[1]);
-      const detected = [0, 90, 180, 270].includes(rotation);
-      resolve({
+      const detected = [0, 90, 180, 270].includes(rawRotation);
+      const broadRotation = detected ? (rawRotation - sourceOrientation + 360) % 360 : 0;
+      const deskewRotation = detected && rawRotation === 0 && sourceOrientation === 0
+        ? await new Promise<number>(deskewResolve => {
+            const deskew = spawn(executable, [filePath, "stdout", "--psm", "6", "hocr"], { stdio: ["ignore", "pipe", "ignore"] });
+            let hocr = "";
+            deskew.stdout.on("data", chunk => { hocr += String(chunk); });
+            deskew.on("error", () => deskewResolve(0));
+            deskew.on("close", () => {
+              const slopes = [...hocr.matchAll(/baseline\s+(-?(?:\d+(?:\.\d+)?|\.\d+))/gi)]
+                .map(match => Number(match[1]))
+                .filter(value => Number.isFinite(value) && Math.abs(value) <= 0.35)
+                .sort((left, right) => left - right);
+              if (!slopes.length) {
+                deskewResolve(0);
+                return;
+              }
+              const middle = Math.floor(slopes.length / 2);
+              const median = slopes.length % 2 ? slopes[middle] : (slopes[middle - 1] + slopes[middle]) / 2;
+              const angle = Math.max(-15, Math.min(15, -Math.atan(median) * 180 / Math.PI));
+              deskewResolve(Math.abs(angle) >= 0.2 ? Math.round(angle * 10) / 10 : 0);
+            });
+          })
+        : 0;
+      const rotation = Math.round((broadRotation + deskewRotation) * 10) / 10;
+      const result: ImagePdfOrientation = {
         path: filePath,
-        rotation: detected ? rotation as 0 | 90 | 180 | 270 : 0,
+        rotation,
+        ...(detected ? { rawRotation: rawRotation as 0 | 90 | 180 | 270 } : {}),
+        sourceOrientation,
+        deskewRotation,
         ...(Number.isFinite(confidence) ? { confidence } : {}),
         detected,
+      };
+      console.info("[GetGo Tools][Image PDF] Orientation detected", {
+        file: path.basename(filePath),
+        rawRotation: result.rawRotation,
+        sourceOrientation,
+        deskewRotation,
+        appliedRotation: rotation,
+        confidence: result.confidence,
+        detected,
       });
+      resolve(result);
     });
   });
 }

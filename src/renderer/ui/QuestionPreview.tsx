@@ -22,11 +22,28 @@ export function PreviewAsset({
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
+    const assetUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        manifestPath?: unknown;
+        reference?: unknown;
+        preview?: unknown;
+      }>).detail;
+      if (
+        detail?.manifestPath === manifestPath &&
+        detail.reference === value &&
+        typeof detail.preview === "string"
+      ) {
+        setFailed(false);
+        setSource(detail.preview);
+      }
+    };
+    window.addEventListener("getgo:quiz-asset-updated", assetUpdated);
     setFailed(false);
     if (value.startsWith("data:image/")) {
       setSource(value);
       return () => {
         active = false;
+        window.removeEventListener("getgo:quiz-asset-updated", assetUpdated);
       };
     }
     setSource("");
@@ -40,6 +57,7 @@ export function PreviewAsset({
       });
     return () => {
       active = false;
+      window.removeEventListener("getgo:quiz-asset-updated", assetUpdated);
     };
   }, [manifestPath, value]);
   if (failed)

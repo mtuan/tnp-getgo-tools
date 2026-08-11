@@ -8,16 +8,16 @@ async function renderImage(source: { name: string; url: string; rotation?: numbe
     const sourceWidth = Math.max(1, Math.round(image.naturalWidth * scale));
     const sourceHeight = Math.max(1, Math.round(image.naturalHeight * scale));
     const rotation = ((source.rotation ?? 0) % 360 + 360) % 360;
-    const quarterTurn = rotation === 90 || rotation === 270;
-    const width = quarterTurn ? sourceHeight : sourceWidth;
-    const height = quarterTurn ? sourceWidth : sourceHeight;
+    const radians = rotation * Math.PI / 180;
+    const width = Math.max(1, Math.ceil(Math.abs(sourceWidth * Math.cos(radians)) + Math.abs(sourceHeight * Math.sin(radians))));
+    const height = Math.max(1, Math.ceil(Math.abs(sourceWidth * Math.sin(radians)) + Math.abs(sourceHeight * Math.cos(radians))));
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) throw new Error(`Could not render ${source.name}.`);
     context.translate(width / 2, height / 2);
-    context.rotate(rotation * Math.PI / 180);
+    context.rotate(radians);
     context.drawImage(image, -sourceWidth / 2, -sourceHeight / 2, sourceWidth, sourceHeight);
     return { dataUrl: canvas.toDataURL("image/png"), width, height };
 }
