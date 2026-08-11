@@ -39,7 +39,10 @@ export function QuestionAssetInput({ manifestPath, suggestedName, value, label, 
     setBusy(true); setError("")
     try {
       const result = await window.getgo.saveQuizAsset(manifestPath, suggestedName, await fileDataUrl(file))
-      setPreview(result.preview)
+      // A populated field is replacing its current image, so update it
+      // immediately. An empty field is an add-row: keep that row visually
+      // empty and let the parent create a separate populated row.
+      if (value) setPreview(result.preview)
       onChange(result.reference)
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { setBusy(false) }

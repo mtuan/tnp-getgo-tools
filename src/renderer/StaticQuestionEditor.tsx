@@ -202,6 +202,7 @@ export function StaticQuestionEditor({
               onChange={value => updateQuestionImage(index, value)}
             />)}
             <QuestionAssetInput
+              key="new-question-image"
               manifestPath={manifestPath}
               suggestedName={`question-${record.question_no}${questionImages.length ? `-${questionImages.length + 1}` : ""}`}
               label="New question image"
