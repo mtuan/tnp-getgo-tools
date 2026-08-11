@@ -19,7 +19,7 @@ const answerOf = (record: ContestQuizQuestionRecord): EditableAnswer =>
   typeof record.answer === "object" &&
   !Array.isArray(record.answer)
     ? (record.answer as EditableAnswer)
-    : { type: "input", correct: "" };
+    : { type: "input", correct: "", inputType: "number" };
 
 export function StaticQuestionEditor({
   record,
@@ -57,7 +57,6 @@ export function StaticQuestionEditor({
     answer_type: answerType,
   };
   const fields: FormSchema[] = [
-    { name: "category", label: "Category", type: "text" },
     { name: "text_en", label: "English question", type: "textarea", autoCompact: true, maxLines: 8 },
     {
       name: "text_vn",
@@ -73,6 +72,7 @@ export function StaticQuestionEditor({
       autoCompact: true,
       maxLines: 6,
     },
+    { name: "category", label: "Category", type: "text" },
     {
       name: "explanation_vi",
       label: "Vietnamese explanation",
@@ -135,7 +135,7 @@ export function StaticQuestionEditor({
                 inputs: undefined,
                 inputType:
                   answer.inputType ??
-                  (answer.type === "numeric" ? "number" : "text"),
+                  "number",
               },
       });
       return;
@@ -181,7 +181,7 @@ export function StaticQuestionEditor({
             <Form
               fields={fields}
               values={values}
-              autoFocus={false}
+              autoFocus
               autoSelectSingleOption={false}
               onChange={updateQuestion}
             />
@@ -242,7 +242,7 @@ export function StaticQuestionEditor({
                   ? {
                       inputType:
                         answer.inputType ??
-                        (answer.type === "numeric" ? "number" : "text"),
+                        "number",
                     }
                   : {}),
               }}

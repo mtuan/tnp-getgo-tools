@@ -61,6 +61,7 @@ import { DataTable, type DataColumn } from "./ui/DataTable";
 import { TableActionButton } from "./ui/TableActionButton";
 import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
+import { Select } from "./ui/Select";
 import { useToast } from "./ui/Toast";
 import { QuizPublishPanel } from "./QuizPublishPanel";
 import { TopicPublishPanel } from "./TopicPublishPanel";
@@ -1490,7 +1491,7 @@ export function QuizManager({
             }
             actions={
               <>
-                <SegmentedControl
+                <Select
                   className="question-review-control"
                   ariaLabel="Question status"
                   value={
@@ -1504,9 +1505,7 @@ export function QuizManager({
                     { value: "verified", label: "Reviewed" },
                     { value: "rejected", label: "Rejected" },
                   ]}
-                  onValueChange={(status) =>
-                    void setQuestionReviewStatus(status)
-                  }
+                  onValueChange={(status) => void setQuestionReviewStatus(status)}
                 />
                 {!isAlphabetQuestion && (
                   <Button

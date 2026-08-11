@@ -5379,6 +5379,13 @@ button.danger svg {
 .question-editor-tabs {
   margin: -10px 0 20px;
 }
+.schema-select.question-review-control {
+  width: 132px;
+  margin: 0;
+}
+.schema-select.question-review-control > button {
+  min-height: 38px;
+}
 .static-question-fields {
   display: grid;
   gap: 16px;
