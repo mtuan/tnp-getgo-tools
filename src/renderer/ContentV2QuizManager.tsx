@@ -39,22 +39,22 @@ type TopicDefinition = {
   defaultQuizType: QuizSummary["type"];
 };
 type QuizDefinition = {
-  managerType(quiz: RepositorySnapshot["contentV2"]["quizzes"][number]): QuizSummary["type"];
+  managerType(): QuizSummary["type"];
 };
 
 /** Adding a new content type requires a registry entry and adapter, not another page. */
 export const contentV2ManagerRegistry = {
   topics: {
-    competition: { subject: 1, defaultQuizType: "question-list" },
-    "kid-learning": { subject: 2, defaultQuizType: "alphabet-english" },
+    competition: { subject: 1, defaultQuizType: "contest" },
+    "kid-learning": { subject: 2, defaultQuizType: "alphabet" },
   } satisfies Record<ContentV2Topic["type"], TopicDefinition>,
   quizzes: {
-    "competition-paper": { managerType: () => "question-list" },
+    "competition-paper": { managerType: () => "contest" },
     alphabet: {
-      managerType: (quiz) => quiz.language === "vi" ? "alphabet-vietnamese" : "alphabet-english",
+      managerType: () => "alphabet",
     },
     spelling: {
-      managerType: (quiz) => quiz.language === "vi" ? "spelling-vietnamese" : "spelling-english",
+      managerType: () => "alphabet",
     },
   } satisfies Record<ContentV2Quiz["type"], QuizDefinition>,
   questions: {
@@ -108,7 +108,8 @@ export function adaptContentV2Snapshot(snapshot: RepositorySnapshot): Repository
     contest: quiz.topicId,
     title: quiz.title,
     icon: quiz.icon,
-    type: contentV2ManagerRegistry.quizzes[quiz.type].managerType(quiz),
+    type: contentV2ManagerRegistry.quizzes[quiz.type].managerType(),
+    language: quiz.type === "alphabet" || quiz.type === "spelling" ? quiz.language : undefined,
     grade: quiz.grade ?? null,
     round: quiz.round ?? null,
     year: quiz.year ?? null,
@@ -356,18 +357,17 @@ export function ContentV2QuizManager(props: Props) {
       updateQuiz: async (manifestPath, input) => {
         const summary = findQuiz(props.snapshot, manifestPath);
         const stored = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
-        const next: ContentV2Quiz = stored.type === "competition-paper"
-          ? { ...stored, title: input.title, icon: input.icon || undefined, grade: input.grade ?? stored.grade, round: input.round ?? stored.round, year: input.year ?? stored.year, status: input.status === "reviewed" ? "reviewed" : stored.status }
-          : { ...stored, title: input.title, icon: input.icon || undefined, language: input.type?.endsWith("vietnamese") ? "vi" : input.type?.endsWith("english") ? "en" : stored.language };
+        const common = { schemaVersion: 2 as const, id: stored.id, topicId: stored.topicId, title: input.title, icon: input.icon || undefined, description: stored.description, status: input.status === "reviewed" ? "reviewed" as const : stored.status, order: stored.order };
+        const next: ContentV2Quiz = input.type === "contest"
+          ? { ...common, type: "competition-paper", grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
+          : { ...common, type: "alphabet", language: input.language ?? "en", speech: stored.type === "alphabet" ? stored.speech : defaultAlphabetQuizSpeechSettings };
         return refresh(await window.getgo.saveContentV2Quiz(summary.topicId, next));
       },
       createQuiz: async (topicId, input: QuizCrudInput) => {
         const topic = await window.getgo.loadContentV2Topic(topicId);
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
-          ? input.type?.startsWith("spelling")
-            ? { schemaVersion: 2, id: input.id, topicId, type: "spelling", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en" }
-            : { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.type?.endsWith("vietnamese") ? "vi" : "en", speech: defaultAlphabetQuizSpeechSettings }
+          ? { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
           : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         return refresh(await window.getgo.saveContentV2Quiz(topicId, quiz));
       },

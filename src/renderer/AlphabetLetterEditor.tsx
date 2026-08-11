@@ -50,7 +50,7 @@ function setPreferredSpeechVoice(
 }
 
 interface Props {
-  quizType: Extract<QuizType, "alphabet-english" | "alphabet-vietnamese">;
+  language: "en" | "vi";
   locale: AppSettings["locale"];
   speechSettings: AppSettings["speech"];
   manifestPath: string;
@@ -82,7 +82,7 @@ function highlightAlphabetLetter(
 }
 
 export function AlphabetLetterEditor({
-  quizType,
+  language: languageCode,
   locale,
   speechSettings,
   manifestPath,
@@ -105,8 +105,7 @@ export function AlphabetLetterEditor({
   const onChangeRef = useRef(onChange);
   recordRef.current = record;
   onChangeRef.current = onChange;
-  const language =
-    quizType === "alphabet-vietnamese" ? "Vietnamese" : "English";
+  const language = languageCode === "vi" ? "Vietnamese" : "English";
   const alphabet = alphabetData(record);
   const missingResourceDurationKey = alphabet.resources
     .filter((resource) => youtubeVideoId(resource.url) && !(typeof resource.durationSeconds === "number" && resource.durationSeconds > 0))
@@ -115,7 +114,7 @@ export function AlphabetLetterEditor({
   const selectedResource = alphabet.resources[Math.min(selectedResourceIndex, Math.max(0, alphabet.resources.length - 1))];
   const selectedYouTubeId = selectedResource ? youtubeVideoId(selectedResource.url) : null;
   const copy = (locale === "vi" ? vi : en).alphabetEditor;
-  const wordLocale = quizType === "alphabet-vietnamese" ? "vi" : "en";
+  const wordLocale = languageCode;
   const activeSpeechSettings = speechSettings[wordLocale];
   const relatedWords = relatedAlphabetWords(
     dictionaryWords,
@@ -154,7 +153,7 @@ export function AlphabetLetterEditor({
   const fallbackLetter =
     alphabet.lowercase ||
     alphabet.letter.toLocaleLowerCase(
-      quizType === "alphabet-vietnamese" ? "vi" : "en",
+      languageCode,
     );
   const spokenLetter =
     alphabet.pronunciation?.trim() ||
@@ -167,7 +166,7 @@ export function AlphabetLetterEditor({
     }
     window.speechSynthesis.cancel();
     const speechLanguage =
-      quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
+      languageCode === "vi" ? "vi-VN" : "en-US";
     const wordUtterance = new SpeechSynthesisUtterance(selectedWord);
     wordUtterance.lang = speechLanguage;
     setPreferredSpeechVoice(
@@ -206,7 +205,7 @@ export function AlphabetLetterEditor({
     if (!spokenLetter || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(spokenLetter);
-    utterance.lang = quizType === "alphabet-vietnamese" ? "vi-VN" : "en-US";
+    utterance.lang = languageCode === "vi" ? "vi-VN" : "en-US";
     setPreferredSpeechVoice(
       utterance,
       utterance.lang,
@@ -330,7 +329,7 @@ export function AlphabetLetterEditor({
         </strong>
       ),
     },
-    ...(quizType === "alphabet-vietnamese"
+    ...(languageCode === "vi"
       ? ([
           {
             key: "classifier",

@@ -136,7 +136,7 @@ test("creates alphabet question records for alphabet quizzes", async () => {
   const manifestPath = path.join(directory, "manifest.json");
   await fs.writeFile(
     manifestPath,
-    JSON.stringify({ type: "alphabet-vietnamese" }),
+    JSON.stringify({ type: "alphabet", language: "vi" }),
   );
 
   const created = await createQuizQuestion(manifestPath);
@@ -169,7 +169,8 @@ test("upgrades the temporary nested alphabet shape without contest-question fiel
   await fs.writeFile(
     manifestPath,
     JSON.stringify({
-      type: "alphabet-english",
+      type: "alphabet",
+      language: "en",
       questionStorageVersion: "questions-v1",
     }),
   );

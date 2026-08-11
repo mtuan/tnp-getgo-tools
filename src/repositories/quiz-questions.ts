@@ -698,9 +698,7 @@ export async function createQuizQuestion(
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as {
     type?: unknown;
   };
-  const alphabet =
-    manifest.type === "alphabet-english" ||
-    manifest.type === "alphabet-vietnamese";
+  const alphabet = manifest.type === "alphabet";
   const created = await saveQuizQuestion(
     manifestPath,
     normalizeQuestion(

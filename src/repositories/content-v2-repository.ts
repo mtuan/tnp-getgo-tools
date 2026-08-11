@@ -674,12 +674,6 @@ export async function saveContentV2Quiz(
     validateId(quiz.id, "Quiz ID"),
     "quiz.json",
   );
-  const existing = (await fs
-    .readFile(filePath, "utf8")
-    .then(JSON.parse)
-    .catch(() => null)) as { type?: unknown } | null;
-  if (existing?.type && existing.type !== quiz.type)
-    throw new Error("A quiz type cannot be changed after creation.");
   await writeJson(filePath, quiz);
   if (quiz.type === "alphabet" || quiz.type === "spelling") {
     const dictionaryPath = sharedDictionaryPath(

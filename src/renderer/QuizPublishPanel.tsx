@@ -81,7 +81,7 @@ export function QuizPublishPanel({ quiz, locale }: Props) {
     ? `/getgo-content-v2/catalog/topics/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}`
     : `/getgo-contests/${encodeURIComponent(quiz.contest)}/quizzes/${encodeURIComponent(quiz.id)}`;
   const publishStructure = isContentV2
-    ? quiz.type !== "question-list"
+    ? quiz.type !== "contest"
       ? `${publishPath}
   { schemaVersion, id, type: "alphabet", topicId, title,
     description, order, language, contentHash, publishedAt }

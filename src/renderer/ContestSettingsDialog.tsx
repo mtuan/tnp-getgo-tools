@@ -105,7 +105,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const [iconPreview, setIconPreview] = useState("")
-  const persistedSettings = contest?.settings ?? emptySettings()
+  const [persistedSettings, setPersistedSettings] = useState<ContestSettings>(() => structuredClone(contest?.settings ?? emptySettings()))
   const dirty = JSON.stringify(settings) !== JSON.stringify(persistedSettings)
   const isContestTopic = !topicMode || settings.book.topicType !== "kid-learning"
   const visibleTabs = isContestTopic ? tabs : tabs.filter(item => item.id === "general")
@@ -146,7 +146,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     const incompleteRound = roundsToSave.find(round => !text(round.roundCode).trim() || !text(round.roundName).trim())
     if ((scope === "rounds" || scope === "all") && incompleteRound) { setTab("rounds"); setExpanded("rounds"); setError("Every round row needs a round code and round name."); return }
     setBusy(true); setBusyScope(scope)
-    try { await onSaved({ ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), title: settings.book.title.trim(), description: settings.book.description?.trim() } }); setBusy(false); setBusyScope(null) }
+    try { const saved = { ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), title: settings.book.title.trim(), description: settings.book.description?.trim() } }; await onSaved(saved); setSettings(saved); setPersistedSettings(structuredClone(saved)); setBusy(false); setBusyScope(null) }
     catch (cause) { setBusy(false); setBusyScope(null); setError(cause instanceof Error ? cause.message : String(cause)) }
   }
 
@@ -180,7 +180,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     else if (name === "code" || name === "title" || name === "description" || name === "icon") setBook({ [name]: String(value) })
   }
   const discard = (id: Tab) => {
-    const saved = structuredClone(contest?.settings ?? emptySettings())
+    const saved = structuredClone(persistedSettings)
     setError(null)
     if (id === "general") { setFieldErrors({}); setSettings(current => ({ ...current, book: saved.book })) }
     if (id === "rounds") setSettings(current => ({ ...current, rounds: saved.rounds }))

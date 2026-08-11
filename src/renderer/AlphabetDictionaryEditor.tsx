@@ -4,7 +4,6 @@ import type {
   AlphabetDictionary,
   AlphabetSample,
   AppSettings,
-  QuizType,
 } from "../core/models";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
@@ -16,14 +15,14 @@ import { useSaveShortcut } from "./ui/useSaveShortcut";
 interface Props {
   dictionary: AlphabetDictionary;
   locale: AppSettings["locale"];
-  quizType: Exclude<QuizType, "question-list">;
+  language: "en" | "vi";
   onSave(dictionary: AlphabetDictionary): Promise<void>;
 }
 
 export function AlphabetDictionaryEditor({
   dictionary,
   locale,
-  quizType,
+  language,
   onSave,
 }: Props) {
   const copy = (locale === "vi" ? vi : en).alphabetDictionary;
@@ -47,7 +46,7 @@ export function AlphabetDictionaryEditor({
         width: "18%",
         field: { name: "text", label: copy.text, type: "text", required: true },
       },
-      ...(quizType.endsWith("vietnamese")
+      ...(language === "vi"
         ? [{
             key: "classifier",
             dataKey: "classifier" as const,
@@ -86,7 +85,7 @@ export function AlphabetDictionaryEditor({
         },
       },
     ],
-    [copy, quizType],
+    [copy, language],
   );
   const dirty = JSON.stringify(words) !== JSON.stringify(dictionary.words);
 

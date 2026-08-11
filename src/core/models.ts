@@ -12,11 +12,8 @@ export type DeploymentStatus =
   "not-built" | "not-uploaded" | "uploaded" | "outdated" | "unknown";
 export type QuestionStorageVersion = "legacy" | "questions-v1";
 export const quizTypes = [
-  "question-list",
-  "alphabet-english",
-  "alphabet-vietnamese",
-  "spelling-english",
-  "spelling-vietnamese",
+  "contest",
+  "alphabet",
 ] as const;
 export type QuizType = (typeof quizTypes)[number];
 
@@ -28,6 +25,7 @@ export interface QuizManifest {
   title?: string;
   icon?: string;
   type?: QuizType;
+  language?: "en" | "vi";
   grade?: string | null;
   round?: string | null;
   year?: string | null;
@@ -49,6 +47,7 @@ export interface QuizSummary {
   title: string;
   icon?: string;
   type: QuizType;
+  language?: "en" | "vi";
   grade: string | null;
   round: string | null;
   year: string | null;
@@ -197,6 +196,7 @@ export interface QuizCrudInput {
   title: string;
   icon?: string;
   type?: QuizType;
+  language?: "en" | "vi";
   grade: string | null;
   round: string | null;
   year: string | null;

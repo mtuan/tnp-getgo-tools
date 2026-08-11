@@ -144,7 +144,8 @@ export async function createQuizFiles(
     contest,
     title,
     icon: input.icon?.trim() || undefined,
-    type: input.type ?? "question-list",
+    type: input.type ?? "contest",
+    language: input.type === "alphabet" ? input.language ?? "en" : undefined,
     grade: input.grade,
     round: input.round,
     year: input.year,
@@ -166,8 +167,7 @@ export async function createQuizFiles(
         "utf8",
       ),
       fs.writeFile(path.join(directory, "quiz.ts"), quizSource, "utf8"),
-      ...(manifest.type === "alphabet-english" ||
-      manifest.type === "alphabet-vietnamese"
+      ...(manifest.type === "alphabet"
         ? [
             fs.writeFile(
               path.join(directory, "dict.json"),
@@ -211,7 +211,8 @@ export async function updateQuizManifest(
     ...manifest,
     title: fields.title,
     icon: input.icon?.trim() || undefined,
-    type: input.type ?? manifest.type ?? "question-list",
+    type: input.type ?? manifest.type ?? "contest",
+    language: input.type === "alphabet" ? input.language ?? manifest.language ?? "en" : undefined,
     grade: input.grade,
     round: input.round,
     year: input.year,

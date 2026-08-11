@@ -350,11 +350,7 @@ function restoredPage(
       quizTab,
     };
   if (quizTab !== "info" && quizTab !== "publish")
-    quizTab = quiz.type === "question-list"
-      ? "questions"
-      : quiz.type.startsWith("spelling")
-        ? "info"
-        : "alphabets";
+    quizTab = quiz.type === "contest" ? "questions" : "alphabets";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo
     ? snapshot.contentV2.questions.find(
@@ -683,7 +679,7 @@ export function QuizManager({
     }
     if (page.kind === "quiz")
       onRouteChange(
-        `${quizRoute(page.quiz.contest, page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}?tab=${page.quiz.type === "question-list" ? questionEditorTab : alphabetEditorTab}` : `?tab=${quizTab}`}`,
+        `${quizRoute(page.quiz.contest, page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}?tab=${page.quiz.type === "contest" ? questionEditorTab : alphabetEditorTab}` : `?tab=${quizTab}`}`,
       );
   }, [
     alphabetEditorTab,
@@ -702,7 +698,7 @@ export function QuizManager({
     setSourceError(null);
     Promise.all([
       managerApi.loadQuizQuestions(page.quiz.manifestPath),
-      page.quiz.type !== "question-list"
+      page.quiz.type !== "contest"
         ? managerApi.loadAlphabetDictionary(page.quiz.manifestPath)
         : Promise.resolve<AlphabetDictionary>({ schemaVersion: 1, words: [] }),
     ])
@@ -1169,7 +1165,7 @@ export function QuizManager({
         render: (item) => {
           const letter = alphabetData(item.record).letter;
           const language =
-            quiz.type === "alphabet-vietnamese" ? "Vietnamese" : "English";
+            quiz.language === "vi" ? "Vietnamese" : "English";
           return relatedAlphabetWords(
             alphabetDictionary.words,
             letter,
@@ -1568,7 +1564,7 @@ export function QuizManager({
             }
             description={
               isAlphabetQuestion
-                ? `${quiz.type === "alphabet-vietnamese" ? "Vietnamese" : "English"} alphabet · questions/`
+                ? `${quiz.language === "vi" ? "Vietnamese" : "English"} alphabet · questions/`
                 : `${activeQuestion.category} · questions/`
             }
             titleAction={
@@ -1696,11 +1692,7 @@ export function QuizManager({
                 speechSettings={speechSettings}
                 manifestPath={quiz.manifestPath}
                 dictionaryWords={alphabetDictionary.words}
-                quizType={
-                  quiz.type === "alphabet-vietnamese"
-                    ? "alphabet-vietnamese"
-                    : "alphabet-english"
-                }
+                language={quiz.language ?? "en"}
                 record={questionDraftRecord}
                 tab={alphabetEditorTab}
                 onTabChange={setAlphabetEditorTab}
@@ -1852,7 +1844,7 @@ export function QuizManager({
                     void runButtonAction("create-question", createQuestion)
                   }
                 >
-                  {quiz.type === "question-list"
+                  {quiz.type === "contest"
                     ? "Add question"
                     : "Add letter"}
                 </Button>
@@ -1883,7 +1875,7 @@ export function QuizManager({
                           questions.map((question) => question.number),
                         ),
                     },
-                    ...(quiz.type === "question-list"
+                    ...(quiz.type === "contest"
                       ? [
                           {
                             id: "ai-migrate",
@@ -1924,12 +1916,12 @@ export function QuizManager({
           value={quizTab}
           onChange={setQuizTab}
           items={[
-            quiz.type === "question-list"
+            quiz.type === "contest"
               ? {
                   id: "questions" as const,
                   label: "Questions",
                 }
-              : quiz.type.startsWith("alphabet") ? {
+              : quiz.type === "alphabet" ? {
                   id: "alphabets" as const,
                   label: "Alphabets",
                 } : null,
@@ -2013,7 +2005,7 @@ export function QuizManager({
               rows={questions}
               columns={alphabetColumns}
               defaultSort={{ key: "letter" }}
-              sortLocale={quiz.type === "alphabet-vietnamese" ? "vi" : "en"}
+              sortLocale={quiz.language ?? "en"}
               rowKey={(item, index) => `${item.number}-${index}`}
               emptyText={
                 sourceLoading
@@ -2031,7 +2023,7 @@ export function QuizManager({
             />
           </>
         )}
-        {quiz.type === "question-list" && previewQuestion && (
+        {quiz.type === "contest" && previewQuestion && (
           <QuestionListPreviewDrawer
             record={previewQuestion}
             manifestPath={quiz.manifestPath}
@@ -2313,7 +2305,7 @@ export function QuizManager({
                           onClick={() => {
                             setPage({ kind: "quiz", quiz });
                             setQuizTab(
-                              quiz.type === "question-list"
+                              quiz.type === "contest"
                                 ? "questions"
                                 : "alphabets",
                             );
