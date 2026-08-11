@@ -11,6 +11,7 @@ export interface EditableAnswer extends Record<string, unknown> {
   unit?: string
   inputType?: string
   fixed?: boolean
+  otherChoiceKey?: string
 }
 
 export interface AnswerDetailsProps {

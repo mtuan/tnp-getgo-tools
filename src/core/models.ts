@@ -572,6 +572,13 @@ export interface ImagePdfSelection {
   defaultDirectory: string | null;
 }
 
+export interface ImagePdfOrientation {
+  path: string;
+  rotation: 0 | 90 | 180 | 270;
+  confidence?: number;
+  detected: boolean;
+}
+
 export type DynamicQuestionProposal = GetGoDynamicQuestionProposal;
 export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult;
 export type DynamicQuestionFixResult = GetGoDynamicQuestionFixResult;
@@ -580,6 +587,7 @@ export interface DesktopApi {
   restartApp(): Promise<void>;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
   loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;
+  detectImagePdfOrientations(paths: string[]): Promise<ImagePdfOrientation[]>;
   resolveDroppedFilePath(file: File): string;
   saveGeneratedPdf(data: ArrayBuffer, suggestedName: string, defaultDirectory?: string | null): Promise<{ filePath: string } | null>;
   getSettings(): Promise<AppSettings>;

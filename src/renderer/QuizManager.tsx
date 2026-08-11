@@ -1481,6 +1481,31 @@ export function QuizManager({
           return;
         void runButtonAction("create-question", createQuestion);
       };
+      const deleteQuestionFromDetail = () => {
+        const kind = isAlphabetQuestion ? "letter" : "question";
+        if (
+          !window.confirm(
+            `Delete ${kind} ${activeQuestion.number}? This removes its file and renumbers the remaining questions.`,
+          )
+        )
+          return;
+        void runButtonAction("delete-question", async () => {
+          const result = await managerApi.deleteQuizQuestion(
+            quiz.manifestPath,
+            String(activeQuestion.number),
+          );
+          setQuestionRecords(result.questions);
+          onSnapshotChange(result.snapshot);
+          setQuestionDraftRecord(null);
+          setSourceError(null);
+          backToQuestions();
+          toast.show({
+            title: isAlphabetQuestion ? "Letter deleted" : "Question deleted",
+            description:
+              "The file was removed from questions/ and remaining question numbers were updated.",
+          });
+        });
+      };
       return (
         <section className="manager editor-page question-detail-page">
           <QuestionEditorKeyboardShortcuts
@@ -1605,6 +1630,12 @@ export function QuizManager({
                       label: "Rejected",
                       trailingIcon: questionStatus(questionDraftRecord!) === "rejected" ? Check : undefined,
                       onSelect: () => void setQuestionReviewStatus("rejected"),
+                    },
+                    {
+                      id: "delete-question",
+                      label: isAlphabetQuestion ? "Delete letter" : "Delete question",
+                      icon: Trash2,
+                      onSelect: deleteQuestionFromDetail,
                     },
                   ]}
                 />

@@ -94,7 +94,11 @@ class QuestionService {
       };
     }
 
-    let ordered = shuffle(entries);
+    const otherEntry = entries.find(([label]) => sourceAnswer.otherChoiceKey === label);
+    let ordered = [
+      ...shuffle(entries.filter(([label]) => sourceAnswer.otherChoiceKey !== label)),
+      ...(otherEntry ? [otherEntry] : []),
+    ];
     const currentValues = Object.values(current?.answer.choices ?? {});
     if (ordered.every(([, value], index) => value === currentValues[index]))
       [ordered[0], ordered[1]] = [ordered[1], ordered[0]];

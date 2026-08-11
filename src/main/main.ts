@@ -9,9 +9,10 @@ import {
 import { config as loadEnvironment } from "dotenv";
 import { watch, type FSWatcher } from "node:fs";
 import { promises as fs } from "node:fs";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AppSettings, ImagePdfInput, ImagePdfSelection, RepositorySnapshot } from "../core/models.js";
+import type { AppSettings, ImagePdfInput, ImagePdfOrientation, ImagePdfSelection, RepositorySnapshot } from "../core/models.js";
 import {
   hashContentV2,
   sanitizeContentV2Question,
@@ -145,6 +146,64 @@ async function loadImagePdfSelection(inputPaths: string[]): Promise<ImagePdfSele
     };
   }));
   return { images, defaultDirectory: selectedDirectory ?? images[0]?.directory ?? null };
+}
+
+async function detectImageOrientation(filePath: string): Promise<ImagePdfOrientation> {
+  const candidates = [
+    process.env.TESSERACT_PATH,
+    "/opt/homebrew/bin/tesseract",
+    "/usr/local/bin/tesseract",
+    "tesseract",
+  ].filter((value): value is string => Boolean(value));
+  let executable = candidates.at(-1) ?? "tesseract";
+  for (const candidate of candidates.slice(0, -1)) {
+    try {
+      await fs.access(candidate);
+      executable = candidate;
+      break;
+    } catch {
+      // Try the next explicit path, then fall back to PATH lookup.
+    }
+  }
+  return new Promise((resolve, reject) => {
+    const child = spawn(executable, [filePath, "stdout", "--psm", "0"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    child.stdout.on("data", chunk => { output += String(chunk); });
+    child.stderr.on("data", chunk => { output += String(chunk); });
+    child.on("error", cause => {
+      if ((cause as NodeJS.ErrnoException).code === "ENOENT") {
+        reject(new Error("Text orientation detection requires Tesseract OCR. Install it with: brew install tesseract"));
+        return;
+      }
+      reject(cause);
+    });
+    child.on("close", () => {
+      const rotation = Number(output.match(/Rotate:\s*(0|90|180|270)/i)?.[1]);
+      const confidence = Number(output.match(/Orientation confidence:\s*([\d.]+)/i)?.[1]);
+      const detected = [0, 90, 180, 270].includes(rotation);
+      resolve({
+        path: filePath,
+        rotation: detected ? rotation as 0 | 90 | 180 | 270 : 0,
+        ...(Number.isFinite(confidence) ? { confidence } : {}),
+        detected,
+      });
+    });
+  });
+}
+
+async function detectImageOrientations(paths: string[]): Promise<ImagePdfOrientation[]> {
+  const results = new Array<ImagePdfOrientation>(paths.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < paths.length) {
+      const index = nextIndex++;
+      results[index] = await detectImageOrientation(paths[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(2, paths.length) }, worker));
+  return results;
 }
 
 async function runAiIpc<T>(
@@ -418,6 +477,16 @@ app.whenReady().then(async () => {
   ipcMain.handle("utility:pdf:load-inputs", (_event, inputPaths: unknown) => {
     if (!Array.isArray(inputPaths) || inputPaths.some(value => typeof value !== "string")) throw new Error("Invalid dropped paths.");
     return loadImagePdfSelection(inputPaths);
+  });
+  ipcMain.handle("utility:pdf:detect-orientations", async (_event, inputPaths: unknown) => {
+    if (!Array.isArray(inputPaths) || !inputPaths.length || inputPaths.some(value => typeof value !== "string" || !path.isAbsolute(value)))
+      throw new Error("Select valid images before detecting text orientation.");
+    const paths = inputPaths as string[];
+    for (const filePath of paths) {
+      if (!imagePdfMimeTypes[path.extname(filePath).toLowerCase()])
+        throw new Error(`Unsupported image: ${path.basename(filePath)}`);
+    }
+    return detectImageOrientations(paths);
   });
   ipcMain.handle("utility:pdf:save", async (_event, data: unknown, suggestedName: unknown, defaultDirectory: unknown) => {
     if (!(data instanceof ArrayBuffer)) throw new Error("Generated PDF data is invalid.");

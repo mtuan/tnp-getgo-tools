@@ -10,6 +10,7 @@ const api: DesktopApi = {
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
   browseImagePdfInputs: (mode) => ipcRenderer.invoke("utility:pdf:browse", mode),
   loadImagePdfInputs: (paths) => ipcRenderer.invoke("utility:pdf:load-inputs", paths),
+  detectImagePdfOrientations: (paths) => ipcRenderer.invoke("utility:pdf:detect-orientations", paths),
   resolveDroppedFilePath: (file) => webUtils.getPathForFile(file),
   saveGeneratedPdf: (data, suggestedName, defaultDirectory) => ipcRenderer.invoke("utility:pdf:save", data, suggestedName, defaultDirectory),
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,

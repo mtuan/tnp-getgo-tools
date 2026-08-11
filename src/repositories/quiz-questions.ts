@@ -549,6 +549,9 @@ export async function saveQuizQuestion(
         answer: {
           ...answer,
           choices: populatedChoices,
+          ...(typeof answer.otherChoiceKey === "string" && populatedChoices && answer.otherChoiceKey in populatedChoices
+            ? { otherChoiceKey: answer.otherChoiceKey }
+            : { otherChoiceKey: undefined }),
         },
       } as QuizQuestionRecord
     : question;
