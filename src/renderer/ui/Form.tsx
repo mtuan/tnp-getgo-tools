@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { Check, ChevronDown, ImagePlus, X } from "lucide-react"
+import { Check, ChevronDown, FolderOpen, ImagePlus, Search, SmilePlus, X } from "lucide-react"
 import { Select, useSelectDropdown, type SelectOption } from "./Select"
 import { SegmentedControl } from "./SegmentedControl"
 import { Toggle } from "./Toggle"
+import { Button } from "./Button"
+import { Input } from "./Input"
 
 export type { SelectOption } from "./Select"
 export interface FieldRules {
@@ -28,6 +30,7 @@ export type FormField =
   | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number; autoCompact?: boolean; maxLines?: number })
   | (FieldBase & { type: "image"; accept?: string; maxBytes?: number; previewSrc?: string })
+  | (FieldBase & { type: "icon"; accept?: string; maxBytes?: number; previewSrc?: string; symbols?: string[] })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
   | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
@@ -100,6 +103,99 @@ function ImageControl({ field, value, disabled, autoFocus, onChange }: { field: 
       <input type="file" accept={field.accept ?? "image/png,image/jpeg,image/webp,image/svg+xml"} disabled={disabled} autoFocus={autoFocus} onChange={event => { load(event.target.files?.[0]); event.currentTarget.value = "" }} />
     </label>
     {source && <button type="button" className="schema-image-remove" disabled={disabled} aria-label="Remove selected image" title="Remove image" onClick={() => onChange("")}><X /></button>}
+  </div>
+}
+
+type IconSymbolItem = readonly [symbol: string, keywords: string]
+const iconSymbolCategories: Array<{ name: string; items: IconSymbolItem[] }> = [
+  { name: "Learning", items: [
+    ["🔤", "alphabet letters abc language"], ["🔢", "digits numbers 123"], ["📚", "books reading library"], ["✏️", "pencil writing edit"], ["🎓", "graduation education school"], ["🧠", "brain thinking knowledge"], ["🧩", "puzzle learning game"], ["💡", "idea light learn"],
+    ["📖", "open book reading"], ["📕", "red book textbook"], ["📘", "blue book textbook"], ["📗", "green book textbook"], ["📝", "memo note writing"], ["🖍️", "crayon drawing"], ["📐", "triangle ruler geometry"], ["📏", "ruler measure"],
+    ["🏫", "school building education"], ["👩‍🏫", "teacher woman class"], ["👨‍🏫", "teacher man class"], ["🧑‍🎓", "student learner"], ["🔠", "uppercase capital letters"], ["🔡", "lowercase small letters"], ["🔣", "symbols characters"], ["🗒️", "notebook notes"],
+  ] },
+  { name: "Time & mathematics", items: [
+    ["🕐", "clock time one"], ["⏰", "alarm clock time"], ["⏱️", "stopwatch timer speed"], ["🧮", "abacus mathematics calculate"], ["➕", "plus addition add"], ["➖", "minus subtraction"], ["✖️", "multiply multiplication times"], ["➗", "divide division"],
+    ["🕘", "clock time nine"], ["🕛", "clock time twelve noon"], ["⌛", "hourglass time wait"], ["⏳", "hourglass running time"], ["🔟", "ten number digits"], ["💯", "hundred score number"], ["🟰", "equals equal mathematics"], ["♾️", "infinity mathematics"],
+    ["📊", "chart graph statistics"], ["📈", "chart increasing graph"], ["📉", "chart decreasing graph"], ["🔺", "triangle geometry"], ["🔵", "circle geometry blue"], ["🟩", "square geometry green"], ["0️⃣", "zero number digit"], ["1️⃣", "one number digit"],
+  ] },
+  { name: "Awards & goals", items: [
+    ["🏆", "trophy winner champion"], ["⭐", "star favorite reward"], ["🎯", "target goal focus"], ["🥇", "gold medal first"], ["🎖️", "medal award prize"], ["✅", "check complete correct"], ["🌟", "glowing star excellent"], ["🏅", "sports medal award"],
+    ["🥈", "silver medal second"], ["🥉", "bronze medal third"], ["👑", "crown winner king queen"], ["💎", "diamond prize gem"], ["🎁", "gift present reward"], ["🎉", "celebration party success"], ["🎊", "confetti celebration"], ["🚩", "flag goal finish"],
+    ["🏁", "finish flag goal race"], ["☑️", "checkbox checked done"], ["✔️", "check correct success"], ["💪", "strong effort achievement"], ["👏", "clap congratulations"], ["🙌", "celebrate success"], ["🔥", "fire streak excellent"], ["✨", "sparkles special achievement"],
+  ] },
+  { name: "Faces", items: [
+    ["🙂", "smile happy friendly"], ["😀", "grin happy face"], ["😄", "laugh happy smile"], ["🤓", "student smart glasses"], ["🥳", "celebrate party face"], ["😎", "cool sunglasses face"], ["🤔", "thinking question face"], ["😊", "blush happy smile"],
+    ["😁", "grin teeth happy"], ["😆", "laugh excited face"], ["😂", "laugh tears funny"], ["😍", "love heart eyes"], ["🤩", "star eyes amazed"], ["🥰", "love hearts happy"], ["😇", "angel good face"], ["🧐", "inspect monocle curious"],
+    ["😮", "surprised wow face"], ["😴", "sleep tired face"], ["😢", "sad crying face"], ["😕", "confused face"], ["🙃", "upside down silly"], ["😉", "wink face"], ["🤗", "hug happy face"], ["🫡", "salute face"],
+  ] },
+  { name: "Activities & subjects", items: [
+    ["🎨", "art colors palette"], ["🎵", "music song note"], ["⚽", "football soccer sport"], ["🚀", "rocket space science"], ["🌍", "earth geography world"], ["🔬", "microscope science biology"], ["💻", "computer technology coding"], ["🗣️", "language speaking voice"],
+    ["🎹", "piano music instrument"], ["🎸", "guitar music instrument"], ["🎤", "microphone singing voice"], ["🎭", "theater drama acting"], ["🏀", "basketball sport"], ["🏈", "football american sport"], ["🎾", "tennis sport"], ["🏊", "swimming sport"],
+    ["🧪", "test tube chemistry science"], ["🧬", "dna biology science"], ["⚗️", "laboratory chemistry science"], ["🪐", "planet space astronomy"], ["🌱", "plant nature biology"], ["🐾", "animal paw nature"], ["🗺️", "map geography travel"], ["🏛️", "history museum building"],
+  ] },
+]
+
+function IconControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "icon" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
+  const [open, setOpen] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [search, setSearch] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const source = typeof value === "string" ? value : ""
+  const isImage = source.startsWith("asset:") || source.startsWith("data:image/") || source.startsWith("http://") || source.startsWith("https://")
+  const previewSource = source.startsWith("data:image/") || source.startsWith("http://") || source.startsWith("https://") ? source : field.previewSrc ?? ""
+  const load = (file?: File) => {
+    if (!file || !file.type.startsWith("image/") || (field.maxBytes && file.size > field.maxBytes)) return
+    const reader = new FileReader()
+    reader.onload = () => { onChange(String(reader.result ?? "")); setOpen(false) }
+    reader.readAsDataURL(file)
+  }
+  const normalizedSearch = search.trim().toLocaleLowerCase()
+  const categories = (field.symbols
+    ? [{ name: "Symbols", items: field.symbols.map(symbol => [symbol, symbol] as const) }]
+    : iconSymbolCategories
+  ).map(category => ({
+    ...category,
+    items: normalizedSearch
+      ? category.items.filter(([symbol, keywords]) => symbol.includes(normalizedSearch) || keywords.includes(normalizedSearch) || category.name.toLocaleLowerCase().includes(normalizedSearch))
+      : category.items.slice(0, 16),
+  })).filter(category => category.items.length)
+  useEffect(() => {
+    if (!open) return
+    const close = () => { setOpen(false); setSearch("") }
+    const pointerDown = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) close()
+    }
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close()
+    }
+    document.addEventListener("pointerdown", pointerDown)
+    window.addEventListener("keydown", keyDown)
+    return () => {
+      document.removeEventListener("pointerdown", pointerDown)
+      window.removeEventListener("keydown", keyDown)
+    }
+  }, [open])
+  return <div ref={pickerRef} className={`schema-icon-picker ${dragging ? "dragging" : ""}`} tabIndex={0} role="group" aria-label={String(field.label ?? "Icon")}
+    onDragEnter={event => { event.preventDefault(); if (!disabled) setDragging(true) }}
+    onDragOver={event => { event.preventDefault(); if (!disabled) event.dataTransfer.dropEffect = "copy" }}
+    onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }}
+    onDrop={event => { event.preventDefault(); setDragging(false); if (!disabled) load(event.dataTransfer.files?.[0]) }}>
+    <div className="schema-icon-value">
+      <span className="schema-icon-preview">{isImage && previewSource ? <img src={previewSource} alt="" /> : source && !isImage ? source : <ImagePlus />}</span>
+      <span>{source ? isImage ? source.startsWith("asset:") ? source.slice(6) : "Selected image" : source : "Select an image or symbol"}</span>
+    </div>
+    <Button variant="icon" color="primary" icon={<FolderOpen />} title="Browse icon image" aria-label="Browse icon image" disabled={disabled} onClick={event => { event.stopPropagation(); inputRef.current?.click() }} />
+    <Button variant="icon" color="neutral" icon={<SmilePlus />} title="Choose Unicode symbol" aria-label="Choose Unicode symbol" disabled={disabled} onClick={event => { event.stopPropagation(); setOpen(current => !current) }} />
+    {source && <Button variant="icon" color="danger" icon={<X />} title="Remove icon" aria-label="Remove icon" disabled={disabled} onClick={() => onChange("")} />}
+    <input ref={inputRef} type="file" accept={field.accept ?? "image/png,image/jpeg,image/webp,image/svg+xml"} hidden onChange={event => { load(event.target.files?.[0]); event.currentTarget.value = "" }} />
+    {open && <div className="schema-icon-popover" role="dialog" aria-label="Choose icon">
+      <div className="schema-icon-popover-header">
+        <div><strong>Choose a symbol</strong><Button variant="icon" icon={<X />} aria-label="Close symbol picker" title="Close" onClick={() => setOpen(false)} /></div>
+        <Input className="schema-icon-search" leftIcon={<Search />} autoFocus type="search" aria-label="Search symbols" placeholder="Search symbols" value={search} onChange={event => setSearch(event.target.value)} />
+      </div>
+      <div className="schema-icon-categories">{categories.length ? categories.map(category => <section key={category.name}><h4>{category.name}</h4><div className="schema-icon-symbols">{category.items.map(([symbol, keywords]) => <button type="button" className={source === symbol ? "selected" : ""} aria-label={`Use ${keywords}`} title={keywords} onClick={() => { onChange(symbol); setOpen(false); setSearch("") }} key={symbol}><span>{symbol}</span>{source === symbol && <Check />}</button>)}</div></section>) : <p className="schema-icon-empty">No matching symbols.</p>}</div>
+    </div>}
   </div>
 }
 
@@ -176,6 +272,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   if (field.type === "checkbox") return <label className="schema-checkbox"><input name={field.name} type="checkbox" checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><span>{field.label}</span></label>
   if (field.type === "textarea") return <TextareaControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "image") return <ImageControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
+  if (field.type === "icon") return <IconControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "number") return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null ? "" : Number(value)} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />

@@ -14,12 +14,16 @@ const hashSchema = z
   .string()
   .regex(/^[a-f0-9]{64}$/)
   .optional();
+const iconSchema = z.string().refine(
+  (value) => value.startsWith("asset:") || (value.trim().length <= 16 && /\P{ASCII}/u.test(value)),
+  "Icon must be an asset reference or one Unicode symbol.",
+).optional();
 const baseRecord = {
   schemaVersion: z.literal(2),
   id: idSchema,
   title: z.string().min(1),
   description: z.string().default(""),
-  icon: z.string().startsWith("asset:").optional(),
+  icon: iconSchema,
   status: z.enum(contentV2ReviewStatuses).default("draft"),
   order: z.number().int().nonnegative().default(0),
   publishedHash: hashSchema,
