@@ -8,17 +8,15 @@ interface ChoiceRow extends Record<string, unknown> { label: string; type: "valu
 const correctKeys = (correct: unknown) => new Set(Array.isArray(correct) ? correct.map(String) : correct == null || correct === "" ? [] : [String(correct)])
 const emptyChoiceRows = (): ChoiceRow[] => ["A", "B", "C", "D", "E"].map(label => ({ label, type: "value", value: "", correct: false }))
 const withTrailingEmptyChoice = (rows: ChoiceRow[]): ChoiceRow[] => {
-  const other = rows.find(row => row.type === "other")
-  const ordinary = rows.filter(row => row.type !== "other")
-  while (ordinary.length < 5) ordinary.push({ label: "", type: "value", value: "", correct: false })
-  const last = ordinary.at(-1)
-  const withEmpty = !last || (last.type === "value" && String(last.value ?? "").trim() === "")
-    ? ordinary
-    : [...ordinary, { label: "", type: "value" as const, value: "", correct: false }]
-  return [...withEmpty, ...(other ? [other] : [])].map((row, index) => ({
-    ...row,
+  const hasEmptyValue = rows.some(row => row.type === "value" && String(row.value ?? "").trim() === "")
+  if (hasEmptyValue) return rows
+  const index = rows.length
+  return [...rows, {
     label: index < 26 ? String.fromCharCode(65 + index) : `Option ${index + 1}`,
-  }))
+    type: "value",
+    value: "",
+    correct: false,
+  }]
 }
 
 const columns: EditColumnDef<ChoiceRow>[] = [
@@ -49,6 +47,12 @@ export function ChoiceAnswerDetails({ answer, onChange, manifestPath, questionNo
     const nextAnswer = { ...answer, type: "choice", inputs: undefined, choices: Object.fromEntries(populated.map(row => [row.label, row.value])), correct: selected.length > 1 ? selected : selected[0] ?? "" }
     if (otherChoiceKey) nextAnswer.otherChoiceKey = otherChoiceKey
     else delete nextAnswer.otherChoiceKey
+    console.info("[GetGo Tools][Choice answer] Answer state updated", {
+      visibleRows: visibleRows.map(row => ({ label: row.label, type: row.type, hasValue: String(row.value ?? "").trim() !== "" })),
+      savedChoiceKeys: Object.keys(nextAnswer.choices),
+      otherChoiceKey,
+      correct: nextAnswer.correct,
+    })
     onChange(nextAnswer)
   }
   const choiceColumns: EditColumnDef<ChoiceRow>[] = [
@@ -78,8 +82,21 @@ export function ChoiceAnswerDetails({ answer, onChange, manifestPath, questionNo
     { name: "fixed", label: "Fixed order", helper: "Keep options in the displayed order instead of allowing them to be shuffled.", type: "toggle" },
     { name: "options", type: "custom", render: () => <EditTable<ChoiceRow> ariaLabel="Answer options" columns={choiceColumns} rows={rows} rowKey="label" emptyText="No answer options." onRowChange={(index, field, value) => {
       let next = [...rows]
-      if (field === "type" && value === "other") next = next.map((row, rowIndex) => rowIndex !== index && row.type === "other" ? { ...row, type: "value" } : row)
-      next[index] = { ...next[index], [field]: value, ...(field === "type" ? { value: "" } : {}) } as ChoiceRow
+      if (field === "type") {
+        const previous = next[index]
+        if (value === "other") next = next.map((row, rowIndex) => rowIndex !== index && row.type === "other" ? { ...row, type: "value" } : row)
+        const crossesImageBoundary = previous.type === "image" || value === "image"
+        next[index] = { ...previous, type: value, ...(crossesImageBoundary ? { value: "" } : {}) } as ChoiceRow
+        console.info("[GetGo Tools][Choice answer] Option type changed", {
+          rowIndex: index,
+          label: previous.label,
+          from: previous.type,
+          to: value,
+          valuePreserved: !crossesImageBoundary,
+          hadValue: String(previous.value ?? "").trim() !== "",
+          availableEmptyValueRowsBefore: rows.filter(row => row.type === "value" && String(row.value ?? "").trim() === "").length,
+        })
+      } else next[index] = { ...next[index], [field]: value } as ChoiceRow
       update(next)
     }} onRowDelete={index => update(rows.filter((_, rowIndex) => rowIndex !== index))} /> },
   ]

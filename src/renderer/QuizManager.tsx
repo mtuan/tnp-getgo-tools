@@ -6,6 +6,9 @@ import {
   Check,
   CheckCheck,
   ChevronRight,
+  CircleCheck,
+  CircleDashed,
+  CircleX,
   CloudUpload,
   FolderOpen,
   ListOrdered,
@@ -1608,6 +1611,12 @@ export function QuizManager({
                       onSelect: () => void resetQuestion(),
                     }] : []),
                     {
+                      id: "delete-question",
+                      label: isAlphabetQuestion ? "Delete letter" : "Delete question",
+                      icon: Trash2,
+                      onSelect: deleteQuestionFromDetail,
+                    },
+                    {
                       id: "review-status-label",
                       label: "Review status",
                       type: "label" as const,
@@ -1616,26 +1625,23 @@ export function QuizManager({
                     {
                       id: "status-pending",
                       label: "Pending",
+                      icon: CircleDashed,
                       trailingIcon: questionStatus(questionDraftRecord!) === "pending" ? Check : undefined,
                       onSelect: () => void setQuestionReviewStatus("pending"),
                     },
                     {
                       id: "status-reviewed",
                       label: "Reviewed",
+                      icon: CircleCheck,
                       trailingIcon: questionStatus(questionDraftRecord!) === "verified" ? Check : undefined,
                       onSelect: () => void setQuestionReviewStatus("verified"),
                     },
                     {
                       id: "status-rejected",
                       label: "Rejected",
+                      icon: CircleX,
                       trailingIcon: questionStatus(questionDraftRecord!) === "rejected" ? Check : undefined,
                       onSelect: () => void setQuestionReviewStatus("rejected"),
-                    },
-                    {
-                      id: "delete-question",
-                      label: isAlphabetQuestion ? "Delete letter" : "Delete question",
-                      icon: Trash2,
-                      onSelect: deleteQuestionFromDetail,
                     },
                   ]}
                 />
