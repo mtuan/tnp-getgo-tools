@@ -405,12 +405,6 @@ export async function saveContentV2Topic(
     validateId(topic.id, "Topic ID"),
     "topic.json",
   );
-  const existing = (await fs
-    .readFile(filePath, "utf8")
-    .then(JSON.parse)
-    .catch(() => null)) as { type?: unknown } | null;
-  if (existing?.type && existing.type !== topic.type)
-    throw new Error("A topic type cannot be changed after creation.");
   await writeJson(filePath, topic);
   return topic;
 }

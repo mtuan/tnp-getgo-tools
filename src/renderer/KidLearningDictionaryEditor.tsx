@@ -5,6 +5,7 @@ import { Button } from "./ui/Button";
 import { DataTable, type DataColumn } from "./ui/DataTable";
 import { Form, type FormSchema } from "./ui/Form";
 import { Panel } from "./ui/Panel";
+import { useSaveShortcut } from "./ui/useSaveShortcut";
 
 type DictionaryRow = {
   id: string;
@@ -99,6 +100,8 @@ export function KidLearningDictionaryEditor({
         : nextRows[0]?.id ?? null);
   }, [dictionary]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
+  const dirty = Boolean(draft && selected && JSON.stringify(draft) !== JSON.stringify(selected));
+  const draftValid = Boolean(draft?.id.trim() && draft.minimumAge >= 3 && draft.minimumAge <= 8);
   useEffect(() => {
     const filename = selected?.image?.replace(/^asset:/, "");
     if (!filename) { setImagePreview(null); setPreviewLoading(false); return; }
@@ -134,7 +137,7 @@ export function KidLearningDictionaryEditor({
     { key: "minimumAge", title: "Age", width: 76, align: "right", sortValue: (row) => row.minimumAge, render: (row) => row.minimumAge },
   ], []);
   const saveDraft = async () => {
-    if (!draft || !selected || saving) return;
+    if (!draft || !selected || saving || !dirty || !draftValid) return;
     const nextRows = rows.map((row) => row === selected ? draft : row);
     const nextDictionary = dictionaryFromRows(nextRows);
     setSaving(true);
@@ -148,6 +151,7 @@ export function KidLearningDictionaryEditor({
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setSaving(false); }
   };
+  useSaveShortcut({ active: Boolean(draft), enabled: dirty && draftValid && !saving, onSave: () => void saveDraft() });
   const deleteSelected = async () => {
     if (!selected || saving || !window.confirm(`Delete ${selected.enText || selected.viText || selected.id} from the shared dictionary?`)) return;
     const nextRows = rows.filter((row) => row !== selected);
@@ -185,7 +189,7 @@ export function KidLearningDictionaryEditor({
         description={draft ? "Update this shared dictionary record." : selected ? selected.image || "No linked image" : "Select a word to see its information and linked image."}
         meta={selected ? draft ? <div className="topic-assets-actions">
           <Button variant="icon" icon={<X />} disabled={saving} aria-label="Cancel editing" title="Cancel" onClick={() => { setDraft(null); setError(null); }} />
-          <Button variant="solid" color="success" className="topic-header-icon-action" icon={<Save />} loading={saving} disabled={!draft.id.trim() || draft.minimumAge < 3 || draft.minimumAge > 8} aria-label="Save word" title="Save" onClick={() => void saveDraft()} />
+          <Button variant="solid" color="success" className="topic-header-icon-action" icon={<Save />} loading={saving} disabled={!dirty || !draftValid || saving} aria-label="Save word" title="Save" onClick={() => void saveDraft()} />
         </div> : <div className="topic-assets-actions">
           <Button variant="solid" color="danger" className="topic-header-icon-action" icon={<Trash2 />} disabled={saving} aria-label="Delete word" title="Delete" onClick={() => void deleteSelected()} />
           <Button variant="solid" className="topic-header-icon-action" icon={<Pencil />} disabled={saving} aria-label="Edit word" title="Edit" onClick={() => setDraft({ ...selected })} />

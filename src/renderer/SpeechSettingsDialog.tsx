@@ -38,6 +38,7 @@ export function SpeechSettingsDialog({
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dirty = JSON.stringify(values) !== JSON.stringify(settings);
   useEffect(() => () => window.speechSynthesis.cancel(), []);
   const languagePrefix = language === "vi" ? "vi" : "en";
   const matchingVoices = voices.filter(
@@ -158,6 +159,8 @@ export function SpeechSettingsDialog({
       className="speech-settings-dialog"
       title={`${copy.title} · ${language === "vi" ? copy.vietnamese : copy.english}`}
       submitLabel={copy.save}
+      submitDisabled={!dirty}
+      saveShortcut
       busy={busy}
       error={error}
       onClose={onClose}

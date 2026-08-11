@@ -22,6 +22,7 @@ export function QuestionFeedback({ feedback, onSave }: { feedback?: Feedback; on
   const [error, setError] = useState<string | null>(null)
   const initialValues = () => ({ ...Object.fromEntries(issueFields.map(issue => [issue.name, feedback?.issues.includes(issue.name) ?? false])), note: feedback?.note ?? "" })
   const [values, setValues] = useState<Record<string, unknown>>(initialValues)
+  const dirty = JSON.stringify(values) !== JSON.stringify(initialValues())
   const issueCount = feedback?.issues.length ?? 0
   const show = () => { setValues(initialValues()); setError(null); setOpen(true) }
   const submit = async (event: FormEvent) => {
@@ -35,6 +36,6 @@ export function QuestionFeedback({ feedback, onSave }: { feedback?: Feedback; on
   }
   return <>
     <Button className={`question-feedback-button ${issueCount ? "has-issues" : ""}`} variant="icon" title={issueCount ? `${issueCount} reported issue${issueCount === 1 ? "" : "s"}` : "Report question issue"} aria-label="Report question issue" icon={<MessageSquareWarning size={16} />} onClick={show} />
-    {open && <DialogFrame presentation="modal" className="question-feedback-dialog" title="Question feedback" busy={busy} error={error} submitLabel="Save feedback" onClose={() => setOpen(false)} onSubmit={submit}><Form fields={schema} values={values} autoFocus={false} onChange={(name, value) => setValues(current => ({ ...current, [name]: value }))} /></DialogFrame>}
+    {open && <DialogFrame presentation="modal" className="question-feedback-dialog" title="Question feedback" busy={busy} error={error} submitLabel="Save feedback" submitDisabled={!dirty} saveShortcut onClose={() => setOpen(false)} onSubmit={submit}><Form fields={schema} values={values} autoFocus={false} onChange={(name, value) => setValues(current => ({ ...current, [name]: value }))} /></DialogFrame>}
   </>
 }

@@ -171,6 +171,8 @@ export interface ContestSettings {
     title: string;
     description?: string;
     icon?: string;
+    /** Content V2 topic kind. Omitted by legacy contest settings. */
+    topicType?: "competition" | "kid-learning";
     subject: number;
     isActive?: boolean;
   };

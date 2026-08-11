@@ -65,6 +65,7 @@ import { TableActionButton } from "./ui/TableActionButton";
 import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
+import { useSaveShortcut } from "./ui/useSaveShortcut";
 import { QuizPublishPanel } from "./QuizPublishPanel";
 import { TopicPublishPanel } from "./TopicPublishPanel";
 import en from "./locales/en.json";
@@ -104,23 +105,29 @@ function QuestionEditorKeyboardShortcuts({
   saveDisabled: boolean;
   newQuestionDisabled: boolean;
 }) {
+  useSaveShortcut({ enabled: !saveDisabled, onSave });
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey)
         return;
       const key = event.key.toLowerCase();
-      if (key === "s") {
-        event.preventDefault();
-        if (!saveDisabled) onSave();
-      } else if (key === "n") {
+      if (key === "n") {
         event.preventDefault();
         if (!newQuestionDisabled) onNewQuestion();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [newQuestionDisabled, onNewQuestion, onSave, saveDisabled]);
+  }, [newQuestionDisabled, onNewQuestion]);
   return null;
+}
+
+function QuestionOrderActions({ dirty, busy, onCancel, onSave }: { dirty: boolean; busy: boolean; onCancel(): void; onSave(): void }) {
+  useSaveShortcut({ enabled: dirty && !busy, onSave });
+  return <>
+    <Button variant="outline" color="neutral" disabled={busy} onClick={onCancel}>Cancel</Button>
+    <Button icon={<Save size={15} />} variant="solid" loading={busy} disabled={!dirty || busy} onClick={onSave}>Save order</Button>
+  </>;
 }
 
 export type QuizManagerApi = Pick<
@@ -912,6 +919,17 @@ export function QuizManager({
           )
           .filter((question): question is QuestionListItem => Boolean(question))
       : questions;
+    const questionOrderDirty = Boolean(questionOrder && JSON.stringify(questionOrder) !== JSON.stringify(questions.map((question) => question.number)));
+    const saveQuestionOrder = () => {
+      if (!questionOrder || !questionOrderDirty || buttonAction) return;
+      void runButtonAction("save-question-order", async () => {
+        const result = await managerApi.reorderQuizQuestions(quiz.manifestPath, questionOrder);
+        setQuestionRecords(result.questions);
+        setQuestionOrder(null);
+        onSnapshotChange(result.snapshot);
+        toast.show({ title: "Question order saved", description: "Only files inside questions/ were renumbered." });
+      });
+    };
     const moveOrderedQuestion = (number: string, offset: -1 | 1) => {
       setQuestionOrder((current) => {
         if (!current) return current;
@@ -1822,40 +1840,7 @@ export function QuizManager({
                   : quizPublishCopy.publish}
               </Button>
             ) : quizTab === "dictionary" ? null : questionOrder ? (
-              <>
-                <Button
-                  variant="outline"
-                  color="neutral"
-                  disabled={Boolean(buttonAction)}
-                  onClick={() => setQuestionOrder(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  icon={<Save size={15} />}
-                  variant="solid"
-                  loading={buttonAction === "save-question-order"}
-                  disabled={Boolean(buttonAction)}
-                  onClick={() =>
-                    void runButtonAction("save-question-order", async () => {
-                      const result = await managerApi.reorderQuizQuestions(
-                        quiz.manifestPath,
-                        questionOrder,
-                      );
-                      setQuestionRecords(result.questions);
-                      setQuestionOrder(null);
-                      onSnapshotChange(result.snapshot);
-                      toast.show({
-                        title: "Question order saved",
-                        description:
-                          "Only files inside questions/ were renumbered.",
-                      });
-                    })
-                  }
-                >
-                  Save order
-                </Button>
-              </>
+              <QuestionOrderActions dirty={questionOrderDirty} busy={Boolean(buttonAction)} onCancel={() => setQuestionOrder(null)} onSave={saveQuestionOrder} />
             ) : (
               <>
                 <Button
@@ -2230,6 +2215,7 @@ export function QuizManager({
       {isContest && contestTab === "info" && selectedContest && (
         <ContestSettingsDialog
           embedded
+          topicMode={topicMode}
           contest={selectedContest}
           onClose={() => undefined}
           onSaved={async (settings) => {
@@ -2449,6 +2435,7 @@ export function QuizManager({
       )}
       {contestDialog && (
         <ContestSettingsDialog
+          topicMode={topicMode}
           contest={contestDialog === "create" ? undefined : contestDialog}
           onClose={() => setContestDialog(null)}
           onSaved={async (settings) => {

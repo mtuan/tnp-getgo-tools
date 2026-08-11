@@ -71,6 +71,7 @@ function managerSettings(topic: RepositorySnapshot["contentV2"]["topics"][number
       title: topic.title,
       description: topic.description,
       icon: topic.icon,
+      topicType: topic.type,
       subject: definition.subject,
       isActive: true,
     },
@@ -372,19 +373,27 @@ export function ContentV2QuizManager(props: Props) {
       },
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
-        const topic: ContentV2Topic = settings.book.subject === 2
+        const topic: ContentV2Topic = settings.book.topicType === "kid-learning"
           ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
           : { schemaVersion: 2, id: settings.book.code, type: "competition", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
         return refresh(await window.getgo.saveContentV2Topic(topic));
       },
       updateContest: async (id, settings) => {
         const stored = await window.getgo.loadContentV2Topic(id);
-        const next: ContentV2Topic = stored.type === "competition"
+        const common = {
+          schemaVersion: 2 as const,
+          id: stored.id,
+          title: settings.book.title,
+          icon: settings.book.icon || undefined,
+          description: settings.book.description ?? "",
+          status: stored.status,
+          order: stored.order,
+        };
+        const next: ContentV2Topic = settings.book.topicType !== "kid-learning"
           ? {
-              ...stored,
-              title: settings.book.title,
-              icon: settings.book.icon || undefined,
-              description: settings.book.description ?? "",
+              ...common,
+              type: "competition",
+              subject: "mathematics",
               rounds: settings.rounds.map((round, index) => ({
                 id: String(round.roundCode ?? `round-${index + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `round-${index + 1}`,
                 title: String(round.roundName ?? round.roundCode ?? `Round ${index + 1}`),
@@ -395,7 +404,12 @@ export function ContentV2QuizManager(props: Props) {
                 grades: Array.isArray(grade.grades) ? grade.grades.filter((value): value is number => typeof value === "number") : [],
               })),
             }
-          : { ...stored, title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "" };
+          : {
+              ...common,
+              type: "kid-learning",
+              supportedLanguages: stored.type === "kid-learning" ? stored.supportedLanguages : ["en", "vi"],
+              recommendedAgeRange: stored.type === "kid-learning" ? stored.recommendedAgeRange : { minimum: 3, maximum: 7 },
+            };
         return refresh(await window.getgo.saveContentV2Topic(next));
       },
       deleteContest: async (id) => refresh(await window.getgo.deleteContentV2Topic(id)),

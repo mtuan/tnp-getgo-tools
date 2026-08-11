@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Save } from "lucide-react";
+import { RotateCcw, Save } from "lucide-react";
 import type {
   AlphabetDictionary,
   AlphabetSample,
@@ -11,6 +11,7 @@ import vi from "./locales/vi.json";
 import { Button } from "./ui/Button";
 import { EditTable, type EditColumnDef } from "./ui/EditTable";
 import { Panel } from "./ui/Panel";
+import { useSaveShortcut } from "./ui/useSaveShortcut";
 
 interface Props {
   dictionary: AlphabetDictionary;
@@ -101,6 +102,7 @@ export function AlphabetDictionaryEditor({
       setSaving(false);
     }
   };
+  useSaveShortcut({ enabled: dirty && !saving, onSave: () => void save() });
 
   return (
     <Panel
@@ -108,7 +110,14 @@ export function AlphabetDictionaryEditor({
       title={copy.title}
       description={copy.description}
       meta={
-        <Button
+        <div className="panel-heading-actions"><Button
+          color="neutral"
+          icon={<RotateCcw />}
+          disabled={!dirty || saving}
+          onClick={() => setWords(structuredClone(dictionary.words))}
+        >
+          Discard
+        </Button><Button
           variant="solid"
           icon={<Save />}
           loading={saving}
@@ -116,7 +125,7 @@ export function AlphabetDictionaryEditor({
           onClick={save}
         >
           {copy.save}
-        </Button>
+        </Button></div>
       }
     >
       {error && (

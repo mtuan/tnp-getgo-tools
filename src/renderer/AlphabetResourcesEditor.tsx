@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Save } from "lucide-react";
+import { RotateCcw, Save } from "lucide-react";
 import type {
   AlphabetLetterResource,
   QuizQuestionRecord,
@@ -9,6 +9,7 @@ import { Button } from "./ui/Button";
 import { DataTable, type DataColumn } from "./ui/DataTable";
 import { Panel } from "./ui/Panel";
 import { AlphabetResourceImportButton, AlphabetResourceTable } from "./AlphabetResourceTable";
+import { useSaveShortcut } from "./ui/useSaveShortcut";
 
 interface LetterRow {
   record: QuizQuestionRecord;
@@ -75,6 +76,7 @@ export function AlphabetResourcesEditor({ questions, onSave, onOpen, onSaved }: 
       setSaving(false);
     }
   };
+  useSaveShortcut({ enabled: dirty && !saving, onSave: () => void save() });
 
   return (
     <div className="alphabet-resources-layout">
@@ -98,6 +100,9 @@ export function AlphabetResourcesEditor({ questions, onSave, onOpen, onSaved }: 
         meta={
           <div className="panel-heading-actions">
             <AlphabetResourceImportButton resources={draft} onChange={setDraft} />
+            <Button icon={<RotateCcw />} color="neutral" disabled={!dirty || saving} onClick={() => setDraft(selected ? structuredClone(alphabetData(selected.record).resources) : [])}>
+              Discard
+            </Button>
             <Button icon={<Save />} variant="solid" loading={saving} disabled={!dirty || saving} onClick={() => void save()}>
               Save resources
             </Button>

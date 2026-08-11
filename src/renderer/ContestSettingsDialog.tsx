@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react"
 import { BookOpen, Layers3, Pencil, Plus, RotateCcw, Save, Settings2, Tags, Trash2, UsersRound } from "lucide-react"
 import type { ContestSettings, ContestSummary } from "../core/models"
 import { DialogFrame } from "./ui/DialogFrame"
-import { Form, validateSchema, type FormErrors, type FormSchema, type FormValues } from "./ui/Form"
+import { Form, validateSchema, type FormErrors, type FormRow, type FormSchema, type FormValues } from "./ui/Form"
 import { EditTable, type EditColumnDef } from "./ui/EditTable"
 import { AccordionSection } from "./ui/Accordion"
 import { Button } from "./ui/Button"
@@ -21,14 +21,14 @@ const tabs: Array<{ id: Tab; label: string; icon: typeof BookOpen }> = [
 
 const emptySettings = (): ContestSettings => ({
   $schema: "../settings.schema.json",
-  book: { code: "", title: "", description: "", subject: 1, isActive: true },
+  book: { code: "", title: "", description: "", topicType: "competition", subject: 1, isActive: true },
   rounds: [{ roundCode: "MAIN", roundName: "Main Round", description: "" }],
   grades: [{ gradeName: "1", grades: [1] }],
   categories: [], quizRules: [],
 })
 
-const generalFields = (iconPreview: string): FormSchema[] => [
-  { section: "Contest information", description: "Identity and visibility across GetGo.", fields: [
+const generalFields = (iconPreview: string, topicMode: boolean): FormSchema[] => [
+  { section: topicMode ? "Topic information" : "Contest information", description: "Identity and visibility across GetGo.", fields: [
     [
       { type: "text", name: "code", label: "Contest ID", required: true, rules: { pattern: { value: /^[a-z][-a-z0-9]*$/, message: "Use lowercase letters, numbers, and hyphens." } } },
       { type: "text", name: "title", label: "Display title", required: true },
@@ -39,9 +39,15 @@ const generalFields = (iconPreview: string): FormSchema[] => [
     ],
     [
       { type: "select", name: "subject", label: "Subject", options: ["Mathematics", "English", "Vietnamese", "Physics", "Chemistry", "Biology", "History", "Geography"].map((label, index) => ({ label, value: String(index + 1) })) },
-      { type: "toggle", name: "isActive", label: "Active contest" },
+      { type: "toggle", name: "isActive", label: topicMode ? "Active topic" : "Active contest" },
     ],
-  ] },
+    ...(topicMode ? [[
+      { type: "select" as const, name: "topicType", label: "Topic type", options: [
+        { value: "competition", label: "Contest" },
+        { value: "kid-learning", label: "Kid learning" },
+      ] },
+    ]] : []),
+  ] as FormRow[] },
 ]
 
 const gradeColumns: EditColumnDef<Item>[] = [
@@ -71,11 +77,13 @@ function ItemHeader({ title, detail, onDelete }: { title: string; detail?: strin
 
 function RuleEditorDrawer({ rule, rounds, grades, onClose, onSave }: { rule: Item; rounds: Item[]; grades: Item[]; onClose(): void; onSave(rule: Item): void }) {
   const [draft, setDraft] = useState<Item>(() => structuredClone(rule))
+  const dirty = JSON.stringify(draft) !== JSON.stringify(rule)
+  const editing = Boolean(text(rule.roundCode))
   const set = (patch: Item) => setDraft(current => ({ ...current, ...patch }))
   const breakdown = (Array.isArray(draft.categories) ? draft.categories : []) as Item[]
   const setBreakdown = (categories: Item[]) => set({ categories })
   const submit = (event: FormEvent) => { event.preventDefault(); onSave({ ...draft, roundCode: text(draft.roundCode).toUpperCase(), gradeNames: Array.isArray(draft.gradeNames) ? draft.gradeNames : ["*"] }) }
-  return <DialogFrame title={text(rule.roundCode) ? "Edit quiz rule" : "Add quiz rule"} busy={false} error={null} onClose={onClose} onSubmit={submit} submitLabel={text(rule.roundCode) ? "Save rule" : "Add rule"}>
+  return <DialogFrame title={editing ? "Edit quiz rule" : "Add quiz rule"} busy={false} error={null} onClose={onClose} onSubmit={submit} submitLabel={editing ? "Save rule" : "Add rule"} submitDisabled={editing && !dirty} saveShortcut={editing}>
     <Form fields={[
       [{ type: "select", name: "roundCode", label: "Round", options: rounds.map(round => ({ value: text(round.roundCode), label: text(round.roundName) || text(round.roundCode) })).filter(option => option.value) }, { type: "multi-select", name: "gradeNames", label: "Grades", options: [...grades.map(grade => ({ value: text(grade.gradeName), label: text(grade.gradeName) })).filter(option => option.value), { value: "*", label: "All grades" }] }],
       [{ type: "select", name: "answerType", label: "Answer type", options: [{ value: "0", label: "Multiple choice" }, { value: "1", label: "Input" }, { value: "2", label: "Mixed" }] }, { type: "number", name: "totalQuestions", label: "Questions", min: 1, step: 1 }],
@@ -87,7 +95,7 @@ function RuleEditorDrawer({ rule, rounds, grades, onClose, onSave }: { rule: Ite
   </DialogFrame>
 }
 
-export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, embedded = false }: { contest?: ContestSummary; onClose(): void; onSaved(settings: ContestSettings): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean }) {
+export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, embedded = false, topicMode = false }: { contest?: ContestSummary; onClose(): void; onSaved(settings: ContestSettings): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; topicMode?: boolean }) {
   const [settings, setSettings] = useState<ContestSettings>(() => structuredClone(contest?.settings ?? emptySettings()))
   const [tab, setTab] = useState<Tab>("general")
   const [expanded, setExpanded] = useState<Tab | null>("general")
@@ -97,6 +105,13 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const [iconPreview, setIconPreview] = useState("")
+  const persistedSettings = contest?.settings ?? emptySettings()
+  const dirty = JSON.stringify(settings) !== JSON.stringify(persistedSettings)
+  const isContestTopic = !topicMode || settings.book.topicType !== "kid-learning"
+  const visibleTabs = isContestTopic ? tabs : tabs.filter(item => item.id === "general")
+  useEffect(() => {
+    if (!isContestTopic) { setTab("general"); setExpanded("general") }
+  }, [isContestTopic])
   useEffect(() => {
     const reference = settings.book.icon
     if (!contest || !reference?.startsWith("asset:") || !contest.settingsPath.includes("content-v2")) {
@@ -120,7 +135,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   async function save(scope: Tab | "all") {
     setError(null)
     if (scope === "general" || scope === "all") {
-      const errors = validateSchema(generalFields(iconPreview), generalValues)
+      const errors = validateSchema(generalFields(iconPreview, topicMode), generalValues)
       setFieldErrors(errors)
       if (Object.keys(errors).length) { setTab("general"); setExpanded("general"); return }
     }
@@ -156,10 +171,11 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     { key: "categories", title: "Categories", width: "12%", render: rule => Array.isArray(rule.categories) ? rule.categories.length : 0 },
     { key: "actions", title: "", width: 84, render: (_rule, index) => <div className="ui-row-actions"><button type="button" onClick={() => setRuleEditor(index)} aria-label={`Edit rule ${index + 1}`}><Pencil /></button><button type="button" onClick={() => remove("quizRules", index)} aria-label={`Delete rule ${index + 1}`}><Trash2 /></button></div> },
   ]
-  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, icon: settings.book.icon ?? "", description: settings.book.description ?? "", subject: String(settings.book.subject), isActive: settings.book.isActive !== false }
+  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, icon: settings.book.icon ?? "", description: settings.book.description ?? "", topicType: settings.book.topicType ?? "competition", subject: String(settings.book.subject), isActive: settings.book.isActive !== false }
   const updateGeneral = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
-    if (name === "subject") setBook({ subject: Number(value) })
+    if (name === "topicType") setBook({ topicType: value === "kid-learning" ? "kid-learning" : "competition" })
+    else if (name === "subject") setBook({ subject: Number(value) })
     else if (name === "isActive") setBook({ isActive: Boolean(value) })
     else if (name === "code" || name === "title" || name === "description" || name === "icon") setBook({ [name]: String(value) })
   }
@@ -172,17 +188,25 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     if (id === "categories") setSettings(current => ({ ...current, categories: saved.categories ?? [] }))
     if (id === "rules") setSettings(current => ({ ...current, quizRules: saved.quizRules ?? [] }))
   }
+  const sectionDirty = (id: Tab) => {
+    if (!contest) return true
+    if (id === "general") return JSON.stringify(settings.book) !== JSON.stringify(persistedSettings.book)
+    if (id === "rounds") return JSON.stringify(settings.rounds) !== JSON.stringify(persistedSettings.rounds)
+    if (id === "grades") return JSON.stringify(settings.grades) !== JSON.stringify(persistedSettings.grades)
+    if (id === "categories") return JSON.stringify(settings.categories ?? []) !== JSON.stringify(persistedSettings.categories ?? [])
+    return JSON.stringify(settings.quizRules ?? []) !== JSON.stringify(persistedSettings.quizRules ?? [])
+  }
   const renderSection = (id: Tab, title: string, description: string, content: React.ReactNode) => embedded
-    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)} actions={<div className="settings-section-actions"><Button icon={<RotateCcw />} color="neutral" disabled={busy} onClick={() => discard(id)}>Discard</Button><Button icon={<Save />} loading={busy && busyScope === id} disabled={busy && busyScope !== id} variant="solid" className="settings-section-save" onClick={() => void save(id)}>Save</Button></div>}>{content}</AccordionSection>
+    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)} actions={<div className="settings-section-actions"><Button icon={<RotateCcw />} color="neutral" disabled={!sectionDirty(id) || busy} onClick={() => discard(id)}>Discard</Button><Button icon={<Save />} loading={busy && busyScope === id} disabled={!sectionDirty(id) || busy} variant="solid" className="settings-section-save" onClick={() => void save(id)}>Save</Button></div>}>{content}</AccordionSection>
     : tab === id ? content : null
-  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} title={embedded ? "Contest information" : contest ? "Edit contest" : "Create contest"} submitLabel={contest ? "Save changes" : "Create"} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) } } : undefined}>
-    {contest && !embedded && <div className="settings-tabs" role="tablist">{tabs.map(item => { const Icon = item.icon; const count = item.id === "rounds" ? rounds.length : item.id === "grades" ? grades.length : item.id === "categories" ? categories.length : item.id === "rules" ? rules.length : null; return <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}><Icon />{item.label}{count !== null && <i>{count}</i>}</button> })}</div>}
+  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} title={embedded ? (topicMode ? "Topic information" : "Contest information") : contest ? `Edit ${topicMode ? "topic" : "contest"}` : `Create ${topicMode ? "topic" : "contest"}`} submitLabel={contest ? "Save changes" : "Create"} submitDisabled={Boolean(contest) && !dirty} saveShortcut={Boolean(contest)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) } } : undefined}>
+    {contest && !embedded && <div className="settings-tabs" role="tablist">{visibleTabs.map(item => { const Icon = item.icon; const count = item.id === "rounds" ? rounds.length : item.id === "grades" ? grades.length : item.id === "categories" ? categories.length : item.id === "rules" ? rules.length : null; return <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}><Icon />{item.label}{count !== null && <i>{count}</i>}</button> })}</div>}
     <div className="settings-tab-content" key={tab}>
-      {renderSection("general", "General information", "Identity, subject, and contest visibility.", <Form fields={generalFields(iconPreview).map(entry => "section" in entry ? { ...entry, fields: entry.fields.map(row => Array.isArray(row) ? row.map(field => field.name === "code" ? { ...field, readOnly: Boolean(contest) } : field) : row.name === "code" ? { ...row, readOnly: Boolean(contest) } : row) } : entry)} values={generalValues} errors={fieldErrors} onChange={updateGeneral} />)}
-      {renderSection("rounds", "Contest rounds", "Stages and practice availability.", <><div className="section-heading"><div><h3>Contest rounds</h3><p>Edit stages and practice availability inline.</p></div></div><EditTable ariaLabel="Contest rounds" columns={roundColumns} rows={rounds} reorderable onRowsReorder={rows => setList("rounds", rows)} onRowChange={(index, field, value) => update("rounds", index, field === "roundCode" ? { roundCode: String(value).toUpperCase() } : { [field]: value })} onRowAdd={() => add("rounds", { roundCode: "", roundName: "", description: "", hasPractice: false })} onRowDelete={index => remove("rounds", index)} addLabel="Add round" emptyText="No rounds yet." /></>)}
-      {renderSection("grades", "Grade mappings", "Grade names and numeric school grades.", <><div className="section-heading"><div><h3>Grade mappings</h3><p>Edit grade names and their numeric school grades inline.</p></div></div><EditTable ariaLabel="Contest grade mappings" columns={gradeColumns} rows={grades} reorderable onRowsReorder={rows => setList("grades", rows)} onRowChange={(index, field, value) => update("grades", index, field === "grades" ? { grades: (value as string[]).map(Number).sort((a, b) => a - b) } : { gradeName: String(value) })} onRowAdd={() => add("grades", { gradeName: "", grades: [] })} onRowDelete={index => remove("grades", index)} addLabel="Add grade" emptyText="No grade mappings yet." /></>)}
-      {renderSection("categories", "Question categories", "Normalized names and source matching patterns.", <EditTable ariaLabel="Question categories" columns={categoryColumns} rows={categories} reorderable onRowsReorder={rows => setList("categories", rows)} onRowChange={(index, field, value) => { if (field === "roundCodes") update("categories", index, { roundCodes: (value as string[]).map(code => code.toUpperCase()) }); else if (field === "patterns") update("categories", index, { patterns: parseStrings(String(value)) }); else if (field === "roundHint") update("categories", index, { roundHint: String(value).trim() || undefined }); else update("categories", index, { categoryName: String(value) }) }} onRowAdd={() => add("categories", { categoryName: "", roundCodes: [], patterns: [] })} onRowDelete={index => remove("categories", index)} addLabel="Add category" emptyText="No categories yet." />)}
-      {renderSection("rules", "Quiz rules", "Timing, scoring, and category breakdowns.", <DataTable ariaLabel="Quiz rules" rows={rules} columns={ruleColumns} rowKey={(_rule, index) => String(index)} emptyText="No quiz rules yet." footer={<button type="button" className="ui-data-table-add" onClick={() => setRuleEditor("create")}><Plus />Add rule</button>} />)}
+      {renderSection("general", "General information", topicMode ? "Identity and topic type." : "Identity, subject, and contest visibility.", <Form fields={generalFields(iconPreview, topicMode).map(entry => "section" in entry ? { ...entry, fields: entry.fields.map(row => Array.isArray(row) ? row.map(field => field.name === "code" ? { ...field, readOnly: Boolean(contest) } : field) : row.name === "code" ? { ...row, readOnly: Boolean(contest) } : row) } : entry)} values={generalValues} errors={fieldErrors} onChange={updateGeneral} />)}
+      {isContestTopic && renderSection("rounds", "Contest rounds", "Stages and practice availability.", <><div className="section-heading"><div><h3>Contest rounds</h3><p>Edit stages and practice availability inline.</p></div></div><EditTable ariaLabel="Contest rounds" columns={roundColumns} rows={rounds} reorderable onRowsReorder={rows => setList("rounds", rows)} onRowChange={(index, field, value) => update("rounds", index, field === "roundCode" ? { roundCode: String(value).toUpperCase() } : { [field]: value })} onRowAdd={() => add("rounds", { roundCode: "", roundName: "", description: "", hasPractice: false })} onRowDelete={index => remove("rounds", index)} addLabel="Add round" emptyText="No rounds yet." /></>)}
+      {isContestTopic && renderSection("grades", "Grade mappings", "Grade names and numeric school grades.", <><div className="section-heading"><div><h3>Grade mappings</h3><p>Edit grade names and their numeric school grades inline.</p></div></div><EditTable ariaLabel="Contest grade mappings" columns={gradeColumns} rows={grades} reorderable onRowsReorder={rows => setList("grades", rows)} onRowChange={(index, field, value) => update("grades", index, field === "grades" ? { grades: (value as string[]).map(Number).sort((a, b) => a - b) } : { gradeName: String(value) })} onRowAdd={() => add("grades", { gradeName: "", grades: [] })} onRowDelete={index => remove("grades", index)} addLabel="Add grade" emptyText="No grade mappings yet." /></>)}
+      {isContestTopic && renderSection("categories", "Question categories", "Normalized names and source matching patterns.", <EditTable ariaLabel="Question categories" columns={categoryColumns} rows={categories} reorderable onRowsReorder={rows => setList("categories", rows)} onRowChange={(index, field, value) => { if (field === "roundCodes") update("categories", index, { roundCodes: (value as string[]).map(code => code.toUpperCase()) }); else if (field === "patterns") update("categories", index, { patterns: parseStrings(String(value)) }); else if (field === "roundHint") update("categories", index, { roundHint: String(value).trim() || undefined }); else update("categories", index, { categoryName: String(value) }) }} onRowAdd={() => add("categories", { categoryName: "", roundCodes: [], patterns: [] })} onRowDelete={index => remove("categories", index)} addLabel="Add category" emptyText="No categories yet." />)}
+      {isContestTopic && renderSection("rules", "Quiz rules", "Timing, scoring, and category breakdowns.", <DataTable ariaLabel="Quiz rules" rows={rules} columns={ruleColumns} rowKey={(_rule, index) => String(index)} emptyText="No quiz rules yet." footer={<button type="button" className="ui-data-table-add" onClick={() => setRuleEditor("create")}><Plus />Add rule</button>} />)}
     </div>
     {ruleEditor !== null && <RuleEditorDrawer rule={ruleEditor === "create" ? { roundCode: "", gradeNames: ["*"], totalQuestions: 1, totalPoints: 0, initPoints: 0, timeLimit: 0, answerType: 0, categories: [] } : rules[ruleEditor]} rounds={rounds} grades={grades} onClose={() => setRuleEditor(null)} onSave={rule => { if (ruleEditor === "create") add("quizRules", rule); else update("quizRules", ruleEditor, rule); setRuleEditor(null) }} />}
   </DialogFrame>
