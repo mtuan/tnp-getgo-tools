@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { EditTable, type EditColumnDef } from "../ui/EditTable"
 import { Form, FormControl, type FormSchema } from "../ui/Form"
 import { QuestionAssetInput } from "../ui/QuestionAssetInput"
@@ -19,6 +19,25 @@ const withTrailingEmptyChoice = (rows: ChoiceRow[]): ChoiceRow[] => {
   }]
 }
 
+const answerSignature = (answer: AnswerDetailsProps["answer"]): string => JSON.stringify({
+  choices: answer.choices ?? {},
+  correct: answer.correct,
+  otherChoiceKey: answer.otherChoiceKey,
+})
+
+const rowsFromAnswer = (answer: AnswerDetailsProps["answer"]): ChoiceRow[] => {
+  const correct = correctKeys(answer.correct)
+  const choices = Object.entries(answer.choices ?? {})
+  return choices.length
+    ? withTrailingEmptyChoice(choices.map(([label, value]) => ({
+        label,
+        type: answer.otherChoiceKey === label ? "other" : typeof value === "string" && value.startsWith("asset:") ? "image" : "value",
+        value,
+        correct: correct.has(label),
+      })))
+    : emptyChoiceRows()
+}
+
 const columns: EditColumnDef<ChoiceRow>[] = [
   { key: "correct", dataKey: "correct", title: "Correct", width: 72, field: { name: "correct", type: "checkbox" } },
   { key: "label", dataKey: "label", title: "Option", width: 72, field: { name: "label", type: "text", readOnly: true }, renderView: value => <strong>{String(value)}</strong> },
@@ -26,18 +45,14 @@ const columns: EditColumnDef<ChoiceRow>[] = [
 ]
 
 export function ChoiceAnswerDetails({ answer, onChange, manifestPath, questionNo }: AnswerDetailsProps) {
-  const [rows, setRows] = useState<ChoiceRow[]>(() => {
-    const correct = correctKeys(answer.correct)
-    const choices = Object.entries(answer.choices ?? {})
-    return choices.length
-      ? withTrailingEmptyChoice(choices.map(([label, value]) => ({
-          label,
-          type: answer.otherChoiceKey === label ? "other" : typeof value === "string" && value.startsWith("asset:") ? "image" : "value",
-          value,
-          correct: correct.has(label),
-        })))
-      : emptyChoiceRows()
-  })
+  const [rows, setRows] = useState<ChoiceRow[]>(() => rowsFromAnswer(answer))
+  const lastEmittedSignature = useRef(answerSignature(answer))
+  useEffect(() => {
+    const signature = answerSignature(answer)
+    if (signature === lastEmittedSignature.current) return
+    lastEmittedSignature.current = signature
+    setRows(rowsFromAnswer(answer))
+  }, [answer])
   const update = (next: ChoiceRow[]) => {
     const visibleRows = withTrailingEmptyChoice(next)
     setRows(visibleRows)
@@ -47,6 +62,7 @@ export function ChoiceAnswerDetails({ answer, onChange, manifestPath, questionNo
     const nextAnswer = { ...answer, type: "choice", inputs: undefined, choices: Object.fromEntries(populated.map(row => [row.label, row.value])), correct: selected.length > 1 ? selected : selected[0] ?? "" }
     if (otherChoiceKey) nextAnswer.otherChoiceKey = otherChoiceKey
     else delete nextAnswer.otherChoiceKey
+    lastEmittedSignature.current = answerSignature(nextAnswer)
     console.info("[GetGo Tools][Choice answer] Answer state updated", {
       visibleRows: visibleRows.map(row => ({ label: row.label, type: row.type, hasValue: String(row.value ?? "").trim() !== "" })),
       savedChoiceKeys: Object.keys(nextAnswer.choices),

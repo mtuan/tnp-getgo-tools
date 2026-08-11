@@ -1484,6 +1484,15 @@ export function QuizManager({
           return;
         void runButtonAction("create-question", createQuestion);
       };
+      const discardQuestionChanges = () => {
+        if (!questionHasChanges || saving || savingVerification) return;
+        setQuestionDraftRecord(structuredClone(activeQuestion.record));
+        setSourceError(null);
+        toast.show({
+          title: "Changes discarded",
+          description: `Question ${activeQuestion.number} was restored to its last saved state.`,
+        });
+      };
       const deleteQuestionFromDetail = () => {
         const kind = isAlphabetQuestion ? "letter" : "question";
         if (
@@ -1583,6 +1592,14 @@ export function QuizManager({
             }
             actions={
               <>
+                <Button
+                  icon={<RotateCcw size={15} />}
+                  variant="outline"
+                  disabled={!questionHasChanges || saving || savingVerification}
+                  onClick={discardQuestionChanges}
+                >
+                  Discard
+                </Button>
                 <Button
                   icon={<Save size={15} />}
                   loading={questionOperation === "save"}
