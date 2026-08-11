@@ -207,9 +207,11 @@ function TextareaControl({ field, value, disabled, autoFocus, onChange }: {
   onChange(value: string): void
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
+  const autoCompact = field.autoCompact ?? true
+  const maxLines = field.maxLines ?? 3
   const resize = () => {
     const element = ref.current
-    if (!element || !field.autoCompact) return
+    if (!element || !autoCompact) return
     element.style.height = "auto"
     const styles = window.getComputedStyle(element)
     const lineHeight = Number.parseFloat(styles.lineHeight) || Number.parseFloat(styles.fontSize) * 1.5
@@ -217,21 +219,21 @@ function TextareaControl({ field, value, disabled, autoFocus, onChange }: {
       + Number.parseFloat(styles.paddingBottom)
       + Number.parseFloat(styles.borderTopWidth)
       + Number.parseFloat(styles.borderBottomWidth)
-    const maximum = lineHeight * Math.max(1, field.maxLines ?? 8) + verticalChrome
+    const maximum = lineHeight * Math.max(1, maxLines) + verticalChrome
     element.style.height = `${Math.min(element.scrollHeight, maximum)}px`
     element.style.overflowY = element.scrollHeight > maximum ? "auto" : "hidden"
   }
-  useLayoutEffect(resize, [field.autoCompact, field.maxLines, value])
+  useLayoutEffect(resize, [autoCompact, maxLines, value])
   useEffect(() => {
-    if (!field.autoCompact) return
+    if (!autoCompact) return
     window.addEventListener("resize", resize)
     return () => window.removeEventListener("resize", resize)
   })
   return <textarea
     ref={ref}
-    className={field.autoCompact ? "auto-compact" : undefined}
+    className={autoCompact ? "auto-compact" : undefined}
     name={field.name}
-    rows={field.autoCompact ? 1 : field.rows}
+    rows={autoCompact ? 1 : field.rows}
     placeholder={field.placeholder}
     value={String(value ?? "")}
     disabled={disabled}

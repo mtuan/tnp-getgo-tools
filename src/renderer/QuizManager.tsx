@@ -404,6 +404,8 @@ export function QuizManager({
     "save" | "reset" | null
   >(null);
   const [buttonAction, setButtonAction] = useState<string | null>(null);
+  const [quizInfoDirty, setQuizInfoDirty] = useState(false);
+  const [topicInfoDirty, setTopicInfoDirty] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [contestDialog, setContestDialog] = useState<
     ContestSummary | "create" | null
@@ -1763,6 +1765,9 @@ export function QuizManager({
           }
           actions={
             quizTab === "info" ? (
+              <>
+              <Button type="reset" form="quiz-info-form" icon={<RotateCcw size={15} />} color="neutral" disabled={!quizInfoDirty}>Discard</Button>
+              <Button type="submit" form="quiz-info-form" icon={<Save size={15} />} variant="solid" disabled={!quizInfoDirty}>Save</Button>
               <Button
                 icon={<Trash2 size={15} />}
                 loading={buttonAction === "delete-quiz"}
@@ -1793,6 +1798,7 @@ export function QuizManager({
               >
                 Delete quiz
               </Button>
+              </>
             ) : quizTab === "publish" ? (
               <Button
                 icon={<CloudUpload size={15} />}
@@ -1934,11 +1940,14 @@ export function QuizManager({
             embedded
             quiz={quiz}
             contest={quizContest}
+            onDirtyChange={setQuizInfoDirty}
             onClose={() => undefined}
             onSaved={async (input) => {
               const next = await managerApi.updateQuiz(quiz.manifestPath, {
                 title: input.title,
+                icon: input.icon,
                 type: input.type,
+                language: input.language,
                 grade: input.grade,
                 round: input.round,
                 year: input.year,
@@ -2135,6 +2144,9 @@ export function QuizManager({
               </Button>
             )}
             {isContest && contestTab === "info" && selectedContest && (
+              <>
+              <Button type="reset" form="topic-info-form" icon={<RotateCcw size={15} />} color="neutral" disabled={!topicInfoDirty}>Discard</Button>
+              <Button type="submit" form="topic-info-form" icon={<Save size={15} />} variant="solid" disabled={!topicInfoDirty}>Save</Button>
               <Button
                 icon={<Trash2 size={15} />}
                 loading={buttonAction === "delete-contest"}
@@ -2164,6 +2176,7 @@ export function QuizManager({
               >
                 Delete {topicMode ? "topic" : "contest"}
               </Button>
+              </>
             )}
             {topicMode && isContest && contestTab === "publish" && selectedTopic && (
               <Button
@@ -2209,6 +2222,7 @@ export function QuizManager({
           embedded
           topicMode={topicMode}
           contest={selectedContest}
+          onDirtyChange={setTopicInfoDirty}
           onClose={() => undefined}
           onSaved={async (settings) => {
             const next = await managerApi.updateContest(

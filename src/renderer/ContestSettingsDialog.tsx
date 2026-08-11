@@ -95,7 +95,7 @@ function RuleEditorDrawer({ rule, rounds, grades, onClose, onSave }: { rule: Ite
   </DialogFrame>
 }
 
-export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, embedded = false, topicMode = false }: { contest?: ContestSummary; onClose(): void; onSaved(settings: ContestSettings): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; topicMode?: boolean }) {
+export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, embedded = false, topicMode = false, onDirtyChange }: { contest?: ContestSummary; onClose(): void; onSaved(settings: ContestSettings): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; topicMode?: boolean; onDirtyChange?(dirty: boolean): void }) {
   const [settings, setSettings] = useState<ContestSettings>(() => structuredClone(contest?.settings ?? emptySettings()))
   const [tab, setTab] = useState<Tab>("general")
   const [expanded, setExpanded] = useState<Tab | null>("general")
@@ -107,6 +107,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   const [iconPreview, setIconPreview] = useState("")
   const [persistedSettings, setPersistedSettings] = useState<ContestSettings>(() => structuredClone(contest?.settings ?? emptySettings()))
   const dirty = JSON.stringify(settings) !== JSON.stringify(persistedSettings)
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   const isContestTopic = !topicMode || settings.book.topicType !== "kid-learning"
   const visibleTabs = isContestTopic ? tabs : tabs.filter(item => item.id === "general")
   useEffect(() => {
@@ -197,9 +198,9 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     return JSON.stringify(settings.quizRules ?? []) !== JSON.stringify(persistedSettings.quizRules ?? [])
   }
   const renderSection = (id: Tab, title: string, description: string, content: React.ReactNode) => embedded
-    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)} actions={<div className="settings-section-actions"><Button icon={<RotateCcw />} color="neutral" disabled={!sectionDirty(id) || busy} onClick={() => discard(id)}>Discard</Button><Button icon={<Save />} loading={busy && busyScope === id} disabled={!sectionDirty(id) || busy} variant="solid" className="settings-section-save" onClick={() => void save(id)}>Save</Button></div>}>{content}</AccordionSection>
+    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)}>{content}</AccordionSection>
     : tab === id ? content : null
-  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} title={embedded ? (topicMode ? "Topic information" : "Contest information") : contest ? `Edit ${topicMode ? "topic" : "contest"}` : `Create ${topicMode ? "topic" : "contest"}`} submitLabel={contest ? "Save changes" : "Create"} submitDisabled={Boolean(contest) && !dirty} saveShortcut={Boolean(contest)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) } } : undefined}>
+  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "topic-info-form" : undefined} hideFooter={embedded} onReset={() => { setSettings(structuredClone(persistedSettings)); setFieldErrors({}); setError(null) }} title={embedded ? (topicMode ? "Topic information" : "Contest information") : contest ? `Edit ${topicMode ? "topic" : "contest"}` : `Create ${topicMode ? "topic" : "contest"}`} submitLabel={contest ? "Save changes" : "Create"} submitDisabled={Boolean(contest) && !dirty} saveShortcut={Boolean(contest)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) } } : undefined}>
     {contest && !embedded && <div className="settings-tabs" role="tablist">{visibleTabs.map(item => { const Icon = item.icon; const count = item.id === "rounds" ? rounds.length : item.id === "grades" ? grades.length : item.id === "categories" ? categories.length : item.id === "rules" ? rules.length : null; return <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}><Icon />{item.label}{count !== null && <i>{count}</i>}</button> })}</div>}
     <div className="settings-tab-content" key={tab}>
       {renderSection("general", "General information", topicMode ? "Identity and topic type." : "Identity, subject, and contest visibility.", <Form fields={generalFields(iconPreview, topicMode).map(entry => "section" in entry ? { ...entry, fields: entry.fields.map(row => Array.isArray(row) ? row.map(field => field.name === "code" ? { ...field, readOnly: Boolean(contest) } : field) : row.name === "code" ? { ...row, readOnly: Boolean(contest) } : row) } : entry)} values={generalValues} errors={fieldErrors} onChange={updateGeneral} />)}

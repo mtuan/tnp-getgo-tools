@@ -41,7 +41,7 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
   </DialogFrame>
 }
 
-export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, embedded = false }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean }) {
+export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, embedded = false, onDirtyChange }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; onDirtyChange?(dirty: boolean): void }) {
   const gradeMappings = useMemo(() => contest.settings.grades.map(item => ({ name: String(item.gradeName ?? ""), grades: Array.isArray(item.grades) ? item.grades.filter(value => typeof value === "number") as number[] : [] })).filter(item => item.name), [contest])
   const initialGrade = quiz?.grade ?? gradeMappings[0]?.name ?? ""
   const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", grade: initialGrade, round: quiz?.round ?? String(contest.settings.rounds[0]?.roundCode ?? ""), year: quiz?.year ?? "", status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] }), [contest.settings.rounds, initialGrade, quiz])
@@ -52,6 +52,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const [iconPreview, setIconPreview] = useState("")
   const dirty = JSON.stringify(input) !== JSON.stringify(savedInput)
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   useEffect(() => {
     const reference = input.icon
     if (!reference?.startsWith("asset:") || !contest.settingsPath.includes("content-v2")) {
@@ -93,7 +94,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
     })
   }
   async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized = { ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), icon: input.icon?.trim() || undefined, language: input.type === "alphabet" ? input.language ?? "en" : undefined, grade: input.type === "contest" ? input.grade?.trim() || null : null, round: input.type === "contest" ? input.round?.trim() || null : null, year: input.type === "contest" ? input.year?.trim() || null : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
-  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} embeddedFooter={embedded} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
+  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "quiz-info-form" : undefined} hideFooter={embedded} onReset={() => { setInput(structuredClone(savedInput)); setFieldErrors({}); setError(null) }} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}
   </DialogFrame>

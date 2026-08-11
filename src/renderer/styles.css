@@ -4011,6 +4011,7 @@ tbody tr:hover {
   background: #f1f5f9;
 }
 .schema-form {
+  --ui-form-control-height: 42px;
   display: grid;
   gap: 17px;
 }
@@ -4038,9 +4039,21 @@ tbody tr:hover {
 }
 .schema-field > .ui-segmented-control {
   margin-top: 7px;
+  min-height: var(--ui-form-control-height);
+  box-sizing: border-box;
+}
+.schema-field > .ui-segmented-control > button {
+  min-height: calc(var(--ui-form-control-height) - 8px);
+}
+.schema-field input:not([type="checkbox"]),
+.schema-field .schema-select > button {
+  height: var(--ui-form-control-height);
+  min-height: var(--ui-form-control-height);
+  box-sizing: border-box;
 }
 .schema-field textarea.auto-compact {
-  min-height: 42px;
+  min-height: var(--ui-form-control-height);
+  box-sizing: border-box;
   resize: none;
 }
 .schema-field > small {
