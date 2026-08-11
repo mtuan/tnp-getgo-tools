@@ -5426,7 +5426,7 @@ button.danger svg {
   gap: 6px;
 }
 .static-question-fields.multiple-input-answer-fields {
-  padding: 0;
+  gap: 17px;
 }
 .question-images-editor {
   display: grid;
@@ -5481,8 +5481,10 @@ button.danger svg {
 .choice-image-value { color: var(--muted); font-size: 11px; }
 .edit-table .question-asset-input { min-width: 220px; }
 .multiple-input-answer-fields > .schema-form:first-child {
-  padding: 18px;
-  border-bottom: 1px solid var(--line);
+  max-width: none;
+}
+.multiple-input-answer-fields > .schema-form .schema-field > .edit-table {
+  margin-top: 7px;
 }
 .advanced-question-editor-panel {
   min-width: 0;

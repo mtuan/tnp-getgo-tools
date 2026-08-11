@@ -1,5 +1,5 @@
 import { EditTable, type EditColumnDef } from "../ui/EditTable"
-import { FormControl } from "../ui/Form"
+import { Form, FormControl } from "../ui/Form"
 import type { AnswerDetailsProps } from "./types"
 
 interface InputRow extends Record<string, unknown> {
@@ -85,16 +85,26 @@ export function MultipleInputAnswerDetails({ answer, onChange }: AnswerDetailsPr
       ...(row.unit ? { unit: row.unit } : {}),
     })),
   })
-  return <EditTable<InputRow>
-    ariaLabel="Multiple input answers"
-    columns={columns}
-    rows={rows}
-    reorderable
-    onRowsReorder={commit}
-    onRowChange={(index, field, value) => commit(rows.map((row, rowIndex) =>
-      rowIndex === index ? { ...row, [field]: String(value) } : row))}
-    {...(rows.length > 2
-      ? { onRowDelete: (index: number) => commit(rows.filter((_, rowIndex) => rowIndex !== index)) }
-      : {})}
+  return <Form
+    fields={[{
+      name: "inputs",
+      label: "Inputs",
+      type: "custom",
+      render: () => <EditTable<InputRow>
+        ariaLabel="Multiple input answers"
+        columns={columns}
+        rows={rows}
+        reorderable
+        onRowsReorder={commit}
+        onRowChange={(index, field, value) => commit(rows.map((row, rowIndex) =>
+          rowIndex === index ? { ...row, [field]: String(value) } : row))}
+        {...(rows.length > 2
+          ? { onRowDelete: (index: number) => commit(rows.filter((_, rowIndex) => rowIndex !== index)) }
+          : {})}
+      />,
+    }]}
+    values={{ inputs: rows }}
+    autoFocus={false}
+    onChange={() => undefined}
   />
 }
