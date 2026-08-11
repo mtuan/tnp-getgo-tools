@@ -533,8 +533,27 @@ export async function saveQuizQuestion(
     existing.find((item) => String(item.record.question_no) === questionNo)
       ?.file ??
     `q${existing.length ? Math.max(...existing.map((item) => questionNumber(item.file))) + 1 : 1}.json`;
+  const answer = question.answer && typeof question.answer === "object" && !Array.isArray(question.answer)
+    ? question.answer as Record<string, unknown>
+    : null;
+  const choices = answer?.choices && typeof answer.choices === "object" && !Array.isArray(answer.choices)
+    ? answer.choices as Record<string, unknown>
+    : null;
+  const populatedChoices = choices
+    ? Object.fromEntries(Object.entries(choices).filter(([, value]) =>
+        typeof value === "string" ? value.trim() !== "" : value !== null && value !== undefined))
+    : null;
+  const questionWithoutEmptyChoices = choices && answer
+    ? {
+        ...question,
+        answer: {
+          ...answer,
+          choices: populatedChoices,
+        },
+      } as QuizQuestionRecord
+    : question;
   const normalized = normalizeQuestion(
-    question,
+    questionWithoutEmptyChoices,
     Math.max(0, Number(questionNo) - 1),
   );
   const formatted = await formatQuestionCode(normalized);

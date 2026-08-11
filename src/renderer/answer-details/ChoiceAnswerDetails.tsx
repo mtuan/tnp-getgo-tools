@@ -7,7 +7,12 @@ import type { AnswerDetailsProps } from "./types"
 interface ChoiceRow extends Record<string, unknown> { label: string; type: "text" | "image"; value: unknown; correct: boolean }
 const correctKeys = (correct: unknown) => new Set(Array.isArray(correct) ? correct.map(String) : correct == null || correct === "" ? [] : [String(correct)])
 function nextChoiceLabel(labels: string[]): string { for (let code = 65; code <= 90; code += 1) if (!labels.includes(String.fromCharCode(code))) return String.fromCharCode(code); return `Option ${labels.length + 1}` }
-const emptyChoiceRows = (): ChoiceRow[] => ["A", "B", "C", "D"].map(label => ({ label, type: "text", value: "", correct: false }))
+const emptyChoiceRows = (): ChoiceRow[] => ["A", "B", "C", "D", "E"].map(label => ({ label, type: "text", value: "", correct: false }))
+const withTrailingEmptyChoice = (rows: ChoiceRow[]): ChoiceRow[] => {
+  const last = rows.at(-1)
+  if (!last || String(last.value ?? "").trim() === "") return rows
+  return [...rows, { label: nextChoiceLabel(rows.map(row => row.label)), type: "text", value: "", correct: false }]
+}
 
 const columns: EditColumnDef<ChoiceRow>[] = [
   { key: "correct", dataKey: "correct", title: "Correct", width: 72, field: { name: "correct", type: "checkbox" } },
@@ -24,8 +29,9 @@ export function ChoiceAnswerDetails({ answer, onChange, manifestPath, questionNo
       : emptyChoiceRows()
   })
   const update = (next: ChoiceRow[]) => {
-    setRows(next)
-    const populated = next.filter(row => String(row.value ?? "").trim() !== "")
+    const visibleRows = withTrailingEmptyChoice(next)
+    setRows(visibleRows)
+    const populated = visibleRows.filter(row => String(row.value ?? "").trim() !== "")
     const selected = populated.filter(row => row.correct).map(row => row.label)
     onChange({ ...answer, type: "choice", inputs: undefined, choices: Object.fromEntries(populated.map(row => [row.label, row.value])), correct: selected.length > 1 ? selected : selected[0] ?? "" })
   }
@@ -35,14 +41,26 @@ export function ChoiceAnswerDetails({ answer, onChange, manifestPath, questionNo
     {
       ...columns[2],
       title: "Answer",
-      renderEdit: ({ row, onChange: change }) => row.type === "image" && manifestPath
+      renderEdit: ({ row, rowIndex, onChange: change }) => row.type === "image" && manifestPath
         ? <QuestionAssetInput manifestPath={manifestPath} suggestedName={`question-${questionNo}-${row.label}`} value={String(row.value ?? "").startsWith("asset:") ? String(row.value) : undefined} label={`Choice ${row.label} image`} onChange={value => change("value", value)} />
-        : <FormControl field={{ name: "value", type: "text" }} values={row} onChange={(_name, value) => change("value", value)} />,
+        : <div
+            className="choice-answer-value"
+            onKeyDown={event => {
+              if (event.key !== "Tab" || event.shiftKey) return
+              event.preventDefault()
+              const table = event.currentTarget.closest(".edit-table")
+              window.requestAnimationFrame(() => {
+                table?.querySelectorAll<HTMLInputElement>(".choice-answer-value input")[rowIndex + 1]?.focus()
+              })
+            }}
+          >
+            <FormControl field={{ name: "value", type: "text" }} values={row} onChange={(_name, value) => change("value", value)} />
+          </div>,
     },
   ]
   const fields: FormSchema[] = [
     { name: "fixed", label: "Fixed order", helper: "Keep options in the displayed order instead of allowing them to be shuffled.", type: "toggle" },
-    { name: "options", type: "custom", render: () => <EditTable<ChoiceRow> ariaLabel="Answer options" columns={choiceColumns} rows={rows} rowKey="label" addLabel="Add option" emptyText="No answer options." onRowAdd={() => update([...rows, { label: nextChoiceLabel(rows.map(row => row.label)), type: "text", value: "", correct: false }])} onRowChange={(index, field, value) => { const next = [...rows]; next[index] = { ...next[index], [field]: value, ...(field === "type" ? { value: "" } : {}) } as ChoiceRow; update(next) }} onRowDelete={index => update(rows.filter((_, rowIndex) => rowIndex !== index))} /> },
+    { name: "options", type: "custom", render: () => <EditTable<ChoiceRow> ariaLabel="Answer options" columns={choiceColumns} rows={rows} rowKey="label" emptyText="No answer options." onRowChange={(index, field, value) => { const next = [...rows]; next[index] = { ...next[index], [field]: value, ...(field === "type" ? { value: "" } : {}) } as ChoiceRow; update(next) }} onRowDelete={index => update(rows.filter((_, rowIndex) => rowIndex !== index))} /> },
   ]
   return <Form fields={fields} values={{ fixed: answer.fixed === true, options: rows }} autoFocus={false} onChange={(name, value) => { if (name === "fixed") onChange({ ...answer, type: "choice", fixed: Boolean(value) }) }} />
 }

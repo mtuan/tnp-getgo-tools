@@ -21,13 +21,6 @@ const answerOf = (record: ContestQuizQuestionRecord): EditableAnswer =>
     ? (record.answer as EditableAnswer)
     : { type: "input", correct: "", inputType: "number" };
 
-const defaultChoiceAnswers = (): Record<string, string> => ({
-  A: "",
-  B: "",
-  C: "",
-  D: "",
-});
-
 export function StaticQuestionEditor({
   record,
   manifestPath,
@@ -121,7 +114,7 @@ export function StaticQuestionEditor({
                 choices:
                   answer.choices && Object.keys(answer.choices).length
                     ? answer.choices
-                    : defaultChoiceAnswers(),
+                    : {},
                 inputs: undefined,
               }
             : value === "multiple_input"
