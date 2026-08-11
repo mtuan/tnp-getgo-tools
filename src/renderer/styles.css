@@ -1268,6 +1268,21 @@ table td .ui-table-action-button .ui-button-icon > svg {
   text-align: left;
   cursor: pointer;
 }
+
+.ui-action-menu-label {
+  margin-top: 6px;
+  padding: 10px 12px 5px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ui-action-menu > button > .ui-action-menu-trailing-icon {
+  margin-left: auto;
+}
 .ui-action-menu > button:hover:not(:disabled) {
   color: #3730a3;
   background: #eef2ff;
@@ -5378,13 +5393,6 @@ button.danger svg {
 }
 .question-editor-tabs {
   margin: -10px 0 20px;
-}
-.schema-select.question-review-control {
-  width: 132px;
-  margin: 0;
-}
-.schema-select.question-review-control > button {
-  min-height: 38px;
 }
 .static-question-fields {
   display: grid;

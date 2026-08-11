@@ -7,6 +7,7 @@ import type { AnswerDetailsProps } from "./types"
 interface ChoiceRow extends Record<string, unknown> { label: string; type: "text" | "image"; value: unknown; correct: boolean }
 const correctKeys = (correct: unknown) => new Set(Array.isArray(correct) ? correct.map(String) : correct == null || correct === "" ? [] : [String(correct)])
 function nextChoiceLabel(labels: string[]): string { for (let code = 65; code <= 90; code += 1) if (!labels.includes(String.fromCharCode(code))) return String.fromCharCode(code); return `Option ${labels.length + 1}` }
+const emptyChoiceRows = (): ChoiceRow[] => ["A", "B", "C", "D"].map(label => ({ label, type: "text", value: "", correct: false }))
 
 const columns: EditColumnDef<ChoiceRow>[] = [
   { key: "correct", dataKey: "correct", title: "Correct", width: 72, field: { name: "correct", type: "checkbox" } },
@@ -17,7 +18,10 @@ const columns: EditColumnDef<ChoiceRow>[] = [
 export function ChoiceAnswerDetails({ answer, onChange, manifestPath, questionNo }: AnswerDetailsProps) {
   const [rows, setRows] = useState<ChoiceRow[]>(() => {
     const correct = correctKeys(answer.correct)
-    return Object.entries(answer.choices ?? {}).map(([label, value]) => ({ label, type: typeof value === "string" && value.startsWith("asset:") ? "image" : "text", value, correct: correct.has(label) }))
+    const choices = Object.entries(answer.choices ?? {})
+    return choices.length
+      ? choices.map(([label, value]) => ({ label, type: typeof value === "string" && value.startsWith("asset:") ? "image" : "text", value, correct: correct.has(label) }))
+      : emptyChoiceRows()
   })
   const update = (next: ChoiceRow[]) => {
     setRows(next)

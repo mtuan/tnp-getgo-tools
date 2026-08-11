@@ -61,7 +61,6 @@ import { DataTable, type DataColumn } from "./ui/DataTable";
 import { TableActionButton } from "./ui/TableActionButton";
 import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
-import { Select } from "./ui/Select";
 import { useToast } from "./ui/Toast";
 import { QuizPublishPanel } from "./QuizPublishPanel";
 import { TopicPublishPanel } from "./TopicPublishPanel";
@@ -89,6 +88,36 @@ interface QuizManagerProps {
   ): Promise<void>;
   api?: QuizManagerApi;
   routeMode?: "legacy" | "topics";
+}
+
+function QuestionEditorKeyboardShortcuts({
+  onSave,
+  onNewQuestion,
+  saveDisabled,
+  newQuestionDisabled,
+}: {
+  onSave(): void;
+  onNewQuestion(): void;
+  saveDisabled: boolean;
+  newQuestionDisabled: boolean;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey)
+        return;
+      const key = event.key.toLowerCase();
+      if (key === "s") {
+        event.preventDefault();
+        if (!saveDisabled) onSave();
+      } else if (key === "n") {
+        event.preventDefault();
+        if (!newQuestionDisabled) onNewQuestion();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [newQuestionDisabled, onNewQuestion, onSave, saveDisabled]);
+  return null;
 }
 
 export type QuizManagerApi = Pick<
@@ -1169,6 +1198,23 @@ export function QuizManager({
         ),
       },
     ];
+    const createQuestion = async () => {
+      const result = await managerApi.createQuizQuestion(quiz.manifestPath);
+      const nextRecords = [...questionRecords, result.question];
+      setQuestionRecords(nextRecords);
+      onSnapshotChange(result.snapshot);
+      const index = nextRecords.length - 1;
+      setSelectedQuestion(index);
+      setQuestionDraftRecord(structuredClone(result.question));
+      setPendingQuestionNo(String(result.question.question_no));
+      setQuestionEditorTab("static");
+      setSourceError(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast.show({
+        title: `Question ${result.question.question_no} created`,
+        description: "A new file was added to questions/.",
+      });
+    };
     const activeQuestion =
       selectedQuestion === null ? null : questions[selectedQuestion];
     if (activeQuestion) {
@@ -1427,8 +1473,26 @@ export function QuizManager({
       const letter = questionDraftRecord
         ? alphabetData(questionDraftRecord).letter
         : "";
+      const createNewQuestionFromDetail = () => {
+        if (
+          questionHasChanges &&
+          !window.confirm("Discard unsaved changes and create a new question?")
+        )
+          return;
+        void runButtonAction("create-question", createQuestion);
+      };
       return (
         <section className="manager editor-page question-detail-page">
+          <QuestionEditorKeyboardShortcuts
+            saveDisabled={
+              !questionHasChanges || saving || savingVerification
+            }
+            newQuestionDisabled={
+              saving || savingVerification || Boolean(buttonAction)
+            }
+            onSave={() => void saveQuestion()}
+            onNewQuestion={createNewQuestionFromDetail}
+          />
           <PageHeader
             eyebrow={isAlphabetQuestion ? "Letter editor" : "Question editor"}
             breadcrumbs={[
@@ -1491,38 +1555,6 @@ export function QuizManager({
             }
             actions={
               <>
-                <Select
-                  className="question-review-control"
-                  ariaLabel="Question status"
-                  value={
-                    questionDraftRecord
-                      ? questionStatus(questionDraftRecord)
-                      : "pending"
-                  }
-                  disabled={saving || savingVerification}
-                  options={[
-                    { value: "pending", label: "Pending" },
-                    { value: "verified", label: "Reviewed" },
-                    { value: "rejected", label: "Rejected" },
-                  ]}
-                  onValueChange={(status) => void setQuestionReviewStatus(status)}
-                />
-                {!isAlphabetQuestion && (
-                  <Button
-                    icon={<RotateCcw size={15} />}
-                    loading={questionOperation === "reset"}
-                    variant="solid"
-                    color="danger"
-                    disabled={
-                      saving ||
-                      savingVerification ||
-                      !questionDraftRecord?.advancedDynamic
-                    }
-                    onClick={() => void resetQuestion()}
-                  >
-                    Reset
-                  </Button>
-                )}
                 <Button
                   icon={<Save size={15} />}
                   loading={questionOperation === "save"}
@@ -1532,6 +1564,50 @@ export function QuizManager({
                 >
                   Save
                 </Button>
+                <ActionMenu
+                  label="More"
+                  iconOnly
+                  disabled={saving || savingVerification || Boolean(buttonAction)}
+                  items={[
+                    {
+                      id: "new-question",
+                      label: isAlphabetQuestion ? "New letter" : "New question",
+                      icon: Plus,
+                      onSelect: createNewQuestionFromDetail,
+                    },
+                    ...(!isAlphabetQuestion ? [{
+                      id: "reset-question",
+                      label: "Reset question",
+                      icon: RotateCcw,
+                      disabled: !questionDraftRecord?.advancedDynamic,
+                      onSelect: () => void resetQuestion(),
+                    }] : []),
+                    {
+                      id: "review-status-label",
+                      label: "Review status",
+                      type: "label" as const,
+                      onSelect: () => undefined,
+                    },
+                    {
+                      id: "status-pending",
+                      label: "Pending",
+                      trailingIcon: questionStatus(questionDraftRecord!) === "pending" ? Check : undefined,
+                      onSelect: () => void setQuestionReviewStatus("pending"),
+                    },
+                    {
+                      id: "status-reviewed",
+                      label: "Reviewed",
+                      trailingIcon: questionStatus(questionDraftRecord!) === "verified" ? Check : undefined,
+                      onSelect: () => void setQuestionReviewStatus("verified"),
+                    },
+                    {
+                      id: "status-rejected",
+                      label: "Rejected",
+                      trailingIcon: questionStatus(questionDraftRecord!) === "rejected" ? Check : undefined,
+                      onSelect: () => void setQuestionReviewStatus("rejected"),
+                    },
+                  ]}
+                />
               </>
             }
           />
@@ -1734,23 +1810,7 @@ export function QuizManager({
                   loading={buttonAction === "create-question"}
                   disabled={sourceLoading || Boolean(buttonAction)}
                   onClick={() =>
-                    void runButtonAction("create-question", async () => {
-                      const result = await managerApi.createQuizQuestion(
-                        quiz.manifestPath,
-                      );
-                      const nextRecords = [...questionRecords, result.question];
-                      setQuestionRecords(nextRecords);
-                      onSnapshotChange(result.snapshot);
-                      const index = nextRecords.length - 1;
-                      setSelectedQuestion(index);
-                      setQuestionDraftRecord(structuredClone(result.question));
-                      setPendingQuestionNo(String(result.question.question_no));
-                      setQuestionEditorTab("static");
-                      toast.show({
-                        title: `Question ${result.question.question_no} created`,
-                        description: "A new file was added to questions/.",
-                      });
-                    })
+                    void runButtonAction("create-question", createQuestion)
                   }
                 >
                   {quiz.type === "question-list"
