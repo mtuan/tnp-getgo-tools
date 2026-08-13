@@ -6,6 +6,7 @@ export interface DataColumn<T> {
   title: ReactNode;
   width?: string | number;
   align?: "left" | "center" | "right";
+  role?: "actions";
   render(row: T, index: number): ReactNode;
   sortValue?(row: T): string | number;
 }
@@ -23,10 +24,15 @@ export interface DataTableProps<T> {
   selectedRowKey?: string;
   defaultSort?: { key: string; direction?: "asc" | "desc" };
   sortLocale?: string;
+  horizontalScroll?: boolean;
+}
+
+function columnClassName<T>(column: DataColumn<T>): string | undefined {
+  return column.role === "actions" ? "ui-data-table-actions-column" : undefined;
 }
 
 export function DataTableHeader<T>({ columns }: { columns: DataColumn<T>[] }) {
-  return <tr>{columns.map((column) => <th style={{ width: column.width, textAlign: column.align }} key={column.key}>{column.title}</th>)}</tr>;
+  return <tr>{columns.map((column) => <th className={columnClassName(column)} style={{ width: column.width, textAlign: column.align }} key={column.key}>{column.title}</th>)}</tr>;
 }
 
 export function DataTableColumns<T>({ columns }: { columns: DataColumn<T>[] }) {
@@ -34,7 +40,7 @@ export function DataTableColumns<T>({ columns }: { columns: DataColumn<T>[] }) {
 }
 
 export function DataTableCells<T>({ columns, row, index }: { columns: DataColumn<T>[]; row: T; index: number }) {
-  return <>{columns.map((column) => <td style={{ textAlign: column.align }} key={column.key}>{column.render(row, index)}</td>)}</>;
+  return <>{columns.map((column) => <td className={columnClassName(column)} style={{ textAlign: column.align }} key={column.key}>{column.render(row, index)}</td>)}</>;
 }
 
 export function DataTable<T>({
@@ -50,6 +56,7 @@ export function DataTable<T>({
   selectedRowKey,
   defaultSort,
   sortLocale,
+  horizontalScroll = false,
 }: DataTableProps<T>) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
@@ -81,13 +88,14 @@ export function DataTable<T>({
       .map((item) => item.row);
   }, [columns, onRowMove, rows, sort, sortLocale]);
   return (
-    <div className="ui-data-table">
+    <div className={`ui-data-table ${horizontalScroll ? "ui-data-table-horizontal" : ""}`}>
       <div className="ui-data-table-scroll">
         <table aria-label={ariaLabel}>
           <thead>
             <tr>
               {columns.map((column) => (
                 <th
+                  className={columnClassName(column)}
                   style={{ width: column.width, textAlign: column.align }}
                   key={column.key}
                 >
@@ -170,7 +178,7 @@ export function DataTable<T>({
                   key={currentRowKey}
                 >
                   {columns.map((column) => (
-                    <td style={{ textAlign: column.align }} key={column.key}>
+                    <td className={columnClassName(column)} style={{ textAlign: column.align }} key={column.key}>
                       {column.render(row, index)}
                     </td>
                   ))}

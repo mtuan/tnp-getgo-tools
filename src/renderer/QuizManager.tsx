@@ -193,7 +193,9 @@ export type QuizManagerApi = Pick<
   | "loadContentV2Topic"
   | "saveContentV2Topic"
   | "publishMarketplaceTopic"
->;
+> & {
+  loadTopicQuizzes?(topicId: string): Promise<QuizSummary[]>;
+};
 
 type ManagerPage =
   | { kind: "contests" }
@@ -492,6 +494,21 @@ export function QuizManager({
       return "list";
     }
   });
+  const [treeTopicQuizzes, setTreeTopicQuizzes] = useState<
+    Record<string, QuizSummary[]>
+  >({});
+  const loadTreeTopicQuizzes = useCallback(
+    async (topicId: string) => {
+      if (treeTopicQuizzes[topicId]) return;
+      const quizzes = api?.loadTopicQuizzes
+        ? await api.loadTopicQuizzes(topicId)
+        : snapshot.quizzes.filter((quiz) => quiz.contest === topicId);
+      setTreeTopicQuizzes((current) =>
+        current[topicId] ? current : { ...current, [topicId]: quizzes },
+      );
+    },
+    [api, snapshot.quizzes, treeTopicQuizzes],
+  );
   const [sourceLoading, setSourceLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingVerification, setSavingVerification] = useState(false);
@@ -1226,6 +1243,7 @@ export function QuizManager({
               title: "",
               width: 56,
               align: "center" as const,
+              role: "actions" as const,
               render: (item: QuestionListItem) => (
                 <TableActionButton
                   icon={<Pencil size={16} strokeWidth={2.25} />}
@@ -1325,6 +1343,7 @@ export function QuizManager({
         title: "",
         width: 56,
         align: "center",
+        role: "actions",
         render: (item) => (
           <TableActionButton
             icon={<Pencil size={16} strokeWidth={2.25} />}
@@ -2144,6 +2163,7 @@ export function QuizManager({
               </div>
             )}
             <DataTable
+              horizontalScroll
               ariaLabel="Quiz questions"
               rows={displayedQuestions}
               columns={questionColumns}
@@ -2176,6 +2196,7 @@ export function QuizManager({
               </div>
             )}
             <DataTable
+              horizontalScroll
               ariaLabel="Alphabet letters"
               rows={questions}
               columns={alphabetColumns}
@@ -2536,8 +2557,9 @@ export function QuizManager({
               />
             )}
           </div>
-          {!isContest && topicMode && topicsView === "tree" ? (
-            (() => {
+          {!isContest && topicMode && (
+            <div hidden={topicsView !== "tree"}>
+              {(() => {
               type TopicTreeRow =
                 | {
                     kind: "topic";
@@ -2556,9 +2578,16 @@ export function QuizManager({
                     ? [
                         {
                           row: { kind: "topic" as const, contest, summary },
-                          children: contest.quizzes.map((quiz) => ({
-                            row: { kind: "quiz" as const, quiz },
-                          })),
+                          hasChildren: summary.quizCount > 0,
+                          ...(treeTopicQuizzes[contest.id]
+                            ? {
+                                children: treeTopicQuizzes[contest.id].map(
+                                  (quiz) => ({
+                                    row: { kind: "quiz" as const, quiz },
+                                  }),
+                                ),
+                              }
+                            : {}),
                         },
                       ]
                     : [];
@@ -2568,7 +2597,7 @@ export function QuizManager({
                 {
                   key: "identity",
                   title: "Topic / quiz",
-                  width: "calc(100% - 468px)",
+                  width: "calc(100% - 484px)",
                   render: () => null,
                 },
                 {
@@ -2648,8 +2677,9 @@ export function QuizManager({
                 {
                   key: "action",
                   title: "",
-                  width: 88,
+                  width: 104,
                   align: "right",
+                  role: "actions",
                   render: (row) => (
                     <div className="manager-row-actions">
                       <TableActionButton
@@ -2731,30 +2761,6 @@ export function QuizManager({
                             : []),
                         ]}
                       />
-                      <TableActionButton
-                        color="neutral"
-                        icon={<ChevronRight />}
-                        aria-label={`Open ${row.kind} details`}
-                        title={`Open ${row.kind} details`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (row.kind === "topic") {
-                            setPage({
-                              kind: "contest",
-                              contest: row.contest.id,
-                            });
-                            setContestTab("quizzes");
-                            setQuery("");
-                          } else {
-                            setPage({ kind: "quiz", quiz: row.quiz });
-                            setQuizTab(
-                              row.quiz.type === "contest"
-                                ? "questions"
-                                : "alphabets",
-                            );
-                          }
-                        }}
-                      />
                     </div>
                   ),
                 },
@@ -2771,6 +2777,12 @@ export function QuizManager({
                   ariaLabel="Topics and quizzes"
                   emptyText="No matching topics."
                   toggleParentOnRowClick
+                  singleExpand
+                  onExpand={(row) =>
+                    row.kind === "topic"
+                      ? loadTreeTopicQuizzes(row.contest.id)
+                      : undefined
+                  }
                   renderIdentity={(row, _depth, toggle) => (
                     <div className="topics-tree-identity">
                       {toggle}
@@ -2807,9 +2819,13 @@ export function QuizManager({
                   )}
                 />
               );
-            })()
-          ) : (
-            <div className="manager-table">
+              })()}
+            </div>
+          )}
+          <div
+            className="manager-table"
+            hidden={!isContest && topicMode && topicsView === "tree"}
+          >
               <table>
                 {topicMode && (
                   <colgroup>
@@ -2817,7 +2833,7 @@ export function QuizManager({
                     <col style={{ width: 100 }} />
                     <col style={{ width: 136 }} />
                     <col style={{ width: 144 }} />
-                    <col style={{ width: 88 }} />
+                    <col style={{ width: 104 }} />
                   </colgroup>
                 )}
                 <thead>
@@ -3263,8 +3279,7 @@ export function QuizManager({
                   {isContest ? "quizzes" : topicMode ? "topics" : "contests"}.
                 </div>
               )}
-            </div>
-          )}
+          </div>
         </>
       )}
       {contestDialog && (

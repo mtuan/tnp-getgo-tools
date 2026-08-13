@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ContentV2Question, ContentV2Quiz, ContentV2Topic } from "../core/content-v2";
 import type {
   AlphabetDictionary,
@@ -201,51 +201,10 @@ function findQuestionSummary(snapshot: RepositorySnapshot, topicId: string, quiz
 }
 
 export function ContentV2QuizManager(props: Props) {
-  const [metadataSnapshot, setMetadataSnapshot] = useState(props.snapshot);
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const [topics, quizzes] = await Promise.all([
-        Promise.all(props.snapshot.contentV2.topics.map(async (summary) => {
-          const record = await window.getgo.loadContentV2Topic(summary.id);
-          return { summary, record };
-        })),
-        Promise.all(props.snapshot.contentV2.quizzes.map(async (summary) => {
-          const record = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
-          return { summary, record };
-        })),
-      ]);
-      if (!active) return;
-      setMetadataSnapshot({
-        ...props.snapshot,
-        contentV2: {
-          ...props.snapshot.contentV2,
-          topics: topics.map(({ summary, record }) => ({
-            ...summary,
-            title: record.title,
-            description: record.description,
-            icon: record.icon,
-            status: record.status,
-            order: record.order,
-          })),
-          quizzes: quizzes.map(({ summary, record }) => ({
-            ...summary,
-            title: record.title,
-            description: record.description,
-            icon: record.icon,
-            status: record.status,
-            order: record.order,
-            ...(record.type === "competition-paper"
-              ? { grade: record.grade, round: record.round, year: record.year }
-              : { language: record.language }),
-          })),
-        },
-      });
-    };
-    void load().catch((error) => console.error("[GetGo Tools][Content V2 metadata] Could not load current files", error));
-    return () => { active = false; };
-  }, [props.initialRoute, props.snapshot]);
-  const managerSnapshot = useMemo(() => adaptContentV2Snapshot(metadataSnapshot), [metadataSnapshot]);
+  const managerSnapshot = useMemo(
+    () => adaptContentV2Snapshot(props.snapshot),
+    [props.snapshot],
+  );
   const api = useMemo<QuizManagerApi>(() => {
     const refresh = (next: RepositorySnapshot) => {
       props.onSnapshotChange(next);
@@ -257,6 +216,37 @@ export function ContentV2QuizManager(props: Props) {
       return Promise.all(summaries.map(async (item) => toManagerQuestion(await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, item.id))));
     };
     return {
+      loadTopicQuizzes: async (topicId) => {
+        const summaries = props.snapshot.contentV2.quizzes.filter(
+          (quiz) => quiz.topicId === topicId,
+        );
+        const records = await Promise.all(
+          summaries.map((summary) =>
+            window.getgo.loadContentV2Quiz(topicId, summary.id),
+          ),
+        );
+        const hydrated = {
+          ...props.snapshot,
+          contentV2: {
+            ...props.snapshot.contentV2,
+            quizzes: summaries.map((summary, index) => {
+              const record = records[index];
+              return {
+                ...summary,
+                title: record.title,
+                description: record.description,
+                icon: record.icon,
+                status: record.status,
+                order: record.order,
+                ...(record.type === "competition-paper"
+                  ? { grade: record.grade, round: record.round, year: record.year }
+                  : { language: record.language }),
+              };
+            }),
+          },
+        };
+        return adaptContentV2Snapshot(hydrated).quizzes;
+      },
       getAiMigrationJobs: async () => ({ concurrency: 0, jobs: [] }),
       migrateLegacyQuizzes: async () => ({ snapshot: managerSnapshot, migratedQuizIds: [], failures: [] }),
       startAiMigrationJob: async () => { throw new Error("These questions already use content v2."); },

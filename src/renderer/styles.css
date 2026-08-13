@@ -3448,38 +3448,17 @@ tbody tr:hover {
 .ui-tree-data-parent strong {
   font-weight: 800;
 }
-.ui-tree-data-region-row,
-.ui-tree-data-region-row > td {
-  height: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  line-height: 0 !important;
-  background: transparent !important;
+.ui-tree-data-loading {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-secondary);
 }
-.ui-tree-data-region {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition:
-    grid-template-rows 0.3s var(--ease-out),
-    opacity 0.2s ease;
-}
-.ui-tree-data-group.open > .ui-tree-data-region-row .ui-tree-data-region {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-.ui-tree-data-region-inner {
-  min-height: 0;
-  overflow: hidden;
-}
-.ui-tree-data-region-inner > table {
-  width: 100%;
-  table-layout: fixed;
-  line-height: normal;
-}
-.ui-tree-data-region-inner > table > tbody > tr:last-child > td {
-  border-bottom: 0;
+.ui-tree-data-loading-row > td {
+  height: 72px;
+  padding: 0;
 }
 .manager-search:focus-within {
   color: #6366f1;
@@ -3575,7 +3554,8 @@ tbody tr:hover {
   overflow: hidden;
 }
 .manager-table td:last-child {
-  width: 42px;
+  width: 104px;
+  padding-inline: 10px 14px;
   color: #94a3b8;
   text-align: right;
 }
@@ -5539,15 +5519,37 @@ button.danger svg {
   overflow: hidden;
 }
 .ui-data-table-scroll {
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
 }
 .editor-page > .ui-data-table {
   margin-bottom: 14px;
 }
 .ui-data-table table {
-  min-width: 680px;
+  width: 100%;
+  min-width: 0;
   table-layout: fixed;
+}
+.ui-data-table-horizontal .ui-data-table-scroll {
+  overflow-x: auto;
+}
+.ui-data-table-horizontal table {
+  min-width: 680px;
+}
+.ui-data-table th.ui-data-table-actions-column,
+.ui-data-table td.ui-data-table-actions-column {
+  box-sizing: border-box;
+  padding-inline: 10px 14px;
+}
+.ui-data-table-horizontal .ui-data-table-actions-column {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: inherit;
+  box-shadow: -8px 0 12px -12px #0f172a66;
+}
+.ui-data-table-horizontal th.ui-data-table-actions-column {
+  z-index: 3;
 }
 .ui-data-table th {
   height: 38px;

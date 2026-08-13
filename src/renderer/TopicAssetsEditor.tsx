@@ -44,7 +44,7 @@ export function TopicAssetsEditor({ topicId }: { topicId: string }) {
     { key: "filename", title: "Filename", sortValue: (asset) => asset.filename, render: (asset) => asset.filename },
     { key: "mimeType", title: "Type", width: 150, sortValue: (asset) => asset.mimeType, render: (asset) => asset.mimeType },
     { key: "size", title: "Size", width: 110, align: "right", sortValue: (asset) => asset.size, render: (asset) => formatSize(asset.size) },
-    { key: "actions", title: "", width: 64, align: "right", render: (asset) => (
+    { key: "actions", title: "", width: 64, align: "right", role: "actions", render: (asset) => (
       <TableActionButton
         aria-label={`Delete ${asset.filename}`}
         title={`Delete ${asset.filename}`}
