@@ -93,12 +93,20 @@ export function TopicMarketplacePanel({ topic, locale, api, onSnapshotChange, on
   };
   const publish = async (listed: boolean) => {
     setBusy(true);
-    try { const result = await api.publishMarketplaceTopic(topic.id, listed); onSnapshotChange(result.snapshot); setConfirmingRemove(false); setSource(null); setDraft(null); toast.show({ title: listed ? copy.published : copy.removed, variant: "success", action: { label: copy.viewJob, onSelect: onOpenJobs } }); }
+    try {
+      const result = listed
+        ? await api.publishContentV2Topic(topic.id)
+        : await api.publishMarketplaceTopic(topic.id, false);
+      if ("snapshot" in result && result.snapshot) onSnapshotChange(result.snapshot);
+      setConfirmingRemove(false); setSource(null); setDraft(null);
+      if (listed) onOpenJobs();
+      toast.show({ title: listed ? "Publish to Market started" : copy.removed, variant: "success", action: { label: copy.viewJob, onSelect: onOpenJobs } });
+    }
     catch (error) { toast.show({ title: copy.publishFailed, description: String(error), variant: "error" }); }
     finally { setBusy(false); }
   };
   return <>
-    <Panel title={copy.tab} description={copy.topicDescription} meta={<div className="panel-heading-actions"><Button icon={<Pencil />} onClick={() => void open()}>{copy.editMetadata}</Button>{status !== copy.upToDate && <Button color="success" icon={<UploadCloud />} disabled={busy || !topic.publishedAt} loading={busy} onClick={() => void publish(true)}>{topic.marketplacePublishedHash ? copy.publishChanges : copy.publish}</Button>}{topic.marketplacePublishedHash && <Button color="danger" icon={<EyeOff />} disabled={busy} onClick={() => setConfirmingRemove(true)}>{copy.remove}</Button>}</div>}>
+    <Panel title={copy.tab} description={copy.topicDescription} meta={<div className="panel-heading-actions"><Button icon={<Pencil />} onClick={() => void open()}>{copy.editMetadata}</Button><Button color="success" icon={<UploadCloud />} disabled={busy || dirty} loading={busy} onClick={() => void publish(true)}>Publish to Market</Button>{topic.marketplacePublishedHash && <Button color="danger" icon={<EyeOff />} disabled={busy} onClick={() => setConfirmingRemove(true)}>{copy.remove}</Button>}</div>}>
       <div className="quiz-publish-summary"><SummaryCard label={copy.columns.listing} value={topic.marketplacePublishedHash ? copy.listed : copy.unlisted} /><SummaryCard label={copy.publishStatus} value={status} /><SummaryCard label={copy.lastPublished} value={topic.marketplacePublishedAt ? new Date(topic.marketplacePublishedAt).toLocaleString(locale) : copy.never} /></div>
       <dl className="quiz-publish-details"><div><dt>{copy.localHash}</dt><dd><code>{topic.marketplaceLocalHash ?? copy.none}</code></dd></div><div><dt>{copy.publishedHash}</dt><dd><code>{topic.marketplacePublishedHash ?? copy.none}</code></dd></div></dl>
     </Panel>

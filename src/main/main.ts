@@ -1935,9 +1935,9 @@ app.whenReady().then(async () => {
           );
       return publishJobs.track(
         {
-          name: `Publish topic · ${summary.title}`,
-          description: `Publish topic and ${reviewedQuizzes.length} reviewed quizzes to Firebase`,
-          route: `/topics/${encodeURIComponent(topicId)}?tab=publish`,
+          name: `Publish to market · ${summary.title}`,
+          description: `Synchronize marketplace metadata, topic, ${reviewedQuizzes.length} reviewed quizzes, questions, and assets`,
+          route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace`,
         },
         async (control) => {
           if (!firebaseAuth) throw new Error("Publishing is not initialized.");
@@ -1950,7 +1950,7 @@ app.whenReady().then(async () => {
             localQuizIds,
           );
           await control.setTotal(
-            reviewedQuizzes.length + staleQuizIds.length + 1,
+            reviewedQuizzes.length + staleQuizIds.length + 2,
             `Publishing ${reviewedQuizzes.length} reviewed quizzes · removing ${staleQuizIds.length} deleted quizzes`,
           );
           const publishedQuizResults: Array<{
@@ -2045,6 +2045,38 @@ app.whenReady().then(async () => {
             result.publishedAt,
           );
           await control.advance("Published topic document");
+          // The marketplace record is the final commit in this job. A catalog
+          // entry can therefore never point at partially synchronized content.
+          const listedTopic = {
+            ...topic,
+            marketplace: { ...topic.marketplace, listed: true },
+          };
+          const marketplaceHash = hashContentV2(
+            sanitizeMarketplaceTopic(listedTopic),
+          );
+          const marketplaceResult =
+            summary.marketplacePublishedHash === marketplaceHash
+              ? {
+                  kind: "topic" as const,
+                  topicId,
+                  contentHash: marketplaceHash,
+                  publishedAt:
+                    summary.marketplacePublishedAt ?? new Date().toISOString(),
+                }
+              : await publishing.publishMarketplaceTopic(
+                  listedTopic,
+                  marketplaceHash,
+                );
+          const savedTopic = await saveContentV2Topic(root, {
+            ...listedTopic,
+            marketplace: {
+              ...listedTopic.marketplace,
+              listed: true,
+              publishedHash: marketplaceResult.contentHash,
+              publishedAt: marketplaceResult.publishedAt,
+            },
+          });
+          await control.advance("Published marketplace catalog document");
           if (repositorySnapshot) {
             const publishedByKey = new Map(
               publishedQuizResults.map((item) => [item.key, item]),
@@ -2059,6 +2091,12 @@ app.whenReady().then(async () => {
                         ...item,
                         publishedHash: result.contentHash,
                         publishedAt: result.publishedAt,
+                        marketplace: savedTopic.marketplace,
+                        marketplaceLocalHash: marketplaceHash,
+                        marketplacePublishedHash:
+                          marketplaceResult.contentHash,
+                        marketplacePublishedAt:
+                          marketplaceResult.publishedAt,
                       }
                     : item,
                 ),

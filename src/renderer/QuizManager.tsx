@@ -69,8 +69,6 @@ import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
 import { useSaveShortcut } from "./ui/useSaveShortcut";
-import { QuizPublishPanel } from "./QuizPublishPanel";
-import { TopicPublishPanel } from "./TopicPublishPanel";
 import { TopicMarketplacePanel } from "./TopicMarketplacePanel";
 import {
   quizPublishStatus,
@@ -202,9 +200,9 @@ type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
 type QuizDetailTab =
-  "questions" | "alphabets" | "dictionary" | "publish" | "info";
+  "questions" | "alphabets" | "dictionary" | "info";
 type ContestDetailTab =
-  "info" | "quizzes" | "dictionaries" | "assets" | "publish" | "marketplace";
+  "info" | "quizzes" | "dictionaries" | "assets" | "marketplace";
 
 interface QuestionListItem {
   number: string;
@@ -406,7 +404,7 @@ function restoredPage(
         : "info";
   const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
-    requestedQuizTab === "info" || requestedQuizTab === "publish"
+    requestedQuizTab === "info"
       ? requestedQuizTab
       : "questions";
   const contest = snapshot.contests.find(
@@ -439,7 +437,7 @@ function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (quizTab !== "info" && quizTab !== "publish")
+  if (quizTab !== "info")
     quizTab = quiz.type === "contest" ? "questions" : "alphabets";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo
@@ -529,8 +527,7 @@ export function QuizManager({
     if (routeMode !== "topics" || !initialRoute) return "quizzes";
     try {
       const tab = new URL(initialRoute, "app://getgo").searchParams.get("tab");
-      return tab === "publish" ||
-        tab === "marketplace" ||
+      return tab === "marketplace" ||
         tab === "info" ||
         tab === "dictionaries" ||
         tab === "assets"
@@ -778,39 +775,6 @@ export function QuizManager({
       `${quiz.id} ${quiz.legacyId} ${quiz.grade ?? ""} ${quiz.round ?? ""} ${quiz.year ?? ""}`
         .toLowerCase()
         .includes(normalizedQuery),
-  );
-  const publishAllContestQuizzes = useCallback(
-    (contest: ContestSummary & { quizzes: QuizSummary[] }) => {
-      if (!contest.quizzes.length) {
-        toast.show({
-          title: "Nothing to publish",
-          description: `${contest.title} does not contain any quizzes.`,
-        });
-        return;
-      }
-      const jobs = contest.quizzes.map((quiz) =>
-        managerApi.publishQuiz(contest.id, quiz.id),
-      );
-      onOpenJobs();
-      toast.show({
-        title: "Publish jobs started",
-        description: `${jobs.length} quiz publish job${jobs.length === 1 ? "" : "s"} added for ${contest.title}.`,
-      });
-      void Promise.allSettled(jobs).then((results) => {
-        const failures = results.filter(
-          (result): result is PromiseRejectedResult =>
-            result.status === "rejected",
-        );
-        if (failures.length) {
-          console.error("[GetGo Tools][Publish all] Publish jobs failed", {
-            contestId: contest.id,
-            total: jobs.length,
-            failures: failures.map((failure) => failure.reason),
-          });
-        }
-      });
-    },
-    [managerApi, onOpenJobs, toast],
   );
   const migrationForQuiz = (quiz: QuizSummary): QuizAiMigrationJob | null =>
     migrationJobs.find(
@@ -2012,44 +1976,6 @@ export function QuizManager({
                   Delete quiz
                 </Button>
               </>
-            ) : quizTab === "publish" ? (
-              <Button
-                icon={<CloudUpload size={15} />}
-                variant="solid"
-                loading={buttonAction === "publish-quiz"}
-                disabled={!quiz.localContentHash || Boolean(buttonAction)}
-                onClick={() =>
-                  void runButtonAction("publish-quiz", async () => {
-                    const publishing = managerApi.publishQuiz(
-                      quiz.contest,
-                      quiz.id,
-                    );
-                    onOpenJobs();
-                    const result = await publishing;
-                    const updatedQuiz: QuizSummary = {
-                      ...quiz,
-                      publishedHash: result.contentHash,
-                      publishedAt: result.publishedAt,
-                      localContentHash: result.contentHash,
-                    };
-                    onSnapshotChange({
-                      ...snapshot,
-                      quizzes: snapshot.quizzes.map((item) =>
-                        item.key === quiz.key ? updatedQuiz : item,
-                      ),
-                    });
-                    setPage({ kind: "quiz", quiz: updatedQuiz });
-                    toast.show({
-                      title: quizPublishCopy.successTitle,
-                      description: quizPublishCopy.successDescription,
-                    });
-                  })
-                }
-              >
-                {quiz.publishedHash
-                  ? quizPublishCopy.republish
-                  : quizPublishCopy.publish}
-              </Button>
             ) : quizTab === "dictionary" ? null : questionOrder ? (
               <QuestionOrderActions
                 dirty={questionOrderDirty}
@@ -2150,7 +2076,6 @@ export function QuizManager({
                   }
                 : null,
             { id: "info" as const, label: "Info" },
-            { id: "publish" as const, label: quizPublishCopy.tab },
           ].filter((item): item is Exclude<typeof item, null> => Boolean(item))}
         />
         {quizTab === "info" && quizContest && (
@@ -2183,9 +2108,6 @@ export function QuizManager({
               });
             }}
           />
-        )}
-        {quizTab === "publish" && (
-          <QuizPublishPanel quiz={quiz} locale={locale} />
         )}
         {quizTab === "questions" && (
           <>
@@ -2418,33 +2340,6 @@ export function QuizManager({
                 </Button>
               </>
             )}
-            {topicMode &&
-              isContest &&
-              contestTab === "publish" &&
-              selectedTopic && (
-                <Button
-                  icon={<CloudUpload size={15} />}
-                  variant="solid"
-                  loading={buttonAction === "publish-topic"}
-                  disabled={Boolean(buttonAction)}
-                  onClick={() =>
-                    void runButtonAction("publish-topic", async () => {
-                      const result = await managerApi.publishContentV2Topic(
-                        selectedTopic.id,
-                      );
-                      if (result.snapshot) onSnapshotChange(result.snapshot);
-                      toast.show({
-                        title: "Topic published",
-                        description: `${selectedTopic.title} was published.`,
-                      });
-                    })
-                  }
-                >
-                  {selectedTopic.publishedHash
-                    ? "Republish topic"
-                    : "Publish topic"}
-                </Button>
-              )}
           </>
         }
       />
@@ -2466,9 +2361,6 @@ export function QuizManager({
                   { id: "dictionaries" as const, label: "Dictionaries" },
                   { id: "assets" as const, label: "Assets" },
                 ]
-              : []),
-            ...(topicMode
-              ? [{ id: "publish" as const, label: quizPublishCopy.tab }]
               : []),
             ...(topicMode
               ? [
@@ -2500,9 +2392,6 @@ export function QuizManager({
             });
           }}
         />
-      )}
-      {topicMode && isContest && contestTab === "publish" && selectedTopic && (
-        <TopicPublishPanel topic={selectedTopic} locale={locale} />
       )}
       {topicMode &&
         isContest &&
@@ -2642,50 +2531,56 @@ export function QuizManager({
                 },
                 {
                   key: "publish",
-                  title: "Publish",
+                  title: "Review",
                   width: 136,
                   align: "center",
                   render: (row) => {
-                    const status =
-                      row.kind === "topic"
-                        ? topicPublishStatus(row.summary)
-                        : quizPublishStatus(row.quiz);
+                    const review = row.kind === "topic"
+                      ? { kind: row.summary.status === "reviewed" ? "current" : row.summary.status === "rejected" ? "changed" : "none", label: row.summary.status === "reviewed" ? "Ready" : row.summary.status === "rejected" ? "Rejected" : "Needs review" }
+                      : (() => { const value = quizReviewStatus(row.quiz); return { kind: value.kind === "full" ? "current" : value.kind === "partial" ? "changed" : "none", label: `${value.reviewed}/${value.total}` }; })();
                     const tone: StatusBadgeTone =
-                      status.kind === "current"
+                      review.kind === "current"
                         ? "success"
-                        : status.kind === "changed"
+                        : review.kind === "changed"
                           ? "warning"
                           : "neutral";
                     return (
                       <StatusBadge
                         tone={tone}
-                        ariaLabel={`Open ${row.kind} publish tab`}
+                        ariaLabel={`Open ${row.kind} review`}
                         onClick={() => {
                           if (row.kind === "topic") {
                             setPage({
                               kind: "contest",
                               contest: row.contest.id,
                             });
-                            setContestTab("publish");
+                            setContestTab("info");
                           } else {
                             setPage({ kind: "quiz", quiz: row.quiz });
-                            setQuizTab("publish");
+                            setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets");
                           }
                         }}
                       >
-                        {status.label}
+                        {review.label}
                       </StatusBadge>
                     );
                   },
                 },
                 {
                   key: "market",
-                  title: "Marketplace",
+                  title: "Market sync",
                   width: 144,
                   align: "center",
                   render: (row) => {
-                    if (row.kind === "quiz")
-                      return <span className="topic-status-na">—</span>;
+                    if (row.kind === "quiz") {
+                      const review = quizReviewStatus(row.quiz);
+                      const included = review.kind === "full";
+                      return (
+                        <StatusBadge tone={included ? "success" : "neutral"}>
+                          {included ? "Included" : "Not ready"}
+                        </StatusBadge>
+                      );
+                    }
                     const status = topicMarketplaceStatus(row.summary);
                     const tone: StatusBadgeTone =
                       status.kind === "current"
@@ -2734,77 +2629,30 @@ export function QuizManager({
                           }
                         }}
                       />
-                      <ActionMenu
+                      {row.kind === "topic" && <ActionMenu
                         label="More actions"
                         iconOnly
                         items={[
-                          ...(row.kind === "topic"
-                            ? [
-                                {
-                                  id: "publish-all",
-                                  label: "Publish All",
-                                  icon: CheckCheck,
-                                  onSelect: () =>
-                                    publishAllContestQuizzes(row.contest),
-                                },
-                              ]
-                            : []),
                           {
-                            id: "publish-content",
-                            label: "Publish Content",
+                            id: "publish-market",
+                            label: "Publish to Market",
                             icon: CloudUpload,
                             onSelect: () =>
                               void runButtonAction(
-                                `quick-publish-${row.kind}`,
+                                "quick-publish-market",
                                 async () => {
-                                  if (row.kind === "topic") {
-                                    const result =
-                                      await managerApi.publishContentV2Topic(
-                                        row.summary.id,
-                                      );
-                                    if (result.snapshot)
-                                      onSnapshotChange(result.snapshot);
-                                  } else {
-                                    await managerApi.publishQuiz(
-                                      row.quiz.contest,
-                                      row.quiz.id,
-                                    );
-                                    onOpenJobs();
-                                  }
+                                  const result = await managerApi.publishContentV2Topic(row.contest.id);
+                                  if (result.snapshot) onSnapshotChange(result.snapshot);
+                                  onOpenJobs();
                                   toast.show({
-                                    title: "Content published",
-                                    description: `${row.kind === "topic" ? row.contest.title : row.quiz.title} was published.`,
+                                    title: "Publish to Market started",
+                                    description: `Synchronizing ${row.contest.title} content and marketplace listing.`,
                                   });
                                 },
                               ),
                           },
-                          ...(row.kind === "topic"
-                            ? [
-                                {
-                                  id: "publish-market",
-                                  label: "Publish to Market",
-                                  icon: CloudUpload,
-                                  onSelect: () =>
-                                    void runButtonAction(
-                                      "quick-publish-market",
-                                      async () => {
-                                        const result =
-                                          await managerApi.publishMarketplaceTopic(
-                                            row.contest.id,
-                                            true,
-                                          );
-                                        onSnapshotChange(result.snapshot);
-                                        toast.show({
-                                          title: "Published to market",
-                                          description: `${row.contest.title} is now listed.`,
-                                        });
-                                      },
-                                    ),
-                                },
-                              ]
-                            : []),
                         ]}
-                      />
+                      />}
                     </div>
                   ),
                 },
@@ -2886,8 +2734,8 @@ export function QuizManager({
                       <>
                         <th>Quiz</th>
                         <th className="manager-column-centered">Type</th>
-                        <th className="manager-column-centered">Publish</th>
-                        <th className="manager-column-centered">Marketplace</th>
+                        <th className="manager-column-centered">Review</th>
+                        <th className="manager-column-centered">Market sync</th>
                         <th />
                       </>
                     ) : isContest ? (
@@ -2913,9 +2761,9 @@ export function QuizManager({
                         </th>
                         {topicMode ? (
                           <>
-                            <th className="manager-column-centered">Publish</th>
+                            <th className="manager-column-centered">Review</th>
                             <th className="manager-column-centered">
-                              Marketplace
+                              Market sync
                             </th>
                           </>
                         ) : (
@@ -2932,7 +2780,7 @@ export function QuizManager({
                 <tbody>
                   {topicMode && isContest
                     ? visibleQuizzes.map((quiz) => {
-                        const publish = quizPublishStatus(quiz);
+                        const review = quizReviewStatus(quiz);
                         return (
                           <tr
                             key={quiz.key}
@@ -2963,23 +2811,25 @@ export function QuizManager({
                             <td className="manager-status-cell">
                               <StatusBadge
                                 tone={
-                                  publish.kind === "current"
+                                  review.kind === "full"
                                     ? "success"
-                                    : publish.kind === "changed"
+                                    : review.kind === "partial"
                                       ? "warning"
                                       : "neutral"
                                 }
-                                ariaLabel="Open quiz publish tab"
+                                ariaLabel="Open quiz questions"
                                 onClick={() => {
                                   setPage({ kind: "quiz", quiz });
-                                  setQuizTab("publish");
+                                  setQuizTab(quiz.type === "contest" ? "questions" : "alphabets");
                                 }}
                               >
-                                {publish.label}
+                                {review.reviewed}/{review.total}
                               </StatusBadge>
                             </td>
                             <td className="manager-status-cell">
-                              <span className="topic-status-na">—</span>
+                              <StatusBadge tone={review.kind === "full" ? "success" : "neutral"}>
+                                {review.kind === "full" ? "Included" : "Not ready"}
+                              </StatusBadge>
                             </td>
                             <td>
                               <div className="manager-row-actions">
@@ -2993,32 +2843,6 @@ export function QuizManager({
                                     setPage({ kind: "quiz", quiz });
                                     setQuizTab("info");
                                   }}
-                                />
-                                <ActionMenu
-                                  label="More actions"
-                                  iconOnly
-                                  items={[
-                                    {
-                                      id: "publish-content",
-                                      label: "Publish Content",
-                                      icon: CloudUpload,
-                                      onSelect: () =>
-                                        void runButtonAction(
-                                          "quick-publish-quiz",
-                                          async () => {
-                                            await managerApi.publishQuiz(
-                                              quiz.contest,
-                                              quiz.id,
-                                            );
-                                            onOpenJobs();
-                                            toast.show({
-                                              title: "Content published",
-                                              description: `${quiz.title} was published.`,
-                                            });
-                                          },
-                                        ),
-                                    },
-                                  ]}
                                 />
                               </div>
                             </td>
@@ -3177,27 +3001,26 @@ export function QuizManager({
                                 <>
                                   <td className="manager-status-cell">
                                     {(() => {
-                                      const status =
-                                        topicPublishStatus(topicSummary);
+                                      const status = topicSummary.status;
                                       return (
                                         <StatusBadge
                                           tone={
-                                            status.kind === "current"
+                                            status === "reviewed"
                                               ? "success"
-                                              : status.kind === "changed"
+                                              : status === "rejected"
                                                 ? "warning"
                                                 : "neutral"
                                           }
-                                          ariaLabel="Open topic publish tab"
+                                          ariaLabel="Open topic review"
                                           onClick={() => {
                                             setPage({
                                               kind: "contest",
                                               contest: contest.id,
                                             });
-                                            setContestTab("publish");
+                                            setContestTab("info");
                                           }}
                                         >
-                                          {status.label}
+                                          {status === "reviewed" ? "Ready" : status === "rejected" ? "Rejected" : "Needs review"}
                                         </StatusBadge>
                                       );
                                     })()}
@@ -3258,38 +3081,6 @@ export function QuizManager({
                                       iconOnly
                                       items={[
                                         {
-                                          id: "publish-all",
-                                          label: "Publish All",
-                                          icon: CheckCheck,
-                                          onSelect: () =>
-                                            publishAllContestQuizzes(contest),
-                                        },
-                                        {
-                                          id: "publish-content",
-                                          label: "Publish Content",
-                                          icon: CloudUpload,
-                                          onSelect: () =>
-                                            void runButtonAction(
-                                              "quick-publish-topic",
-                                              async () => {
-                                                if (topicSummary) {
-                                                  const result =
-                                                    await managerApi.publishContentV2Topic(
-                                                      topicSummary.id,
-                                                    );
-                                                  if (result.snapshot)
-                                                    onSnapshotChange(
-                                                      result.snapshot,
-                                                    );
-                                                }
-                                                toast.show({
-                                                  title: "Content published",
-                                                  description: `${contest.title} was published.`,
-                                                });
-                                              },
-                                            ),
-                                        },
-                                        {
                                           id: "publish-market",
                                           label: "Publish to Market",
                                           icon: CloudUpload,
@@ -3297,17 +3088,12 @@ export function QuizManager({
                                             void runButtonAction(
                                               "quick-publish-market",
                                               async () => {
-                                                const result =
-                                                  await managerApi.publishMarketplaceTopic(
-                                                    contest.id,
-                                                    true,
-                                                  );
-                                                onSnapshotChange(
-                                                  result.snapshot,
-                                                );
+                                                const result = await managerApi.publishContentV2Topic(contest.id);
+                                                if (result.snapshot) onSnapshotChange(result.snapshot);
+                                                onOpenJobs();
                                                 toast.show({
-                                                  title: "Published to market",
-                                                  description: `${contest.title} is now listed.`,
+                                                  title: "Publish to Market started",
+                                                  description: `Synchronizing ${contest.title} content and marketplace listing.`,
                                                 });
                                               },
                                             ),
