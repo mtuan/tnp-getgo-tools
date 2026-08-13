@@ -25,6 +25,18 @@ export interface DataTableProps<T> {
   sortLocale?: string;
 }
 
+export function DataTableHeader<T>({ columns }: { columns: DataColumn<T>[] }) {
+  return <tr>{columns.map((column) => <th style={{ width: column.width, textAlign: column.align }} key={column.key}>{column.title}</th>)}</tr>;
+}
+
+export function DataTableColumns<T>({ columns }: { columns: DataColumn<T>[] }) {
+  return <colgroup>{columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}</colgroup>;
+}
+
+export function DataTableCells<T>({ columns, row, index }: { columns: DataColumn<T>[]; row: T; index: number }) {
+  return <>{columns.map((column) => <td style={{ textAlign: column.align }} key={column.key}>{column.render(row, index)}</td>)}</>;
+}
+
 export function DataTable<T>({
   rows,
   columns,

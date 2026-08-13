@@ -18,6 +18,50 @@ const iconSchema = z.string().refine(
   (value) => value.startsWith("asset:") || (value.trim().length <= 16 && /\P{ASCII}/u.test(value)),
   "Icon must be an asset reference or one Unicode symbol.",
 ).optional();
+export const marketplaceTopicMetadataSchema = z.object({
+  listed: z.boolean().default(true),
+  shortDescription: z.string().default(""),
+  fullDescription: z.string().default(""),
+  featured: z.boolean().default(false),
+  subjects: z.array(z.string()).default([]),
+  languages: z.array(z.string()).default([]),
+  tags: z.array(z.string()).default([]),
+  learningObjectives: z.array(z.string()).default([]),
+  ageRange: z.object({
+    minimum: z.number().int().min(1).optional(),
+    maximum: z.number().int().min(1).optional(),
+  }).optional(),
+  pricing: z.object({
+    type: z.enum(["free", "paid"]).default("free"),
+    amount: z.number().nonnegative().optional(),
+    currency: z.string().default("VND"),
+  }).default({ type: "free", currency: "VND" }),
+}).passthrough();
+export type MarketplaceTopicMetadata = z.infer<typeof marketplaceTopicMetadataSchema>;
+export type MarketplaceTopicMetadataInput = Partial<MarketplaceTopicMetadata>;
+
+export function sanitizeMarketplaceTopic(
+  record: ContentV2Topic,
+): Record<string, unknown> {
+  const metadata = record.marketplace ?? {};
+  const {
+    publishedHash: _publishedHash,
+    publishedAt: _publishedAt,
+    ...marketplace
+  } = metadata as MarketplaceTopicMetadataInput & {
+    publishedHash?: string;
+    publishedAt?: string;
+  };
+  return {
+    topicId: record.id,
+    title: record.title,
+    description: record.description,
+    icon: record.icon,
+    publisherId: record.publisherId,
+    publisher: record.publisher,
+    ...marketplace,
+  };
+}
 const baseRecord = {
   schemaVersion: z.literal(2),
   id: idSchema,
@@ -34,7 +78,7 @@ const baseRecord = {
     displayName: z.string().min(1),
     verified: z.boolean().default(false),
   }).optional(),
-  marketplace: z.record(z.string(), z.unknown()).optional(),
+  marketplace: marketplaceTopicMetadataSchema.partial().passthrough().optional(),
 };
 
 export const competitionTopicSchema = z.object({
@@ -275,7 +319,13 @@ function withoutAuthoringMetadata<T extends Record<string, unknown>>(
 export function sanitizeContentV2Topic(
   record: ContentV2Topic,
 ): Record<string, unknown> {
-  return withoutAuthoringMetadata(contentV2TopicSchema.parse(record));
+  const {
+    marketplace: _marketplace,
+    publisher: _publisher,
+    publisherId: _publisherId,
+    ...runtime
+  } = withoutAuthoringMetadata(contentV2TopicSchema.parse(record));
+  return runtime;
 }
 
 export function sanitizeContentV2Quiz(

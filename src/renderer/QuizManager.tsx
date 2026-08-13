@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Save,
   Search,
+  Rows3,
   Trash2,
   Zap,
 } from "lucide-react";
@@ -61,6 +62,8 @@ import { PageHeader } from "./ui/PageHeader";
 import { QuestionNavigator } from "./ui/QuestionNavigator";
 import { Tabs } from "./ui/Tabs";
 import { DataTable, type DataColumn } from "./ui/DataTable";
+import { TreeDataTable, type TreeDataRow } from "./ui/TreeDataTable";
+import { StatusBadge, type StatusBadgeTone } from "./ui/StatusBadge";
 import { TableActionButton } from "./ui/TableActionButton";
 import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
@@ -68,6 +71,8 @@ import { useToast } from "./ui/Toast";
 import { useSaveShortcut } from "./ui/useSaveShortcut";
 import { QuizPublishPanel } from "./QuizPublishPanel";
 import { TopicPublishPanel } from "./TopicPublishPanel";
+import { TopicMarketplacePanel } from "./TopicMarketplacePanel";
+import { quizPublishStatus, topicMarketplaceStatus, topicPublishStatus } from "./topic-status";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 import {
@@ -154,6 +159,9 @@ export type QuizManagerApi = Pick<
   | "createContest"
   | "createQuiz"
   | "publishContentV2Topic"
+  | "loadContentV2Topic"
+  | "saveContentV2Topic"
+  | "publishMarketplaceTopic"
 >;
 
 type ManagerPage =
@@ -161,7 +169,7 @@ type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
 type QuizDetailTab = "questions" | "alphabets" | "dictionary" | "publish" | "info";
-type ContestDetailTab = "info" | "quizzes" | "dictionaries" | "assets" | "publish";
+type ContestDetailTab = "info" | "quizzes" | "dictionaries" | "assets" | "publish" | "marketplace";
 
 interface QuestionListItem {
   number: string;
@@ -397,6 +405,10 @@ export function QuizManager({
     `${contestRoute(contestId)}/quizzes/${encodeURIComponent(quizId)}`;
   const [page, setPage] = useState<ManagerPage>(restored.page);
   const [query, setQuery] = useState("");
+  const [topicsView, setTopicsView] = useState<"list" | "tree">(() => {
+    try { return localStorage.getItem("getgo-tools.topics-view") === "tree" ? "tree" : "list"; }
+    catch { return "list"; }
+  });
   const [sourceLoading, setSourceLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingVerification, setSavingVerification] = useState(false);
@@ -417,7 +429,7 @@ export function QuizManager({
     if (routeMode !== "topics" || !initialRoute) return "quizzes";
     try {
       const tab = new URL(initialRoute, "app://getgo").searchParams.get("tab");
-      return tab === "publish" || tab === "info" || tab === "dictionaries" || tab === "assets" ? tab : "quizzes";
+      return tab === "publish" || tab === "marketplace" || tab === "info" || tab === "dictionaries" || tab === "assets" ? tab : "quizzes";
     }
     catch { return "quizzes"; }
   });
@@ -2214,6 +2226,7 @@ export function QuizManager({
               { id: "assets" as const, label: "Assets" },
             ] : []),
             ...(topicMode ? [{ id: "publish" as const, label: quizPublishCopy.tab }] : []),
+            ...(topicMode ? [{ id: "marketplace" as const, label: (locale === "vi" ? vi : en).marketplaceManager.tab }] : []),
           ]}
         />
       )}
@@ -2240,6 +2253,9 @@ export function QuizManager({
       {topicMode && isContest && contestTab === "publish" && selectedTopic && (
         <TopicPublishPanel topic={selectedTopic} locale={locale} />
       )}
+      {topicMode && isContest && contestTab === "marketplace" && selectedTopic && (
+        <TopicMarketplacePanel topic={selectedTopic} locale={locale} api={managerApi} onSnapshotChange={onSnapshotChange} onOpenJobs={onOpenJobs} />
+      )}
       {topicMode && isContest && contestTab === "dictionaries" && selectedTopic?.type === "kid-learning" && (
         <>
           {topicResourceError && <div className="error-banner"><strong>Could not load shared dictionary</strong><span>{topicResourceError}</span></div>}
@@ -2260,15 +2276,46 @@ export function QuizManager({
       )}
       {(!isContest || contestTab === "quizzes") && (
         <>
-          <div className="manager-search">
-            <Search size={17} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={isContest ? "Search quizzes…" : `Search ${topicMode ? "topics" : "contests"}…`}
-            />
+          <div className="manager-list-toolbar">
+            <div className="manager-search">
+              <Search size={17} />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={isContest ? "Search quizzes…" : `Search ${topicMode ? "topics" : "contests"}…`}
+              />
+            </div>
+            {!isContest && topicMode && <Button
+              className="manager-view-switcher"
+              variant="icon"
+              icon={topicsView === "tree" ? <Rows3 /> : <ListOrdered />}
+              aria-label={topicsView === "tree" ? "Show list view" : "Show tree view"}
+              title={topicsView === "tree" ? "Show list view" : "Show tree view"}
+              onClick={() => {
+                const next = topicsView === "tree" ? "list" : "tree";
+                setTopicsView(next);
+                try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* Storage is optional. */ }
+              }}
+            />}
           </div>
-          <div className="manager-table">
+          {!isContest && topicMode && topicsView === "tree" ? (() => {
+            type TopicTreeRow = { kind: "topic"; contest: (typeof visibleContests)[number]; summary: NonNullable<typeof snapshot.contentV2.topics[number]> } | { kind: "quiz"; quiz: QuizSummary };
+            const rows: TreeDataRow<TopicTreeRow>[] = visibleContests.flatMap((contest) => {
+              const summary = snapshot.contentV2.topics.find((topic) => topic.id === contest.id);
+              return summary ? [{ row: { kind: "topic" as const, contest, summary }, children: contest.quizzes.map((quiz) => ({ row: { kind: "quiz" as const, quiz } })) }] : [];
+            });
+            const columns: DataColumn<TopicTreeRow>[] = [
+              { key: "identity", title: "Topic / quiz", width: "calc(100% - 502px)", render: () => null },
+              { key: "type", title: "Type", width: 100, render: (row) => row.kind === "topic" ? "Topic" : "Quiz" },
+              { key: "publish", title: "Publish", width: 136, align: "center", render: (row) => { const status = row.kind === "topic" ? topicPublishStatus(row.summary) : quizPublishStatus(row.quiz); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone}>{status.label}</StatusBadge>; } },
+              { key: "market", title: "Marketplace", width: 144, align: "center", render: (row) => { if (row.kind === "quiz") return <span className="topic-status-na">—</span>; const status = topicMarketplaceStatus(row.summary); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone}>{status.label}</StatusBadge>; } },
+              { key: "action", title: "", width: 42, render: () => <ChevronRight size={16} /> },
+            ];
+            return <TreeDataTable rows={rows} columns={columns} rowKey={(row) => row.kind === "topic" ? `topic:${row.contest.id}` : `quiz:${row.quiz.key}`} ariaLabel="Topics and quizzes" emptyText="No matching topics." onRowClick={(row) => {
+              if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("quizzes"); setQuery(""); }
+              else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets"); }
+            }} renderIdentity={(row, _depth, toggle) => <div className="topics-tree-identity">{toggle}{row.kind === "topic" ? <><ManagerListIcon topicId={row.contest.id} reference={row.contest.settings.book.icon} label={row.contest.title} kind="topic" /><div><strong>{row.contest.title}</strong><span>{row.contest.description || row.contest.id}</span></div></> : <><ManagerListIcon topicId={row.quiz.contest} reference={row.quiz.icon} label={row.quiz.title} kind="quiz" /><div><strong>{row.quiz.title}</strong><span>{row.quiz.id}</span></div></>}</div>} />;
+          })() : <div className="manager-table">
             <table>
               <thead>
                 <tr>
@@ -2287,8 +2334,7 @@ export function QuizManager({
                     <>
                       <th>{topicMode ? "Topic" : "Contest"}</th>
                       <th>Quizzes</th>
-                      <th>Ready</th>
-                      <th>Builds</th>
+                      {topicMode ? <><th>Publish status</th><th>Marketplace status</th></> : <><th>Ready</th><th>Builds</th></>}
                       <th />
                     </>
                   )}
@@ -2402,6 +2448,7 @@ export function QuizManager({
                       const builds = contest.quizzes.filter(
                         (quiz) => quiz.hasGeneratedArtifact,
                       ).length;
+                      const topicSummary = snapshot.contentV2.topics.find((topic) => topic.id === contest.id);
                       return (
                         <tr
                           key={contest.id}
@@ -2421,8 +2468,10 @@ export function QuizManager({
                             </div>
                           </td>
                           <td>{contest.quizzes.length}</td>
-                          <td>{ready}</td>
-                          <td>{builds}</td>
+                          {topicMode && topicSummary ? <>
+                            <td>{(() => { const status = topicPublishStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"}>{status.label}</StatusBadge>; })()}</td>
+                            <td>{(() => { const status = topicMarketplaceStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"}>{status.label}</StatusBadge>; })()}</td>
+                          </> : <><td>{ready}</td><td>{builds}</td></>}
                           <td>
                             <ChevronRight size={16} />
                           </td>
@@ -2436,7 +2485,7 @@ export function QuizManager({
                 No matching {isContest ? "quizzes" : topicMode ? "topics" : "contests"}.
               </div>
             )}
-          </div>
+          </div>}
         </>
       )}
       {contestDialog && (

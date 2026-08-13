@@ -350,6 +350,13 @@ export function ContentV2QuizManager(props: Props) {
         if (result.snapshot) refresh(result.snapshot);
         return result;
       },
+      loadContentV2Topic: window.getgo.loadContentV2Topic,
+      saveContentV2Topic: async (topic) => refresh(await window.getgo.saveContentV2Topic(topic)),
+      publishMarketplaceTopic: async (topicId, listed) => {
+        const result = await window.getgo.publishMarketplaceTopic(topicId, listed);
+        refresh(result.snapshot);
+        return result;
+      },
       deleteQuiz: async (manifestPath) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
         return refresh(await window.getgo.deleteContentV2Quiz(quiz.topicId, quiz.id));
@@ -388,6 +395,11 @@ export function ContentV2QuizManager(props: Props) {
           description: settings.book.description ?? "",
           status: stored.status,
           order: stored.order,
+          publisherId: stored.publisherId,
+          publisher: stored.publisher,
+          marketplace: stored.marketplace,
+          publishedHash: stored.publishedHash,
+          publishedAt: stored.publishedAt,
         };
         const next: ContentV2Topic = settings.book.topicType !== "kid-learning"
           ? {

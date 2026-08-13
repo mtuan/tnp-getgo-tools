@@ -49,14 +49,21 @@ export interface DialogFrameProps {
   onReset?: () => void;
   formId?: string;
   onDelete?: () => Promise<void>;
+  deleteLabel?: string;
+  deleteConfirmText?: string;
+  deleteConfirmLabel?: string;
+  deleteDisabled?: boolean;
+  cancelLabel?: string;
   presentation?: "drawer" | "modal" | "embedded";
   submitLabel?: string;
+  submitColor?: "primary" | "success" | "danger" | "warning" | "neutral";
   submitDisabled?: boolean;
   saveShortcut?: boolean;
   embeddedFooter?: boolean;
   className?: string;
   hideFooter?: boolean;
   footer?: ReactNode;
+  leadingAction?: ReactNode;
 }
 
 export function DialogFrame({
@@ -69,14 +76,21 @@ export function DialogFrame({
   onReset,
   formId,
   onDelete,
+  deleteLabel = "Delete",
+  deleteConfirmText = "Delete this item?",
+  deleteConfirmLabel = "Delete",
+  deleteDisabled = false,
+  cancelLabel = "Cancel",
   presentation = "drawer",
   submitLabel = "Save",
+  submitColor,
   submitDisabled = false,
   saveShortcut = false,
   embeddedFooter = false,
   className = "",
   hideFooter = false,
   footer,
+  leadingAction,
 }: DialogFrameProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -169,15 +183,15 @@ export function DialogFrame({
                   <div className="delete-action">
                     {confirmingDelete ? (
                       <>
-                        <span>Move this item to Trash?</span>
+                        <span>{deleteConfirmText}</span>
                         <Button
                           icon={<Trash2 />}
                           loading={deleting}
                           variant="danger"
-                          disabled={busy && !deleting}
+                        disabled={deleteDisabled || (busy && !deleting)}
                           onClick={() => void remove()}
                         >
-                          Move to Trash
+                          {deleteConfirmLabel}
                         </Button>
                         <button
                           type="button"
@@ -185,20 +199,23 @@ export function DialogFrame({
                           disabled={busy}
                           onClick={() => setConfirmingDelete(false)}
                         >
-                          Cancel
+                          {cancelLabel}
                         </button>
                       </>
                     ) : (
                       <Button
                         icon={<Trash2 />}
                         variant="danger"
-                        disabled={busy}
+                        disabled={busy || deleteDisabled}
                         onClick={() => setConfirmingDelete(true)}
                       >
-                        Delete
+                        {deleteLabel}
                       </Button>
                     )}
                   </div>
+                )}
+                {!onDelete && leadingAction && (
+                  <div className="delete-action">{leadingAction}</div>
                 )}
                 {presentation !== "embedded" && (
                   <button
@@ -207,7 +224,7 @@ export function DialogFrame({
                     disabled={busy}
                     onClick={onClose}
                   >
-                    Cancel
+                    {cancelLabel}
                   </button>
                 )}
                 <Button
@@ -216,6 +233,7 @@ export function DialogFrame({
                   disabled={submitDisabled}
                   type="submit"
                   variant="solid"
+                  color={submitColor}
                 >
                   {submitLabel}
                 </Button>

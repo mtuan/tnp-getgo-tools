@@ -12,3 +12,4 @@
 - Custom fields must receive value, change handler, error, and disabled state from the form lifecycle.
 - Every field must support keyboard/touch input, visible focus, light/dark themes, and longer English/Vietnamese text.
 - Keep submitting state until persistence succeeds; close the editor only after success.
+- For CRUD drawers/modals, submit through the form lifecycle and return the canonical persisted record to the caller. The caller must update its visible data in place before the editor closes; never use a page reload as form synchronization.

@@ -109,6 +109,18 @@ export interface ContentV2TopicSummary {
   gradeGroups?: Array<{ id: string; title: string; grades: number[] }>;
   supportedLanguages?: Array<"en" | "vi">;
   recommendedAgeRange?: { minimum: number; maximum: number };
+  marketplace?: import("./content-v2.js").MarketplaceTopicMetadataInput;
+  marketplaceLocalHash?: string;
+  marketplacePublishedHash?: string | null;
+  marketplacePublishedAt?: string | null;
+}
+
+export interface MarketplaceTopicPublishResult {
+  topicId: string;
+  listed: boolean;
+  contentHash: string;
+  publishedAt: string;
+  snapshot: RepositorySnapshot;
 }
 
 export interface ContentV2QuizSummary {
@@ -371,9 +383,6 @@ export interface EnvironmentReadiness {
   checks: EnvironmentReadinessCheck[];
 }
 
-export type PublishingStatus =
-  "not-published" | "up-to-date" | "changed" | "local-error" | "remote-error";
-
 export interface PublishableQuiz {
   contestId: string;
   quizId: string;
@@ -384,28 +393,6 @@ export interface PublishableQuiz {
   year: string | null;
   questionCount: number;
   contentHash: string;
-}
-
-export interface PublishingQuizStatus {
-  contestId: string;
-  quizId: string;
-  title: string;
-  grade: string | null;
-  round: string | null;
-  year: string | null;
-  questionCount: number | null;
-  contentHash: string | null;
-  publishedHash: string | null;
-  publishedAt: string | null;
-  status: PublishingStatus;
-  error?: string;
-}
-
-export interface PublishingSnapshot {
-  environment: AppSettings["environment"];
-  projectId: string;
-  scannedAt: string;
-  quizzes: PublishingQuizStatus[];
 }
 
 export interface PublishResult {
@@ -619,10 +606,7 @@ export interface DesktopApi {
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
-  listMarketplacePublishers(): Promise<MarketplacePublisherRecord[]>;
-  saveMarketplacePublisher(value: MarketplacePublisherRecord): Promise<MarketplacePublisherRecord>;
-  deleteMarketplacePublisher(publisherId: string): Promise<void>;
-  generateMarketplaceMetadata(): Promise<{ topics: number; quizzes: number }>;
+  publishMarketplaceTopic(topicId: string, listed: boolean): Promise<MarketplaceTopicPublishResult>;
   onRepositoryStructureChanged(
     listener: (change: RepositoryStructureChange) => void,
   ): () => void;
@@ -680,7 +664,6 @@ export interface DesktopApi {
     settings: SpeechLanguageSettings,
   ): Promise<AppSettings>;
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>;
-  getPublishingStatus(): Promise<PublishingSnapshot>;
   publishQuiz(contestId: string, quizId: string): Promise<PublishResult>;
   publishContentV2Topic(topicId: string): Promise<ContentV2PublishResult>;
   publishContentV2Quiz(
@@ -802,17 +785,6 @@ export interface DesktopApi {
   cancelAiMigrationJob(jobId: string): Promise<AiMigrationJobsSnapshot>;
 }
 
-export interface MarketplacePublisherRecord {
-  id: string;
-  name: { en: string; vi: string };
-  description: { en: string; vi: string };
-  logo?: string;
-  banner?: string;
-  website?: string;
-  supportUrl?: string;
-  verified: boolean;
-  status: "active" | "suspended";
-}
 import type {
   GetGoDynamicQuestionProposal,
   GetGoDynamicQuestionProposalResult,

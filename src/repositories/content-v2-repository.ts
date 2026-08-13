@@ -10,6 +10,7 @@ import {
   sanitizeContentV2Question,
   sanitizeContentV2Quiz,
   sanitizeContentV2Topic,
+  sanitizeMarketplaceTopic,
   type ContentV2Question,
   type ContentV2Quiz,
   type ContentV2Topic,
@@ -344,6 +345,10 @@ export async function scanContentV2Repository(
       publishedHash: topic.publishedHash ?? null,
       publishedAt: topic.publishedAt ?? null,
       quizCount: topicQuizzes.length,
+      marketplace: topic.marketplace,
+      marketplaceLocalHash: hashContentV2(sanitizeMarketplaceTopic(topic)),
+      marketplacePublishedHash: typeof topic.marketplace?.publishedHash === "string" ? topic.marketplace.publishedHash : null,
+      marketplacePublishedAt: typeof topic.marketplace?.publishedAt === "string" ? topic.marketplace.publishedAt : null,
       ...(topic.type === "competition"
         ? {
             subject: topic.subject,

@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   BriefcaseBusiness,
   Check,
-  CloudUpload,
   Copy,
   FolderOpen,
   LayoutDashboard,
@@ -25,7 +24,6 @@ import {
   Rocket,
   RotateCcw,
   Settings,
-  Store,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -48,6 +46,7 @@ import { DialogFrame } from "./ui/DialogFrame";
 import { PageHeader } from "./ui/PageHeader";
 import { Panel } from "./ui/Panel";
 import { SummaryCard } from "./ui/SummaryCard";
+import { StatusBadge } from "./ui/StatusBadge";
 import { Select, type SelectOption } from "./ui/Select";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
@@ -60,11 +59,6 @@ const rendererStartedAt = performance.now();
 const rendererStartupLog = (stage: string, details: Record<string, unknown> = {}) =>
   console.info(`[GetGo Tools][Renderer startup][+${Math.round(performance.now() - rendererStartedAt)}ms] ${stage}`, details);
 
-const PublishingPage = lazy(() =>
-  import("./PublishingPage").then((module) => ({
-    default: module.PublishingPage,
-  })),
-);
 const JobsPage = lazy(() =>
   import("./JobsPage").then((module) => ({ default: module.JobsPage })),
 );
@@ -74,9 +68,6 @@ const DeploymentPage = lazy(() =>
 const ImagePdfPage = lazy(() =>
   import("./ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
-const PublisherManagerPage = lazy(() =>
-  import("./PublisherManagerPage").then((module) => ({ default: module.PublisherManagerPage })),
-);
 
 type View =
   | "dashboard"
@@ -84,9 +75,7 @@ type View =
   | "quizzes"
   | "jobs"
   | "deploy"
-  | "publishing"
   | "image-pdf"
-  | "publishers"
   | "settings"
   | "not-found";
 type NavigableView = Exclude<View, "not-found">;
@@ -130,7 +119,7 @@ function viewFromRoute(
   } catch {
     pathname = route.split("?")[0];
   }
-  const staticView = ["dashboard", "jobs", "deploy", "publishing", "image-pdf", "publishers", "settings"].find(
+  const staticView = ["dashboard", "jobs", "deploy", "image-pdf", "settings"].find(
     (value) => pathname === `/${value}`,
   );
   if (staticView) return staticView as NavigableView;
@@ -201,11 +190,9 @@ const normalizedRoute = (route: string) => {
 const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "topics", label: "Topics", icon: Library },
-  { id: "publishers", label: "Publishers", icon: Store },
   { id: "quizzes", label: "Legacy quizzes", icon: Archive },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
-  { id: "publishing", label: "Publishing", icon: CloudUpload },
   { id: "image-pdf", label: "Image to PDF", icon: Images },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -224,9 +211,8 @@ const localeOptions: SelectOption[] = [
 ];
 
 function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
-  return (
-    <span className={`badge badge-${value}`}>{value.replace("-", " ")}</span>
-  );
+  const tone = ["validated", "published", "uploaded"].includes(value) ? "success" : value === "reviewed" ? "info" : value === "generated" ? "primary" : value === "outdated" ? "danger" : value === "not-built" ? "danger" : "warning";
+  return <StatusBadge tone={tone}>{value.replace("-", " ")}</StatusBadge>;
 }
 
 export function App() {
@@ -667,8 +653,6 @@ export function App() {
             const label =
               item.id === "topics"
                 ? contentCopy.nav
-                : item.id === "publishers"
-                  ? (settings.locale === "vi" ? vi : en).publishers.nav
                 : item.id === "quizzes"
                   ? contentCopy.legacyNav
                   : item.id === "image-pdf"
@@ -907,9 +891,6 @@ export function App() {
                 onSpeechSettingsChange={changeSpeechSettings}
               />
             )}
-            {settings.repositoryPath && view === "publishers" && (
-              <Suspense fallback={null}><PublisherManagerPage locale={settings.locale} /></Suspense>
-            )}
             {settings.repositoryPath && view === "jobs" && (
               <Suspense fallback={null}>
                 <JobsPage locale={settings.locale} onOpenQuiz={(route) => goToRoute(route)} />
@@ -918,15 +899,6 @@ export function App() {
             {settings.repositoryPath && view === "deploy" && (
               <Suspense fallback={null}>
                 <DeploymentPage locale={settings.locale} environment={settings.environment} onOpenJobs={() => goToRoute("/jobs")} />
-              </Suspense>
-            )}
-            {settings.repositoryPath && view === "publishing" && snapshot && (
-              <Suspense fallback={null}>
-                <PublishingPage
-                  environment={settings.environment}
-                  repository={snapshot}
-                  locale={settings.locale}
-                />
               </Suspense>
             )}
             {view === "image-pdf" && (

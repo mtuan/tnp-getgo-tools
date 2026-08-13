@@ -9,3 +9,9 @@
 - Preserve layout, scroll position, fixed controls, focus, and interaction during transitions.
 - Provide localized actionable error states and localized empty states with a relevant next action.
 - Verify loading, loaded, empty, and error states independently in both themes.
+# Failure isolation
+
+- Treat required page data separately from optional media and secondary metadata.
+- One missing icon, image, resource, or malformed optional record must not replace the whole page with an error state.
+- Resolve independent rows/cards with settled results, preserve successful items, and show/log a localized item-level fallback for failures.
+- Use the shared image component so loading and broken-asset states stay inside the image boundary.

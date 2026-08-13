@@ -1,9 +1,6 @@
 import type {
   PublishResult,
-  PublishingQuizStatus,
-  PublishingSnapshot,
   QuizSummary,
-  RepositorySnapshot,
 } from "../core/models.js";
 import type { LocalPublishPayload } from "../repositories/quiz-publishing.js";
 import type { FirebaseAuthService } from "./firebase-auth.js";
@@ -84,6 +81,10 @@ function documentPath(contestId: string, quizId: string): string {
 
 function contentV2TopicPath(topicId: string): string {
   return `/getgo-content-v2/catalog/topics/${encodeURIComponent(topicId)}`;
+}
+
+function marketplaceTopicPath(topicId: string): string {
+  return `/getgo-marketplace-topics/${encodeURIComponent(topicId)}`;
 }
 
 function contentV2QuizPath(topicId: string, quizId: string): string {
@@ -191,63 +192,6 @@ export class FirestorePublishingService {
     return {
       projectId,
       document: (await response.json()) as FirestoreDocument,
-    };
-  }
-
-  async reconcile(snapshot: RepositorySnapshot): Promise<PublishingSnapshot> {
-    const rows: PublishingQuizStatus[] = snapshot.quizzes.map((quiz) => {
-      if (!quiz.localContentHash)
-        return this.errorRow(
-          quiz,
-          "local-error",
-          new Error("This quiz has no valid cached question data to publish."),
-        );
-      return {
-        contestId: quiz.contest,
-        quizId: quiz.id,
-        title: quiz.title,
-        grade: quiz.grade,
-        round: quiz.round,
-        year: quiz.year,
-        questionCount: quiz.questionCount,
-        contentHash: quiz.localContentHash,
-        publishedHash: quiz.publishedHash,
-        publishedAt: quiz.publishedAt,
-        status: !quiz.publishedHash
-          ? "not-published"
-          : quiz.publishedHash === quiz.localContentHash
-            ? "up-to-date"
-            : "changed",
-      };
-    });
-    const target = await this.auth.publishingTarget();
-    return {
-      environment: target.environment,
-      projectId: target.projectId,
-      scannedAt: snapshot.scannedAt,
-      quizzes: rows,
-    };
-  }
-
-  private errorRow(
-    quiz: QuizSummary,
-    status: "local-error" | "remote-error",
-    cause: unknown,
-    local?: LocalPublishPayload,
-  ): PublishingQuizStatus {
-    return {
-      contestId: quiz.contest,
-      quizId: quiz.id,
-      title: quiz.title,
-      grade: quiz.grade,
-      round: quiz.round,
-      year: quiz.year,
-      questionCount: local?.quiz.questionCount ?? quiz.questionCount,
-      contentHash: local?.quiz.contentHash ?? null,
-      publishedHash: quiz.publishedHash,
-      publishedAt: quiz.publishedAt,
-      status,
-      error: cause instanceof Error ? cause.message : String(cause),
     };
   }
 
@@ -370,6 +314,31 @@ export class FirestorePublishingService {
   async contentV2TopicExists(topicId: string): Promise<boolean> {
     const result = await this.getDocument(contentV2TopicPath(topicId));
     return result.document !== null;
+  }
+
+  async publishMarketplaceTopic(
+    topic: ContentV2Topic,
+    contentHash: string,
+  ): Promise<ContentV2PublishResult> {
+    const publishedAt = new Date().toISOString();
+    const relativeName = marketplaceTopicPath(topic.id);
+    await this.commit([{ update: { name: "", relativeName, fields: fields({
+      topicId: topic.id,
+      title: topic.title,
+      description: topic.description,
+      icon: topic.icon,
+      publisherId: topic.publisherId,
+      publisher: topic.publisher,
+      ...topic.marketplace,
+      listed: true,
+      contentHash,
+      publishedAt,
+    }) } }]);
+    return { kind: "topic", topicId: topic.id, contentHash, publishedAt };
+  }
+
+  async removeMarketplaceTopic(topicId: string): Promise<void> {
+    await this.commit([{ delete: marketplaceTopicPath(topicId) }]);
   }
 
   async staleContentV2TopicQuizIds(

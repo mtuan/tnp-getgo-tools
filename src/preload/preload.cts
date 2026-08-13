@@ -24,10 +24,8 @@ const api: DesktopApi = {
       path,
       force,
     ) as Promise<RepositorySnapshot>,
-  listMarketplacePublishers: () => ipcRenderer.invoke("marketplace:publishers:list"),
-  saveMarketplacePublisher: (value) => ipcRenderer.invoke("marketplace:publishers:save", value),
-  deleteMarketplacePublisher: (publisherId) => ipcRenderer.invoke("marketplace:publishers:delete", publisherId),
-  generateMarketplaceMetadata: () => ipcRenderer.invoke("marketplace:metadata:generate"),
+  publishMarketplaceTopic: (topicId, listed) =>
+    ipcRenderer.invoke("marketplace:topics:publish", topicId, listed),
   onRepositoryStructureChanged: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, change: RepositoryStructureChange) => listener(change);
     ipcRenderer.on("repository:structure-changed", handler);
@@ -96,7 +94,6 @@ const api: DesktopApi = {
       settings,
     ) as Promise<AppSettings>,
   checkEnvironmentReadiness: () => ipcRenderer.invoke("environment:readiness"),
-  getPublishingStatus: () => ipcRenderer.invoke("publishing:status"),
   publishQuiz: (contestId, quizId) =>
     ipcRenderer.invoke("publishing:quiz", contestId, quizId),
   publishContentV2Topic: (topicId) =>

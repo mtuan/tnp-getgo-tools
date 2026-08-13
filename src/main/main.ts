@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import type { AppSettings, ImagePdfInput, ImagePdfOrientation, ImagePdfSelection, RepositorySnapshot } from "../core/models.js";
 import {
   hashContentV2,
+  sanitizeMarketplaceTopic,
   sanitizeContentV2Question,
   sanitizeContentV2Topic,
 } from "../core/content-v2.js";
@@ -86,12 +87,6 @@ import {
   saveContentV2Topic,
   writeContentV2QuizPublishState,
 } from "../repositories/content-v2-repository.js";
-import {
-  deleteMarketplacePublisher,
-  generateMarketplaceMetadata,
-  listMarketplacePublishers,
-  saveMarketplacePublisher,
-} from "../repositories/publisher-repository.js";
 
 loadEnvironment({
   path: app.isPackaged
@@ -789,12 +784,6 @@ app.whenReady().then(async () => {
     ]);
     return backgroundJobsSnapshot();
   });
-  ipcMain.handle("publishing:status", async () => {
-    const current = await settings.read();
-    if (!current.repositoryPath)
-      throw new Error("Choose a quiz repository first.");
-    return publishing.reconcile(await waitForSnapshot(current.repositoryPath));
-  });
   ipcMain.handle(
     "publishing:quiz",
     async (_event, contestId: unknown, quizId: unknown) => {
@@ -870,16 +859,76 @@ app.whenReady().then(async () => {
       return snapshot;
     },
   );
-  ipcMain.handle("marketplace:publishers:list", async () =>
-    listMarketplacePublishers(await repositoryRoot()));
-  ipcMain.handle("marketplace:publishers:save", async (_event, value: unknown) =>
-    saveMarketplacePublisher(await repositoryRoot(), value as Parameters<typeof saveMarketplacePublisher>[1]));
-  ipcMain.handle("marketplace:publishers:delete", async (_event, publisherId: unknown) => {
-    if (typeof publisherId !== "string") throw new Error("Invalid publisher ID.");
-    await deleteMarketplacePublisher(await repositoryRoot(), publisherId);
+  ipcMain.handle("marketplace:topics:publish", async (_event, topicId: unknown, listed: unknown) => {
+    if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+      throw new Error("Invalid marketplace topic ID.");
+    if (typeof listed !== "boolean") throw new Error("Invalid marketplace listing state.");
+    const root = await repositoryRoot();
+    const snapshot = requireSnapshot();
+    const summary = snapshot.contentV2.topics.find((item) => item.id === topicId);
+    if (!summary?.publishedAt)
+      throw new Error("Publish this topic from its Publish tab before adding it to the marketplace.");
+    if (!firebaseAuth) throw new Error("Publishing is not initialized.");
+    if (!(await publishing.contentV2TopicExists(topicId)))
+      throw new Error("This topic is not published in the selected environment.");
+
+    const existing = await loadContentV2Topic(root, topicId);
+    const topic = {
+      ...existing,
+      marketplace: { ...existing.marketplace, listed },
+    };
+    const saved = await saveContentV2Topic(root, topic);
+    const contentHash = hashContentV2(sanitizeMarketplaceTopic(saved));
+    return publishJobs.track(
+      {
+        name: `${listed ? "Publish" : "Remove"} marketplace topic · ${summary.title}`,
+        description: listed
+          ? "Publish the topic metadata to the marketplace catalog"
+          : "Remove the topic from marketplace discovery without deleting learning content",
+        route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace`,
+      },
+      async (control) => {
+        await control.setTotal(1, listed ? "Publishing marketplace listing" : "Removing marketplace listing");
+        const result = listed
+          ? await publishing.publishMarketplaceTopic(saved, contentHash)
+          : (await publishing.removeMarketplaceTopic(topicId), {
+              kind: "topic" as const,
+              topicId,
+              contentHash,
+              publishedAt: new Date().toISOString(),
+            });
+        const marketplace = {
+          ...saved.marketplace,
+          listed,
+          publishedHash: listed ? result.contentHash : undefined,
+          publishedAt: listed ? result.publishedAt : undefined,
+        };
+        await saveContentV2Topic(root, { ...saved, marketplace });
+        await control.advance(listed ? "Published marketplace document" : "Removed marketplace document");
+        const current = requireSnapshot();
+        repositorySnapshot = {
+          ...current,
+          contentV2: {
+            ...current.contentV2,
+            topics: current.contentV2.topics.map((item) => item.id === topicId ? {
+              ...item,
+              marketplace,
+              marketplaceLocalHash: contentHash,
+              marketplacePublishedHash: listed ? result.contentHash : null,
+              marketplacePublishedAt: listed ? result.publishedAt : null,
+            } : item),
+          },
+        };
+        return {
+          topicId,
+          listed,
+          contentHash: result.contentHash,
+          publishedAt: result.publishedAt,
+          snapshot: requireSnapshot(),
+        };
+      },
+    );
   });
-  ipcMain.handle("marketplace:metadata:generate", async () =>
-    generateMarketplaceMetadata(await repositoryRoot()));
   ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
     if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
     return loadContentV2Topic(await repositoryRoot(), topicId);
@@ -1078,6 +1127,10 @@ app.whenReady().then(async () => {
       publishedHash: saved.publishedHash ?? null,
       publishedAt: saved.publishedAt ?? null,
       quizCount: topicQuizzes.length,
+      marketplace: saved.marketplace,
+      marketplaceLocalHash: hashContentV2(sanitizeMarketplaceTopic(saved)),
+      marketplacePublishedHash: typeof saved.marketplace?.publishedHash === "string" ? saved.marketplace.publishedHash : null,
+      marketplacePublishedAt: typeof saved.marketplace?.publishedAt === "string" ? saved.marketplace.publishedAt : null,
       ...(saved.type === "competition"
         ? {
             subject: saved.subject,
