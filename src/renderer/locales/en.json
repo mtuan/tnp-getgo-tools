@@ -1,7 +1,7 @@
 {
   "marketplaceManager": {
     "tab": "Marketplace",
-    "topicDescription": "Manage this topic's marketplace metadata and publication independently from learning content.",
+    "topicDescription": "Manage marketplace visibility, presentation, discovery, and pricing independently from learning content.",
     "editMetadata": "Edit metadata",
     "publishStatus": "Publish status",
     "notPublished": "Not published",
@@ -56,6 +56,7 @@
       "pricing": "Availability"
     },
     "fields": {
+      "listed": "Listed in marketplace",
       "publisher": "Publisher",
       "shortDescription": "Short description",
       "fullDescription": "Full description",

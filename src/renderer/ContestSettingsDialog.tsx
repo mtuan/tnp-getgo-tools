@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { BookOpen, Layers3, Pencil, Plus, Settings2, Tags, Trash2, UsersRound } from "lucide-react"
+import { BookOpen, Layers3, Pencil, Plus, RotateCcw, Save, Settings2, Tags, Trash2, UsersRound } from "lucide-react"
 import type { ContestSettings, ContestSummary } from "../core/models"
 import { DialogFrame } from "./ui/DialogFrame"
 import { Form, validateSchema, type FormErrors, type FormRow, type FormSchema, type FormValues } from "./ui/Form"
 import { EditTable, type EditColumnDef } from "./ui/EditTable"
 import { AccordionSection } from "./ui/Accordion"
+import { Button } from "./ui/Button"
 import { DataTable, type DataColumn } from "./ui/DataTable"
 
 type Tab = "general" | "rounds" | "grades" | "categories" | "rules"
@@ -170,8 +171,24 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     else if (name === "isActive") setBook({ isActive: Boolean(value) })
     else if (name === "code" || name === "title" || name === "description" || name === "icon") setBook({ [name]: String(value) })
   }
+  const sectionDirty = (id: Tab) => {
+    if (id === "general") return JSON.stringify(settings.book) !== JSON.stringify(persistedSettings.book)
+    if (id === "rounds") return JSON.stringify(settings.rounds) !== JSON.stringify(persistedSettings.rounds)
+    if (id === "grades") return JSON.stringify(settings.grades) !== JSON.stringify(persistedSettings.grades)
+    if (id === "categories") return JSON.stringify(settings.categories ?? []) !== JSON.stringify(persistedSettings.categories ?? [])
+    return JSON.stringify(settings.quizRules ?? []) !== JSON.stringify(persistedSettings.quizRules ?? [])
+  }
+  const discardSection = (id: Tab) => {
+    const saved = structuredClone(persistedSettings)
+    setError(null)
+    if (id === "general") { setFieldErrors({}); setSettings(current => ({ ...current, book: saved.book })) }
+    else if (id === "rounds") setSettings(current => ({ ...current, rounds: saved.rounds }))
+    else if (id === "grades") setSettings(current => ({ ...current, grades: saved.grades }))
+    else if (id === "categories") setSettings(current => ({ ...current, categories: saved.categories ?? [] }))
+    else setSettings(current => ({ ...current, quizRules: saved.quizRules ?? [] }))
+  }
   const renderSection = (id: Tab, title: string, description: string, content: React.ReactNode) => embedded
-    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)}>{content}</AccordionSection>
+    ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)} actions={<><Button color="neutral" icon={<RotateCcw />} disabled={!sectionDirty(id) || busy} onClick={() => discardSection(id)}>Discard</Button><Button variant="solid" color="primary" icon={<Save />} disabled={!sectionDirty(id) || busy} loading={busy} onClick={() => void save(id)}>Save</Button></>}>{content}</AccordionSection>
     : tab === id ? content : null
   return <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "topic-info-form" : undefined} hideFooter={embedded} onReset={() => { setSettings(structuredClone(persistedSettings)); setFieldErrors({}); setError(null) }} title={embedded ? (topicMode ? "Topic information" : "Contest information") : contest ? `Edit ${topicMode ? "topic" : "contest"}` : `Create ${topicMode ? "topic" : "contest"}`} submitLabel={contest ? "Save changes" : "Create"} submitDisabled={Boolean(contest) && !dirty} saveShortcut={Boolean(contest)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) } } : undefined}>
     {contest && !embedded && <div className="settings-tabs" role="tablist">{visibleTabs.map(item => { const Icon = item.icon; const count = item.id === "rounds" ? rounds.length : item.id === "grades" ? grades.length : item.id === "categories" ? categories.length : item.id === "rules" ? rules.length : null; return <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}><Icon />{item.label}{count !== null && <i>{count}</i>}</button> })}</div>}

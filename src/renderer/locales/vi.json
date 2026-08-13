@@ -1,7 +1,7 @@
 {
   "marketplaceManager": {
     "tab": "Kho nội dung",
-    "topicDescription": "Quản lý thông tin và trạng thái xuất bản của chủ đề này trên kho nội dung, độc lập với dữ liệu học tập.",
+    "topicDescription": "Quản lý khả năng hiển thị, nội dung giới thiệu, khám phá và giá trên kho nội dung, độc lập với dữ liệu học tập.",
     "editMetadata": "Sửa thông tin",
     "publishStatus": "Trạng thái xuất bản",
     "notPublished": "Chưa xuất bản",
@@ -56,6 +56,7 @@
       "pricing": "Khả dụng"
     },
     "fields": {
+      "listed": "Hiển thị trong kho nội dung",
       "publisher": "Nhà phát hành",
       "shortDescription": "Mô tả ngắn",
       "fullDescription": "Mô tả đầy đủ",

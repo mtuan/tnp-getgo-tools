@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { RotateCcw, Save } from "lucide-react"
 import { supportedQuizBuilderApiVersions, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../core/models"
 import { Form, validateSchema, type FormErrors, type FormSchema, type FormValues } from "./ui/Form"
 import { DialogFrame } from "./ui/DialogFrame"
+import { AccordionSection } from "./ui/Accordion"
+import { Button } from "./ui/Button"
 
 const defaultContestSettings = (): ContestSettings => ({
   $schema: "../settings.schema.json",
@@ -51,6 +54,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const [iconPreview, setIconPreview] = useState("")
+  const [expanded, setExpanded] = useState(true)
   const dirty = JSON.stringify(input) !== JSON.stringify(savedInput)
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   useEffect(() => {
@@ -94,8 +98,9 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
     })
   }
   async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized = { ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), icon: input.icon?.trim() || undefined, language: input.type === "alphabet" ? input.language ?? "en" : undefined, grade: input.type === "contest" ? input.grade?.trim() || null : null, round: input.type === "contest" ? input.round?.trim() || null : null, year: input.type === "contest" ? input.year?.trim() || null : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
-  return <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "quiz-info-form" : undefined} hideFooter={embedded} onReset={() => { setInput(structuredClone(savedInput)); setFieldErrors({}); setError(null) }} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
+  const editor = <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "quiz-info-form" : undefined} hideFooter={embedded} onReset={() => { setInput(structuredClone(savedInput)); setFieldErrors({}); setError(null) }} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}
   </DialogFrame>
+  return embedded ? <AccordionSection variant="panel" title="General information" description="Identity, type, language, and quiz classification." expanded={expanded} onExpandedChange={setExpanded} actions={<><Button type="reset" form="quiz-info-form" color="neutral" icon={<RotateCcw />} disabled={!dirty || busy}>Discard</Button><Button type="submit" form="quiz-info-form" variant="solid" color="primary" icon={<Save />} disabled={!dirty || busy} loading={busy}>Save</Button></>}>{editor}</AccordionSection> : editor
 }

@@ -1,4 +1,4 @@
-import { FolderOpen, Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
+import { FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { QuizCrudInput, RepositorySnapshot } from "../../core/models";
 import { QuizCrudDialog } from "../CrudDialogs";
 import { ContestSettingsDialog } from "../ContestSettingsDialog";
@@ -43,11 +43,9 @@ export function renderManagerPage(context: ManagerPageContext) {
     setPage,
     setQuizDialog,
     setTopicDictionary,
-    setTopicInfoDirty,
     snapshot,
     toast,
     topicDictionary,
-    topicInfoDirty,
     topicResourceError,
   } = context;
   const isContest = page.kind === "contest";
@@ -143,24 +141,6 @@ export function renderManagerPage(context: ManagerPageContext) {
             {isContest && contestTab === "info" && selectedContest && (
               <>
                 <Button
-                  type="reset"
-                  form="topic-info-form"
-                  icon={<RotateCcw size={15} />}
-                  color="neutral"
-                  disabled={!topicInfoDirty}
-                >
-                  Discard
-                </Button>
-                <Button
-                  type="submit"
-                  form="topic-info-form"
-                  icon={<Save size={15} />}
-                  variant="solid"
-                  disabled={!topicInfoDirty}
-                >
-                  Save
-                </Button>
-                <Button
                   icon={<Trash2 size={15} />}
                   loading={buttonAction === "delete-contest"}
                   variant="solid"
@@ -222,7 +202,6 @@ export function renderManagerPage(context: ManagerPageContext) {
             embedded
             topicMode={topicMode}
             contest={selectedContest}
-            onDirtyChange={setTopicInfoDirty}
             onClose={() => undefined}
             onSaved={async (settings) => {
               const next = await managerApi.updateContest(

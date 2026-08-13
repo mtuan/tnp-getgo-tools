@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { RotateCcw, Save } from "lucide-react";
 import type {
   ContentV2Quiz,
@@ -11,11 +11,12 @@ import vi from "./locales/vi.json";
 import {
   Button,
   Form,
-  Panel,
+  AccordionSection,
   useToast,
   type FormSchema,
   type FormValues,
 } from "./ui";
+import { useSaveShortcut } from "./ui/useSaveShortcut";
 
 type MarketplaceRecord = ContentV2Topic | ContentV2Quiz;
 
@@ -72,10 +73,12 @@ export function MarketplaceMetadataSection({
   save(record: MarketplaceRecord): Promise<void>;
 }) {
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
+  const formId = `marketplace-metadata-${useId().replace(/:/g, "")}`;
   const toast = useToast();
   const [source, setSource] = useState<MarketplaceRecord | null>(null);
   const [draft, setDraft] = useState<MarketplaceRecord | null>(null);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const dirty = Boolean(
     source && draft && JSON.stringify(source) !== JSON.stringify(draft),
   );
@@ -104,13 +107,13 @@ export function MarketplaceMetadataSection({
       active = false;
     };
   }, [copy.loadFailed, load, toast]);
-
   const current = draft ? metadata(draft) : null;
   const values: FormValues = current
     ? {
+        listed: current.listed,
+        featured: current.featured,
         shortDescription: current.shortDescription,
         fullDescription: current.fullDescription,
-        featured: current.featured,
         subjects: toLines(current.subjects),
         languages: current.languages,
         tags: toLines(current.tags),
@@ -124,110 +127,101 @@ export function MarketplaceMetadataSection({
     : {};
   const fields = useMemo<FormSchema[]>(
     () => [
+      [
+        {
+          type: "toggle",
+          name: "listed",
+          label: copy.fields.listed,
+          presentation: "row",
+        },
+        {
+          type: "toggle",
+          name: "featured",
+          label: copy.fields.featured,
+          presentation: "row",
+        },
+      ],
       {
-        section: copy.sections.identity,
-        fields: [
-          {
-            type: "textarea",
-            name: "shortDescription",
-            label: copy.fields.shortDescription,
-            required: true,
-            maxLines: 3,
-          },
-          {
-            type: "textarea",
-            name: "fullDescription",
-            label: copy.fields.fullDescription,
-            required: true,
-            maxLines: 6,
-          },
-          {
-            type: "toggle",
-            name: "featured",
-            label: copy.fields.featured,
-            presentation: "row",
-          },
-        ],
+        type: "textarea",
+        name: "shortDescription",
+        label: copy.fields.shortDescription,
+        required: true,
       },
       {
-        section: copy.sections.discovery,
-        fields: [
-          [
-            {
-              type: "textarea",
-              name: "subjects",
-              label: copy.fields.subjects,
-              maxLines: 3,
-            },
-            {
-              type: "multi-select",
-              name: "languages",
-              label: copy.fields.languages,
-              options: [
-                { value: "en", label: "English" },
-                { value: "vi", label: "Tiếng Việt" },
-              ],
-            },
-          ],
-          [
-            {
-              type: "textarea",
-              name: "tags",
-              label: copy.fields.tags,
-              maxLines: 3,
-            },
-            {
-              type: "textarea",
-              name: "learningObjectives",
-              label: copy.fields.learningObjectives,
-              maxLines: 3,
-            },
-          ],
-          [
-            {
-              type: "number",
-              name: "minimumAge",
-              label: copy.fields.minimumAge,
-              min: 1,
-            },
-            {
-              type: "number",
-              name: "maximumAge",
-              label: copy.fields.maximumAge,
-              min: 1,
-            },
-          ],
-        ],
+        type: "textarea",
+        name: "fullDescription",
+        label: copy.fields.fullDescription,
+        required: true,
       },
-      {
-        section: copy.sections.pricing,
-        fields: [
-          [
-            {
-              type: "select",
-              name: "pricingType",
-              label: copy.fields.pricingType,
-              options: [
-                { value: "free", label: copy.free },
-                { value: "paid", label: copy.paid },
-              ],
-            },
-            {
-              type: "number",
-              name: "amount",
-              label: copy.fields.amount,
-              min: 0,
-              when: (form) => form.pricingType === "paid",
-            },
-            {
-              type: "text",
-              name: "currency",
-              label: copy.fields.currency,
-              when: (form) => form.pricingType === "paid",
-            },
+      [
+        {
+          type: "textarea",
+          name: "subjects",
+          label: copy.fields.subjects,
+          helper: copy.fields.listHelp,
+        },
+        {
+          type: "multi-select",
+          name: "languages",
+          label: copy.fields.languages,
+          options: [
+            { value: "en", label: "English" },
+            { value: "vi", label: "Tiếng Việt" },
           ],
-        ],
-      },
+        },
+      ],
+      [
+        {
+          type: "textarea",
+          name: "tags",
+          label: copy.fields.tags,
+          helper: copy.fields.listHelp,
+        },
+        {
+          type: "textarea",
+          name: "learningObjectives",
+          label: copy.fields.learningObjectives,
+          helper: copy.fields.listHelp,
+        },
+      ],
+      [
+        {
+          type: "number",
+          name: "minimumAge",
+          label: copy.fields.minimumAge,
+          min: 1,
+        },
+        {
+          type: "number",
+          name: "maximumAge",
+          label: copy.fields.maximumAge,
+          min: 1,
+        },
+      ],
+      [
+        {
+          type: "select",
+          name: "pricingType",
+          label: copy.fields.pricingType,
+          options: [
+            { value: "free", label: copy.free },
+            { value: "paid", label: copy.paid },
+          ],
+        },
+        {
+          type: "number",
+          name: "amount",
+          label: copy.fields.amount,
+          min: 0,
+          when: (form) => form.pricingType === "paid",
+        },
+        {
+          type: "text",
+          name: "currency",
+          label: copy.fields.currency,
+          when: (form) => form.pricingType === "paid",
+        },
+      ],
     ],
     [copy],
   );
@@ -255,8 +249,7 @@ export function MarketplaceMetadataSection({
       else next[name] = value;
       return { ...record, marketplace: next } as MarketplaceRecord;
     });
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const saveDraft = async () => {
     if (!draft || !dirty) return;
     setBusy(true);
     try {
@@ -273,40 +266,54 @@ export function MarketplaceMetadataSection({
       setBusy(false);
     }
   };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    void saveDraft();
+  };
+  useSaveShortcut({
+    active: expanded,
+    enabled: dirty && !busy,
+    onSave: () => void saveDraft(),
+  });
 
   return (
-    <Panel
-      title={copy.tab}
+    <AccordionSection
+      variant="panel"
+      expanded={expanded}
+      onExpandedChange={setExpanded}
+      title={copy.details}
       description={copy.topicDescription}
-      meta={
-        <div className="panel-heading-actions">
+      actions={
+        <>
           <Button
             color="neutral"
             icon={<RotateCcw />}
             disabled={!dirty || busy}
             onClick={() => source && setDraft(structuredClone(source))}
           >
-            {copy.cancel}
+            {copy.discard}
           </Button>
           <Button
             icon={<Save />}
+            variant="solid"
+            color="primary"
             disabled={!dirty || busy}
             loading={busy}
             type="submit"
-            form="marketplace-metadata-form"
+            form={formId}
           >
             {copy.save}
           </Button>
-        </div>
+        </>
       }
     >
       {draft ? (
-        <form id="marketplace-metadata-form" onSubmit={(event) => void submit(event)}>
+        <form className="marketplace-metadata-form" id={formId} onSubmit={submit}>
           <Form fields={fields} values={values} onChange={change} />
         </form>
       ) : (
         <div className="ui-panel-loading"><span className="mini-spinner" /></div>
       )}
-    </Panel>
+    </AccordionSection>
   );
 }

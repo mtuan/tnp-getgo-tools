@@ -1,4 +1,4 @@
-import { CheckCheck, FolderOpen, ListOrdered, Plus, RotateCcw, Save, Trash2, Zap } from "lucide-react";
+import { CheckCheck, FolderOpen, ListOrdered, Plus, Trash2, Zap } from "lucide-react";
 import type { QuizSummary } from "../../core/models";
 import { QuizCrudDialog } from "../CrudDialogs";
 import { QuestionListPreviewDrawer } from "../QuestionListPreviewDrawer";
@@ -38,7 +38,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     questions,
     quiz,
     quizContest,
-    quizInfoDirty,
     quizPublishCopy,
     quizTab,
     routeMode,
@@ -50,7 +49,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     setQuestionDraftRecord,
     setQuestionOrder,
     setQuestionRecords,
-    setQuizInfoDirty,
     setQuizTab,
     setSelectedQuestion,
     sourceError,
@@ -92,24 +90,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           actions={
             quizTab === "info" ? (
               <>
-                <Button
-                  type="reset"
-                  form="quiz-info-form"
-                  icon={<RotateCcw size={15} />}
-                  color="neutral"
-                  disabled={!quizInfoDirty}
-                >
-                  Discard
-                </Button>
-                <Button
-                  type="submit"
-                  form="quiz-info-form"
-                  icon={<Save size={15} />}
-                  variant="solid"
-                  disabled={!quizInfoDirty}
-                >
-                  Save
-                </Button>
                 <Button
                   icon={<Trash2 size={15} />}
                   loading={buttonAction === "delete-quiz"}
@@ -249,7 +229,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
               embedded
               quiz={quiz}
               contest={quizContest}
-              onDirtyChange={setQuizInfoDirty}
               onClose={() => undefined}
               onSaved={async (input) => {
                 const next = await managerApi.updateQuiz(quiz.manifestPath, {

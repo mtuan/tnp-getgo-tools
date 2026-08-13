@@ -4118,6 +4118,20 @@ tbody tr:hover {
 }
 .ui-accordion-actions {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.marketplace-metadata-form .schema-form {
+  gap: 18px;
+}
+.marketplace-metadata-form .schema-row {
+  align-items: start;
+}
+.marketplace-metadata-form .schema-toggle-row {
+  min-height: var(--ui-form-control-height);
 }
 .settings-section-actions {
   display: flex;
@@ -4262,6 +4276,33 @@ tbody tr:hover {
 .schema-field > label b {
   margin-left: 3px;
   color: #f43f5e;
+}
+.schema-field > input:not([type="checkbox"]),
+.schema-field > textarea {
+  width: 100%;
+  margin-top: 7px;
+  padding: 10px 11px;
+  border: 1px solid #dbe2ea;
+  border-radius: 9px;
+  outline: 0;
+  color: #1e293b;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.schema-field > input:not([type="checkbox"]):focus,
+.schema-field > textarea:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px #6366f11f;
+}
+.schema-field > input:not([type="checkbox"]):read-only,
+.schema-field > textarea:read-only {
+  color: #64748b;
+  background: #f1f5f9;
 }
 .schema-field > .ui-segmented-control {
   margin-top: 7px;
@@ -7126,6 +7167,17 @@ button.danger svg {
     color: #e2e8f0;
     border-color: #ffffff1a;
     background: #0f172a;
+  }
+  .schema-field > input:not([type="checkbox"]),
+  .schema-field > textarea {
+    color: #e2e8f0;
+    border-color: #ffffff1a;
+    background: #0f172a;
+  }
+  .schema-field > input:not([type="checkbox"]):read-only,
+  .schema-field > textarea:read-only {
+    color: #94a3b8;
+    background: #1e293b;
   }
   .toggle-form-field {
     color: #cbd5e1;
