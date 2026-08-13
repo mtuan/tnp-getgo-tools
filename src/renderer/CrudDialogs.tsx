@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
-import { quizTypes, supportedQuizBuilderApiVersions, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../core/models"
+import { supportedQuizBuilderApiVersions, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../core/models"
 import { Form, validateSchema, type FormErrors, type FormSchema, type FormValues } from "./ui/Form"
 import { DialogFrame } from "./ui/DialogFrame"
 

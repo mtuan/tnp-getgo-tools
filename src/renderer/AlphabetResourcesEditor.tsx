@@ -24,7 +24,7 @@ interface Props {
   onSaved(record: QuizQuestionRecord): void;
 }
 
-export function AlphabetResourcesEditor({ questions, onSave, onOpen, onSaved }: Props) {
+export function AlphabetResourcesEditor({ questions, onSave, onSaved }: Props) {
   const rows = useMemo<LetterRow[]>(() => questions
     .filter((record) => record.type === "alphabet")
     .map((record) => ({

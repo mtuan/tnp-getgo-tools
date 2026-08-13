@@ -30,8 +30,6 @@ import type {
   AppSettings,
   SpeechLanguage,
   SpeechLanguageSettings,
-  ContentStatus,
-  DeploymentStatus,
   EnvironmentReadiness,
   RepositorySnapshot,
   RepositoryStructureChange,
@@ -47,7 +45,6 @@ import { DialogFrame } from "./ui/DialogFrame";
 import { PageHeader } from "./ui/PageHeader";
 import { Panel } from "./ui/Panel";
 import { SummaryCard } from "./ui/SummaryCard";
-import { StatusBadge } from "./ui/StatusBadge";
 import { Select, type SelectOption } from "./ui/Select";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
@@ -222,21 +219,6 @@ const localeOptions: SelectOption[] = [
   { value: "en", label: "English" },
   { value: "vi", label: "Tiếng Việt" },
 ];
-
-function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
-  const tone = ["validated", "published", "uploaded"].includes(value)
-    ? "success"
-    : value === "reviewed"
-      ? "info"
-      : value === "generated"
-        ? "primary"
-        : value === "outdated"
-          ? "danger"
-          : value === "not-built"
-            ? "danger"
-            : "warning";
-  return <StatusBadge tone={tone}>{value.replace("-", " ")}</StatusBadge>;
-}
 
 export function App() {
   const toast = useToast();

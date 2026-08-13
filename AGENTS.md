@@ -15,6 +15,7 @@ This desktop repository follows the same engineering principles as `tnp-getgo-we
 - Reuse GetGo Web's visual language and interaction contracts so equivalent controls behave consistently across both applications.
 - Keep security boundaries intact: context isolation on, Node integration off, sandbox on, validated IPC inputs, and allowlisted external URLs.
 - Run `npm run typecheck`, targeted tests, and `git diff --check` before reporting a change complete. Run the production build when build configuration or packaging is affected, or when the user requests it.
+- Remove unused imports, locals, and parameters in every changed file. TypeScript's `noUnusedLocals` and `noUnusedParameters` checks are mandatory and must not be disabled or bypassed to complete a refactor.
 - Preserve unrelated user changes in a dirty worktree.
 
 ## Professional conduct and change discipline
@@ -39,3 +40,14 @@ This desktop repository follows the same engineering principles as `tnp-getgo-we
 - Tests should exercise core and repository behavior without requiring the UI.
 
 Do not put persistence rules in React components or duplicate domain validation in IPC handlers. Client validation improves UX; core/repository validation remains authoritative.
+
+## Source-file size and feature structure
+
+- Target 150–300 lines for ordinary source files. Treat 400 lines as a refactoring warning and 600 lines as a hard limit for hand-written application code.
+- Before adding behavior to a file over 400 lines, first extract the cohesive responsibility being changed. Do not make a large file larger unless the change is a small corrective edit needed to enable that extraction.
+- Keep React page/controller files focused on routing, loading, and composition. Extract forms, tables, panels, dialogs, hooks, status renderers, and action menus into feature-named files.
+- Keep Electron `main.ts` focused on application lifecycle and handler registration. Put each IPC domain and its orchestration in a named module under `src/main`.
+- Keep functions below 50 lines when practical; review functions over 80 lines for extraction.
+- Do not split code merely to satisfy a line count. Avoid pass-through wrappers, generic dumping grounds, and fragments that must always be read or changed together.
+- Generated files, fixtures, schemas, locale catalogs, and intentionally tabular data may exceed 600 lines when splitting would reduce clarity.
+- Use `npm run check:source-size` to report oversized files. Existing oversized files are migration debt; new files and files made larger must respect the limits.

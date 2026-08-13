@@ -1,11 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { BookOpen, Layers3, Pencil, Plus, RotateCcw, Save, Settings2, Tags, Trash2, UsersRound } from "lucide-react"
+import { BookOpen, Layers3, Pencil, Plus, Settings2, Tags, Trash2, UsersRound } from "lucide-react"
 import type { ContestSettings, ContestSummary } from "../core/models"
 import { DialogFrame } from "./ui/DialogFrame"
 import { Form, validateSchema, type FormErrors, type FormRow, type FormSchema, type FormValues } from "./ui/Form"
 import { EditTable, type EditColumnDef } from "./ui/EditTable"
 import { AccordionSection } from "./ui/Accordion"
-import { Button } from "./ui/Button"
 import { DataTable, type DataColumn } from "./ui/DataTable"
 
 type Tab = "general" | "rounds" | "grades" | "categories" | "rules"
@@ -67,14 +66,6 @@ const number = (value: unknown, fallback = 0) => typeof value === "number" ? val
 const strings = (value: unknown) => Array.isArray(value) ? value.join(", ") : ""
 const parseStrings = (value: string) => value.split(",").map(item => item.trim()).filter(Boolean)
 
-function EmptySection({ label, onAdd }: { label: string; onAdd(): void }) {
-  return <div className="settings-empty"><div><Plus /></div><strong>No {label} yet</strong><span>Add the first item to configure this contest.</span><button type="button" className="secondary" onClick={onAdd}><Plus />Add {label.replace(/s$/, "")}</button></div>
-}
-
-function ItemHeader({ title, detail, onDelete }: { title: string; detail?: string; onDelete(): void }) {
-  return <div className="settings-item-header"><div><strong>{title}</strong>{detail && <span>{detail}</span>}</div><button type="button" onClick={onDelete} aria-label={`Remove ${title}`}><Trash2 /></button></div>
-}
-
 function RuleEditorDrawer({ rule, rounds, grades, onClose, onSave }: { rule: Item; rounds: Item[]; grades: Item[]; onClose(): void; onSave(rule: Item): void }) {
   const [draft, setDraft] = useState<Item>(() => structuredClone(rule))
   const dirty = JSON.stringify(draft) !== JSON.stringify(rule)
@@ -101,7 +92,6 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   const [expanded, setExpanded] = useState<Tab | null>("general")
   const [ruleEditor, setRuleEditor] = useState<number | "create" | null>(null)
   const [busy, setBusy] = useState(false)
-  const [busyScope, setBusyScope] = useState<Tab | "all" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
   const [iconPreview, setIconPreview] = useState("")
@@ -146,9 +136,9 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     const roundsToSave = settings.rounds.filter(round => text(round.roundCode).trim() || text(round.roundName).trim() || text(round.description).trim() || round.hasPractice === true)
     const incompleteRound = roundsToSave.find(round => !text(round.roundCode).trim() || !text(round.roundName).trim())
     if ((scope === "rounds" || scope === "all") && incompleteRound) { setTab("rounds"); setExpanded("rounds"); setError("Every round row needs a round code and round name."); return }
-    setBusy(true); setBusyScope(scope)
-    try { const saved = { ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), title: settings.book.title.trim(), description: settings.book.description?.trim() } }; await onSaved(saved); setSettings(saved); setPersistedSettings(structuredClone(saved)); setBusy(false); setBusyScope(null) }
-    catch (cause) { setBusy(false); setBusyScope(null); setError(cause instanceof Error ? cause.message : String(cause)) }
+    setBusy(true)
+    try { const saved = { ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), title: settings.book.title.trim(), description: settings.book.description?.trim() } }; await onSaved(saved); setSettings(saved); setPersistedSettings(structuredClone(saved)); setBusy(false) }
+    catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) }
   }
 
   async function submit(event: FormEvent) { event.preventDefault(); await save("all") }
@@ -179,23 +169,6 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     else if (name === "subject") setBook({ subject: Number(value) })
     else if (name === "isActive") setBook({ isActive: Boolean(value) })
     else if (name === "code" || name === "title" || name === "description" || name === "icon") setBook({ [name]: String(value) })
-  }
-  const discard = (id: Tab) => {
-    const saved = structuredClone(persistedSettings)
-    setError(null)
-    if (id === "general") { setFieldErrors({}); setSettings(current => ({ ...current, book: saved.book })) }
-    if (id === "rounds") setSettings(current => ({ ...current, rounds: saved.rounds }))
-    if (id === "grades") setSettings(current => ({ ...current, grades: saved.grades }))
-    if (id === "categories") setSettings(current => ({ ...current, categories: saved.categories ?? [] }))
-    if (id === "rules") setSettings(current => ({ ...current, quizRules: saved.quizRules ?? [] }))
-  }
-  const sectionDirty = (id: Tab) => {
-    if (!contest) return true
-    if (id === "general") return JSON.stringify(settings.book) !== JSON.stringify(persistedSettings.book)
-    if (id === "rounds") return JSON.stringify(settings.rounds) !== JSON.stringify(persistedSettings.rounds)
-    if (id === "grades") return JSON.stringify(settings.grades) !== JSON.stringify(persistedSettings.grades)
-    if (id === "categories") return JSON.stringify(settings.categories ?? []) !== JSON.stringify(persistedSettings.categories ?? [])
-    return JSON.stringify(settings.quizRules ?? []) !== JSON.stringify(persistedSettings.quizRules ?? [])
   }
   const renderSection = (id: Tab, title: string, description: string, content: React.ReactNode) => embedded
     ? <AccordionSection key={id} variant="panel" title={title} description={description} expanded={expanded === id} onExpandedChange={open => setExpanded(open ? id : null)}>{content}</AccordionSection>

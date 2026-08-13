@@ -17,6 +17,7 @@
     "refresh:logics": "node scripts/refresh-vendored-logics.mjs",
     "dev:fresh": "npm run dev",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "check:source-size": "node scripts/check-source-size.mjs",
     "test": "tsx --test tests/**/*.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "dist": "npm run build && electron-builder"

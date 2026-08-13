@@ -11,7 +11,6 @@ import type {
   AlphabetQuestionContent,
   AlphabetSample,
   QuizQuestionRecord,
-  QuizType,
   SpeechLanguage,
   SpeechLanguageSettings,
 } from "../core/models";

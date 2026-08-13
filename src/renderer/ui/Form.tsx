@@ -135,7 +135,7 @@ const iconSymbolCategories: Array<{ name: string; items: IconSymbolItem[] }> = [
   ] },
 ]
 
-function IconControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "icon" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
+function IconControl({ field, value, disabled, onChange }: { field: Extract<FormField, { type: "icon" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
   const [open, setOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [search, setSearch] = useState("")
