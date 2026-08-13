@@ -9,6 +9,7 @@ import {
   sanitizeContentV2Topic,
   sanitizeContentV2Question,
 } from "../src/core/content-v2.js";
+import { buildContentV2QuestionsCode } from "../src/main/firestore-publishing.js";
 import {
   saveContentV2Question,
   saveContentV2Quiz,
@@ -167,4 +168,27 @@ test("calculates the canonical quiz hash directly from current files", async () 
 
   assert.ok(directHash);
   assert.equal(directHash, rescannedHash);
+});
+
+test("builds deterministic question code in published order", () => {
+  const question = {
+    schemaVersion: 2 as const,
+    id: "letter-a",
+    type: "alphabet-letter" as const,
+    order: 1,
+    status: "reviewed" as const,
+    letter: "A",
+    uppercase: "A",
+    lowercase: "a",
+    pronunciation: "a",
+  };
+  const code = buildContentV2QuestionsCode([
+    question,
+    { ...question, id: "letter-b", order: 0, letter: "B" },
+  ]);
+
+  assert.deepEqual(JSON.parse(code), [
+    sanitizeContentV2Question({ ...question, id: "letter-b", order: 0, letter: "B" }),
+    sanitizeContentV2Question(question),
+  ]);
 });

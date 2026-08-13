@@ -391,6 +391,7 @@ function createWindow(): void {
     minHeight: 680,
     title: productName,
     icon: appIconPath,
+    show: true,
     backgroundColor: "#f4f5f2",
     webPreferences: {
       preload: path.join(currentDirectory, "../preload/preload.cjs"),
@@ -399,10 +400,13 @@ function createWindow(): void {
       sandbox: true,
     },
   });
-  mainWindow.webContents.once("did-finish-load", () =>
-    startupLog("Renderer finished loading"),
-  );
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
   const devUrl = process.env.VITE_DEV_SERVER_URL;
+  mainWindow.webContents.once("did-finish-load", () => {
+    startupLog("Renderer finished loading");
+  });
   if (devUrl) void mainWindow.loadURL(devUrl);
   else
     void mainWindow.loadFile(

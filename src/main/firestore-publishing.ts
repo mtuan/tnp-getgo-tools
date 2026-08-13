@@ -87,6 +87,28 @@ function marketplaceTopicPath(topicId: string): string {
   return `/getgo-marketplace-topics/${encodeURIComponent(topicId)}`;
 }
 
+function firestoreReferenceValue(projectId: string, relativePath: string): FirestoreValue {
+  return {
+    referenceValue: `projects/${projectId}/databases/(default)/documents${relativePath}`,
+  };
+}
+
+/**
+ * Build one deterministic, CSP-safe JavaScript value containing every
+ * published question. JSON arrays are valid JavaScript expressions, so the
+ * Web runtime can decode this without eval while individual question
+ * documents remain the canonical inspectable records.
+ */
+export function buildContentV2QuestionsCode(
+  questions: ContentV2Question[],
+): string {
+  return JSON.stringify(
+    [...questions]
+      .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
+      .map(sanitizeContentV2Question),
+  );
+}
+
 function contentV2QuizPath(topicId: string, quizId: string): string {
   return `${contentV2TopicPath(topicId)}/quizzes/${encodeURIComponent(quizId)}`;
 }
@@ -103,6 +125,7 @@ export function createContentV2TopicPublishPreview(
         path: contentV2TopicPath(topic.id),
         data: {
           ...sanitizeContentV2Topic(topic),
+          catalogRef: marketplaceTopicPath(topic.id),
           quizIds,
           contentHash,
           publishedAt: "<generated at publish time>",
@@ -129,6 +152,8 @@ export function createContentV2QuizPublishPreview(
         path: quizPath,
         data: {
           ...sanitizeContentV2Quiz(quiz),
+          questionsCodeFormat: "getgo.questions.v1",
+          questionsCode: buildContentV2QuestionsCode(questions),
           contentHash,
           publishedAt: "<generated at publish time>",
         },
@@ -285,18 +310,24 @@ export class FirestorePublishingService {
   ): Promise<ContentV2PublishResult> {
     const publishedAt = new Date().toISOString();
     const relativeName = contentV2TopicPath(topic.id);
+    const target = await this.auth.publishingTarget();
+    const topicFields = fields({
+      ...sanitizeContentV2Topic(topic),
+      quizIds,
+      contentHash,
+      publishedAt,
+    });
+    topicFields.catalogRef = firestoreReferenceValue(
+      target.projectId,
+      marketplaceTopicPath(topic.id),
+    );
     await control?.checkpoint();
     await this.commit([
       {
         update: {
           name: "",
           relativeName,
-          fields: fields({
-            ...sanitizeContentV2Topic(topic),
-            quizIds,
-            contentHash,
-            publishedAt,
-          }),
+          fields: topicFields,
         },
       },
     ]);
