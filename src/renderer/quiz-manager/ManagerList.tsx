@@ -4,7 +4,7 @@ import { Button } from "../ui/Button";
 import { StatusBadge } from "../ui/StatusBadge";
 import { ActionMenu } from "../ui/ActionMenu";
 import { TableActionButton } from "../ui/TableActionButton";
-import { topicMarketplaceStatus } from "../topic-status";
+import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
 import { ManagerListIcon, quizReviewStatus } from "./shared";
 import { renderTopicTree } from "./TopicTree";
 
@@ -88,6 +88,7 @@ export function renderManagerList(context: ManagerListContext) {
                     <col />
                     <col style={{ width: 100 }} />
                     <col style={{ width: 136 }} />
+                    <col style={{ width: 112 }} />
                     <col style={{ width: 144 }} />
                     <col style={{ width: 104 }} />
                   </colgroup>
@@ -99,7 +100,8 @@ export function renderManagerList(context: ManagerListContext) {
                         <th>Quiz</th>
                         <th className="manager-column-centered">Type</th>
                         <th className="manager-column-centered">Review</th>
-                        <th className="manager-column-centered">Market sync</th>
+                        <th className="manager-column-centered">State</th>
+                        <th className="manager-column-centered">Sync status</th>
                         <th />
                       </>
                     ) : isContest ? (
@@ -126,9 +128,8 @@ export function renderManagerList(context: ManagerListContext) {
                         {topicMode ? (
                           <>
                             <th className="manager-column-centered">Review</th>
-                            <th className="manager-column-centered">
-                              Market sync
-                            </th>
+                            <th className="manager-column-centered">State</th>
+                            <th className="manager-column-centered">Sync status</th>
                           </>
                         ) : (
                           <>
@@ -187,8 +188,13 @@ export function renderManagerList(context: ManagerListContext) {
                               </StatusBadge>
                             </td>
                             <td className="manager-status-cell">
-                              <StatusBadge tone={review.kind === "full" ? "success" : "neutral"}>
-                                {review.kind === "full" ? "Included" : "Not ready"}
+                              <StatusBadge tone="primary">
+                                {marketplaceStateLabel(quiz.marketplace).label}
+                              </StatusBadge>
+                            </td>
+                            <td className="manager-status-cell">
+                              <StatusBadge tone={quizMarketplaceStatus(quiz).kind === "current" ? "success" : "warning"}>
+                                {quizMarketplaceStatus(quiz).label}
                               </StatusBadge>
                             </td>
                             <td>
@@ -374,9 +380,13 @@ export function renderManagerList(context: ManagerListContext) {
                                     })()}
                                   </td>
                                   <td className="manager-status-cell">
+                                    <StatusBadge tone="primary">
+                                      {marketplaceStateLabel(topicSummary.marketplace).label}
+                                    </StatusBadge>
+                                  </td>
+                                  <td className="manager-status-cell">
                                     {(() => {
-                                      const status =
-                                        topicMarketplaceStatus(topicSummary);
+                                      const status = topicMarketplaceSyncStatus(topicSummary);
                                       return (
                                         <StatusBadge
                                           tone={

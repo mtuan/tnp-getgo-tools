@@ -123,6 +123,7 @@ export function adaptContentV2Snapshot(snapshot: RepositorySnapshot): Repository
     artifactHash: null,
     publishedHash: quiz.publishedHash,
     publishedAt: quiz.publishedAt,
+    marketplace: quiz.marketplace,
     localContentHash: quiz.localHash,
     questionCount: quiz.questionCount,
     reviewedQuestionCount: quiz.reviewedQuestionCount,

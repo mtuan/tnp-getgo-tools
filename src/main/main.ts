@@ -27,11 +27,7 @@ import {
   sanitizeContentV2Topic,
   withMarketplaceTopicState,
 } from "../core/content-v2.js";
-import {
-  readContestSummary,
-  readQuizSummary,
-  scanQuizRepository,
-} from "../repositories/quiz-repository.js";
+import { readContestSummary, readQuizSummary, scanQuizRepository } from "../repositories/quiz-repository.js";
 import {
   createContestDirectory,
   createQuizFiles,
@@ -59,10 +55,7 @@ import {
 import { withSpeechLanguageSettings } from "../core/speech-settings.js";
 import type { SpeechLanguage, SpeechLanguageSettings } from "../core/models.js";
 import { reviewedTopicQuizzes, shouldPublishContainingTopic } from "../core/content-v2-publish-policy.js";
-import {
-  createPublishPayloadFromQuestions,
-  recordPublishedHash,
-} from "../repositories/quiz-publishing.js";
+import { createPublishPayloadFromQuestions, recordPublishedHash } from "../repositories/quiz-publishing.js";
 import { SettingsStore } from "./settings.js";
 import { FirebaseAuthService } from "./firebase-auth.js";
 import { LocalAiService } from "./local-ai.js";
@@ -2026,8 +2019,14 @@ app.whenReady().then(async () => {
             staleQuizIds,
             control,
           );
-          // Publish the catalog entry last so it never advertises a reviewed
-          // quiz before that quiz has successfully reached Firebase.
+          for (const removed of snapshot.contentV2.quizzes.filter((item) =>
+            item.topicId === topicId && marketplaceTopicState(item.marketplace) === "removed")) {
+            const publishedAt = new Date().toISOString();
+            await recordContentV2Published(removed.filePath, removed.localHash, publishedAt);
+            await writeContentV2QuizPublishState(removed.filePath, { schemaVersion: 1, targets: {} });
+            publishedQuizResults.push({ key: removed.key, contentHash: removed.localHash, publishedAt });
+          }
+          // Publish the catalog entry last so it never advertises a quiz early.
           const result = await publishing.publishContentV2Topic(
             topic,
             summary.localHash,

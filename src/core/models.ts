@@ -60,9 +60,8 @@ export interface QuizSummary {
   hasGeneratedArtifact: boolean;
   artifactHash: string | null;
   publishedHash: string | null;
-  publishedAt: string | null;
-  /** Hash of the cached, sanitized runtime questions. Calculated on the initial
-   * repository scan and maintained incrementally by Tools mutations. */
+  publishedAt: string | null; marketplace?: import("./content-v2.js").MarketplaceTopicMetadataInput;
+  /** Cached sanitized runtime hash, maintained by Tools mutations. */
   localContentHash: string | null;
   questionCount: number | null;
   reviewedQuestionCount: number;

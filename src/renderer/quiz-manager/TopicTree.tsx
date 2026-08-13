@@ -5,7 +5,7 @@ import type { DataColumn } from "../ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../ui/StatusBadge";
 import { ActionMenu } from "../ui/ActionMenu";
 import { TableActionButton } from "../ui/TableActionButton";
-import { topicMarketplaceStatus } from "../topic-status";
+import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
 import { ManagerListIcon, quizReviewStatus } from "./shared";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
@@ -75,7 +75,7 @@ isContest,
                 {
                   key: "identity",
                   title: "Topic / quiz",
-                  width: "calc(100% - 484px)",
+                  width: "calc(100% - 596px)",
                   render: () => null,
                 },
                 {
@@ -123,21 +123,24 @@ isContest,
                   },
                 },
                 {
-                  key: "market",
-                  title: "Market sync",
+                  key: "state",
+                  title: "State",
+                  width: 112,
+                  align: "center",
+                  render: (row) => {
+                    const metadata = row.kind === "topic" ? row.summary.marketplace : row.quiz.marketplace;
+                    return <StatusBadge tone="primary">{marketplaceStateLabel(metadata).label}</StatusBadge>;
+                  },
+                },
+                {
+                  key: "sync",
+                  title: "Sync status",
                   width: 144,
                   align: "center",
                   render: (row) => {
-                    if (row.kind === "quiz") {
-                      const review = quizReviewStatus(row.quiz);
-                      const included = review.kind === "full";
-                      return (
-                        <StatusBadge tone={included ? "success" : "neutral"}>
-                          {included ? "Included" : "Not ready"}
-                        </StatusBadge>
-                      );
-                    }
-                    const status = topicMarketplaceStatus(row.summary);
+                    const status = row.kind === "quiz"
+                      ? quizMarketplaceStatus(row.quiz)
+                      : topicMarketplaceSyncStatus(row.summary);
                     const tone: StatusBadgeTone =
                       status.kind === "current"
                         ? "success"
@@ -147,10 +150,15 @@ isContest,
                     return (
                       <StatusBadge
                         tone={tone}
-                        ariaLabel="Open topic marketplace tab"
+                        ariaLabel={`Open ${row.kind} info`}
                         onClick={() => {
-                          setPage({ kind: "contest", contest: row.contest.id });
-                          setContestTab("info");
+                          if (row.kind === "topic") {
+                            setPage({ kind: "contest", contest: row.contest.id });
+                            setContestTab("info");
+                          } else {
+                            setPage({ kind: "quiz", quiz: row.quiz });
+                            setQuizTab("info");
+                          }
                         }}
                       >
                         {status.label}
