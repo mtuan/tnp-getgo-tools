@@ -72,7 +72,11 @@ import { useSaveShortcut } from "./ui/useSaveShortcut";
 import { QuizPublishPanel } from "./QuizPublishPanel";
 import { TopicPublishPanel } from "./TopicPublishPanel";
 import { TopicMarketplacePanel } from "./TopicMarketplacePanel";
-import { quizPublishStatus, topicMarketplaceStatus, topicPublishStatus } from "./topic-status";
+import {
+  quizPublishStatus,
+  topicMarketplaceStatus,
+  topicPublishStatus,
+} from "./topic-status";
 import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 import {
@@ -127,12 +131,39 @@ function QuestionEditorKeyboardShortcuts({
   return null;
 }
 
-function QuestionOrderActions({ dirty, busy, onCancel, onSave }: { dirty: boolean; busy: boolean; onCancel(): void; onSave(): void }) {
+function QuestionOrderActions({
+  dirty,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  dirty: boolean;
+  busy: boolean;
+  onCancel(): void;
+  onSave(): void;
+}) {
   useSaveShortcut({ enabled: dirty && !busy, onSave });
-  return <>
-    <Button variant="outline" color="neutral" disabled={busy} onClick={onCancel}>Cancel</Button>
-    <Button icon={<Save size={15} />} variant="solid" loading={busy} disabled={!dirty || busy} onClick={onSave}>Save order</Button>
-  </>;
+  return (
+    <>
+      <Button
+        variant="outline"
+        color="neutral"
+        disabled={busy}
+        onClick={onCancel}
+      >
+        Cancel
+      </Button>
+      <Button
+        icon={<Save size={15} />}
+        variant="solid"
+        loading={busy}
+        disabled={!dirty || busy}
+        onClick={onSave}
+      >
+        Save order
+      </Button>
+    </>
+  );
 }
 
 export type QuizManagerApi = Pick<
@@ -168,8 +199,10 @@ type ManagerPage =
   | { kind: "contests" }
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
-type QuizDetailTab = "questions" | "alphabets" | "dictionary" | "publish" | "info";
-type ContestDetailTab = "info" | "quizzes" | "dictionaries" | "assets" | "publish" | "marketplace";
+type QuizDetailTab =
+  "questions" | "alphabets" | "dictionary" | "publish" | "info";
+type ContestDetailTab =
+  "info" | "quizzes" | "dictionaries" | "assets" | "publish" | "marketplace";
 
 interface QuestionListItem {
   number: string;
@@ -249,26 +282,73 @@ function quizReviewStatus(quiz: QuizSummary): {
   return { kind: "none", label: "Not reviewed", reviewed, total };
 }
 
-function ManagerListIcon({ topicId, reference, label, kind }: { topicId: string; reference?: string; label: string; kind: "topic" | "quiz" }) {
-  const [source, setSource] = useState(() => reference?.startsWith("data:image/") ? reference : "")
+function ManagerListIcon({
+  topicId,
+  reference,
+  label,
+  kind,
+}: {
+  topicId: string;
+  reference?: string;
+  label: string;
+  kind: "topic" | "quiz";
+}) {
+  const [source, setSource] = useState(() =>
+    reference?.startsWith("data:image/") ? reference : "",
+  );
   useEffect(() => {
-    if (!reference) { setSource(""); return }
-    if (reference.startsWith("data:image/") || reference.startsWith("http://") || reference.startsWith("https://")) {
-      setSource(reference)
-      return
+    if (!reference) {
+      setSource("");
+      return;
     }
-    if (!reference.startsWith("asset:")) { setSource(""); return }
-    let active = true
-    void window.getgo.readContentV2TopicAsset(topicId, reference.slice("asset:".length))
-      .then(value => { if (active) setSource(value) })
-      .catch(() => { if (active) setSource("") })
-    return () => { active = false }
-  }, [reference, topicId])
-  if (source) return <span className="manager-list-icon"><img src={source} alt={`${label} icon`} /></span>
-  if (reference && !reference.startsWith("asset:")) return <span className="manager-list-icon manager-list-icon-text" aria-hidden="true">{reference}</span>
-  return <span className="manager-list-icon manager-list-icon-default" aria-hidden="true">
-    {kind === "topic" ? <BookOpen /> : <ListOrdered />}
-  </span>
+    if (
+      reference.startsWith("data:image/") ||
+      reference.startsWith("http://") ||
+      reference.startsWith("https://")
+    ) {
+      setSource(reference);
+      return;
+    }
+    if (!reference.startsWith("asset:")) {
+      setSource("");
+      return;
+    }
+    let active = true;
+    void window.getgo
+      .readContentV2TopicAsset(topicId, reference.slice("asset:".length))
+      .then((value) => {
+        if (active) setSource(value);
+      })
+      .catch(() => {
+        if (active) setSource("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [reference, topicId]);
+  if (source)
+    return (
+      <span className="manager-list-icon">
+        <img src={source} alt={`${label} icon`} />
+      </span>
+    );
+  if (reference && !reference.startsWith("asset:"))
+    return (
+      <span
+        className="manager-list-icon manager-list-icon-text"
+        aria-hidden="true"
+      >
+        {reference}
+      </span>
+    );
+  return (
+    <span
+      className="manager-list-icon manager-list-icon-default"
+      aria-hidden="true"
+    >
+      {kind === "topic" ? <BookOpen /> : <ListOrdered />}
+    </span>
+  );
 }
 
 function restoredPage(
@@ -370,9 +450,7 @@ function restoredPage(
     : null;
   return {
     page: { kind: "quiz", quiz },
-    questionNo: v2Question
-      ? String(v2Question.order + 1)
-      : requestedQuestionNo,
+    questionNo: v2Question ? String(v2Question.order + 1) : requestedQuestionNo,
     questionTab,
     alphabetTab,
     quizTab,
@@ -406,8 +484,13 @@ export function QuizManager({
   const [page, setPage] = useState<ManagerPage>(restored.page);
   const [query, setQuery] = useState("");
   const [topicsView, setTopicsView] = useState<"list" | "tree">(() => {
-    try { return localStorage.getItem("getgo-tools.topics-view") === "tree" ? "tree" : "list"; }
-    catch { return "list"; }
+    try {
+      return localStorage.getItem("getgo-tools.topics-view") === "tree"
+        ? "tree"
+        : "list";
+    } catch {
+      return "list";
+    }
   });
   const [sourceLoading, setSourceLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -429,9 +512,16 @@ export function QuizManager({
     if (routeMode !== "topics" || !initialRoute) return "quizzes";
     try {
       const tab = new URL(initialRoute, "app://getgo").searchParams.get("tab");
-      return tab === "publish" || tab === "marketplace" || tab === "info" || tab === "dictionaries" || tab === "assets" ? tab : "quizzes";
+      return tab === "publish" ||
+        tab === "marketplace" ||
+        tab === "info" ||
+        tab === "dictionaries" ||
+        tab === "assets"
+        ? tab
+        : "quizzes";
+    } catch {
+      return "quizzes";
     }
-    catch { return "quizzes"; }
   });
   const [quizTab, setQuizTab] = useState<QuizDetailTab>(restored.quizTab);
   const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null);
@@ -440,8 +530,12 @@ export function QuizManager({
   );
   const [alphabetDictionary, setAlphabetDictionary] =
     useState<AlphabetDictionary>({ schemaVersion: 1, words: [] });
-  const [topicDictionary, setTopicDictionary] = useState<KidLearningDictionary>({ schemaVersion: 2, entries: [] });
-  const [topicResourceError, setTopicResourceError] = useState<string | null>(null);
+  const [topicDictionary, setTopicDictionary] = useState<KidLearningDictionary>(
+    { schemaVersion: 2, entries: [] },
+  );
+  const [topicResourceError, setTopicResourceError] = useState<string | null>(
+    null,
+  );
   const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [previewQuestion, setPreviewQuestion] =
     useState<ContestQuizQuestionRecord | null>(null);
@@ -688,7 +782,9 @@ export function QuizManager({
       if (pendingQuestionNo) setPendingQuestionNo(null);
     }
     if (page.kind === "contest") {
-      onRouteChange(`${contestRoute(page.contest)}${routeMode === "topics" && contestTab !== "quizzes" ? `?tab=${contestTab}` : ""}`);
+      onRouteChange(
+        `${contestRoute(page.contest)}${routeMode === "topics" && contestTab !== "quizzes" ? `?tab=${contestTab}` : ""}`,
+      );
       if (pendingQuestionNo) setPendingQuestionNo(null);
     }
     if (page.kind === "quiz")
@@ -747,14 +843,26 @@ export function QuizManager({
 
   useEffect(() => {
     if (page.kind !== "contest" || contestTab !== "dictionaries") return;
-    const topic = snapshot.contentV2.topics.find((item) => item.id === page.contest);
+    const topic = snapshot.contentV2.topics.find(
+      (item) => item.id === page.contest,
+    );
     if (topic?.type !== "kid-learning") return;
     let active = true;
     setTopicResourceError(null);
-    void window.getgo.loadContentV2TopicDictionary(topic.id)
-      .then((dictionary) => { if (active) setTopicDictionary(dictionary); })
-      .catch((cause) => { if (active) setTopicResourceError(cause instanceof Error ? cause.message : String(cause)); });
-    return () => { active = false; };
+    void window.getgo
+      .loadContentV2TopicDictionary(topic.id)
+      .then((dictionary) => {
+        if (active) setTopicDictionary(dictionary);
+      })
+      .catch((cause) => {
+        if (active)
+          setTopicResourceError(
+            cause instanceof Error ? cause.message : String(cause),
+          );
+      });
+    return () => {
+      active = false;
+    };
   }, [contestTab, page, snapshot.contentV2.topics]);
 
   const backToQuestions = useCallback(() => {
@@ -813,9 +921,7 @@ export function QuizManager({
     )
       return;
     await runButtonAction("migrate-legacy", async () => {
-      const result = await managerApi.migrateLegacyQuizzes(
-        selectedContest.id,
-      );
+      const result = await managerApi.migrateLegacyQuizzes(selectedContest.id);
       onSnapshotChange(result.snapshot);
       if (result.failures.length) {
         const details = result.failures
@@ -929,15 +1035,25 @@ export function QuizManager({
           )
           .filter((question): question is QuestionListItem => Boolean(question))
       : questions;
-    const questionOrderDirty = Boolean(questionOrder && JSON.stringify(questionOrder) !== JSON.stringify(questions.map((question) => question.number)));
+    const questionOrderDirty = Boolean(
+      questionOrder &&
+      JSON.stringify(questionOrder) !==
+        JSON.stringify(questions.map((question) => question.number)),
+    );
     const saveQuestionOrder = () => {
       if (!questionOrder || !questionOrderDirty || buttonAction) return;
       void runButtonAction("save-question-order", async () => {
-        const result = await managerApi.reorderQuizQuestions(quiz.manifestPath, questionOrder);
+        const result = await managerApi.reorderQuizQuestions(
+          quiz.manifestPath,
+          questionOrder,
+        );
         setQuestionRecords(result.questions);
         setQuestionOrder(null);
         onSnapshotChange(result.snapshot);
-        toast.show({ title: "Question order saved", description: "Only files inside questions/ were renumbered." });
+        toast.show({
+          title: "Question order saved",
+          description: "Only files inside questions/ were renumbered.",
+        });
       });
     };
     const moveOrderedQuestion = (number: string, offset: -1 | 1) => {
@@ -1178,8 +1294,7 @@ export function QuizManager({
         align: "center",
         render: (item) => {
           const letter = alphabetData(item.record).letter;
-          const language =
-            quiz.language === "vi" ? "Vietnamese" : "English";
+          const language = quiz.language === "vi" ? "Vietnamese" : "English";
           return relatedAlphabetWords(
             alphabetDictionary.words,
             letter,
@@ -1549,9 +1664,7 @@ export function QuizManager({
       return (
         <section className="manager editor-page question-detail-page">
           <QuestionEditorKeyboardShortcuts
-            saveDisabled={
-              !questionHasChanges || saving || savingVerification
-            }
+            saveDisabled={!questionHasChanges || saving || savingVerification}
             newQuestionDisabled={
               saving || savingVerification || Boolean(buttonAction)
             }
@@ -1640,7 +1753,9 @@ export function QuizManager({
                 <ActionMenu
                   label="More"
                   iconOnly
-                  disabled={saving || savingVerification || Boolean(buttonAction)}
+                  disabled={
+                    saving || savingVerification || Boolean(buttonAction)
+                  }
                   items={[
                     {
                       id: "new-question",
@@ -1648,16 +1763,22 @@ export function QuizManager({
                       icon: Plus,
                       onSelect: createNewQuestionFromDetail,
                     },
-                    ...(!isAlphabetQuestion ? [{
-                      id: "reset-question",
-                      label: "Reset question",
-                      icon: RotateCcw,
-                      disabled: !questionDraftRecord?.advancedDynamic,
-                      onSelect: () => void resetQuestion(),
-                    }] : []),
+                    ...(!isAlphabetQuestion
+                      ? [
+                          {
+                            id: "reset-question",
+                            label: "Reset question",
+                            icon: RotateCcw,
+                            disabled: !questionDraftRecord?.advancedDynamic,
+                            onSelect: () => void resetQuestion(),
+                          },
+                        ]
+                      : []),
                     {
                       id: "delete-question",
-                      label: isAlphabetQuestion ? "Delete letter" : "Delete question",
+                      label: isAlphabetQuestion
+                        ? "Delete letter"
+                        : "Delete question",
                       icon: Trash2,
                       onSelect: deleteQuestionFromDetail,
                     },
@@ -1671,21 +1792,30 @@ export function QuizManager({
                       id: "status-pending",
                       label: "Pending",
                       icon: CircleDashed,
-                      trailingIcon: questionStatus(questionDraftRecord!) === "pending" ? Check : undefined,
+                      trailingIcon:
+                        questionStatus(questionDraftRecord!) === "pending"
+                          ? Check
+                          : undefined,
                       onSelect: () => void setQuestionReviewStatus("pending"),
                     },
                     {
                       id: "status-reviewed",
                       label: "Reviewed",
                       icon: CircleCheck,
-                      trailingIcon: questionStatus(questionDraftRecord!) === "verified" ? Check : undefined,
+                      trailingIcon:
+                        questionStatus(questionDraftRecord!) === "verified"
+                          ? Check
+                          : undefined,
                       onSelect: () => void setQuestionReviewStatus("verified"),
                     },
                     {
                       id: "status-rejected",
                       label: "Rejected",
                       icon: CircleX,
-                      trailingIcon: questionStatus(questionDraftRecord!) === "rejected" ? Check : undefined,
+                      trailingIcon:
+                        questionStatus(questionDraftRecord!) === "rejected"
+                          ? Check
+                          : undefined,
                       onSelect: () => void setQuestionReviewStatus("rejected"),
                     },
                   ]}
@@ -1752,7 +1882,10 @@ export function QuizManager({
         <PageHeader
           eyebrow="Quiz detail"
           breadcrumbs={[
-            { label: routeMode === "topics" ? "Topics" : "Contests", onClick: () => setPage({ kind: "contests" }) },
+            {
+              label: routeMode === "topics" ? "Topics" : "Contests",
+              onClick: () => setPage({ kind: "contests" }),
+            },
             {
               label: quizContest?.title ?? quiz.contest.toUpperCase(),
               onClick: goBack,
@@ -1778,38 +1911,54 @@ export function QuizManager({
           actions={
             quizTab === "info" ? (
               <>
-              <Button type="reset" form="quiz-info-form" icon={<RotateCcw size={15} />} color="neutral" disabled={!quizInfoDirty}>Discard</Button>
-              <Button type="submit" form="quiz-info-form" icon={<Save size={15} />} variant="solid" disabled={!quizInfoDirty}>Save</Button>
-              <Button
-                icon={<Trash2 size={15} />}
-                loading={buttonAction === "delete-quiz"}
-                variant="solid"
-                color="danger"
-                disabled={Boolean(buttonAction)}
-                onClick={() => {
-                  if (
-                    !window.confirm(
-                      `Delete ${quiz.title}? This will move the quiz folder to Trash.`,
+                <Button
+                  type="reset"
+                  form="quiz-info-form"
+                  icon={<RotateCcw size={15} />}
+                  color="neutral"
+                  disabled={!quizInfoDirty}
+                >
+                  Discard
+                </Button>
+                <Button
+                  type="submit"
+                  form="quiz-info-form"
+                  icon={<Save size={15} />}
+                  variant="solid"
+                  disabled={!quizInfoDirty}
+                >
+                  Save
+                </Button>
+                <Button
+                  icon={<Trash2 size={15} />}
+                  loading={buttonAction === "delete-quiz"}
+                  variant="solid"
+                  color="danger"
+                  disabled={Boolean(buttonAction)}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Delete ${quiz.title}? This will move the quiz folder to Trash.`,
+                      )
                     )
-                  )
-                    return;
-                  void runButtonAction("delete-quiz", async () => {
-                    const next = await managerApi.deleteQuiz(
-                      quiz.manifestPath,
-                    );
-                    const parentRoute = contestRoute(quiz.contest);
-                    onRouteChange(parentRoute);
-                    setPage({ kind: "contest", contest: quiz.contest });
-                    onSnapshotChange(next);
-                    toast.show({
-                      title: "Quiz deleted",
-                      description: `${quiz.title} was moved to Trash.`,
+                      return;
+                    void runButtonAction("delete-quiz", async () => {
+                      const next = await managerApi.deleteQuiz(
+                        quiz.manifestPath,
+                      );
+                      const parentRoute = contestRoute(quiz.contest);
+                      onRouteChange(parentRoute);
+                      setPage({ kind: "contest", contest: quiz.contest });
+                      onSnapshotChange(next);
+                      toast.show({
+                        title: "Quiz deleted",
+                        description: `${quiz.title} was moved to Trash.`,
+                      });
                     });
-                  });
-                }}
-              >
-                Delete quiz
-              </Button>
+                  }}
+                >
+                  Delete quiz
+                </Button>
               </>
             ) : quizTab === "publish" ? (
               <Button
@@ -1850,7 +1999,12 @@ export function QuizManager({
                   : quizPublishCopy.publish}
               </Button>
             ) : quizTab === "dictionary" ? null : questionOrder ? (
-              <QuestionOrderActions dirty={questionOrderDirty} busy={Boolean(buttonAction)} onCancel={() => setQuestionOrder(null)} onSave={saveQuestionOrder} />
+              <QuestionOrderActions
+                dirty={questionOrderDirty}
+                busy={Boolean(buttonAction)}
+                onCancel={() => setQuestionOrder(null)}
+                onSave={saveQuestionOrder}
+              />
             ) : (
               <>
                 <Button
@@ -1862,9 +2016,7 @@ export function QuizManager({
                     void runButtonAction("create-question", createQuestion)
                   }
                 >
-                  {quiz.type === "contest"
-                    ? "Add question"
-                    : "Add letter"}
+                  {quiz.type === "contest" ? "Add question" : "Add letter"}
                 </Button>
                 <ActionMenu
                   label={quizPublishCopy.more}
@@ -1939,10 +2091,12 @@ export function QuizManager({
                   id: "questions" as const,
                   label: "Questions",
                 }
-              : quiz.type === "alphabet" ? {
-                  id: "alphabets" as const,
-                  label: "Alphabets",
-                } : null,
+              : quiz.type === "alphabet"
+                ? {
+                    id: "alphabets" as const,
+                    label: "Alphabets",
+                  }
+                : null,
             { id: "info" as const, label: "Info" },
             { id: "publish" as const, label: quizPublishCopy.tab },
           ].filter((item): item is Exclude<typeof item, null> => Boolean(item))}
@@ -2091,7 +2245,9 @@ export function QuizManager({
         title={
           isContest
             ? (selectedContest?.title ?? page.contest.toUpperCase())
-            : topicMode ? "Topics" : "Contests"
+            : topicMode
+              ? "Topics"
+              : "Contests"
         }
         description={
           isContest
@@ -2152,59 +2308,89 @@ export function QuizManager({
                     : setContestDialog("create")
                 }
               >
-                {isContest ? "Create quiz" : `Create ${topicMode ? "topic" : "contest"}`}
+                {isContest
+                  ? "Create quiz"
+                  : `Create ${topicMode ? "topic" : "contest"}`}
               </Button>
             )}
             {isContest && contestTab === "info" && selectedContest && (
               <>
-              <Button type="reset" form="topic-info-form" icon={<RotateCcw size={15} />} color="neutral" disabled={!topicInfoDirty}>Discard</Button>
-              <Button type="submit" form="topic-info-form" icon={<Save size={15} />} variant="solid" disabled={!topicInfoDirty}>Save</Button>
-              <Button
-                icon={<Trash2 size={15} />}
-                loading={buttonAction === "delete-contest"}
-                variant="solid"
-                color="danger"
-                disabled={Boolean(buttonAction)}
-                onClick={() => {
-                  if (
-                    !window.confirm(
-                      `Delete ${selectedContest.title}? This will move the ${topicMode ? "topic" : "contest"} folder to Trash.`,
+                <Button
+                  type="reset"
+                  form="topic-info-form"
+                  icon={<RotateCcw size={15} />}
+                  color="neutral"
+                  disabled={!topicInfoDirty}
+                >
+                  Discard
+                </Button>
+                <Button
+                  type="submit"
+                  form="topic-info-form"
+                  icon={<Save size={15} />}
+                  variant="solid"
+                  disabled={!topicInfoDirty}
+                >
+                  Save
+                </Button>
+                <Button
+                  icon={<Trash2 size={15} />}
+                  loading={buttonAction === "delete-contest"}
+                  variant="solid"
+                  color="danger"
+                  disabled={Boolean(buttonAction)}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Delete ${selectedContest.title}? This will move the ${topicMode ? "topic" : "contest"} folder to Trash.`,
+                      )
                     )
-                  )
-                    return;
-                  void runButtonAction("delete-contest", async () => {
-                    const next = await managerApi.deleteContest(
-                      selectedContest.id,
-                    );
-                    onRouteChange(rootRoute);
-                    setPage({ kind: "contests" });
-                    onSnapshotChange(next);
-                    toast.show({
-                      title: `${topicMode ? "Topic" : "Contest"} deleted`,
-                      description: `${selectedContest.title} was moved to Trash.`,
+                      return;
+                    void runButtonAction("delete-contest", async () => {
+                      const next = await managerApi.deleteContest(
+                        selectedContest.id,
+                      );
+                      onRouteChange(rootRoute);
+                      setPage({ kind: "contests" });
+                      onSnapshotChange(next);
+                      toast.show({
+                        title: `${topicMode ? "Topic" : "Contest"} deleted`,
+                        description: `${selectedContest.title} was moved to Trash.`,
+                      });
                     });
-                  });
-                }}
-              >
-                Delete {topicMode ? "topic" : "contest"}
-              </Button>
+                  }}
+                >
+                  Delete {topicMode ? "topic" : "contest"}
+                </Button>
               </>
             )}
-            {topicMode && isContest && contestTab === "publish" && selectedTopic && (
-              <Button
-                icon={<CloudUpload size={15} />}
-                variant="solid"
-                loading={buttonAction === "publish-topic"}
-                disabled={Boolean(buttonAction)}
-                onClick={() => void runButtonAction("publish-topic", async () => {
-                  const result = await managerApi.publishContentV2Topic(selectedTopic.id);
-                  if (result.snapshot) onSnapshotChange(result.snapshot);
-                  toast.show({ title: "Topic published", description: `${selectedTopic.title} was published.` });
-                })}
-              >
-                {selectedTopic.publishedHash ? "Republish topic" : "Publish topic"}
-              </Button>
-            )}
+            {topicMode &&
+              isContest &&
+              contestTab === "publish" &&
+              selectedTopic && (
+                <Button
+                  icon={<CloudUpload size={15} />}
+                  variant="solid"
+                  loading={buttonAction === "publish-topic"}
+                  disabled={Boolean(buttonAction)}
+                  onClick={() =>
+                    void runButtonAction("publish-topic", async () => {
+                      const result = await managerApi.publishContentV2Topic(
+                        selectedTopic.id,
+                      );
+                      if (result.snapshot) onSnapshotChange(result.snapshot);
+                      toast.show({
+                        title: "Topic published",
+                        description: `${selectedTopic.title} was published.`,
+                      });
+                    })
+                  }
+                >
+                  {selectedTopic.publishedHash
+                    ? "Republish topic"
+                    : "Publish topic"}
+                </Button>
+              )}
           </>
         }
       />
@@ -2221,12 +2407,23 @@ export function QuizManager({
               label: "Quizzes",
             },
             { id: "info", label: "Info" },
-            ...(topicMode && selectedTopic?.type === "kid-learning" ? [
-              { id: "dictionaries" as const, label: "Dictionaries" },
-              { id: "assets" as const, label: "Assets" },
-            ] : []),
-            ...(topicMode ? [{ id: "publish" as const, label: quizPublishCopy.tab }] : []),
-            ...(topicMode ? [{ id: "marketplace" as const, label: (locale === "vi" ? vi : en).marketplaceManager.tab }] : []),
+            ...(topicMode && selectedTopic?.type === "kid-learning"
+              ? [
+                  { id: "dictionaries" as const, label: "Dictionaries" },
+                  { id: "assets" as const, label: "Assets" },
+                ]
+              : []),
+            ...(topicMode
+              ? [{ id: "publish" as const, label: quizPublishCopy.tab }]
+              : []),
+            ...(topicMode
+              ? [
+                  {
+                    id: "marketplace" as const,
+                    label: (locale === "vi" ? vi : en).marketplaceManager.tab,
+                  },
+                ]
+              : []),
           ]}
         />
       )}
@@ -2253,27 +2450,54 @@ export function QuizManager({
       {topicMode && isContest && contestTab === "publish" && selectedTopic && (
         <TopicPublishPanel topic={selectedTopic} locale={locale} />
       )}
-      {topicMode && isContest && contestTab === "marketplace" && selectedTopic && (
-        <TopicMarketplacePanel topic={selectedTopic} locale={locale} api={managerApi} onSnapshotChange={onSnapshotChange} onOpenJobs={onOpenJobs} />
-      )}
-      {topicMode && isContest && contestTab === "dictionaries" && selectedTopic?.type === "kid-learning" && (
-        <>
-          {topicResourceError && <div className="error-banner"><strong>Could not load shared dictionary</strong><span>{topicResourceError}</span></div>}
-          <KidLearningDictionaryEditor
-            topicId={selectedTopic.id}
-            dictionary={topicDictionary}
-            onSave={async (dictionary) => {
-              const next = await window.getgo.saveContentV2TopicDictionary(selectedTopic.id, dictionary);
-              setTopicDictionary(dictionary);
-              onSnapshotChange(next);
-              toast.show({ title: "Shared dictionary saved", description: "Alphabet and spelling quizzes now use the updated concepts." });
-            }}
+      {topicMode &&
+        isContest &&
+        contestTab === "marketplace" &&
+        selectedTopic && (
+          <TopicMarketplacePanel
+            topic={selectedTopic}
+            locale={locale}
+            api={managerApi}
+            onSnapshotChange={onSnapshotChange}
+            onOpenJobs={onOpenJobs}
           />
-        </>
-      )}
-      {topicMode && isContest && contestTab === "assets" && selectedTopic?.type === "kid-learning" && (
-        <TopicAssetsEditor topicId={selectedTopic.id} />
-      )}
+        )}
+      {topicMode &&
+        isContest &&
+        contestTab === "dictionaries" &&
+        selectedTopic?.type === "kid-learning" && (
+          <>
+            {topicResourceError && (
+              <div className="error-banner">
+                <strong>Could not load shared dictionary</strong>
+                <span>{topicResourceError}</span>
+              </div>
+            )}
+            <KidLearningDictionaryEditor
+              topicId={selectedTopic.id}
+              dictionary={topicDictionary}
+              onSave={async (dictionary) => {
+                const next = await window.getgo.saveContentV2TopicDictionary(
+                  selectedTopic.id,
+                  dictionary,
+                );
+                setTopicDictionary(dictionary);
+                onSnapshotChange(next);
+                toast.show({
+                  title: "Shared dictionary saved",
+                  description:
+                    "Alphabet and spelling quizzes now use the updated concepts.",
+                });
+              }}
+            />
+          </>
+        )}
+      {topicMode &&
+        isContest &&
+        contestTab === "assets" &&
+        selectedTopic?.type === "kid-learning" && (
+          <TopicAssetsEditor topicId={selectedTopic.id} />
+        )}
       {(!isContest || contestTab === "quizzes") && (
         <>
           <div className="manager-list-toolbar">
@@ -2282,216 +2506,765 @@ export function QuizManager({
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={isContest ? "Search quizzes…" : `Search ${topicMode ? "topics" : "contests"}…`}
+                placeholder={
+                  isContest
+                    ? "Search quizzes…"
+                    : `Search ${topicMode ? "topics" : "contests"}…`
+                }
               />
             </div>
-            {!isContest && topicMode && <Button
-              className="manager-view-switcher"
-              variant="icon"
-              icon={topicsView === "tree" ? <Rows3 /> : <ListOrdered />}
-              aria-label={topicsView === "tree" ? "Show list view" : "Show tree view"}
-              title={topicsView === "tree" ? "Show list view" : "Show tree view"}
-              onClick={() => {
-                const next = topicsView === "tree" ? "list" : "tree";
-                setTopicsView(next);
-                try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* Storage is optional. */ }
-              }}
-            />}
+            {!isContest && topicMode && (
+              <Button
+                className="manager-view-switcher"
+                variant="icon"
+                icon={topicsView === "tree" ? <Rows3 /> : <ListOrdered />}
+                aria-label={
+                  topicsView === "tree" ? "Show list view" : "Show tree view"
+                }
+                title={
+                  topicsView === "tree" ? "Show list view" : "Show tree view"
+                }
+                onClick={() => {
+                  const next = topicsView === "tree" ? "list" : "tree";
+                  setTopicsView(next);
+                  try {
+                    localStorage.setItem("getgo-tools.topics-view", next);
+                  } catch {
+                    /* Storage is optional. */
+                  }
+                }}
+              />
+            )}
           </div>
-          {!isContest && topicMode && topicsView === "tree" ? (() => {
-            type TopicTreeRow = { kind: "topic"; contest: (typeof visibleContests)[number]; summary: NonNullable<typeof snapshot.contentV2.topics[number]> } | { kind: "quiz"; quiz: QuizSummary };
-            const rows: TreeDataRow<TopicTreeRow>[] = visibleContests.flatMap((contest) => {
-              const summary = snapshot.contentV2.topics.find((topic) => topic.id === contest.id);
-              return summary ? [{ row: { kind: "topic" as const, contest, summary }, children: contest.quizzes.map((quiz) => ({ row: { kind: "quiz" as const, quiz } })) }] : [];
-            });
-            const columns: DataColumn<TopicTreeRow>[] = [
-              { key: "identity", title: "Topic / quiz", width: "calc(100% - 468px)", render: () => null },
-              { key: "type", title: "Type", width: 100, align: "center", render: (row) => row.kind === "topic" ? "Topic" : "Quiz" },
-              { key: "publish", title: "Publish", width: 136, align: "center", render: (row) => { const status = row.kind === "topic" ? topicPublishStatus(row.summary) : quizPublishStatus(row.quiz); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone} ariaLabel={`Open ${row.kind} publish tab`} onClick={() => { if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("publish"); } else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab("publish"); } }}>{status.label}</StatusBadge>; } },
-              { key: "market", title: "Marketplace", width: 144, align: "center", render: (row) => { if (row.kind === "quiz") return <span className="topic-status-na">—</span>; const status = topicMarketplaceStatus(row.summary); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone} ariaLabel="Open topic marketplace tab" onClick={() => { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("marketplace"); }}>{status.label}</StatusBadge>; } },
-              { key: "action", title: "", width: 88, align: "right", render: (row) => <div className="manager-row-actions"><Button className="manager-row-open" variant="icon" color="primary" icon={<Pencil />} aria-label={`Edit ${row.kind}`} title={`Edit ${row.kind}`} onClick={(event) => { event.stopPropagation(); if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("info"); } else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab("info"); } }} /><ActionMenu label="More actions" iconOnly items={[{ id: "publish-content", label: "Publish Content", icon: CloudUpload, onSelect: () => void runButtonAction(`quick-publish-${row.kind}`, async () => { if (row.kind === "topic") { const result = await managerApi.publishContentV2Topic(row.summary.id); if (result.snapshot) onSnapshotChange(result.snapshot); } else { await managerApi.publishQuiz(row.quiz.contest, row.quiz.id); onOpenJobs(); } toast.show({ title: "Content published", description: `${row.kind === "topic" ? row.contest.title : row.quiz.title} was published.` }); }) }, ...(row.kind === "topic" ? [{ id: "publish-market", label: "Publish to Market", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-market", async () => { const result = await managerApi.publishMarketplaceTopic(row.contest.id, true); onSnapshotChange(result.snapshot); toast.show({ title: "Published to market", description: `${row.contest.title} is now listed.` }); }) }] : [])]} /><Button className="manager-row-open" variant="icon" icon={<ChevronRight />} aria-label={`Open ${row.kind} details`} title={`Open ${row.kind} details`} onClick={(event) => { event.stopPropagation(); if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("quizzes"); setQuery(""); } else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets"); } }} /></div> },
-            ];
-            return <TreeDataTable rows={rows} columns={columns} rowKey={(row) => row.kind === "topic" ? `topic:${row.contest.id}` : `quiz:${row.quiz.key}`} ariaLabel="Topics and quizzes" emptyText="No matching topics." toggleParentOnRowClick renderIdentity={(row, _depth, toggle) => <div className="topics-tree-identity">{toggle}{row.kind === "topic" ? <><ManagerListIcon topicId={row.contest.id} reference={row.contest.settings.book.icon} label={row.contest.title} kind="topic" /><div><strong>{row.contest.title}</strong><span>{row.contest.description || row.contest.id}</span></div></> : <><ManagerListIcon topicId={row.quiz.contest} reference={row.quiz.icon} label={row.quiz.title} kind="quiz" /><div><strong>{row.quiz.title}</strong><span>{row.quiz.id}</span></div></>}</div>} />;
-          })() : <div className="manager-table">
-            <table>
-              {topicMode && <colgroup><col /><col style={{ width: 100 }} /><col style={{ width: 136 }} /><col style={{ width: 144 }} /><col style={{ width: 88 }} /></colgroup>}
-              <thead>
-                <tr>
-                  {topicMode && isContest ? (
-                    <>
-                      <th>Quiz</th><th className="manager-column-centered">Type</th><th className="manager-column-centered">Publish</th><th className="manager-column-centered">Marketplace</th><th />
-                    </>
-                  ) : isContest ? (
-                    <>
-                      <th>Quiz</th>
-                      <th>Version</th>
-                      <th>Grade</th>
-                      <th>Year / round</th>
-                      <th>Questions</th>
-                      <th>Reviewed</th>
-                      <th>Status</th>
-                      <th />
-                    </>
-                  ) : (
-                    <>
-                      <th>{topicMode ? "Topic" : "Contest"}</th>
-                      <th className={topicMode ? "manager-column-centered" : undefined}>{topicMode ? "Type" : "Quizzes"}</th>
-                      {topicMode ? <><th className="manager-column-centered">Publish</th><th className="manager-column-centered">Marketplace</th></> : <><th>Ready</th><th>Builds</th></>}
-                      <th />
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {topicMode && isContest
-                  ? visibleQuizzes.map((quiz) => {
-                      const publish = quizPublishStatus(quiz);
-                      return <tr key={quiz.key} onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab(quiz.type === "contest" ? "questions" : "alphabets"); }}>
-                        <td><div className="manager-list-identity"><ManagerListIcon topicId={quiz.contest} reference={quiz.icon} label={quiz.title} kind="quiz" /><div><strong>{quiz.title}</strong><span>{quiz.id}</span></div></div></td>
-                        <td className="manager-column-centered">Quiz</td>
-                        <td className="manager-status-cell"><StatusBadge tone={publish.kind === "current" ? "success" : publish.kind === "changed" ? "warning" : "neutral"} ariaLabel="Open quiz publish tab" onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab("publish"); }}>{publish.label}</StatusBadge></td>
-                        <td className="manager-status-cell"><span className="topic-status-na">—</span></td>
-                        <td><div className="manager-row-actions"><Button className="manager-row-open" variant="icon" color="primary" icon={<Pencil />} aria-label="Edit quiz" title="Edit quiz" onClick={(event) => { event.stopPropagation(); setPage({ kind: "quiz", quiz }); setQuizTab("info"); }} /><ActionMenu label="More actions" iconOnly items={[{ id: "publish-content", label: "Publish Content", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-quiz", async () => { await managerApi.publishQuiz(quiz.contest, quiz.id); onOpenJobs(); toast.show({ title: "Content published", description: `${quiz.title} was published.` }); }) }]} /></div></td>
-                      </tr>;
-                    })
-                  : isContest
-                  ? visibleQuizzes.map((quiz) => {
-                      const review = quizReviewStatus(quiz);
-                      const migration = migrationForQuiz(quiz);
-                      const percent = migration
-                        ? migration.total
-                          ? Math.min(
-                              100,
-                              Math.round(
-                                (migration.processed / migration.total) * 100,
+          {!isContest && topicMode && topicsView === "tree" ? (
+            (() => {
+              type TopicTreeRow =
+                | {
+                    kind: "topic";
+                    contest: (typeof visibleContests)[number];
+                    summary: NonNullable<
+                      (typeof snapshot.contentV2.topics)[number]
+                    >;
+                  }
+                | { kind: "quiz"; quiz: QuizSummary };
+              const rows: TreeDataRow<TopicTreeRow>[] = visibleContests.flatMap(
+                (contest) => {
+                  const summary = snapshot.contentV2.topics.find(
+                    (topic) => topic.id === contest.id,
+                  );
+                  return summary
+                    ? [
+                        {
+                          row: { kind: "topic" as const, contest, summary },
+                          children: contest.quizzes.map((quiz) => ({
+                            row: { kind: "quiz" as const, quiz },
+                          })),
+                        },
+                      ]
+                    : [];
+                },
+              );
+              const columns: DataColumn<TopicTreeRow>[] = [
+                {
+                  key: "identity",
+                  title: "Topic / quiz",
+                  width: "calc(100% - 468px)",
+                  render: () => null,
+                },
+                {
+                  key: "type",
+                  title: "Type",
+                  width: 100,
+                  align: "center",
+                  render: (row) => (row.kind === "topic" ? "Topic" : "Quiz"),
+                },
+                {
+                  key: "publish",
+                  title: "Publish",
+                  width: 136,
+                  align: "center",
+                  render: (row) => {
+                    const status =
+                      row.kind === "topic"
+                        ? topicPublishStatus(row.summary)
+                        : quizPublishStatus(row.quiz);
+                    const tone: StatusBadgeTone =
+                      status.kind === "current"
+                        ? "success"
+                        : status.kind === "changed"
+                          ? "warning"
+                          : "neutral";
+                    return (
+                      <StatusBadge
+                        tone={tone}
+                        ariaLabel={`Open ${row.kind} publish tab`}
+                        onClick={() => {
+                          if (row.kind === "topic") {
+                            setPage({
+                              kind: "contest",
+                              contest: row.contest.id,
+                            });
+                            setContestTab("publish");
+                          } else {
+                            setPage({ kind: "quiz", quiz: row.quiz });
+                            setQuizTab("publish");
+                          }
+                        }}
+                      >
+                        {status.label}
+                      </StatusBadge>
+                    );
+                  },
+                },
+                {
+                  key: "market",
+                  title: "Marketplace",
+                  width: 144,
+                  align: "center",
+                  render: (row) => {
+                    if (row.kind === "quiz")
+                      return <span className="topic-status-na">—</span>;
+                    const status = topicMarketplaceStatus(row.summary);
+                    const tone: StatusBadgeTone =
+                      status.kind === "current"
+                        ? "success"
+                        : status.kind === "changed"
+                          ? "warning"
+                          : "neutral";
+                    return (
+                      <StatusBadge
+                        tone={tone}
+                        ariaLabel="Open topic marketplace tab"
+                        onClick={() => {
+                          setPage({ kind: "contest", contest: row.contest.id });
+                          setContestTab("marketplace");
+                        }}
+                      >
+                        {status.label}
+                      </StatusBadge>
+                    );
+                  },
+                },
+                {
+                  key: "action",
+                  title: "",
+                  width: 88,
+                  align: "right",
+                  render: (row) => (
+                    <div className="manager-row-actions">
+                      <TableActionButton
+                        color="primary"
+                        icon={<Pencil />}
+                        aria-label={`Edit ${row.kind}`}
+                        title={`Edit ${row.kind}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (row.kind === "topic") {
+                            setPage({
+                              kind: "contest",
+                              contest: row.contest.id,
+                            });
+                            setContestTab("info");
+                          } else {
+                            setPage({ kind: "quiz", quiz: row.quiz });
+                            setQuizTab("info");
+                          }
+                        }}
+                      />
+                      <ActionMenu
+                        label="More actions"
+                        iconOnly
+                        items={[
+                          {
+                            id: "publish-content",
+                            label: "Publish Content",
+                            icon: CloudUpload,
+                            onSelect: () =>
+                              void runButtonAction(
+                                `quick-publish-${row.kind}`,
+                                async () => {
+                                  if (row.kind === "topic") {
+                                    const result =
+                                      await managerApi.publishContentV2Topic(
+                                        row.summary.id,
+                                      );
+                                    if (result.snapshot)
+                                      onSnapshotChange(result.snapshot);
+                                  } else {
+                                    await managerApi.publishQuiz(
+                                      row.quiz.contest,
+                                      row.quiz.id,
+                                    );
+                                    onOpenJobs();
+                                  }
+                                  toast.show({
+                                    title: "Content published",
+                                    description: `${row.kind === "topic" ? row.contest.title : row.quiz.title} was published.`,
+                                  });
+                                },
                               ),
-                            )
-                          : 100
-                        : 0;
-                      const activeMigration =
-                        migration &&
-                        (migration.status === "queued" ||
-                          migration.status === "running");
-                      return (
-                        <tr
-                          key={quiz.key}
-                          onClick={() => {
-                            setPage({ kind: "quiz", quiz });
+                          },
+                          ...(row.kind === "topic"
+                            ? [
+                                {
+                                  id: "publish-market",
+                                  label: "Publish to Market",
+                                  icon: CloudUpload,
+                                  onSelect: () =>
+                                    void runButtonAction(
+                                      "quick-publish-market",
+                                      async () => {
+                                        const result =
+                                          await managerApi.publishMarketplaceTopic(
+                                            row.contest.id,
+                                            true,
+                                          );
+                                        onSnapshotChange(result.snapshot);
+                                        toast.show({
+                                          title: "Published to market",
+                                          description: `${row.contest.title} is now listed.`,
+                                        });
+                                      },
+                                    ),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                      <TableActionButton
+                        color="neutral"
+                        icon={<ChevronRight />}
+                        aria-label={`Open ${row.kind} details`}
+                        title={`Open ${row.kind} details`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (row.kind === "topic") {
+                            setPage({
+                              kind: "contest",
+                              contest: row.contest.id,
+                            });
+                            setContestTab("quizzes");
+                            setQuery("");
+                          } else {
+                            setPage({ kind: "quiz", quiz: row.quiz });
                             setQuizTab(
-                              quiz.type === "contest"
+                              row.quiz.type === "contest"
                                 ? "questions"
                                 : "alphabets",
                             );
-                          }}
+                          }
+                        }}
+                      />
+                    </div>
+                  ),
+                },
+              ];
+              return (
+                <TreeDataTable
+                  rows={rows}
+                  columns={columns}
+                  rowKey={(row) =>
+                    row.kind === "topic"
+                      ? `topic:${row.contest.id}`
+                      : `quiz:${row.quiz.key}`
+                  }
+                  ariaLabel="Topics and quizzes"
+                  emptyText="No matching topics."
+                  toggleParentOnRowClick
+                  renderIdentity={(row, _depth, toggle) => (
+                    <div className="topics-tree-identity">
+                      {toggle}
+                      {row.kind === "topic" ? (
+                        <>
+                          <ManagerListIcon
+                            topicId={row.contest.id}
+                            reference={row.contest.settings.book.icon}
+                            label={row.contest.title}
+                            kind="topic"
+                          />
+                          <div>
+                            <strong>{row.contest.title}</strong>
+                            <span>
+                              {row.contest.description || row.contest.id}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ManagerListIcon
+                            topicId={row.quiz.contest}
+                            reference={row.quiz.icon}
+                            label={row.quiz.title}
+                            kind="quiz"
+                          />
+                          <div>
+                            <strong>{row.quiz.title}</strong>
+                            <span>{row.quiz.id}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                />
+              );
+            })()
+          ) : (
+            <div className="manager-table">
+              <table>
+                {topicMode && (
+                  <colgroup>
+                    <col />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 136 }} />
+                    <col style={{ width: 144 }} />
+                    <col style={{ width: 88 }} />
+                  </colgroup>
+                )}
+                <thead>
+                  <tr>
+                    {topicMode && isContest ? (
+                      <>
+                        <th>Quiz</th>
+                        <th className="manager-column-centered">Type</th>
+                        <th className="manager-column-centered">Publish</th>
+                        <th className="manager-column-centered">Marketplace</th>
+                        <th />
+                      </>
+                    ) : isContest ? (
+                      <>
+                        <th>Quiz</th>
+                        <th>Version</th>
+                        <th>Grade</th>
+                        <th>Year / round</th>
+                        <th>Questions</th>
+                        <th>Reviewed</th>
+                        <th>Status</th>
+                        <th />
+                      </>
+                    ) : (
+                      <>
+                        <th>{topicMode ? "Topic" : "Contest"}</th>
+                        <th
+                          className={
+                            topicMode ? "manager-column-centered" : undefined
+                          }
                         >
-                          <td>
-                            <div className="manager-list-identity">
-                              <ManagerListIcon topicId={quiz.contest} reference={quiz.icon} label={quiz.title} kind="quiz" />
-                              <div><strong>{quiz.title}</strong><span>{quiz.id}</span></div>
-                            </div>
-                          </td>
-                          <td>
-                            <span
-                              className={`badge quiz-version quiz-version-${quiz.questionStorageVersion}`}
-                            >
-                              {quiz.questionStorageVersion === "questions-v1"
-                                ? "Questions v1"
-                                : "Legacy"}
-                            </span>
-                          </td>
-                          <td>{quiz.grade ?? "—"}</td>
-                          <td>
-                            <strong>{quiz.year ?? "—"}</strong>
-                            <span>{quiz.round ?? "No round"}</span>
-                          </td>
-                          <td>{quiz.questionCount ?? "—"}</td>
-                          <td>
-                            <span
-                              className={`badge review-status review-status-${review.kind}`}
-                              title={review.label}
-                              aria-label={`${review.label}: ${review.reviewed} of ${review.total}`}
-                            >
-                              {review.reviewed}/{review.total}
-                            </span>
-                            {quiz.migrationErrorCount > 0 && (
-                              <span className="badge badge-error">
-                                {quiz.migrationErrorCount} errors
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            {migration ? (
-                              migration.status === "completed" ? (
-                                <span className="badge job-status job-status-completed">
-                                  Migrated ({migration.succeeded}/
-                                  {migration.total})
-                                </span>
-                              ) : (
-                                <div className="quiz-migration-status">
-                                  <span
-                                    className={`badge job-status job-status-${migration.status}`}
-                                  >
-                                    {migration.status}
-                                  </span>
-                                  <span>
-                                    {activeMigration
-                                      ? `${percent}% · ${migration.processed}/${migration.total}`
-                                      : `${migration.succeeded} saved${migration.failed ? ` · ${migration.failed} failed` : ""}`}
-                                  </span>
+                          {topicMode ? "Type" : "Quizzes"}
+                        </th>
+                        {topicMode ? (
+                          <>
+                            <th className="manager-column-centered">Publish</th>
+                            <th className="manager-column-centered">
+                              Marketplace
+                            </th>
+                          </>
+                        ) : (
+                          <>
+                            <th>Ready</th>
+                            <th>Builds</th>
+                          </>
+                        )}
+                        <th />
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {topicMode && isContest
+                    ? visibleQuizzes.map((quiz) => {
+                        const publish = quizPublishStatus(quiz);
+                        return (
+                          <tr
+                            key={quiz.key}
+                            onClick={() => {
+                              setPage({ kind: "quiz", quiz });
+                              setQuizTab(
+                                quiz.type === "contest"
+                                  ? "questions"
+                                  : "alphabets",
+                              );
+                            }}
+                          >
+                            <td>
+                              <div className="manager-list-identity">
+                                <ManagerListIcon
+                                  topicId={quiz.contest}
+                                  reference={quiz.icon}
+                                  label={quiz.title}
+                                  kind="quiz"
+                                />
+                                <div>
+                                  <strong>{quiz.title}</strong>
+                                  <span>{quiz.id}</span>
                                 </div>
-                              )
-                            ) : (
-                              <span className="badge job-status">
-                                Not started
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <ChevronRight size={16} />
-                          </td>
-                        </tr>
-                      );
-                    })
-                  : visibleContests.map((contest) => {
-                      const ready = contest.quizzes.filter((quiz) =>
-                        ["reviewed", "validated", "published"].includes(
-                          quiz.contentStatus,
-                        ),
-                      ).length;
-                      const builds = contest.quizzes.filter(
-                        (quiz) => quiz.hasGeneratedArtifact,
-                      ).length;
-                      const topicSummary = snapshot.contentV2.topics.find((topic) => topic.id === contest.id);
-                      return (
-                        <tr key={contest.id}>
-                          <td>
-                            <div className="manager-list-identity">
-                              <ManagerListIcon topicId={contest.id} reference={contest.settings.book.icon} label={contest.title} kind="topic" />
-                              <div>
-                                <strong>{contest.title}</strong>
-                                <span>{contest.description || contest.id.toUpperCase()}</span>
                               </div>
-                            </div>
-                          </td>
-                          <td className={topicMode ? "manager-column-centered" : undefined}>{topicMode ? "Topic" : contest.quizzes.length}</td>
-                          {topicMode && topicSummary ? <>
-                            <td className="manager-status-cell">{(() => { const status = topicPublishStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"} ariaLabel="Open topic publish tab" onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("publish"); }}>{status.label}</StatusBadge>; })()}</td>
-                            <td className="manager-status-cell">{(() => { const status = topicMarketplaceStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"} ariaLabel="Open topic marketplace tab" onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("marketplace"); }}>{status.label}</StatusBadge>; })()}</td>
-                          </> : <><td>{ready}</td><td>{builds}</td></>}
-                          <td>
-                            {topicMode ? <div className="manager-row-actions"><Button className="manager-row-open" variant="icon" color="primary" icon={<Pencil />} aria-label="Edit topic" title="Edit topic" onClick={(event) => { event.stopPropagation(); setPage({ kind: "contest", contest: contest.id }); setContestTab("info"); }} /><ActionMenu label="More actions" iconOnly items={[{ id: "publish-content", label: "Publish Content", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-topic", async () => { if (topicSummary) { const result = await managerApi.publishContentV2Topic(topicSummary.id); if (result.snapshot) onSnapshotChange(result.snapshot); } toast.show({ title: "Content published", description: `${contest.title} was published.` }); }) }, { id: "publish-market", label: "Publish to Market", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-market", async () => { const result = await managerApi.publishMarketplaceTopic(contest.id, true); onSnapshotChange(result.snapshot); toast.show({ title: "Published to market", description: `${contest.title} is now listed.` }); }) }]} /></div> : <ChevronRight size={16} />}
-                          </td>
-                        </tr>
-                      );
-                    })}
-              </tbody>
-            </table>
-            {(isContest ? visibleQuizzes : visibleContests).length === 0 && (
-              <div className="no-results">
-                No matching {isContest ? "quizzes" : topicMode ? "topics" : "contests"}.
-              </div>
-            )}
-          </div>}
+                            </td>
+                            <td className="manager-column-centered">Quiz</td>
+                            <td className="manager-status-cell">
+                              <StatusBadge
+                                tone={
+                                  publish.kind === "current"
+                                    ? "success"
+                                    : publish.kind === "changed"
+                                      ? "warning"
+                                      : "neutral"
+                                }
+                                ariaLabel="Open quiz publish tab"
+                                onClick={() => {
+                                  setPage({ kind: "quiz", quiz });
+                                  setQuizTab("publish");
+                                }}
+                              >
+                                {publish.label}
+                              </StatusBadge>
+                            </td>
+                            <td className="manager-status-cell">
+                              <span className="topic-status-na">—</span>
+                            </td>
+                            <td>
+                              <div className="manager-row-actions">
+                                <TableActionButton
+                                  color="primary"
+                                  icon={<Pencil />}
+                                  aria-label="Edit quiz"
+                                  title="Edit quiz"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setPage({ kind: "quiz", quiz });
+                                    setQuizTab("info");
+                                  }}
+                                />
+                                <ActionMenu
+                                  label="More actions"
+                                  iconOnly
+                                  items={[
+                                    {
+                                      id: "publish-content",
+                                      label: "Publish Content",
+                                      icon: CloudUpload,
+                                      onSelect: () =>
+                                        void runButtonAction(
+                                          "quick-publish-quiz",
+                                          async () => {
+                                            await managerApi.publishQuiz(
+                                              quiz.contest,
+                                              quiz.id,
+                                            );
+                                            onOpenJobs();
+                                            toast.show({
+                                              title: "Content published",
+                                              description: `${quiz.title} was published.`,
+                                            });
+                                          },
+                                        ),
+                                    },
+                                  ]}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    : isContest
+                      ? visibleQuizzes.map((quiz) => {
+                          const review = quizReviewStatus(quiz);
+                          const migration = migrationForQuiz(quiz);
+                          const percent = migration
+                            ? migration.total
+                              ? Math.min(
+                                  100,
+                                  Math.round(
+                                    (migration.processed / migration.total) *
+                                      100,
+                                  ),
+                                )
+                              : 100
+                            : 0;
+                          const activeMigration =
+                            migration &&
+                            (migration.status === "queued" ||
+                              migration.status === "running");
+                          return (
+                            <tr
+                              key={quiz.key}
+                              onClick={() => {
+                                setPage({ kind: "quiz", quiz });
+                                setQuizTab(
+                                  quiz.type === "contest"
+                                    ? "questions"
+                                    : "alphabets",
+                                );
+                              }}
+                            >
+                              <td>
+                                <div className="manager-list-identity">
+                                  <ManagerListIcon
+                                    topicId={quiz.contest}
+                                    reference={quiz.icon}
+                                    label={quiz.title}
+                                    kind="quiz"
+                                  />
+                                  <div>
+                                    <strong>{quiz.title}</strong>
+                                    <span>{quiz.id}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <span
+                                  className={`badge quiz-version quiz-version-${quiz.questionStorageVersion}`}
+                                >
+                                  {quiz.questionStorageVersion ===
+                                  "questions-v1"
+                                    ? "Questions v1"
+                                    : "Legacy"}
+                                </span>
+                              </td>
+                              <td>{quiz.grade ?? "—"}</td>
+                              <td>
+                                <strong>{quiz.year ?? "—"}</strong>
+                                <span>{quiz.round ?? "No round"}</span>
+                              </td>
+                              <td>{quiz.questionCount ?? "—"}</td>
+                              <td>
+                                <span
+                                  className={`badge review-status review-status-${review.kind}`}
+                                  title={review.label}
+                                  aria-label={`${review.label}: ${review.reviewed} of ${review.total}`}
+                                >
+                                  {review.reviewed}/{review.total}
+                                </span>
+                                {quiz.migrationErrorCount > 0 && (
+                                  <span className="badge badge-error">
+                                    {quiz.migrationErrorCount} errors
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {migration ? (
+                                  migration.status === "completed" ? (
+                                    <span className="badge job-status job-status-completed">
+                                      Migrated ({migration.succeeded}/
+                                      {migration.total})
+                                    </span>
+                                  ) : (
+                                    <div className="quiz-migration-status">
+                                      <span
+                                        className={`badge job-status job-status-${migration.status}`}
+                                      >
+                                        {migration.status}
+                                      </span>
+                                      <span>
+                                        {activeMigration
+                                          ? `${percent}% · ${migration.processed}/${migration.total}`
+                                          : `${migration.succeeded} saved${migration.failed ? ` · ${migration.failed} failed` : ""}`}
+                                      </span>
+                                    </div>
+                                  )
+                                ) : (
+                                  <span className="badge job-status">
+                                    Not started
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                <ChevronRight size={16} />
+                              </td>
+                            </tr>
+                          );
+                        })
+                      : visibleContests.map((contest) => {
+                          const ready = contest.quizzes.filter((quiz) =>
+                            ["reviewed", "validated", "published"].includes(
+                              quiz.contentStatus,
+                            ),
+                          ).length;
+                          const builds = contest.quizzes.filter(
+                            (quiz) => quiz.hasGeneratedArtifact,
+                          ).length;
+                          const topicSummary = snapshot.contentV2.topics.find(
+                            (topic) => topic.id === contest.id,
+                          );
+                          return (
+                            <tr key={contest.id}>
+                              <td>
+                                <div className="manager-list-identity">
+                                  <ManagerListIcon
+                                    topicId={contest.id}
+                                    reference={contest.settings.book.icon}
+                                    label={contest.title}
+                                    kind="topic"
+                                  />
+                                  <div>
+                                    <strong>{contest.title}</strong>
+                                    <span>
+                                      {contest.description ||
+                                        contest.id.toUpperCase()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td
+                                className={
+                                  topicMode
+                                    ? "manager-column-centered"
+                                    : undefined
+                                }
+                              >
+                                {topicMode ? "Topic" : contest.quizzes.length}
+                              </td>
+                              {topicMode && topicSummary ? (
+                                <>
+                                  <td className="manager-status-cell">
+                                    {(() => {
+                                      const status =
+                                        topicPublishStatus(topicSummary);
+                                      return (
+                                        <StatusBadge
+                                          tone={
+                                            status.kind === "current"
+                                              ? "success"
+                                              : status.kind === "changed"
+                                                ? "warning"
+                                                : "neutral"
+                                          }
+                                          ariaLabel="Open topic publish tab"
+                                          onClick={() => {
+                                            setPage({
+                                              kind: "contest",
+                                              contest: contest.id,
+                                            });
+                                            setContestTab("publish");
+                                          }}
+                                        >
+                                          {status.label}
+                                        </StatusBadge>
+                                      );
+                                    })()}
+                                  </td>
+                                  <td className="manager-status-cell">
+                                    {(() => {
+                                      const status =
+                                        topicMarketplaceStatus(topicSummary);
+                                      return (
+                                        <StatusBadge
+                                          tone={
+                                            status.kind === "current"
+                                              ? "success"
+                                              : status.kind === "changed"
+                                                ? "warning"
+                                                : "neutral"
+                                          }
+                                          ariaLabel="Open topic marketplace tab"
+                                          onClick={() => {
+                                            setPage({
+                                              kind: "contest",
+                                              contest: contest.id,
+                                            });
+                                            setContestTab("marketplace");
+                                          }}
+                                        >
+                                          {status.label}
+                                        </StatusBadge>
+                                      );
+                                    })()}
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td>{ready}</td>
+                                  <td>{builds}</td>
+                                </>
+                              )}
+                              <td>
+                                {topicMode ? (
+                                  <div className="manager-row-actions">
+                                    <TableActionButton
+                                      color="primary"
+                                      icon={<Pencil />}
+                                      aria-label="Edit topic"
+                                      title="Edit topic"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setPage({
+                                          kind: "contest",
+                                          contest: contest.id,
+                                        });
+                                        setContestTab("info");
+                                      }}
+                                    />
+                                    <ActionMenu
+                                      label="More actions"
+                                      iconOnly
+                                      items={[
+                                        {
+                                          id: "publish-content",
+                                          label: "Publish Content",
+                                          icon: CloudUpload,
+                                          onSelect: () =>
+                                            void runButtonAction(
+                                              "quick-publish-topic",
+                                              async () => {
+                                                if (topicSummary) {
+                                                  const result =
+                                                    await managerApi.publishContentV2Topic(
+                                                      topicSummary.id,
+                                                    );
+                                                  if (result.snapshot)
+                                                    onSnapshotChange(
+                                                      result.snapshot,
+                                                    );
+                                                }
+                                                toast.show({
+                                                  title: "Content published",
+                                                  description: `${contest.title} was published.`,
+                                                });
+                                              },
+                                            ),
+                                        },
+                                        {
+                                          id: "publish-market",
+                                          label: "Publish to Market",
+                                          icon: CloudUpload,
+                                          onSelect: () =>
+                                            void runButtonAction(
+                                              "quick-publish-market",
+                                              async () => {
+                                                const result =
+                                                  await managerApi.publishMarketplaceTopic(
+                                                    contest.id,
+                                                    true,
+                                                  );
+                                                onSnapshotChange(
+                                                  result.snapshot,
+                                                );
+                                                toast.show({
+                                                  title: "Published to market",
+                                                  description: `${contest.title} is now listed.`,
+                                                });
+                                              },
+                                            ),
+                                        },
+                                      ]}
+                                    />
+                                  </div>
+                                ) : (
+                                  <ChevronRight size={16} />
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                </tbody>
+              </table>
+              {(isContest ? visibleQuizzes : visibleContests).length === 0 && (
+                <div className="no-results">
+                  No matching{" "}
+                  {isContest ? "quizzes" : topicMode ? "topics" : "contests"}.
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
       {contestDialog && (
@@ -2517,9 +3290,7 @@ export function QuizManager({
             contestDialog !== "create"
               ? async () => {
                   const title = contestDialog.title;
-                  const next = await managerApi.deleteContest(
-                    contestDialog.id,
-                  );
+                  const next = await managerApi.deleteContest(contestDialog.id);
                   onRouteChange(rootRoute);
                   setContestDialog(null);
                   setPage({ kind: "contests" });

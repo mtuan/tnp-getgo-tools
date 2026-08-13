@@ -1288,19 +1288,23 @@ main {
 }
 .ui-button.ui-table-action-button {
   box-sizing: border-box;
+  display: inline-grid;
+  flex: 0 0 32px;
   width: 32px;
   height: 32px;
   min-height: 32px;
   padding: 0;
+  place-items: center;
   border-radius: 8px;
   box-shadow: none;
+  line-height: 1;
 }
 .ui-table-action-button:not(:disabled):hover {
   transform: none;
   box-shadow: none;
 }
-table td .ui-table-action-button .ui-button-icon {
-  display: inline-grid;
+.ui-table-action-button .ui-button-icon {
+  display: grid;
   width: 14px;
   height: 14px;
   max-width: none;
@@ -1309,7 +1313,8 @@ table td .ui-table-action-button .ui-button-icon {
   place-items: center;
   color: inherit;
 }
-table td .ui-table-action-button .ui-button-icon > svg {
+.ui-table-action-button .ui-button-icon > svg {
+  display: block;
   width: 14px;
   height: 14px;
 }
@@ -1552,21 +1557,6 @@ tbody tr {
 }
 tbody tr:hover {
   background: #f8fbf8;
-}
-td strong {
-  display: block;
-  color: #25392e;
-  font-size: 13px;
-}
-td span:not(.badge):not(.ui-status-badge) {
-  display: block;
-  max-width: 230px;
-  margin-top: 3px;
-  color: #94a098;
-  font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .badge {
   display: inline-block;
@@ -2650,6 +2640,7 @@ main {
   color: #6366f1;
 }
 .primary {
+  color: #ffffff;
   border-color: #4f46e5;
   background: #4f46e5;
   border-radius: 12px;
@@ -2784,12 +2775,6 @@ th {
 td {
   border-color: #f1f5f9;
   color: #64748b;
-}
-td strong {
-  color: #1e293b;
-}
-td span:not(.badge):not(.ui-status-badge) {
-  color: #94a3b8;
 }
 tbody tr:hover {
   background: #eef2ff80;
@@ -3618,16 +3603,6 @@ tbody tr:hover {
 .manager-row-actions .ui-action-menu-trigger {
   display: inline-flex;
 }
-.manager-row-actions .icon-button,
-.manager-row-actions .ui-action-menu-trigger > .ui-button {
-  box-sizing: border-box;
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-  flex: 0 0 32px;
-  padding: 0;
-  border-radius: 8px;
-}
 .manager-row-actions .manager-row-open.button-color-primary {
   color: #4338ca !important;
   background: #e0e7ff !important;
@@ -3635,36 +3610,6 @@ tbody tr:hover {
 .manager-row-actions .manager-row-open.button-color-primary:hover {
   color: #3730a3 !important;
   background: #c7d2fe !important;
-}
-.manager-row-actions > .ui-button,
-.manager-row-actions .ui-action-menu-trigger > .ui-button {
-  box-sizing: border-box;
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-  padding: 0;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.manager-row-actions > .ui-button.button-color-primary {
-  color: #ffffff !important;
-  background: #4f46e5 !important;
-  border-color: #4f46e5 !important;
-}
-.manager-row-actions > .ui-button.button-color-primary:hover {
-  color: #ffffff !important;
-  background: #4338ca !important;
-  border-color: #4338ca !important;
-}
-.manager-row-actions .ui-button-icon {
-  display: inline-grid;
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  place-items: center;
-  flex: 0 0 15px;
 }
 .manager-table tbody tr:hover td:last-child {
   color: #4f46e5;
