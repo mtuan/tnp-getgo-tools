@@ -1,22 +1,14 @@
-import type {
-  PublishResult,
-  QuizSummary,
-} from "../core/models.js";
+import type { PublishResult, QuizSummary } from "../core/models.js";
 import type { LocalPublishPayload } from "../repositories/quiz-publishing.js";
 import type { FirebaseAuthService } from "./firebase-auth.js";
-import type {
-  ContentV2Question,
-  ContentV2Quiz,
-  ContentV2Topic,
-} from "../core/content-v2.js";
+import type { ContentV2Question, ContentV2Quiz, ContentV2Topic } from "../core/content-v2.js";
 import {
   sanitizeContentV2Question,
   sanitizeContentV2Quiz,
   sanitizeContentV2Topic,
 } from "../core/content-v2.js";
-import type { ContentV2PublishResult } from "../core/models.js";
-import type { ContentV2QuizPublishPreview } from "../core/models.js";
-import type { ContentV2TopicPublishPreview } from "../core/models.js";
+import { marketplaceTopicState } from "../core/marketplace-topic-state.js";
+import type { ContentV2PublishResult, ContentV2QuizPublishPreview, ContentV2TopicPublishPreview } from "../core/models.js";
 import {
   contentV2PublishedItems,
   diffContentV2PublishedItems,
@@ -433,6 +425,14 @@ export class FirestorePublishingService {
   }> {
     await control?.checkpoint();
     const target = await this.auth.publishingTarget();
+    if (marketplaceTopicState(quiz.marketplace) === "removed") {
+      await control?.setTotal(1, "Removing quiz from the marketplace");
+      await this.deleteContentV2TopicQuizzes(topicId, [quiz.id], control);
+      return { kind: "quiz", topicId, quizId: quiz.id, contentHash,
+        publishedAt: new Date().toISOString(), environment: target.environment,
+        projectId: target.projectId, items: {}, changedItemCount: 0,
+        removedItemCount: Object.keys(previousState?.items ?? {}).length };
+    }
     const preview = createContentV2QuizPublishPreview(
       topicId,
       quiz,

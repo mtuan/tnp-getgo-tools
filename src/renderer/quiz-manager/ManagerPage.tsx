@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { PageHeader } from "../ui/PageHeader";
 import { Tabs } from "../ui/Tabs";
+import { AccordionGroup } from "../ui/Accordion";
 import { MarketplaceMetadataSection } from "../MarketplaceMetadataSection";
 import { KidLearningDictionaryEditor } from "../KidLearningDictionaryEditor";
 import { TopicAssetsEditor } from "../TopicAssetsEditor";
@@ -240,7 +241,7 @@ export function renderManagerPage(context: ManagerPageContext) {
         />
       )}
       {isContest && contestTab === "info" && selectedContest && (
-        <>
+        <AccordionGroup defaultExpanded="general">
           <ContestSettingsDialog
             embedded
             topicMode={topicMode}
@@ -269,7 +270,7 @@ export function renderManagerPage(context: ManagerPageContext) {
               }}
             />
           )}
-        </>
+        </AccordionGroup>
       )}
       {topicMode &&
         isContest &&

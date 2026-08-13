@@ -507,6 +507,7 @@ export function renderQuizPage(context: QuizPageContext) {
       setSelectedQuestion,
       sourceError,
       sourceLoading,
+      snapshot,
       toast,
       verifiedCount,
     });

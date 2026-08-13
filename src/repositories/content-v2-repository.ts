@@ -338,7 +338,7 @@ export async function scanContentV2Repository(
         filePath: quizFile,
         localHash,
         publishedHash: quiz.publishedHash ?? null,
-        publishedAt: quiz.publishedAt ?? null,
+        publishedAt: quiz.publishedAt ?? null, marketplace: quiz.marketplace,
         questionCount: quizQuestions.length,
         reviewedQuestionCount: quizQuestions.filter(
           (item) => item.record.status === "reviewed",

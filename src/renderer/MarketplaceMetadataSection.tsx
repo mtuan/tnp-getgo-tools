@@ -20,6 +20,17 @@ import { useSaveShortcut } from "./ui/useSaveShortcut";
 
 type MarketplaceRecord = ContentV2Topic | ContentV2Quiz;
 
+const standardSubjects = [
+  { value: "mathematics", label: "Mathematics" },
+  { value: "english", label: "English" },
+  { value: "vietnamese", label: "Vietnamese" },
+  { value: "physics", label: "Physics" },
+  { value: "chemistry", label: "Chemistry" },
+  { value: "biology", label: "Biology" },
+  { value: "history", label: "History" },
+  { value: "geography", label: "Geography" },
+];
+
 const toLines = (value: unknown) =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string").join("\n")
@@ -66,10 +77,12 @@ function metadata(record: MarketplaceRecord): MarketplaceTopicMetadata {
 export function MarketplaceMetadataSection({
   locale,
   load,
+  loadSubjectOptions,
   save,
 }: {
   locale: AppSettings["locale"];
   load(): Promise<MarketplaceRecord>;
+  loadSubjectOptions?(): Promise<string[]>;
   save(record: MarketplaceRecord): Promise<void>;
 }) {
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
@@ -77,6 +90,7 @@ export function MarketplaceMetadataSection({
   const toast = useToast();
   const [source, setSource] = useState<MarketplaceRecord | null>(null);
   const [draft, setDraft] = useState<MarketplaceRecord | null>(null);
+  const [parentSubjects, setParentSubjects] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const dirty = Boolean(
@@ -86,11 +100,12 @@ export function MarketplaceMetadataSection({
   useEffect(() => {
     let active = true;
     setBusy(true);
-    void load()
-      .then((record) => {
+    void Promise.all([load(), loadSubjectOptions?.() ?? Promise.resolve([])])
+      .then(([record, subjects]) => {
         if (!active) return;
         setSource(record);
         setDraft(structuredClone(record));
+        setParentSubjects(subjects);
       })
       .catch((error) => {
         if (active)
@@ -106,13 +121,25 @@ export function MarketplaceMetadataSection({
     return () => {
       active = false;
     };
-  }, [copy.loadFailed, load, toast]);
+  }, [copy.loadFailed, load, loadSubjectOptions, toast]);
   const current = draft ? metadata(draft) : null;
+  const isTopic = Boolean(draft && !("topicId" in draft));
+  const subjectOptions = useMemo(() => {
+    if (!isTopic)
+      return parentSubjects.map((subject) => ({
+        value: subject,
+        label: standardSubjects.find((option) => option.value === subject)?.label ?? subject,
+      }));
+    const options = new Map(standardSubjects.map((subject) => [subject.value, subject]));
+    for (const subject of source ? metadata(source).subjects : [])
+      if (!options.has(subject)) options.set(subject, { value: subject, label: subject });
+    return [...options.values()];
+  }, [isTopic, parentSubjects, source]);
   const values: FormValues = current
     ? {
         shortDescription: current.shortDescription,
         fullDescription: current.fullDescription,
-        subjects: toLines(current.subjects),
+        subjects: isTopic ? current.subjects : current.subjects[0] ?? "",
         languages: current.languages,
         tags: toLines(current.tags),
         learningObjectives: toLines(current.learningObjectives),
@@ -138,12 +165,19 @@ export function MarketplaceMetadataSection({
         required: true,
       },
       [
-        {
-          type: "textarea",
-          name: "subjects",
-          label: copy.fields.subjects,
-          helper: copy.fields.listHelp,
-        },
+        isTopic
+          ? {
+              type: "multi-select",
+              name: "subjects",
+              label: copy.fields.subjects,
+              options: subjectOptions,
+            }
+          : {
+              type: "select",
+              name: "subjects",
+              label: copy.fields.subjects,
+              options: subjectOptions,
+            },
         {
           type: "multi-select",
           name: "languages",
@@ -207,14 +241,18 @@ export function MarketplaceMetadataSection({
         },
       ],
     ],
-    [copy],
+    [copy, isTopic, subjectOptions],
   );
   const change = (name: string, value: unknown) =>
     setDraft((record) => {
       if (!record) return record;
       const next = metadata(record) as MarketplaceTopicMetadata &
         Record<string, unknown>;
-      if (["subjects", "tags", "learningObjectives"].includes(name))
+      if (name === "subjects" && Array.isArray(value))
+        next.subjects = value.map(String);
+      else if (name === "subjects")
+        next.subjects = value ? [String(value)] : [];
+      else if (["subjects", "tags", "learningObjectives"].includes(name))
         next[name] = toList(value);
       else if (name === "languages")
         next.languages = Array.isArray(value) ? value.map(String) : [];
@@ -235,10 +273,20 @@ export function MarketplaceMetadataSection({
     });
   const saveDraft = async () => {
     if (!draft || !dirty) return;
+    const recordToSave = "topicId" in draft
+      ? {
+          ...draft,
+          marketplace: {
+            ...draft.marketplace,
+            subjects: draft.marketplace?.subjects?.slice(0, 1) ?? [],
+          },
+        }
+      : draft;
     setBusy(true);
     try {
-      await save(draft);
-      setSource(structuredClone(draft));
+      await save(recordToSave);
+      setSource(structuredClone(recordToSave));
+      setDraft(structuredClone(recordToSave));
       toast.show({ title: copy.saved, variant: "success" });
     } catch (error) {
       toast.show({
@@ -262,6 +310,7 @@ export function MarketplaceMetadataSection({
 
   return (
     <AccordionSection
+      groupId="marketplace"
       variant="panel"
       expanded={expanded}
       onExpandedChange={setExpanded}

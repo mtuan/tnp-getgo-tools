@@ -8,7 +8,6 @@ export {
   withMarketplaceTopicState,
   type MarketplaceTopicState,
 } from "./marketplace-topic-state.js";
-import type { MarketplaceTopicState } from "./marketplace-topic-state.js";
 
 export const contentV2ReviewStatuses = [
   "draft",

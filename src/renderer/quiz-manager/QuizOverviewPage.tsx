@@ -8,6 +8,15 @@ import { Tabs } from "../ui/Tabs";
 import { DataTable, type DataColumn } from "../ui/DataTable";
 import { ActionMenu } from "../ui/ActionMenu";
 import { MarketplaceMetadataSection } from "../MarketplaceMetadataSection";
+import { AccordionGroup } from "../ui/Accordion";
+import { Select } from "../ui/Select";
+import {
+  marketplaceTopicState,
+  withMarketplaceTopicState,
+  type MarketplaceTopicState,
+} from "../../core/marketplace-topic-state";
+import en from "../locales/en.json";
+import vi from "../locales/vi.json";
 import { QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
 
 type QuizOverviewContext = Record<string, any> & {
@@ -53,9 +62,15 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     setSelectedQuestion,
     sourceError,
     sourceLoading,
+    snapshot,
     toast,
     verifiedCount,
   } = context;
+  const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
+  const contentQuiz = snapshot.contentV2.quizzes.find(
+    (item: { topicId: string; id: string }) =>
+      item.topicId === quiz.contest && item.id === quiz.id,
+  );
     return (
       <section className="manager editor-page">
         <PageHeader
@@ -90,6 +105,43 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           actions={
             quizTab === "info" ? (
               <>
+                {contentQuiz && (
+                  <Select
+                    className="manager-market-state-select"
+                    ariaLabel={marketplaceCopy.stateLabel}
+                    value={marketplaceTopicState(contentQuiz.marketplace)}
+                    disabled={Boolean(buttonAction)}
+                    options={Object.entries(marketplaceCopy.states).map(
+                      ([value, label]) => ({ value, label }),
+                    )}
+                    onValueChange={(value) =>
+                      void runButtonAction("market-state", async () => {
+                        const stored = await window.getgo.loadContentV2Quiz(
+                          quiz.contest,
+                          quiz.id,
+                        );
+                        const next = await window.getgo.saveContentV2Quiz(
+                          quiz.contest,
+                          {
+                            ...stored,
+                            marketplace: withMarketplaceTopicState(
+                              stored.marketplace,
+                              value as MarketplaceTopicState,
+                            ),
+                          },
+                        );
+                        onSnapshotChange(next);
+                        toast.show({
+                          title: marketplaceCopy.stateUpdated,
+                          description: marketplaceCopy.stateUpdatedDescription.replace(
+                            "{state}",
+                            marketplaceCopy.states[value as MarketplaceTopicState],
+                          ),
+                        });
+                      })
+                    }
+                  />
+                )}
                 <Button
                   icon={<Trash2 size={15} />}
                   loading={buttonAction === "delete-quiz"}
@@ -224,7 +276,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           ].filter((item): item is Exclude<typeof item, null> => Boolean(item))}
         />
         {quizTab === "info" && quizContest && (
-          <>
+          <AccordionGroup defaultExpanded="general">
             <QuizCrudDialog
               embedded
               quiz={quiz}
@@ -257,6 +309,11 @@ export function renderQuizOverview(context: QuizOverviewContext) {
               <MarketplaceMetadataSection
                 locale={locale}
                 load={() => window.getgo.loadContentV2Quiz(quiz.contest, quiz.id)}
+                loadSubjectOptions={async () => {
+                  const topic = await window.getgo.loadContentV2Topic(quiz.contest);
+                  return topic.marketplace?.subjects ??
+                    (topic.type === "competition" ? [topic.subject] : []);
+                }}
                 save={async (record) => {
                   if (!("topicId" in record)) throw new Error("Expected quiz metadata.");
                   const next = await window.getgo.saveContentV2Quiz(quiz.contest, record);
@@ -264,7 +321,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                 }}
               />
             )}
-          </>
+          </AccordionGroup>
         )}
         {quizTab === "questions" && (
           <>

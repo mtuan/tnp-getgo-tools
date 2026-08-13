@@ -58,10 +58,7 @@ import {
 } from "../repositories/alphabet-dictionary.js";
 import { withSpeechLanguageSettings } from "../core/speech-settings.js";
 import type { SpeechLanguage, SpeechLanguageSettings } from "../core/models.js";
-import {
-  reviewedTopicQuizzes,
-  shouldPublishContainingTopic,
-} from "../core/content-v2-publish-policy.js";
+import { reviewedTopicQuizzes, shouldPublishContainingTopic } from "../core/content-v2-publish-policy.js";
 import {
   createPublishPayloadFromQuestions,
   recordPublishedHash,
@@ -1923,7 +1920,7 @@ app.whenReady().then(async () => {
       const reviewedQuizzes = reviewedTopicQuizzes(
         snapshot.contentV2.quizzes,
         topicId,
-      );
+      ).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "removed");
       for (const quiz of reviewedQuizzes)
         if (quiz.questionCount !== quiz.reviewedQuestionCount)
           throw new Error(
@@ -1938,8 +1935,9 @@ app.whenReady().then(async () => {
         async (control) => {
           if (!firebaseAuth) throw new Error("Publishing is not initialized.");
           const target = await firebaseAuth.publishingTarget();
-          const localQuizIds = snapshot.contentV2.quizzes
-            .filter((quiz) => quiz.topicId === topicId)
+          const localQuizIds = snapshot.contentV2.quizzes.filter(
+              (quiz) => quiz.topicId === topicId && marketplaceTopicState(quiz.marketplace) !== "removed",
+            )
             .map((quiz) => quiz.id);
           const staleQuizIds = await publishing.staleContentV2TopicQuizIds(
             topicId,
@@ -2228,7 +2226,8 @@ app.whenReady().then(async () => {
           const topicQuizIds = reviewedTopicQuizzes(
             snapshot.contentV2.quizzes,
             topicId,
-          ).map((item) => item.id);
+          ).filter((item) => marketplaceTopicState(item.marketplace) !== "removed")
+            .map((item) => item.id);
           await control.checkpoint();
           if (!firebaseAuth) throw new Error("Publishing is not initialized.");
           const target = await firebaseAuth.publishingTarget();

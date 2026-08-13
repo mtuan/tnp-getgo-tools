@@ -822,10 +822,19 @@ main {
   flex: 0 0 auto;
 }
 .ui-page-header-actions {
+  --ui-page-header-control-height: 38px;
   display: flex;
   align-items: center;
   flex: 0 0 auto;
   gap: 8px;
+}
+.ui-page-header-actions > .ui-button,
+.ui-page-header-actions > .schema-select > button {
+  height: var(--ui-page-header-control-height);
+  min-height: var(--ui-page-header-control-height);
+}
+.ui-page-header-actions > .schema-select {
+  margin-top: 0;
 }
 .ui-page-header-navigation {
   display: flex;

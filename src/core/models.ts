@@ -136,7 +136,7 @@ export interface ContentV2QuizSummary {
   filePath: string;
   localHash: string;
   publishedHash: string | null;
-  publishedAt: string | null;
+  publishedAt: string | null; marketplace?: import("./content-v2.js").MarketplaceTopicMetadataInput;
   questionCount: number;
   reviewedQuestionCount: number;
   grade?: string;
