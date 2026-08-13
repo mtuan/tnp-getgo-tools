@@ -779,6 +779,39 @@ export function QuizManager({
         .toLowerCase()
         .includes(normalizedQuery),
   );
+  const publishAllContestQuizzes = useCallback(
+    (contest: ContestSummary & { quizzes: QuizSummary[] }) => {
+      if (!contest.quizzes.length) {
+        toast.show({
+          title: "Nothing to publish",
+          description: `${contest.title} does not contain any quizzes.`,
+        });
+        return;
+      }
+      const jobs = contest.quizzes.map((quiz) =>
+        managerApi.publishQuiz(contest.id, quiz.id),
+      );
+      onOpenJobs();
+      toast.show({
+        title: "Publish jobs started",
+        description: `${jobs.length} quiz publish job${jobs.length === 1 ? "" : "s"} added for ${contest.title}.`,
+      });
+      void Promise.allSettled(jobs).then((results) => {
+        const failures = results.filter(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected",
+        );
+        if (failures.length) {
+          console.error("[GetGo Tools][Publish all] Publish jobs failed", {
+            contestId: contest.id,
+            total: jobs.length,
+            failures: failures.map((failure) => failure.reason),
+          });
+        }
+      });
+    },
+    [managerApi, onOpenJobs, toast],
+  );
   const migrationForQuiz = (quiz: QuizSummary): QuizAiMigrationJob | null =>
     migrationJobs.find(
       (job) => job.contestId === quiz.contest && job.quizId === quiz.id,
@@ -2705,6 +2738,17 @@ export function QuizManager({
                         label="More actions"
                         iconOnly
                         items={[
+                          ...(row.kind === "topic"
+                            ? [
+                                {
+                                  id: "publish-all",
+                                  label: "Publish All",
+                                  icon: CheckCheck,
+                                  onSelect: () =>
+                                    publishAllContestQuizzes(row.contest),
+                                },
+                              ]
+                            : []),
                           {
                             id: "publish-content",
                             label: "Publish Content",
@@ -3213,6 +3257,13 @@ export function QuizManager({
                                       label="More actions"
                                       iconOnly
                                       items={[
+                                        {
+                                          id: "publish-all",
+                                          label: "Publish All",
+                                          icon: CheckCheck,
+                                          onSelect: () =>
+                                            publishAllContestQuizzes(contest),
+                                        },
                                         {
                                           id: "publish-content",
                                           label: "Publish Content",
