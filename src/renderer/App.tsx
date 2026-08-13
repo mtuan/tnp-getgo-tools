@@ -40,6 +40,7 @@ import { defaultSpeechSettings } from "../core/speech-settings";
 import { useAuth } from "./AuthContext";
 import { AccountMenu } from "./AccountMenu";
 import { GetGoIcon } from "./GetGoIcon";
+import { StartupLoadingScreen } from "./StartupLoadingScreen";
 import { PageTransition } from "./PageTransition";
 import { Button } from "./ui/Button";
 import { DialogFrame } from "./ui/DialogFrame";
@@ -56,14 +57,22 @@ import en from "./locales/en.json";
 import vi from "./locales/vi.json";
 
 const rendererStartedAt = performance.now();
-const rendererStartupLog = (stage: string, details: Record<string, unknown> = {}) =>
-  console.info(`[GetGo Tools][Renderer startup][+${Math.round(performance.now() - rendererStartedAt)}ms] ${stage}`, details);
+const rendererStartupLog = (
+  stage: string,
+  details: Record<string, unknown> = {},
+) =>
+  console.info(
+    `[GetGo Tools][Renderer startup][+${Math.round(performance.now() - rendererStartedAt)}ms] ${stage}`,
+    details,
+  );
 
 const JobsPage = lazy(() =>
   import("./JobsPage").then((module) => ({ default: module.JobsPage })),
 );
 const DeploymentPage = lazy(() =>
-  import("./DeploymentPage").then((module) => ({ default: module.DeploymentPage })),
+  import("./DeploymentPage").then((module) => ({
+    default: module.DeploymentPage,
+  })),
 );
 const ImagePdfPage = lazy(() =>
   import("./ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
@@ -119,9 +128,13 @@ function viewFromRoute(
   } catch {
     pathname = route.split("?")[0];
   }
-  const staticView = ["dashboard", "jobs", "deploy", "image-pdf", "settings"].find(
-    (value) => pathname === `/${value}`,
-  );
+  const staticView = [
+    "dashboard",
+    "jobs",
+    "deploy",
+    "image-pdf",
+    "settings",
+  ].find((value) => pathname === `/${value}`);
   if (staticView) return staticView as NavigableView;
   const parts = pathname
     .split("/")
@@ -211,7 +224,17 @@ const localeOptions: SelectOption[] = [
 ];
 
 function Badge({ value }: { value: ContentStatus | DeploymentStatus }) {
-  const tone = ["validated", "published", "uploaded"].includes(value) ? "success" : value === "reviewed" ? "info" : value === "generated" ? "primary" : value === "outdated" ? "danger" : value === "not-built" ? "danger" : "warning";
+  const tone = ["validated", "published", "uploaded"].includes(value)
+    ? "success"
+    : value === "reviewed"
+      ? "info"
+      : value === "generated"
+        ? "primary"
+        : value === "outdated"
+          ? "danger"
+          : value === "not-built"
+            ? "danger"
+            : "warning";
   return <StatusBadge tone={tone}>{value.replace("-", " ")}</StatusBadge>;
 }
 
@@ -425,7 +448,8 @@ export function App() {
       setRepositoryStructureChange(change);
       toast.show({
         title: "Repository structure changed",
-        description: "Review the detected folder changes and rescan when ready.",
+        description:
+          "Review the detected folder changes and rescan when ready.",
       });
     });
   }, [toast]);
@@ -529,8 +553,14 @@ export function App() {
   function environmentSwitcher(className?: string) {
     if (!settingsLoaded)
       return (
-        <div className={["environment-switcher", className].filter(Boolean).join(" ")}>
-          <span className="environment-loading" role="status">Loading target…</span>
+        <div
+          className={["environment-switcher", className]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <span className="environment-loading" role="status">
+            Loading target…
+          </span>
         </div>
       );
     const failedChecks = environmentReadiness?.checks
@@ -583,6 +613,9 @@ export function App() {
     ["reviewed", "validated", "published"].includes(q.contentStatus),
   ).length;
   const contests = snapshot?.contests.length ?? 0;
+
+  if (loading && !snapshot)
+    return <StartupLoadingScreen settingsLoaded={settingsLoaded} />;
 
   return (
     <div
@@ -657,7 +690,7 @@ export function App() {
                   ? contentCopy.legacyNav
                   : item.id === "image-pdf"
                     ? imagePdfCopy.nav
-                  : item.label;
+                    : item.label;
             return (
               <button
                 key={item.id}
@@ -723,14 +756,22 @@ export function App() {
               <AlertTriangle size={18} />
               <div>
                 <strong>Repository structure changed</strong>
-                <span>{repositoryStructureChange.path ? `Detected ${repositoryStructureChange.path}. ` : ""}The current index may not include added, removed, or renamed files.</span>
+                <span>
+                  {repositoryStructureChange.path
+                    ? `Detected ${repositoryStructureChange.path}. `
+                    : ""}
+                  The current index may not include added, removed, or renamed
+                  files.
+                </span>
               </div>
               <Button
                 variant="solid"
                 icon={<RefreshCw />}
                 loading={loading}
                 onClick={() => void scan(undefined, true, true)}
-              >Rescan repository</Button>
+              >
+                Rescan repository
+              </Button>
             </div>
           )}
           <PageTransition
@@ -763,7 +804,10 @@ export function App() {
                 </Button>
               </section>
             )}
-            {!settings.repositoryPath && !loading && view !== "not-found" && view !== "image-pdf" ? (
+            {!settings.repositoryPath &&
+            !loading &&
+            view !== "not-found" &&
+            view !== "image-pdf" ? (
               <section className="welcome">
                 <div className="welcome-mark">
                   <GetGoIcon size={56} />
@@ -893,12 +937,19 @@ export function App() {
             )}
             {settings.repositoryPath && view === "jobs" && (
               <Suspense fallback={null}>
-                <JobsPage locale={settings.locale} onOpenQuiz={(route) => goToRoute(route)} />
+                <JobsPage
+                  locale={settings.locale}
+                  onOpenQuiz={(route) => goToRoute(route)}
+                />
               </Suspense>
             )}
             {settings.repositoryPath && view === "deploy" && (
               <Suspense fallback={null}>
-                <DeploymentPage locale={settings.locale} environment={settings.environment} onOpenJobs={() => goToRoute("/jobs")} />
+                <DeploymentPage
+                  locale={settings.locale}
+                  environment={settings.environment}
+                  onOpenJobs={() => goToRoute("/jobs")}
+                />
               </Suspense>
             )}
             {view === "image-pdf" && (

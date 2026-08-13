@@ -30,10 +30,7 @@ import {
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
-function sharedDictionaryPath(
-  repositoryPath: string,
-  topicId: string,
-) {
+function sharedDictionaryPath(repositoryPath: string, topicId: string) {
   return path.join(
     contentRoot(repositoryPath),
     validateId(topicId, "Topic ID"),
@@ -71,7 +68,8 @@ async function saveMetadataIcon(
   dataUrl: string,
   referenceDirectory = "icons",
 ): Promise<string> {
-  const match = /^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([\s\S]+)$/.exec(dataUrl);
+  const match =
+    /^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([\s\S]+)$/.exec(dataUrl);
   if (!match) throw new Error("The selected icon is not a supported image.");
   const extensions: Record<string, string> = {
     "image/png": "png",
@@ -84,11 +82,16 @@ async function saveMetadataIcon(
   await fs.mkdir(assetsDirectory, { recursive: true });
   await Promise.all(
     Object.values(extensions).map((candidate) =>
-      fs.rm(path.join(assetsDirectory, `${basename}.${candidate}`), { force: true }),
+      fs.rm(path.join(assetsDirectory, `${basename}.${candidate}`), {
+        force: true,
+      }),
     ),
   );
   const filename = `${basename}.${extension}`;
-  await fs.writeFile(path.join(assetsDirectory, filename), Buffer.from(match[2], "base64"));
+  await fs.writeFile(
+    path.join(assetsDirectory, filename),
+    Buffer.from(match[2], "base64"),
+  );
   return `asset:${referenceDirectory}/${filename}`;
 }
 
@@ -120,6 +123,7 @@ export interface ContentV2Asset {
 
 export async function scanContentV2Repository(
   repositoryPath: string,
+  options: { lightweight?: boolean } = {},
 ): Promise<LoadedContentV2> {
   const scanStartedAt = Date.now();
   const root = contentRoot(repositoryPath);
@@ -178,9 +182,41 @@ export async function scanContentV2Repository(
         summary: ContentV2QuestionSummary;
       }> = [];
       const questionsStartedAt = Date.now();
+      const lightweight = options.lightweight === true;
       for (const questionFile of await questionFiles(
         path.join(path.dirname(quizFile), "questions"),
       )) {
+        if (lightweight) {
+          const id = path.basename(questionFile, ".json");
+          const order = Number(id) || quizQuestions.length;
+          quizQuestions.push({
+            record: {
+              id,
+              order,
+              status: "pending",
+              type:
+                quiz.type === "competition-paper"
+                  ? "competition-question"
+                  : "alphabet-letter",
+            } as ContentV2Question,
+            summary: {
+              key: `${topic.id}/${quiz.id}/${id}`,
+              topicId: topic.id,
+              quizId: quiz.id,
+              id,
+              type:
+                quiz.type === "competition-paper"
+                  ? "competition-question"
+                  : "alphabet-letter",
+              order,
+              status: "pending",
+              filePath: questionFile,
+              localHash: "",
+              label: id,
+            },
+          });
+          continue;
+        }
         try {
           const question = contentV2QuestionSchema.parse(
             await readJson(questionFile),
@@ -235,14 +271,16 @@ export async function scanContentV2Repository(
       const questionsDurationMs = Date.now() - questionsStartedAt;
       let resources: Record<string, unknown> = {};
       const resourcesStartedAt = Date.now();
-      if (quiz.type === "alphabet" || quiz.type === "spelling") {
-        const dictionaryPath = sharedDictionaryPath(
-          repositoryPath,
-          topic.id,
-        );
+      if (
+        !lightweight &&
+        (quiz.type === "alphabet" || quiz.type === "spelling")
+      ) {
+        const dictionaryPath = sharedDictionaryPath(repositoryPath, topic.id);
         try {
           resources = {
-            dictionary: parseKidLearningDictionary(await readJson(dictionaryPath)),
+            dictionary: parseKidLearningDictionary(
+              await readJson(dictionaryPath),
+            ),
           };
         } catch (cause) {
           issues.push({
@@ -255,17 +293,21 @@ export async function scanContentV2Repository(
       let assetHashes: Array<{ reference: string; contentHash: string }> = [];
       const assetsStartedAt = Date.now();
       try {
-        assetHashes = (
-          await loadContentV2Assets(repositoryPath, topic.id, quiz.id, {
-            topic,
-            quiz,
-            questions: quizQuestions.map((item) => item.record),
-            resources,
-          })
-        ).map((asset) => ({
-          reference: asset.reference,
-          contentHash: asset.contentHash,
-        }));
+        if (lightweight) {
+          assetHashes = [];
+        } else {
+          assetHashes = (
+            await loadContentV2Assets(repositoryPath, topic.id, quiz.id, {
+              topic,
+              quiz,
+              questions: quizQuestions.map((item) => item.record),
+              resources,
+            })
+          ).map((asset) => ({
+            reference: asset.reference,
+            contentHash: asset.contentHash,
+          }));
+        }
       } catch (cause) {
         issues.push({
           path: path.relative(repositoryPath, quizFile),
@@ -273,14 +315,16 @@ export async function scanContentV2Repository(
         });
       }
       const assetsDurationMs = Date.now() - assetsStartedAt;
-      const localHash = hashContentV2({
-        quiz: sanitizeContentV2Quiz(quiz),
-        questions: quizQuestions.map((item) =>
-          sanitizeContentV2Question(item.record),
-        ),
-        resources,
-        assets: assetHashes,
-      });
+      const localHash = lightweight
+        ? ""
+        : hashContentV2({
+            quiz: sanitizeContentV2Quiz(quiz),
+            questions: quizQuestions.map((item) =>
+              sanitizeContentV2Question(item.record),
+            ),
+            resources,
+            assets: assetHashes,
+          });
       const summary: ContentV2QuizSummary = {
         key: `${topic.id}/${quiz.id}`,
         topicId: topic.id,
@@ -347,8 +391,14 @@ export async function scanContentV2Repository(
       quizCount: topicQuizzes.length,
       marketplace: topic.marketplace,
       marketplaceLocalHash: hashContentV2(sanitizeMarketplaceTopic(topic)),
-      marketplacePublishedHash: typeof topic.marketplace?.publishedHash === "string" ? topic.marketplace.publishedHash : null,
-      marketplacePublishedAt: typeof topic.marketplace?.publishedAt === "string" ? topic.marketplace.publishedAt : null,
+      marketplacePublishedHash:
+        typeof topic.marketplace?.publishedHash === "string"
+          ? topic.marketplace.publishedHash
+          : null,
+      marketplacePublishedAt:
+        typeof topic.marketplace?.publishedAt === "string"
+          ? topic.marketplace.publishedAt
+          : null,
       ...(topic.type === "competition"
         ? {
             subject: topic.subject,
@@ -401,9 +451,23 @@ export async function saveContentV2Topic(
   value: unknown,
 ): Promise<ContentV2Topic> {
   const rawTopic = value as { id?: unknown; icon?: unknown };
-  const normalizedTopic = typeof rawTopic?.icon === "string" && rawTopic.icon.startsWith("data:image/")
-    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), validateId(String(rawTopic.id), "Topic ID"), "assets", "icons"), "topic", rawTopic.icon) }
-    : value;
+  const normalizedTopic =
+    typeof rawTopic?.icon === "string" &&
+    rawTopic.icon.startsWith("data:image/")
+      ? {
+          ...(value as Record<string, unknown>),
+          icon: await saveMetadataIcon(
+            path.join(
+              contentRoot(repositoryPath),
+              validateId(String(rawTopic.id), "Topic ID"),
+              "assets",
+              "icons",
+            ),
+            "topic",
+            rawTopic.icon,
+          ),
+        }
+      : value;
   const topic = contentV2TopicSchema.parse(normalizedTopic);
   const filePath = path.join(
     contentRoot(repositoryPath),
@@ -511,21 +575,38 @@ export async function saveContentV2QuizDictionary(
   const shared = parseKidLearningDictionary(await readJson(dictionaryPath));
   const available = new Set(shared.entries.map((entry) => entry.id));
   const claimed = new Set<string>();
-  const normalized = (text: string) => text.trim().toLocaleLowerCase(quiz.language);
+  const normalized = (text: string) =>
+    text.trim().toLocaleLowerCase(quiz.language);
   const translations = new Map(
     shared.entries.flatMap((entry) => {
       const translation = entry.translations[quiz.language];
-      return translation ? [[normalized(translation.text), entry] as const] : [];
+      return translation
+        ? [[normalized(translation.text), entry] as const]
+        : [];
     }),
   );
   for (const entry of shared.entries) delete entry.translations[quiz.language];
   for (const word of dictionary.words) {
-    const existing = translations.get(normalized(word.text))
-      ?? shared.entries.find((entry) => !claimed.has(entry.id) && entry.image && entry.image === word.image);
-    const base = normalized(word.text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "word";
+    const existing =
+      translations.get(normalized(word.text)) ??
+      shared.entries.find(
+        (entry) =>
+          !claimed.has(entry.id) && entry.image && entry.image === word.image,
+      );
+    const base =
+      normalized(word.text)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "word";
     let id = existing?.id ?? base;
-    for (let suffix = 2; available.has(id) && !existing; suffix += 1) id = `${base}-${suffix}`;
-    const target = existing ?? { id, minimumAge: word.minimumAge, translations: {} };
+    for (let suffix = 2; available.has(id) && !existing; suffix += 1)
+      id = `${base}-${suffix}`;
+    const target = existing ?? {
+      id,
+      minimumAge: word.minimumAge,
+      translations: {},
+    };
     if (!existing) {
       available.add(id);
       shared.entries.push(target);
@@ -536,7 +617,9 @@ export async function saveContentV2QuizDictionary(
     const { image: _image, minimumAge: _minimumAge, ...localizedWord } = word;
     target.translations[quiz.language] = localizedWord;
   }
-  shared.entries = shared.entries.filter((entry) => Object.keys(entry.translations).length > 0);
+  shared.entries = shared.entries.filter(
+    (entry) => Object.keys(entry.translations).length > 0,
+  );
   await writeJson(dictionaryPath, shared);
   return dictionary;
 }
@@ -641,16 +724,29 @@ export async function calculateContentV2QuizHash(
   );
   const questions = await Promise.all(
     (await questionFiles(questionDirectory)).map(async (filePath) =>
-      contentV2QuestionSchema.parse(await readJson(filePath))),
+      contentV2QuestionSchema.parse(await readJson(filePath)),
+    ),
   );
-  questions.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-  const resources = await loadContentV2QuizResources(repositoryPath, topicId, quiz);
-  const assets = (await loadContentV2Assets(repositoryPath, topicId, quizId, {
-    topic,
+  questions.sort(
+    (left, right) =>
+      left.order - right.order || left.id.localeCompare(right.id),
+  );
+  const resources = await loadContentV2QuizResources(
+    repositoryPath,
+    topicId,
     quiz,
-    questions,
-    resources,
-  })).map((asset) => ({ reference: asset.reference, contentHash: asset.contentHash }));
+  );
+  const assets = (
+    await loadContentV2Assets(repositoryPath, topicId, quizId, {
+      topic,
+      quiz,
+      questions,
+      resources,
+    })
+  ).map((asset) => ({
+    reference: asset.reference,
+    contentHash: asset.contentHash,
+  }));
   return hashContentV2({
     quiz: sanitizeContentV2Quiz(quiz),
     questions: questions.map(sanitizeContentV2Question),
@@ -665,9 +761,17 @@ export async function saveContentV2Quiz(
   value: unknown,
 ): Promise<ContentV2Quiz> {
   const rawQuiz = value as { id?: unknown; icon?: unknown };
-  const normalizedQuiz = typeof rawQuiz?.icon === "string" && rawQuiz.icon.startsWith("data:image/")
-    ? { ...(value as Record<string, unknown>), icon: await saveMetadataIcon(path.join(contentRoot(repositoryPath), topic.id, "assets", "icons"), validateId(String(rawQuiz.id), "Quiz ID"), rawQuiz.icon) }
-    : value;
+  const normalizedQuiz =
+    typeof rawQuiz?.icon === "string" && rawQuiz.icon.startsWith("data:image/")
+      ? {
+          ...(value as Record<string, unknown>),
+          icon: await saveMetadataIcon(
+            path.join(contentRoot(repositoryPath), topic.id, "assets", "icons"),
+            validateId(String(rawQuiz.id), "Quiz ID"),
+            rawQuiz.icon,
+          ),
+        }
+      : value;
   const quiz = contentV2QuizSchema.parse(normalizedQuiz);
   if (quiz.topicId !== topic.id)
     throw new Error("Quiz topicId does not match its parent topic.");
@@ -681,10 +785,7 @@ export async function saveContentV2Quiz(
   );
   await writeJson(filePath, quiz);
   if (quiz.type === "alphabet" || quiz.type === "spelling") {
-    const dictionaryPath = sharedDictionaryPath(
-      repositoryPath,
-      topic.id,
-    );
+    const dictionaryPath = sharedDictionaryPath(repositoryPath, topic.id);
     if (
       !(await fs
         .access(dictionaryPath)
@@ -762,5 +863,8 @@ export async function writeContentV2QuizPublishState(
   quizFilePath: string,
   state: ContentV2QuizPublishState,
 ): Promise<void> {
-  await writeJson(path.join(path.dirname(quizFilePath), "publish-state.json"), state);
+  await writeJson(
+    path.join(path.dirname(quizFilePath), "publish-state.json"),
+    state,
+  );
 }

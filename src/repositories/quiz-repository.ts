@@ -238,7 +238,18 @@ async function mapQuiz(
     artifactHash: generated.hash,
     publishedHash: manifest.publishedHash ?? null,
     publishedAt: manifest.publishedAt ?? null,
-    localContentHash: review.contentHash ? hashPublishedQuiz({ title, icon: manifest.icon, grade: manifest.grade ?? null, round: manifest.round ?? null, year: manifest.year ?? null }, review.contentHash) : null,
+    localContentHash: review.contentHash
+      ? hashPublishedQuiz(
+          {
+            title,
+            icon: manifest.icon,
+            grade: manifest.grade ?? null,
+            round: manifest.round ?? null,
+            year: manifest.year ?? null,
+          },
+          review.contentHash,
+        )
+      : null,
     questionCount: splitQuestions ? review.count : generated.questionCount,
     reviewedQuestionCount: review.reviewed,
     migrationErrorCount: review.errors,
@@ -286,12 +297,15 @@ export async function scanQuizRepository(
   repositoryPath: string,
   options: {
     inspectQuestionRecords?: boolean;
+    lightweight?: boolean;
     onQuizQuestions?: (quiz: QuizSummary, records: unknown[]) => void;
   } = {},
 ): Promise<RepositorySnapshot> {
   const scanStartedAt = Date.now();
   const root = path.resolve(repositoryPath);
-  console.info("[GetGo Tools][Repository index] Started", { repositoryPath: root });
+  console.info("[GetGo Tools][Repository index] Started", {
+    repositoryPath: root,
+  });
   if (!(await exists(path.join(root, "quizzes")))) {
     throw new Error("This folder does not contain a quizzes directory.");
   }
@@ -351,7 +365,9 @@ export async function scanQuizRepository(
     durationMs: Date.now() - legacyQuizzesStartedAt,
   });
   const contentV2StartedAt = Date.now();
-  const contentV2 = await scanContentV2Repository(root);
+  const contentV2 = await scanContentV2Repository(root, {
+    lightweight: options.lightweight,
+  });
   console.info("[GetGo Tools][Repository index] Content V2 summaries loaded", {
     topics: contentV2.snapshot.topics.length,
     quizzes: contentV2.snapshot.quizzes.length,

@@ -2305,21 +2305,23 @@ export function QuizManager({
               return summary ? [{ row: { kind: "topic" as const, contest, summary }, children: contest.quizzes.map((quiz) => ({ row: { kind: "quiz" as const, quiz } })) }] : [];
             });
             const columns: DataColumn<TopicTreeRow>[] = [
-              { key: "identity", title: "Topic / quiz", width: "calc(100% - 502px)", render: () => null },
-              { key: "type", title: "Type", width: 100, render: (row) => row.kind === "topic" ? "Topic" : "Quiz" },
-              { key: "publish", title: "Publish", width: 136, align: "center", render: (row) => { const status = row.kind === "topic" ? topicPublishStatus(row.summary) : quizPublishStatus(row.quiz); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone}>{status.label}</StatusBadge>; } },
-              { key: "market", title: "Marketplace", width: 144, align: "center", render: (row) => { if (row.kind === "quiz") return <span className="topic-status-na">—</span>; const status = topicMarketplaceStatus(row.summary); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone}>{status.label}</StatusBadge>; } },
-              { key: "action", title: "", width: 42, render: () => <ChevronRight size={16} /> },
+              { key: "identity", title: "Topic / quiz", width: "calc(100% - 468px)", render: () => null },
+              { key: "type", title: "Type", width: 100, align: "center", render: (row) => row.kind === "topic" ? "Topic" : "Quiz" },
+              { key: "publish", title: "Publish", width: 136, align: "center", render: (row) => { const status = row.kind === "topic" ? topicPublishStatus(row.summary) : quizPublishStatus(row.quiz); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone} ariaLabel={`Open ${row.kind} publish tab`} onClick={() => { if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("publish"); } else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab("publish"); } }}>{status.label}</StatusBadge>; } },
+              { key: "market", title: "Marketplace", width: 144, align: "center", render: (row) => { if (row.kind === "quiz") return <span className="topic-status-na">—</span>; const status = topicMarketplaceStatus(row.summary); const tone: StatusBadgeTone = status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"; return <StatusBadge tone={tone} ariaLabel="Open topic marketplace tab" onClick={() => { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("marketplace"); }}>{status.label}</StatusBadge>; } },
+              { key: "action", title: "", width: 88, align: "right", render: (row) => <div className="manager-row-actions"><Button className="manager-row-open" variant="icon" color="primary" icon={<Pencil />} aria-label={`Edit ${row.kind}`} title={`Edit ${row.kind}`} onClick={(event) => { event.stopPropagation(); if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("info"); } else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab("info"); } }} /><ActionMenu label="More actions" iconOnly items={[{ id: "publish-content", label: "Publish Content", icon: CloudUpload, onSelect: () => void runButtonAction(`quick-publish-${row.kind}`, async () => { if (row.kind === "topic") { const result = await managerApi.publishContentV2Topic(row.summary.id); if (result.snapshot) onSnapshotChange(result.snapshot); } else { await managerApi.publishQuiz(row.quiz.contest, row.quiz.id); onOpenJobs(); } toast.show({ title: "Content published", description: `${row.kind === "topic" ? row.contest.title : row.quiz.title} was published.` }); }) }, ...(row.kind === "topic" ? [{ id: "publish-market", label: "Publish to Market", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-market", async () => { const result = await managerApi.publishMarketplaceTopic(row.contest.id, true); onSnapshotChange(result.snapshot); toast.show({ title: "Published to market", description: `${row.contest.title} is now listed.` }); }) }] : [])]} /><Button className="manager-row-open" variant="icon" icon={<ChevronRight />} aria-label={`Open ${row.kind} details`} title={`Open ${row.kind} details`} onClick={(event) => { event.stopPropagation(); if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("quizzes"); setQuery(""); } else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets"); } }} /></div> },
             ];
-            return <TreeDataTable rows={rows} columns={columns} rowKey={(row) => row.kind === "topic" ? `topic:${row.contest.id}` : `quiz:${row.quiz.key}`} ariaLabel="Topics and quizzes" emptyText="No matching topics." onRowClick={(row) => {
-              if (row.kind === "topic") { setPage({ kind: "contest", contest: row.contest.id }); setContestTab("quizzes"); setQuery(""); }
-              else { setPage({ kind: "quiz", quiz: row.quiz }); setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets"); }
-            }} renderIdentity={(row, _depth, toggle) => <div className="topics-tree-identity">{toggle}{row.kind === "topic" ? <><ManagerListIcon topicId={row.contest.id} reference={row.contest.settings.book.icon} label={row.contest.title} kind="topic" /><div><strong>{row.contest.title}</strong><span>{row.contest.description || row.contest.id}</span></div></> : <><ManagerListIcon topicId={row.quiz.contest} reference={row.quiz.icon} label={row.quiz.title} kind="quiz" /><div><strong>{row.quiz.title}</strong><span>{row.quiz.id}</span></div></>}</div>} />;
+            return <TreeDataTable rows={rows} columns={columns} rowKey={(row) => row.kind === "topic" ? `topic:${row.contest.id}` : `quiz:${row.quiz.key}`} ariaLabel="Topics and quizzes" emptyText="No matching topics." toggleParentOnRowClick renderIdentity={(row, _depth, toggle) => <div className="topics-tree-identity">{toggle}{row.kind === "topic" ? <><ManagerListIcon topicId={row.contest.id} reference={row.contest.settings.book.icon} label={row.contest.title} kind="topic" /><div><strong>{row.contest.title}</strong><span>{row.contest.description || row.contest.id}</span></div></> : <><ManagerListIcon topicId={row.quiz.contest} reference={row.quiz.icon} label={row.quiz.title} kind="quiz" /><div><strong>{row.quiz.title}</strong><span>{row.quiz.id}</span></div></>}</div>} />;
           })() : <div className="manager-table">
             <table>
+              {topicMode && <colgroup><col /><col style={{ width: 100 }} /><col style={{ width: 136 }} /><col style={{ width: 144 }} /><col style={{ width: 88 }} /></colgroup>}
               <thead>
                 <tr>
-                  {isContest ? (
+                  {topicMode && isContest ? (
+                    <>
+                      <th>Quiz</th><th className="manager-column-centered">Type</th><th className="manager-column-centered">Publish</th><th className="manager-column-centered">Marketplace</th><th />
+                    </>
+                  ) : isContest ? (
                     <>
                       <th>Quiz</th>
                       <th>Version</th>
@@ -2333,15 +2335,26 @@ export function QuizManager({
                   ) : (
                     <>
                       <th>{topicMode ? "Topic" : "Contest"}</th>
-                      <th>Quizzes</th>
-                      {topicMode ? <><th>Publish status</th><th>Marketplace status</th></> : <><th>Ready</th><th>Builds</th></>}
+                      <th className={topicMode ? "manager-column-centered" : undefined}>{topicMode ? "Type" : "Quizzes"}</th>
+                      {topicMode ? <><th className="manager-column-centered">Publish</th><th className="manager-column-centered">Marketplace</th></> : <><th>Ready</th><th>Builds</th></>}
                       <th />
                     </>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {isContest
+                {topicMode && isContest
+                  ? visibleQuizzes.map((quiz) => {
+                      const publish = quizPublishStatus(quiz);
+                      return <tr key={quiz.key} onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab(quiz.type === "contest" ? "questions" : "alphabets"); }}>
+                        <td><div className="manager-list-identity"><ManagerListIcon topicId={quiz.contest} reference={quiz.icon} label={quiz.title} kind="quiz" /><div><strong>{quiz.title}</strong><span>{quiz.id}</span></div></div></td>
+                        <td className="manager-column-centered">Quiz</td>
+                        <td className="manager-status-cell"><StatusBadge tone={publish.kind === "current" ? "success" : publish.kind === "changed" ? "warning" : "neutral"} ariaLabel="Open quiz publish tab" onClick={() => { setPage({ kind: "quiz", quiz }); setQuizTab("publish"); }}>{publish.label}</StatusBadge></td>
+                        <td className="manager-status-cell"><span className="topic-status-na">—</span></td>
+                        <td><div className="manager-row-actions"><Button className="manager-row-open" variant="icon" color="primary" icon={<Pencil />} aria-label="Edit quiz" title="Edit quiz" onClick={(event) => { event.stopPropagation(); setPage({ kind: "quiz", quiz }); setQuizTab("info"); }} /><ActionMenu label="More actions" iconOnly items={[{ id: "publish-content", label: "Publish Content", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-quiz", async () => { await managerApi.publishQuiz(quiz.contest, quiz.id); onOpenJobs(); toast.show({ title: "Content published", description: `${quiz.title} was published.` }); }) }]} /></div></td>
+                      </tr>;
+                    })
+                  : isContest
                   ? visibleQuizzes.map((quiz) => {
                       const review = quizReviewStatus(quiz);
                       const migration = migrationForQuiz(quiz);
@@ -2450,14 +2463,7 @@ export function QuizManager({
                       ).length;
                       const topicSummary = snapshot.contentV2.topics.find((topic) => topic.id === contest.id);
                       return (
-                        <tr
-                          key={contest.id}
-                          onClick={() => {
-                            setPage({ kind: "contest", contest: contest.id });
-                            setContestTab("quizzes");
-                            setQuery("");
-                          }}
-                        >
+                        <tr key={contest.id}>
                           <td>
                             <div className="manager-list-identity">
                               <ManagerListIcon topicId={contest.id} reference={contest.settings.book.icon} label={contest.title} kind="topic" />
@@ -2467,13 +2473,13 @@ export function QuizManager({
                               </div>
                             </div>
                           </td>
-                          <td>{contest.quizzes.length}</td>
+                          <td className={topicMode ? "manager-column-centered" : undefined}>{topicMode ? "Topic" : contest.quizzes.length}</td>
                           {topicMode && topicSummary ? <>
-                            <td>{(() => { const status = topicPublishStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"}>{status.label}</StatusBadge>; })()}</td>
-                            <td>{(() => { const status = topicMarketplaceStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"}>{status.label}</StatusBadge>; })()}</td>
+                            <td className="manager-status-cell">{(() => { const status = topicPublishStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"} ariaLabel="Open topic publish tab" onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("publish"); }}>{status.label}</StatusBadge>; })()}</td>
+                            <td className="manager-status-cell">{(() => { const status = topicMarketplaceStatus(topicSummary); return <StatusBadge tone={status.kind === "current" ? "success" : status.kind === "changed" ? "warning" : "neutral"} ariaLabel="Open topic marketplace tab" onClick={() => { setPage({ kind: "contest", contest: contest.id }); setContestTab("marketplace"); }}>{status.label}</StatusBadge>; })()}</td>
                           </> : <><td>{ready}</td><td>{builds}</td></>}
                           <td>
-                            <ChevronRight size={16} />
+                            {topicMode ? <div className="manager-row-actions"><Button className="manager-row-open" variant="icon" color="primary" icon={<Pencil />} aria-label="Edit topic" title="Edit topic" onClick={(event) => { event.stopPropagation(); setPage({ kind: "contest", contest: contest.id }); setContestTab("info"); }} /><ActionMenu label="More actions" iconOnly items={[{ id: "publish-content", label: "Publish Content", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-topic", async () => { if (topicSummary) { const result = await managerApi.publishContentV2Topic(topicSummary.id); if (result.snapshot) onSnapshotChange(result.snapshot); } toast.show({ title: "Content published", description: `${contest.title} was published.` }); }) }, { id: "publish-market", label: "Publish to Market", icon: CloudUpload, onSelect: () => void runButtonAction("quick-publish-market", async () => { const result = await managerApi.publishMarketplaceTopic(contest.id, true); onSnapshotChange(result.snapshot); toast.show({ title: "Published to market", description: `${contest.title} is now listed.` }); }) }]} /></div> : <ChevronRight size={16} />}
                           </td>
                         </tr>
                       );

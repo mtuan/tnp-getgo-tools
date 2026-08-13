@@ -12,7 +12,13 @@ import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AppSettings, ImagePdfInput, ImagePdfOrientation, ImagePdfSelection, RepositorySnapshot } from "../core/models.js";
+import type {
+  AppSettings,
+  ImagePdfInput,
+  ImagePdfOrientation,
+  ImagePdfSelection,
+  RepositorySnapshot,
+} from "../core/models.js";
 import {
   hashContentV2,
   sanitizeMarketplaceTopic,
@@ -96,8 +102,20 @@ loadEnvironment({
 
 const productName = "GetGo Tools";
 const processStartedAt = Date.now();
+let startupLogFile: string | null = null;
 const startupLog = (stage: string, details: Record<string, unknown> = {}) =>
-  console.info(`[GetGo Tools][Startup][+${Date.now() - processStartedAt}ms] ${stage}`, details);
+  (() => {
+    const elapsedMs = Date.now() - processStartedAt;
+    console.info(`[GetGo Tools][Startup][+${elapsedMs}ms] ${stage}`, details);
+    if (startupLogFile) {
+      void fs
+        .appendFile(
+          startupLogFile,
+          `${JSON.stringify({ product: productName, stage, elapsedMs, at: new Date().toISOString(), details })}\n`,
+        )
+        .catch(() => undefined);
+    }
+  })();
 app.setName(productName);
 process.title = productName;
 
@@ -118,8 +136,16 @@ const imagePdfMimeTypes: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-async function loadImagePdfSelection(inputPaths: string[]): Promise<ImagePdfSelection> {
-  if (!Array.isArray(inputPaths) || !inputPaths.length || inputPaths.some(value => typeof value !== "string" || !path.isAbsolute(value))) {
+async function loadImagePdfSelection(
+  inputPaths: string[],
+): Promise<ImagePdfSelection> {
+  if (
+    !Array.isArray(inputPaths) ||
+    !inputPaths.length ||
+    inputPaths.some(
+      (value) => typeof value !== "string" || !path.isAbsolute(value),
+    )
+  ) {
     throw new Error("Select valid image files or folders.");
   }
   const files: string[] = [];
@@ -129,27 +155,51 @@ async function loadImagePdfSelection(inputPaths: string[]): Promise<ImagePdfSele
     if (stats.isDirectory()) {
       selectedDirectory ??= inputPath;
       const entries = await fs.readdir(inputPath, { withFileTypes: true });
-      files.push(...entries.filter(entry => entry.isFile() && imagePdfMimeTypes[path.extname(entry.name).toLowerCase()]).map(entry => path.join(inputPath, entry.name)));
-    } else if (stats.isFile() && imagePdfMimeTypes[path.extname(inputPath).toLowerCase()]) {
+      files.push(
+        ...entries
+          .filter(
+            (entry) =>
+              entry.isFile() &&
+              imagePdfMimeTypes[path.extname(entry.name).toLowerCase()],
+          )
+          .map((entry) => path.join(inputPath, entry.name)),
+      );
+    } else if (
+      stats.isFile() &&
+      imagePdfMimeTypes[path.extname(inputPath).toLowerCase()]
+    ) {
       files.push(inputPath);
     }
   }
   const uniqueFiles = [...new Set(files)];
-  const images: ImagePdfInput[] = await Promise.all(uniqueFiles.map(async filePath => {
-    const [stats, bytes] = await Promise.all([fs.stat(filePath), fs.readFile(filePath)]);
-    return {
-      path: filePath,
-      directory: path.dirname(filePath),
-      name: path.basename(filePath),
-      size: stats.size,
-      mimeType: imagePdfMimeTypes[path.extname(filePath).toLowerCase()],
-      data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
-    };
-  }));
-  return { images, defaultDirectory: selectedDirectory ?? images[0]?.directory ?? null };
+  const images: ImagePdfInput[] = await Promise.all(
+    uniqueFiles.map(async (filePath) => {
+      const [stats, bytes] = await Promise.all([
+        fs.stat(filePath),
+        fs.readFile(filePath),
+      ]);
+      return {
+        path: filePath,
+        directory: path.dirname(filePath),
+        name: path.basename(filePath),
+        size: stats.size,
+        mimeType: imagePdfMimeTypes[path.extname(filePath).toLowerCase()],
+        data: bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength,
+        ) as ArrayBuffer,
+      };
+    }),
+  );
+  return {
+    images,
+    defaultDirectory: selectedDirectory ?? images[0]?.directory ?? null,
+  };
 }
 
-async function detectImageOrientation(filePath: string): Promise<ImagePdfOrientation> {
+async function detectImageOrientation(
+  filePath: string,
+): Promise<ImagePdfOrientation> {
   const candidates = [
     process.env.TESSERACT_PATH,
     "/opt/homebrew/bin/tesseract",
@@ -166,18 +216,30 @@ async function detectImageOrientation(filePath: string): Promise<ImagePdfOrienta
       // Try the next explicit path, then fall back to PATH lookup.
     }
   }
-  const sourceOrientation = await new Promise<0 | 90 | 180 | 270>(resolve => {
+  const sourceOrientation = await new Promise<0 | 90 | 180 | 270>((resolve) => {
     if (!/\.jpe?g$/i.test(filePath) || process.platform !== "darwin") {
       resolve(0);
       return;
     }
-    const child = spawn("/usr/bin/sips", ["-g", "orientation", filePath], { stdio: ["ignore", "pipe", "ignore"] });
+    const child = spawn("/usr/bin/sips", ["-g", "orientation", filePath], {
+      stdio: ["ignore", "pipe", "ignore"],
+    });
     let output = "";
-    child.stdout.on("data", chunk => { output += String(chunk); });
+    child.stdout.on("data", (chunk) => {
+      output += String(chunk);
+    });
     child.on("error", () => resolve(0));
     child.on("close", () => {
       const orientation = Number(output.match(/orientation:\s*(\d+)/i)?.[1]);
-      resolve(orientation === 3 || orientation === 4 ? 180 : orientation === 5 || orientation === 6 ? 90 : orientation === 7 || orientation === 8 ? 270 : 0);
+      resolve(
+        orientation === 3 || orientation === 4
+          ? 180
+          : orientation === 5 || orientation === 6
+            ? 90
+            : orientation === 7 || orientation === 8
+              ? 270
+              : 0,
+      );
     });
   });
   return new Promise((resolve, reject) => {
@@ -185,42 +247,76 @@ async function detectImageOrientation(filePath: string): Promise<ImagePdfOrienta
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
-    child.stdout.on("data", chunk => { output += String(chunk); });
-    child.stderr.on("data", chunk => { output += String(chunk); });
-    child.on("error", cause => {
+    child.stdout.on("data", (chunk) => {
+      output += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      output += String(chunk);
+    });
+    child.on("error", (cause) => {
       if ((cause as NodeJS.ErrnoException).code === "ENOENT") {
-        reject(new Error("Text orientation detection requires Tesseract OCR. Install it with: brew install tesseract"));
+        reject(
+          new Error(
+            "Text orientation detection requires Tesseract OCR. Install it with: brew install tesseract",
+          ),
+        );
         return;
       }
       reject(cause);
     });
     child.on("close", async () => {
-      const rawRotation = Number(output.match(/Rotate:\s*(0|90|180|270)/i)?.[1]);
-      const confidence = Number(output.match(/Orientation confidence:\s*([\d.]+)/i)?.[1]);
+      const rawRotation = Number(
+        output.match(/Rotate:\s*(0|90|180|270)/i)?.[1],
+      );
+      const confidence = Number(
+        output.match(/Orientation confidence:\s*([\d.]+)/i)?.[1],
+      );
       const detected = [0, 90, 180, 270].includes(rawRotation);
-      const broadRotation = detected ? (rawRotation - sourceOrientation + 360) % 360 : 0;
-      const deskewRotation = detected && rawRotation === 0 && sourceOrientation === 0
-        ? await new Promise<number>(deskewResolve => {
-            const deskew = spawn(executable, [filePath, "stdout", "--psm", "6", "hocr"], { stdio: ["ignore", "pipe", "ignore"] });
-            let hocr = "";
-            deskew.stdout.on("data", chunk => { hocr += String(chunk); });
-            deskew.on("error", () => deskewResolve(0));
-            deskew.on("close", () => {
-              const slopes = [...hocr.matchAll(/baseline\s+(-?(?:\d+(?:\.\d+)?|\.\d+))/gi)]
-                .map(match => Number(match[1]))
-                .filter(value => Number.isFinite(value) && Math.abs(value) <= 0.35)
-                .sort((left, right) => left - right);
-              if (!slopes.length) {
-                deskewResolve(0);
-                return;
-              }
-              const middle = Math.floor(slopes.length / 2);
-              const median = slopes.length % 2 ? slopes[middle] : (slopes[middle - 1] + slopes[middle]) / 2;
-              const angle = Math.max(-15, Math.min(15, -Math.atan(median) * 180 / Math.PI));
-              deskewResolve(Math.abs(angle) >= 0.2 ? Math.round(angle * 10) / 10 : 0);
-            });
-          })
+      const broadRotation = detected
+        ? (rawRotation - sourceOrientation + 360) % 360
         : 0;
+      const deskewRotation =
+        detected && rawRotation === 0 && sourceOrientation === 0
+          ? await new Promise<number>((deskewResolve) => {
+              const deskew = spawn(
+                executable,
+                [filePath, "stdout", "--psm", "6", "hocr"],
+                { stdio: ["ignore", "pipe", "ignore"] },
+              );
+              let hocr = "";
+              deskew.stdout.on("data", (chunk) => {
+                hocr += String(chunk);
+              });
+              deskew.on("error", () => deskewResolve(0));
+              deskew.on("close", () => {
+                const slopes = [
+                  ...hocr.matchAll(/baseline\s+(-?(?:\d+(?:\.\d+)?|\.\d+))/gi),
+                ]
+                  .map((match) => Number(match[1]))
+                  .filter(
+                    (value) =>
+                      Number.isFinite(value) && Math.abs(value) <= 0.35,
+                  )
+                  .sort((left, right) => left - right);
+                if (!slopes.length) {
+                  deskewResolve(0);
+                  return;
+                }
+                const middle = Math.floor(slopes.length / 2);
+                const median =
+                  slopes.length % 2
+                    ? slopes[middle]
+                    : (slopes[middle - 1] + slopes[middle]) / 2;
+                const angle = Math.max(
+                  -15,
+                  Math.min(15, (-Math.atan(median) * 180) / Math.PI),
+                );
+                deskewResolve(
+                  Math.abs(angle) >= 0.2 ? Math.round(angle * 10) / 10 : 0,
+                );
+              });
+            })
+          : 0;
       const rotation = Math.round((broadRotation + deskewRotation) * 10) / 10;
       const result: ImagePdfOrientation = {
         path: filePath,
@@ -245,7 +341,9 @@ async function detectImageOrientation(filePath: string): Promise<ImagePdfOrienta
   });
 }
 
-async function detectImageOrientations(paths: string[]): Promise<ImagePdfOrientation[]> {
+async function detectImageOrientations(
+  paths: string[],
+): Promise<ImagePdfOrientation[]> {
   const results = new Array<ImagePdfOrientation>(paths.length);
   let nextIndex = 0;
   const worker = async () => {
@@ -301,7 +399,9 @@ function createWindow(): void {
       sandbox: true,
     },
   });
-  mainWindow.webContents.once("did-finish-load", () => startupLog("Renderer finished loading"));
+  mainWindow.webContents.once("did-finish-load", () =>
+    startupLog("Renderer finished loading"),
+  );
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) void mainWindow.loadURL(devUrl);
   else
@@ -311,6 +411,19 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  const startupLogDirectory = path.join(
+    app.getPath("userData"),
+    "startup-logs",
+  );
+  await fs.mkdir(startupLogDirectory, { recursive: true });
+  startupLogFile = path.join(
+    startupLogDirectory,
+    `startup-${new Date(processStartedAt).toISOString().replace(/[:.]/g, "-")}.jsonl`,
+  );
+  await fs.appendFile(
+    startupLogFile,
+    `${JSON.stringify({ product: productName, stage: "Process started", elapsedMs: 0, at: new Date(processStartedAt).toISOString(), details: { pid: process.pid, platform: process.platform, packaged: app.isPackaged, logFile: startupLogFile } })}\n`,
+  );
   startupLog("Electron ready");
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath);
   const settings = new SettingsStore(app.getPath("userData"));
@@ -321,29 +434,46 @@ app.whenReady().then(async () => {
   let repositoryWatchTimer: NodeJS.Timeout | null = null;
   let knownRepositoryPaths = new Set<string>();
   const structureRoots = ["content-v2", "quizzes", "schemas", "generated"];
-  const ignoredStructureNames = new Set([".DS_Store", "Thumbs.db", "desktop.ini", "publish-state.json"]);
-  const ignoredRepositoryPath = (value: string) => value
-    .split(/[\\/]/)
-    .some((segment) =>
-      ignoredStructureNames.has(segment)
-      || segment.startsWith(".")
-      || segment.endsWith("~")
-      || /^~\$/.test(segment)
-      || /\.sw[opx]$/i.test(segment)
-      || /\.tmp$/i.test(segment));
+  const ignoredStructureNames = new Set([
+    ".DS_Store",
+    "Thumbs.db",
+    "desktop.ini",
+    "publish-state.json",
+  ]);
+  const ignoredRepositoryPath = (value: string) =>
+    value
+      .split(/[\\/]/)
+      .some(
+        (segment) =>
+          ignoredStructureNames.has(segment) ||
+          segment.startsWith(".") ||
+          segment.endsWith("~") ||
+          /^~\$/.test(segment) ||
+          /\.sw[opx]$/i.test(segment) ||
+          /\.tmp$/i.test(segment),
+      );
   const collectRepositoryPaths = async (repositoryPath: string) => {
     const startedAt = Date.now();
     const result = new Set<string>();
     const visit = async (absolute: string, relative: string): Promise<void> => {
-      const entries = await fs.readdir(absolute, { withFileTypes: true }).catch(() => []);
-      await Promise.all(entries.map(async (entry) => {
-        const childRelative = path.join(relative, entry.name);
-        if (ignoredRepositoryPath(childRelative)) return;
-        result.add(childRelative);
-        if (entry.isDirectory()) await visit(path.join(absolute, entry.name), childRelative);
-      }));
+      const entries = await fs
+        .readdir(absolute, { withFileTypes: true })
+        .catch(() => []);
+      await Promise.all(
+        entries.map(async (entry) => {
+          const childRelative = path.join(relative, entry.name);
+          if (ignoredRepositoryPath(childRelative)) return;
+          result.add(childRelative);
+          if (entry.isDirectory())
+            await visit(path.join(absolute, entry.name), childRelative);
+        }),
+      );
     };
-    await Promise.all(structureRoots.map((name) => visit(path.join(repositoryPath, name), name)));
+    await Promise.all(
+      structureRoots.map((name) =>
+        visit(path.join(repositoryPath, name), name),
+      ),
+    );
     console.info("[GetGo Tools][Repository paths] Collected", {
       paths: result.size,
       durationMs: Date.now() - startedAt,
@@ -357,25 +487,44 @@ app.whenReady().then(async () => {
     repositoryWatcher = null;
     if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
     knownRepositoryPaths = await collectRepositoryPaths(repositoryPath);
-    repositoryWatcher = watch(repositoryPath, { recursive: true }, (eventType, filename) => {
-      if (eventType !== "rename" || !filename) return;
-      const relative = String(filename);
-      if (ignoredRepositoryPath(relative)) return;
-      if (!structureRoots.some((root) => relative === root || relative.startsWith(`${root}${path.sep}`))) return;
-      if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
-      repositoryWatchTimer = setTimeout(() => {
-        void collectRepositoryPaths(repositoryPath).then((nextPaths) => {
-          if (samePaths(knownRepositoryPaths, nextPaths)) return;
-          knownRepositoryPaths = nextPaths;
-          mainWindow?.webContents.send("repository:structure-changed", {
-            detectedAt: new Date().toISOString(),
-            path: relative,
-          });
-        }).catch((cause) => console.error(`[GetGo Tools][Repository structure watcher] ${cause instanceof Error ? cause.message : String(cause)}`));
-      }, 250);
-    });
+    repositoryWatcher = watch(
+      repositoryPath,
+      { recursive: true },
+      (eventType, filename) => {
+        if (eventType !== "rename" || !filename) return;
+        const relative = String(filename);
+        if (ignoredRepositoryPath(relative)) return;
+        if (
+          !structureRoots.some(
+            (root) =>
+              relative === root || relative.startsWith(`${root}${path.sep}`),
+          )
+        )
+          return;
+        if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
+        repositoryWatchTimer = setTimeout(() => {
+          void collectRepositoryPaths(repositoryPath)
+            .then((nextPaths) => {
+              if (samePaths(knownRepositoryPaths, nextPaths)) return;
+              knownRepositoryPaths = nextPaths;
+              mainWindow?.webContents.send("repository:structure-changed", {
+                detectedAt: new Date().toISOString(),
+                path: relative,
+              });
+            })
+            .catch((cause) =>
+              console.error(
+                `[GetGo Tools][Repository structure watcher] ${cause instanceof Error ? cause.message : String(cause)}`,
+              ),
+            );
+        }, 250);
+      },
+    );
     repositoryWatcher.on("error", (cause) =>
-      console.error(`[GetGo Tools][Repository structure watcher] ${cause.message}`));
+      console.error(
+        `[GetGo Tools][Repository structure watcher] ${cause.message}`,
+      ),
+    );
   };
   const acceptCurrentRepositoryStructure = async (repositoryPath: string) => {
     if (repositoryWatchTimer) {
@@ -392,9 +541,12 @@ app.whenReady().then(async () => {
     const scanStartedAt = Date.now();
     const resolved = path.resolve(repositoryPath);
     if (!force && repositorySnapshot?.repositoryPath === resolved) {
-      console.info("[GetGo Tools][Repository index] Reused lightweight snapshot", {
-        durationMs: Date.now() - scanStartedAt,
-      });
+      console.info(
+        "[GetGo Tools][Repository index] Reused lightweight snapshot",
+        {
+          durationMs: Date.now() - scanStartedAt,
+        },
+      );
       return repositorySnapshot;
     }
     if (repositoryScanPromise) {
@@ -470,18 +622,40 @@ app.whenReady().then(async () => {
     durationMs: Date.now() - settingsStartedAt,
     hasRepository: Boolean(initialSettings.repositoryPath),
   });
+  // Register the boot-critical handlers before loading the renderer. The
+  // remaining feature handlers can finish registering while the loading page
+  // is already visible.
+  ipcMain.handle("settings:get", () => settings.read());
+  ipcMain.handle(
+    "repository:scan",
+    async (_event, requestedPath?: string, force = false) => {
+      const current = await settings.read();
+      const repositoryPath = requestedPath ?? current.repositoryPath;
+      if (!repositoryPath) throw new Error("Choose a quiz repository first.");
+      const snapshot = await scanRepository(repositoryPath, undefined, force);
+      await settings.update({ repositoryPath: snapshot.repositoryPath });
+      return snapshot;
+    },
+  );
+  // Create the renderer before repository indexing so users see immediate
+  // startup feedback instead of a blank window during the scan.
+  createWindow();
   if (initialSettings.repositoryPath) {
     const startupScanStartedAt = Date.now();
-    try {
-      await scanRepository(initialSettings.repositoryPath);
-      startupLog("Startup repository index ready", {
-        durationMs: Date.now() - startupScanStartedAt,
-      });
-    } catch (cause) {
-      console.error(
-        `[GetGo Tools][Repository startup scan] ${cause instanceof Error ? cause.message : String(cause)}`,
+    void scanRepository(initialSettings.repositoryPath, {
+      inspectQuestionRecords: false,
+      lightweight: true,
+    })
+      .then(() =>
+        startupLog("Startup repository index ready", {
+          durationMs: Date.now() - startupScanStartedAt,
+        }),
+      )
+      .catch((cause) =>
+        console.error(
+          `[GetGo Tools][Repository startup scan] ${cause instanceof Error ? cause.message : String(cause)}`,
+        ),
       );
-    }
   }
   firebaseAuth = new FirebaseAuthService(
     app.getPath("userData"),
@@ -517,53 +691,97 @@ app.whenReady().then(async () => {
     app.exit(0);
   });
   ipcMain.handle("utility:pdf:browse", async (_event, mode: unknown) => {
-    if (mode !== "files" && mode !== "folder") throw new Error("Invalid image browse mode.");
+    if (mode !== "files" && mode !== "folder")
+      throw new Error("Invalid image browse mode.");
     const selection = await dialog.showOpenDialog({
       title: mode === "folder" ? "Choose image folder" : "Choose images",
-      properties: mode === "folder" ? ["openDirectory"] : ["openFile", "multiSelections"],
-      filters: mode === "files" ? [{ name: "Images", extensions: Object.keys(imagePdfMimeTypes).map(value => value.slice(1)) }] : undefined,
+      properties:
+        mode === "folder" ? ["openDirectory"] : ["openFile", "multiSelections"],
+      filters:
+        mode === "files"
+          ? [
+              {
+                name: "Images",
+                extensions: Object.keys(imagePdfMimeTypes).map((value) =>
+                  value.slice(1),
+                ),
+              },
+            ]
+          : undefined,
     });
     if (selection.canceled || !selection.filePaths.length) return null;
     return loadImagePdfSelection(selection.filePaths);
   });
   ipcMain.handle("utility:pdf:load-inputs", (_event, inputPaths: unknown) => {
-    if (!Array.isArray(inputPaths) || inputPaths.some(value => typeof value !== "string")) throw new Error("Invalid dropped paths.");
+    if (
+      !Array.isArray(inputPaths) ||
+      inputPaths.some((value) => typeof value !== "string")
+    )
+      throw new Error("Invalid dropped paths.");
     return loadImagePdfSelection(inputPaths);
   });
-  ipcMain.handle("utility:pdf:detect-orientations", async (_event, inputPaths: unknown) => {
-    if (!Array.isArray(inputPaths) || !inputPaths.length || inputPaths.some(value => typeof value !== "string" || !path.isAbsolute(value)))
-      throw new Error("Select valid images before detecting text orientation.");
-    const paths = inputPaths as string[];
-    for (const filePath of paths) {
-      if (!imagePdfMimeTypes[path.extname(filePath).toLowerCase()])
-        throw new Error(`Unsupported image: ${path.basename(filePath)}`);
-    }
-    return detectImageOrientations(paths);
-  });
-  ipcMain.handle("utility:pdf:save", async (_event, data: unknown, suggestedName: unknown, defaultDirectory: unknown) => {
-    if (!(data instanceof ArrayBuffer)) throw new Error("Generated PDF data is invalid.");
-    if (data.byteLength < 5 || data.byteLength > 250 * 1024 * 1024) throw new Error("Generated PDF size is invalid.");
-    const safeName = typeof suggestedName === "string"
-      ? path.basename(suggestedName).replace(/[^a-zA-Z0-9._-]/g, "-")
-      : "images.pdf";
-    const filename = safeName.toLowerCase().endsWith(".pdf") ? safeName : `${safeName}.pdf`;
-    let outputDirectory = app.getPath("documents");
-    if (typeof defaultDirectory === "string" && path.isAbsolute(defaultDirectory)) {
-      try {
-        if ((await fs.stat(defaultDirectory)).isDirectory()) outputDirectory = defaultDirectory;
-      } catch {
-        // Fall back to Documents when the original image folder is unavailable.
+  ipcMain.handle(
+    "utility:pdf:detect-orientations",
+    async (_event, inputPaths: unknown) => {
+      if (
+        !Array.isArray(inputPaths) ||
+        !inputPaths.length ||
+        inputPaths.some(
+          (value) => typeof value !== "string" || !path.isAbsolute(value),
+        )
+      )
+        throw new Error(
+          "Select valid images before detecting text orientation.",
+        );
+      const paths = inputPaths as string[];
+      for (const filePath of paths) {
+        if (!imagePdfMimeTypes[path.extname(filePath).toLowerCase()])
+          throw new Error(`Unsupported image: ${path.basename(filePath)}`);
       }
-    }
-    const selection = await dialog.showSaveDialog({
-      title: "Save image PDF",
-      defaultPath: path.join(outputDirectory, filename),
-      filters: [{ name: "PDF document", extensions: ["pdf"] }],
-    });
-    if (selection.canceled || !selection.filePath) return null;
-    await fs.writeFile(selection.filePath, Buffer.from(data));
-    return { filePath: selection.filePath };
-  });
+      return detectImageOrientations(paths);
+    },
+  );
+  ipcMain.handle(
+    "utility:pdf:save",
+    async (
+      _event,
+      data: unknown,
+      suggestedName: unknown,
+      defaultDirectory: unknown,
+    ) => {
+      if (!(data instanceof ArrayBuffer))
+        throw new Error("Generated PDF data is invalid.");
+      if (data.byteLength < 5 || data.byteLength > 250 * 1024 * 1024)
+        throw new Error("Generated PDF size is invalid.");
+      const safeName =
+        typeof suggestedName === "string"
+          ? path.basename(suggestedName).replace(/[^a-zA-Z0-9._-]/g, "-")
+          : "images.pdf";
+      const filename = safeName.toLowerCase().endsWith(".pdf")
+        ? safeName
+        : `${safeName}.pdf`;
+      let outputDirectory = app.getPath("documents");
+      if (
+        typeof defaultDirectory === "string" &&
+        path.isAbsolute(defaultDirectory)
+      ) {
+        try {
+          if ((await fs.stat(defaultDirectory)).isDirectory())
+            outputDirectory = defaultDirectory;
+        } catch {
+          // Fall back to Documents when the original image folder is unavailable.
+        }
+      }
+      const selection = await dialog.showSaveDialog({
+        title: "Save image PDF",
+        defaultPath: path.join(outputDirectory, filename),
+        filters: [{ name: "PDF document", extensions: ["pdf"] }],
+      });
+      if (selection.canceled || !selection.filePath) return null;
+      await fs.writeFile(selection.filePath, Buffer.from(data));
+      return { filePath: selection.filePath };
+    },
+  );
   ipcMain.handle("auth:state", () => firebaseAuth!.state());
   ipcMain.handle("environment:readiness", () => firebaseAuth!.checkReadiness());
   ipcMain.handle(
@@ -721,18 +939,29 @@ app.whenReady().then(async () => {
     };
   };
   ipcMain.handle("jobs:list", backgroundJobsSnapshot);
-  ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown) => {
-    if (!(operation === "build" || operation === "deploy"))
-      throw new Error("Invalid deployment operation.");
-    if (!(component === "firebase-rules" || component === "web"))
-      throw new Error("Invalid deployment component.");
-    if (!(target === "development" || target === "staging" || target === "production"))
-      throw new Error("Invalid deployment target.");
-    await webDeploymentJobs.start(operation, component, target);
-    return backgroundJobsSnapshot();
-  });
+  ipcMain.handle(
+    "deployment:start",
+    async (_event, operation: unknown, component: unknown, target: unknown) => {
+      if (!(operation === "build" || operation === "deploy"))
+        throw new Error("Invalid deployment operation.");
+      if (!(component === "firebase-rules" || component === "web"))
+        throw new Error("Invalid deployment component.");
+      if (!(
+        target === "development" ||
+        target === "staging" ||
+        target === "production"
+      ))
+        throw new Error("Invalid deployment target.");
+      await webDeploymentJobs.start(operation, component, target);
+      return backgroundJobsSnapshot();
+    },
+  );
   ipcMain.handle("deployment:state", (_event, target: unknown) => {
-    if (!(target === "development" || target === "staging" || target === "production"))
+    if (!(
+      target === "development" ||
+      target === "staging" ||
+      target === "production"
+    ))
       throw new Error("Invalid deployment target.");
     return webDeploymentJobs.state(target);
   });
@@ -814,31 +1043,30 @@ app.whenReady().then(async () => {
           route: `/quizzes/contests/${encodeURIComponent(contestId)}/quizzes/${encodeURIComponent(quizId)}?tab=publish`,
         },
         async (control) => {
-      const result = await publishing.publish(quiz, payload, control);
-      await recordPublishedHash(
-        quiz.manifestPath,
-        result.contentHash,
-        result.publishedAt,
-      );
-      if (repositorySnapshot)
-        repositorySnapshot = {
-          ...repositorySnapshot,
-          quizzes: repositorySnapshot.quizzes.map((item) =>
-            item.key === quiz.key
-              ? {
-                  ...item,
-                  publishedHash: result.contentHash,
-                  publishedAt: result.publishedAt,
-                }
-              : item,
-          ),
-        };
+          const result = await publishing.publish(quiz, payload, control);
+          await recordPublishedHash(
+            quiz.manifestPath,
+            result.contentHash,
+            result.publishedAt,
+          );
+          if (repositorySnapshot)
+            repositorySnapshot = {
+              ...repositorySnapshot,
+              quizzes: repositorySnapshot.quizzes.map((item) =>
+                item.key === quiz.key
+                  ? {
+                      ...item,
+                      publishedHash: result.contentHash,
+                      publishedAt: result.publishedAt,
+                    }
+                  : item,
+              ),
+            };
           return result;
         },
       );
     },
   );
-  ipcMain.handle("settings:get", () => settings.read());
   ipcMain.handle("repository:choose", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ["openDirectory"],
@@ -849,86 +1077,103 @@ app.whenReady().then(async () => {
     return snapshot;
   });
   ipcMain.handle(
-    "repository:scan",
-    async (_event, requestedPath?: string, force = false) => {
-      const current = await settings.read();
-      const repositoryPath = requestedPath ?? current.repositoryPath;
-      if (!repositoryPath) throw new Error("Choose a quiz repository first.");
-      const snapshot = await scanRepository(repositoryPath, undefined, force);
-      await settings.update({ repositoryPath: snapshot.repositoryPath });
-      return snapshot;
+    "marketplace:topics:publish",
+    async (_event, topicId: unknown, listed: unknown) => {
+      if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+        throw new Error("Invalid marketplace topic ID.");
+      if (typeof listed !== "boolean")
+        throw new Error("Invalid marketplace listing state.");
+      const root = await repositoryRoot();
+      const snapshot = requireSnapshot();
+      const summary = snapshot.contentV2.topics.find(
+        (item) => item.id === topicId,
+      );
+      if (!summary?.publishedAt)
+        throw new Error(
+          "Publish this topic from its Publish tab before adding it to the marketplace.",
+        );
+      if (!firebaseAuth) throw new Error("Publishing is not initialized.");
+      if (!(await publishing.contentV2TopicExists(topicId)))
+        throw new Error(
+          "This topic is not published in the selected environment.",
+        );
+
+      const existing = await loadContentV2Topic(root, topicId);
+      const topic = {
+        ...existing,
+        marketplace: { ...existing.marketplace, listed },
+      };
+      const saved = await saveContentV2Topic(root, topic);
+      const contentHash = hashContentV2(sanitizeMarketplaceTopic(saved));
+      return publishJobs.track(
+        {
+          name: `${listed ? "Publish" : "Remove"} marketplace topic · ${summary.title}`,
+          description: listed
+            ? "Publish the topic metadata to the marketplace catalog"
+            : "Remove the topic from marketplace discovery without deleting learning content",
+          route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace`,
+        },
+        async (control) => {
+          await control.setTotal(
+            1,
+            listed
+              ? "Publishing marketplace listing"
+              : "Removing marketplace listing",
+          );
+          const result = listed
+            ? await publishing.publishMarketplaceTopic(saved, contentHash)
+            : (await publishing.removeMarketplaceTopic(topicId),
+              {
+                kind: "topic" as const,
+                topicId,
+                contentHash,
+                publishedAt: new Date().toISOString(),
+              });
+          const marketplace = {
+            ...saved.marketplace,
+            listed,
+            publishedHash: listed ? result.contentHash : undefined,
+            publishedAt: listed ? result.publishedAt : undefined,
+          };
+          await saveContentV2Topic(root, { ...saved, marketplace });
+          await control.advance(
+            listed
+              ? "Published marketplace document"
+              : "Removed marketplace document",
+          );
+          const current = requireSnapshot();
+          repositorySnapshot = {
+            ...current,
+            contentV2: {
+              ...current.contentV2,
+              topics: current.contentV2.topics.map((item) =>
+                item.id === topicId
+                  ? {
+                      ...item,
+                      marketplace,
+                      marketplaceLocalHash: contentHash,
+                      marketplacePublishedHash: listed
+                        ? result.contentHash
+                        : null,
+                      marketplacePublishedAt: listed
+                        ? result.publishedAt
+                        : null,
+                    }
+                  : item,
+              ),
+            },
+          };
+          return {
+            topicId,
+            listed,
+            contentHash: result.contentHash,
+            publishedAt: result.publishedAt,
+            snapshot: requireSnapshot(),
+          };
+        },
+      );
     },
   );
-  ipcMain.handle("marketplace:topics:publish", async (_event, topicId: unknown, listed: unknown) => {
-    if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
-      throw new Error("Invalid marketplace topic ID.");
-    if (typeof listed !== "boolean") throw new Error("Invalid marketplace listing state.");
-    const root = await repositoryRoot();
-    const snapshot = requireSnapshot();
-    const summary = snapshot.contentV2.topics.find((item) => item.id === topicId);
-    if (!summary?.publishedAt)
-      throw new Error("Publish this topic from its Publish tab before adding it to the marketplace.");
-    if (!firebaseAuth) throw new Error("Publishing is not initialized.");
-    if (!(await publishing.contentV2TopicExists(topicId)))
-      throw new Error("This topic is not published in the selected environment.");
-
-    const existing = await loadContentV2Topic(root, topicId);
-    const topic = {
-      ...existing,
-      marketplace: { ...existing.marketplace, listed },
-    };
-    const saved = await saveContentV2Topic(root, topic);
-    const contentHash = hashContentV2(sanitizeMarketplaceTopic(saved));
-    return publishJobs.track(
-      {
-        name: `${listed ? "Publish" : "Remove"} marketplace topic · ${summary.title}`,
-        description: listed
-          ? "Publish the topic metadata to the marketplace catalog"
-          : "Remove the topic from marketplace discovery without deleting learning content",
-        route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace`,
-      },
-      async (control) => {
-        await control.setTotal(1, listed ? "Publishing marketplace listing" : "Removing marketplace listing");
-        const result = listed
-          ? await publishing.publishMarketplaceTopic(saved, contentHash)
-          : (await publishing.removeMarketplaceTopic(topicId), {
-              kind: "topic" as const,
-              topicId,
-              contentHash,
-              publishedAt: new Date().toISOString(),
-            });
-        const marketplace = {
-          ...saved.marketplace,
-          listed,
-          publishedHash: listed ? result.contentHash : undefined,
-          publishedAt: listed ? result.publishedAt : undefined,
-        };
-        await saveContentV2Topic(root, { ...saved, marketplace });
-        await control.advance(listed ? "Published marketplace document" : "Removed marketplace document");
-        const current = requireSnapshot();
-        repositorySnapshot = {
-          ...current,
-          contentV2: {
-            ...current.contentV2,
-            topics: current.contentV2.topics.map((item) => item.id === topicId ? {
-              ...item,
-              marketplace,
-              marketplaceLocalHash: contentHash,
-              marketplacePublishedHash: listed ? result.contentHash : null,
-              marketplacePublishedAt: listed ? result.publishedAt : null,
-            } : item),
-          },
-        };
-        return {
-          topicId,
-          listed,
-          contentHash: result.contentHash,
-          publishedAt: result.publishedAt,
-          snapshot: requireSnapshot(),
-        };
-      },
-    );
-  });
   ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
     if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
     return loadContentV2Topic(await repositoryRoot(), topicId);
@@ -966,11 +1211,14 @@ app.whenReady().then(async () => {
       const root = await repositoryRoot();
       const quiz = await loadContentV2Quiz(root, topicId, quizId);
       const resources = await loadContentV2QuizResources(root, topicId, quiz);
-      if (quiz.type !== "alphabet" && quiz.type !== "spelling") return resources;
+      if (quiz.type !== "alphabet" && quiz.type !== "spelling")
+        return resources;
       return {
         ...resources,
         dictionary: localizedAlphabetDictionary(
-          resources.dictionary as Parameters<typeof localizedAlphabetDictionary>[0],
+          resources.dictionary as Parameters<
+            typeof localizedAlphabetDictionary
+          >[0],
           quiz.language,
         ),
       };
@@ -990,115 +1238,216 @@ app.whenReady().then(async () => {
         contentV2: {
           ...current.contentV2,
           quizzes: current.contentV2.quizzes.map((item) =>
-            item.topicId === topicId ? { ...item, localHash: "" } : item),
+            item.topicId === topicId ? { ...item, localHash: "" } : item,
+          ),
         },
       };
       return requireSnapshot();
     },
   );
-  ipcMain.handle("content-v2:topic:dictionary:load", async (_event, topicId: unknown) => {
-    if (typeof topicId !== "string") throw new Error("Invalid topic selection.");
-    return loadContentV2TopicDictionary(await repositoryRoot(), topicId);
-  });
-  ipcMain.handle("content-v2:topic:dictionary:save", async (_event, topicId: unknown, value: unknown) => {
-    if (typeof topicId !== "string") throw new Error("Invalid topic selection.");
-    const root = await repositoryRoot();
-    await saveContentV2TopicDictionary(root, topicId, value);
-    const current = requireSnapshot();
-    repositorySnapshot = {
-      ...current,
-      contentV2: {
-        ...current.contentV2,
-        quizzes: current.contentV2.quizzes.map((item) =>
-          item.topicId === topicId ? { ...item, localHash: "" } : item),
-      },
-    };
-    return requireSnapshot();
-  });
+  ipcMain.handle(
+    "content-v2:topic:dictionary:load",
+    async (_event, topicId: unknown) => {
+      if (typeof topicId !== "string")
+        throw new Error("Invalid topic selection.");
+      return loadContentV2TopicDictionary(await repositoryRoot(), topicId);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:topic:dictionary:save",
+    async (_event, topicId: unknown, value: unknown) => {
+      if (typeof topicId !== "string")
+        throw new Error("Invalid topic selection.");
+      const root = await repositoryRoot();
+      await saveContentV2TopicDictionary(root, topicId, value);
+      const current = requireSnapshot();
+      repositorySnapshot = {
+        ...current,
+        contentV2: {
+          ...current.contentV2,
+          quizzes: current.contentV2.quizzes.map((item) =>
+            item.topicId === topicId ? { ...item, localHash: "" } : item,
+          ),
+        },
+      };
+      return requireSnapshot();
+    },
+  );
   const topicAssetsDirectory = async (topicId: unknown) => {
     if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
       throw new Error("Invalid topic selection.");
-    return path.join(await repositoryRoot(), "content-v2", "topics", topicId, "assets");
+    return path.join(
+      await repositoryRoot(),
+      "content-v2",
+      "topics",
+      topicId,
+      "assets",
+    );
   };
   const listTopicAssets = async (topicId: unknown) => {
     const directory = await topicAssetsDirectory(topicId);
     await fs.mkdir(directory, { recursive: true });
     const supported: Record<string, string> = {
-      ".avif": "image/avif", ".gif": "image/gif", ".jpeg": "image/jpeg",
-      ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp",
+      ".avif": "image/avif",
+      ".gif": "image/gif",
+      ".jpeg": "image/jpeg",
+      ".jpg": "image/jpeg",
+      ".png": "image/png",
+      ".svg": "image/svg+xml",
+      ".webp": "image/webp",
     };
     const files: string[] = [];
     const visit = async (current: string) => {
       for (const entry of await fs.readdir(current, { withFileTypes: true })) {
         const absolute = path.join(current, entry.name);
         if (entry.isDirectory()) await visit(absolute);
-        else if (entry.isFile() && supported[path.extname(entry.name).toLowerCase()])
-          files.push(path.relative(directory, absolute).replaceAll(path.sep, "/"));
+        else if (
+          entry.isFile() &&
+          supported[path.extname(entry.name).toLowerCase()]
+        )
+          files.push(
+            path.relative(directory, absolute).replaceAll(path.sep, "/"),
+          );
       }
     };
     await visit(directory);
-    const assets = await Promise.all(files.map(async (filename) => ({
-      filename,
-      size: (await fs.stat(path.join(directory, filename))).size,
-      mimeType: supported[path.extname(filename).toLowerCase()]!,
-    })));
-    return assets.sort((left, right) => left.filename.localeCompare(right.filename));
+    const assets = await Promise.all(
+      files.map(async (filename) => ({
+        filename,
+        size: (await fs.stat(path.join(directory, filename))).size,
+        mimeType: supported[path.extname(filename).toLowerCase()]!,
+      })),
+    );
+    return assets.sort((left, right) =>
+      left.filename.localeCompare(right.filename),
+    );
   };
-  ipcMain.handle("content-v2:topic:assets:list", (_event, topicId: unknown) => listTopicAssets(topicId));
-  ipcMain.handle("content-v2:topic:asset:read", async (_event, topicId: unknown, filename: unknown) => {
-    if (typeof filename !== "string" || path.isAbsolute(filename) || filename.split(/[\\/]/).some((part) => !part || part === "." || part === ".."))
-      throw new Error("Invalid asset selection.");
-    const directory = await topicAssetsDirectory(topicId);
-    const assetPath = path.resolve(directory, filename);
-    if (!assetPath.startsWith(`${path.resolve(directory)}${path.sep}`)) throw new Error("Invalid asset selection.");
-    const mimeTypes: Record<string, string> = {
-      ".avif": "image/avif", ".gif": "image/gif", ".jpeg": "image/jpeg",
-      ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp",
-    };
-    const mimeType = mimeTypes[path.extname(assetPath).toLowerCase()];
-    if (!mimeType || !(await fs.stat(assetPath).then((value) => value.isFile()).catch(() => false)))
-      throw new Error("The selected asset was not found.");
-    return `data:${mimeType};base64,${(await fs.readFile(assetPath)).toString("base64")}`;
-  });
-  ipcMain.handle("content-v2:topic:assets:import", async (_event, topicId: unknown) => {
-    const directory = await topicAssetsDirectory(topicId);
-    const selection = await dialog.showOpenDialog(mainWindow!, {
-      title: "Import shared topic assets",
-      properties: ["openFile", "multiSelections"],
-      filters: [{ name: "Images", extensions: ["avif", "gif", "jpeg", "jpg", "png", "svg", "webp"] }],
-    });
-    if (selection.canceled) return listTopicAssets(topicId);
-    const existing = new Set((await listTopicAssets(topicId)).map((item) => item.filename));
-    const duplicates = selection.filePaths.map((file) => path.basename(file)).filter((name) => existing.has(name));
-    if (duplicates.length) throw new Error(`Already exists: ${duplicates.join(", ")}`);
-    await Promise.all(selection.filePaths.map((file) => fs.copyFile(file, path.join(directory, path.basename(file)))));
-    await acceptCurrentRepositoryStructure(await repositoryRoot());
-    return listTopicAssets(topicId);
-  });
-  ipcMain.handle("content-v2:topic:asset:trash", async (_event, topicId: unknown, filename: unknown) => {
-    if (typeof filename !== "string" || path.isAbsolute(filename) || filename.split(/[\\/]/).some((part) => !part || part === "." || part === ".."))
-      throw new Error("Invalid asset selection.");
-    const dictionary = await loadContentV2TopicDictionary(await repositoryRoot(), String(topicId));
-    if (JSON.stringify(dictionary).includes(`asset:${filename}`))
-      throw new Error("This asset is still referenced by the shared dictionary.");
-    const root = await repositoryRoot();
-    const referencingQuestion = (await Promise.all(
-      requireSnapshot().contentV2.questions
-        .filter((question) => question.topicId === topicId)
-        .map((question) => loadContentV2Question(root, question.topicId, question.quizId, question.id)),
-    )).some((question) => JSON.stringify(question).includes(`asset:${filename}`));
-    if (referencingQuestion)
-      throw new Error("This asset is still referenced by a quiz question.");
-    const assetsDirectory = await topicAssetsDirectory(topicId);
-    const assetPath = path.resolve(assetsDirectory, filename);
-    if (!assetPath.startsWith(`${path.resolve(assetsDirectory)}${path.sep}`)) throw new Error("Invalid asset selection.");
-    await shell.trashItem(assetPath);
-    await acceptCurrentRepositoryStructure(root);
-    return listTopicAssets(topicId);
-  });
-  ipcMain.handle("content-v2:topic:assets:show", async (_event, topicId: unknown) => {
-    await shell.openPath(await topicAssetsDirectory(topicId));
-  });
+  ipcMain.handle("content-v2:topic:assets:list", (_event, topicId: unknown) =>
+    listTopicAssets(topicId),
+  );
+  ipcMain.handle(
+    "content-v2:topic:asset:read",
+    async (_event, topicId: unknown, filename: unknown) => {
+      if (
+        typeof filename !== "string" ||
+        path.isAbsolute(filename) ||
+        filename
+          .split(/[\\/]/)
+          .some((part) => !part || part === "." || part === "..")
+      )
+        throw new Error("Invalid asset selection.");
+      const directory = await topicAssetsDirectory(topicId);
+      const assetPath = path.resolve(directory, filename);
+      if (!assetPath.startsWith(`${path.resolve(directory)}${path.sep}`))
+        throw new Error("Invalid asset selection.");
+      const mimeTypes: Record<string, string> = {
+        ".avif": "image/avif",
+        ".gif": "image/gif",
+        ".jpeg": "image/jpeg",
+        ".jpg": "image/jpeg",
+        ".png": "image/png",
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+      };
+      const mimeType = mimeTypes[path.extname(assetPath).toLowerCase()];
+      if (
+        !mimeType ||
+        !(await fs
+          .stat(assetPath)
+          .then((value) => value.isFile())
+          .catch(() => false))
+      )
+        throw new Error("The selected asset was not found.");
+      return `data:${mimeType};base64,${(await fs.readFile(assetPath)).toString("base64")}`;
+    },
+  );
+  ipcMain.handle(
+    "content-v2:topic:assets:import",
+    async (_event, topicId: unknown) => {
+      const directory = await topicAssetsDirectory(topicId);
+      const selection = await dialog.showOpenDialog(mainWindow!, {
+        title: "Import shared topic assets",
+        properties: ["openFile", "multiSelections"],
+        filters: [
+          {
+            name: "Images",
+            extensions: ["avif", "gif", "jpeg", "jpg", "png", "svg", "webp"],
+          },
+        ],
+      });
+      if (selection.canceled) return listTopicAssets(topicId);
+      const existing = new Set(
+        (await listTopicAssets(topicId)).map((item) => item.filename),
+      );
+      const duplicates = selection.filePaths
+        .map((file) => path.basename(file))
+        .filter((name) => existing.has(name));
+      if (duplicates.length)
+        throw new Error(`Already exists: ${duplicates.join(", ")}`);
+      await Promise.all(
+        selection.filePaths.map((file) =>
+          fs.copyFile(file, path.join(directory, path.basename(file))),
+        ),
+      );
+      await acceptCurrentRepositoryStructure(await repositoryRoot());
+      return listTopicAssets(topicId);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:topic:asset:trash",
+    async (_event, topicId: unknown, filename: unknown) => {
+      if (
+        typeof filename !== "string" ||
+        path.isAbsolute(filename) ||
+        filename
+          .split(/[\\/]/)
+          .some((part) => !part || part === "." || part === "..")
+      )
+        throw new Error("Invalid asset selection.");
+      const dictionary = await loadContentV2TopicDictionary(
+        await repositoryRoot(),
+        String(topicId),
+      );
+      if (JSON.stringify(dictionary).includes(`asset:${filename}`))
+        throw new Error(
+          "This asset is still referenced by the shared dictionary.",
+        );
+      const root = await repositoryRoot();
+      const referencingQuestion = (
+        await Promise.all(
+          requireSnapshot()
+            .contentV2.questions.filter(
+              (question) => question.topicId === topicId,
+            )
+            .map((question) =>
+              loadContentV2Question(
+                root,
+                question.topicId,
+                question.quizId,
+                question.id,
+              ),
+            ),
+        )
+      ).some((question) =>
+        JSON.stringify(question).includes(`asset:${filename}`),
+      );
+      if (referencingQuestion)
+        throw new Error("This asset is still referenced by a quiz question.");
+      const assetsDirectory = await topicAssetsDirectory(topicId);
+      const assetPath = path.resolve(assetsDirectory, filename);
+      if (!assetPath.startsWith(`${path.resolve(assetsDirectory)}${path.sep}`))
+        throw new Error("Invalid asset selection.");
+      await shell.trashItem(assetPath);
+      await acceptCurrentRepositoryStructure(root);
+      return listTopicAssets(topicId);
+    },
+  );
+  ipcMain.handle(
+    "content-v2:topic:assets:show",
+    async (_event, topicId: unknown) => {
+      await shell.openPath(await topicAssetsDirectory(topicId));
+    },
+  );
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) => {
     const root = await repositoryRoot();
     const saved = await saveContentV2Topic(root, value);
@@ -1122,15 +1471,25 @@ app.whenReady().then(async () => {
         path.join(root, "content-v2", "topics", saved.id, "topic.json"),
       localHash: hashContentV2({
         topic: sanitizeContentV2Topic(saved),
-        quizzes: topicQuizzes.map(({ id, type, order }) => ({ id, type, order })),
+        quizzes: topicQuizzes.map(({ id, type, order }) => ({
+          id,
+          type,
+          order,
+        })),
       }),
       publishedHash: saved.publishedHash ?? null,
       publishedAt: saved.publishedAt ?? null,
       quizCount: topicQuizzes.length,
       marketplace: saved.marketplace,
       marketplaceLocalHash: hashContentV2(sanitizeMarketplaceTopic(saved)),
-      marketplacePublishedHash: typeof saved.marketplace?.publishedHash === "string" ? saved.marketplace.publishedHash : null,
-      marketplacePublishedAt: typeof saved.marketplace?.publishedAt === "string" ? saved.marketplace.publishedAt : null,
+      marketplacePublishedHash:
+        typeof saved.marketplace?.publishedHash === "string"
+          ? saved.marketplace.publishedHash
+          : null,
+      marketplacePublishedAt:
+        typeof saved.marketplace?.publishedAt === "string"
+          ? saved.marketplace.publishedAt
+          : null,
       ...(saved.type === "competition"
         ? {
             subject: saved.subject,
@@ -1170,7 +1529,11 @@ app.whenReady().then(async () => {
       const quizQuestions = current.contentV2.questions.filter(
         (item) => item.topicId === topicId && item.quizId === saved.id,
       );
-      const localHash = await calculateContentV2QuizHash(root, topicId, saved.id);
+      const localHash = await calculateContentV2QuizHash(
+        root,
+        topicId,
+        saved.id,
+      );
       const summary = {
         ...(existing ?? {}),
         key: `${topicId}/${saved.id}`,
@@ -1217,7 +1580,8 @@ app.whenReady().then(async () => {
             item.id === topicId
               ? {
                   ...item,
-                  quizCount: quizzes.filter((quiz) => quiz.topicId === topicId).length,
+                  quizCount: quizzes.filter((quiz) => quiz.topicId === topicId)
+                    .length,
                   localHash: hashContentV2({
                     topic: sanitizeContentV2Topic(topic),
                     quizzes: quizzes
@@ -1293,7 +1657,11 @@ app.whenReady().then(async () => {
       const quizQuestions = questions.filter(
         (item) => item.topicId === topicId && item.quizId === quizId,
       );
-      const quizLocalHash = await calculateContentV2QuizHash(root, topicId, quizId);
+      const quizLocalHash = await calculateContentV2QuizHash(
+        root,
+        topicId,
+        quizId,
+      );
       repositorySnapshot = {
         ...current,
         contentV2: {
@@ -1380,9 +1748,15 @@ app.whenReady().then(async () => {
         ...current,
         contentV2: {
           ...current.contentV2,
-          topics: current.contentV2.topics.filter((item) => item.id !== topicId),
-          quizzes: current.contentV2.quizzes.filter((item) => item.topicId !== topicId),
-          questions: current.contentV2.questions.filter((item) => item.topicId !== topicId),
+          topics: current.contentV2.topics.filter(
+            (item) => item.id !== topicId,
+          ),
+          quizzes: current.contentV2.quizzes.filter(
+            (item) => item.topicId !== topicId,
+          ),
+          questions: current.contentV2.questions.filter(
+            (item) => item.topicId !== topicId,
+          ),
         },
       };
       await acceptCurrentRepositoryStructure(root);
@@ -1431,7 +1805,11 @@ app.whenReady().then(async () => {
                   quizCount: topicQuizzes.length,
                   localHash: hashContentV2({
                     topic: sanitizeContentV2Topic(topic),
-                    quizzes: topicQuizzes.map(({ id, type, order }) => ({ id, type, order })),
+                    quizzes: topicQuizzes.map(({ id, type, order }) => ({
+                      id,
+                      type,
+                      order,
+                    })),
                   }),
                 }
               : item,
@@ -1470,10 +1848,18 @@ app.whenReady().then(async () => {
       const typedTopicId = topicId as string;
       const typedQuizId = quizId as string;
       const typedQuestionId = questionId as string;
-      const localHash = await calculateContentV2QuizHash(root, typedTopicId, typedQuizId);
+      const localHash = await calculateContentV2QuizHash(
+        root,
+        typedTopicId,
+        typedQuizId,
+      );
       const questions = current.contentV2.questions.filter(
         (item) =>
-          !(item.topicId === typedTopicId && item.quizId === typedQuizId && item.id === typedQuestionId),
+          !(
+            item.topicId === typedTopicId &&
+            item.quizId === typedQuizId &&
+            item.id === typedQuestionId
+          ),
       );
       const quizQuestions = questions.filter(
         (item) => item.topicId === typedTopicId && item.quizId === typedQuizId,
@@ -1507,14 +1893,20 @@ app.whenReady().then(async () => {
       if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
       const root = await repositoryRoot();
       const snapshot = requireSnapshot();
-      const summary = snapshot.contentV2.topics.find((item) => item.id === topicId);
+      const summary = snapshot.contentV2.topics.find(
+        (item) => item.id === topicId,
+      );
       if (!summary) throw new Error("The selected topic was not found.");
       const topic = await loadContentV2Topic(root, topicId);
       const quizIds = reviewedTopicQuizzes(
         snapshot.contentV2.quizzes,
         topicId,
       ).map((quiz) => quiz.id);
-      return createContentV2TopicPublishPreview(topic, summary.localHash, quizIds);
+      return createContentV2TopicPublishPreview(
+        topic,
+        summary.localHash,
+        quizIds,
+      );
     },
   );
   ipcMain.handle(
@@ -1748,118 +2140,130 @@ app.whenReady().then(async () => {
           route: `/topics/${encodeURIComponent(topicId)}/quizzes/${encodeURIComponent(quizId)}?tab=publish`,
         },
         async (control) => {
-      await control.setTotal(
-        Math.max(1, summary.questionCount + 1),
-        `Preparing questions 0/${summary.questionCount}`,
-      );
-      const quiz = await loadContentV2Quiz(root, topicId, quizId);
-      const topic = await loadContentV2Topic(root, topicId);
-      const questionIds = snapshot.contentV2.questions
-        .filter(
-          (question) =>
-            question.topicId === topicId && question.quizId === quizId,
-        )
-        .sort((left, right) => left.order - right.order)
-        .map((question) => question.id);
-      let preparedQuestions = 0;
-      const [questions, resources] = await Promise.all([
-        Promise.all(questionIds.map(async (questionId) => {
-          const question = await loadContentV2Question(root, topicId, quizId, questionId);
-          preparedQuestions += 1;
-          await control.advance(`Preparing questions ${preparedQuestions}/${questionIds.length}`);
-          return question;
-        })),
-        loadContentV2QuizResources(root, topicId, quiz),
-      ]);
-      const assets = await loadContentV2Assets(root, topicId, quizId, {
-        topic,
-        quiz,
-        questions,
-        resources,
-      });
-      const topicSummary = snapshot.contentV2.topics.find(
-        (item) => item.id === topicId,
-      );
-      if (!topicSummary) throw new Error("The containing topic was not found.");
-      const topicQuizIds = reviewedTopicQuizzes(
-        snapshot.contentV2.quizzes,
-        topicId,
-      ).map((item) => item.id);
-      await control.checkpoint();
-      if (!firebaseAuth) throw new Error("Publishing is not initialized.");
-      const target = await firebaseAuth.publishingTarget();
-      const publishContainingTopic = shouldPublishContainingTopic(
-        await publishing.contentV2TopicExists(topicId),
-      );
-      const publishState = await readContentV2QuizPublishState(summary.filePath);
-      const result = await publishing.publishContentV2Quiz(
-        topicId,
-        quiz,
-        questions,
-        resources,
-        assets,
-        summary.localHash,
-        publishState.targets[target.projectId],
-        control,
-        publishContainingTopic ? 2 : 0,
-      );
-      const topicResult = publishContainingTopic
-        ? await publishing.publishContentV2Topic(
+          await control.setTotal(
+            Math.max(1, summary.questionCount + 1),
+            `Preparing questions 0/${summary.questionCount}`,
+          );
+          const quiz = await loadContentV2Quiz(root, topicId, quizId);
+          const topic = await loadContentV2Topic(root, topicId);
+          const questionIds = snapshot.contentV2.questions
+            .filter(
+              (question) =>
+                question.topicId === topicId && question.quizId === quizId,
+            )
+            .sort((left, right) => left.order - right.order)
+            .map((question) => question.id);
+          let preparedQuestions = 0;
+          const [questions, resources] = await Promise.all([
+            Promise.all(
+              questionIds.map(async (questionId) => {
+                const question = await loadContentV2Question(
+                  root,
+                  topicId,
+                  quizId,
+                  questionId,
+                );
+                preparedQuestions += 1;
+                await control.advance(
+                  `Preparing questions ${preparedQuestions}/${questionIds.length}`,
+                );
+                return question;
+              }),
+            ),
+            loadContentV2QuizResources(root, topicId, quiz),
+          ]);
+          const assets = await loadContentV2Assets(root, topicId, quizId, {
             topic,
-            topicSummary.localHash,
-            topicQuizIds,
+            quiz,
+            questions,
+            resources,
+          });
+          const topicSummary = snapshot.contentV2.topics.find(
+            (item) => item.id === topicId,
+          );
+          if (!topicSummary)
+            throw new Error("The containing topic was not found.");
+          const topicQuizIds = reviewedTopicQuizzes(
+            snapshot.contentV2.quizzes,
+            topicId,
+          ).map((item) => item.id);
+          await control.checkpoint();
+          if (!firebaseAuth) throw new Error("Publishing is not initialized.");
+          const target = await firebaseAuth.publishingTarget();
+          const publishContainingTopic = shouldPublishContainingTopic(
+            await publishing.contentV2TopicExists(topicId),
+          );
+          const publishState = await readContentV2QuizPublishState(
+            summary.filePath,
+          );
+          const result = await publishing.publishContentV2Quiz(
+            topicId,
+            quiz,
+            questions,
+            resources,
+            assets,
+            summary.localHash,
+            publishState.targets[target.projectId],
             control,
-          )
-        : null;
-      await recordContentV2Published(
-        summary.filePath,
-        result.contentHash,
-        result.publishedAt,
-      );
-      if (topicResult)
-        await recordContentV2Published(
-          topicSummary.filePath,
-          topicResult.contentHash,
-          topicResult.publishedAt,
-        );
-      await writeContentV2QuizPublishState(summary.filePath, {
-        schemaVersion: 1,
-        targets: {
-          ...publishState.targets,
-          [result.projectId]: {
-            environment: result.environment,
-            projectId: result.projectId,
-            contentHash: result.contentHash,
-            publishedAt: result.publishedAt,
-            items: result.items,
-          },
-        },
-      });
-      if (repositorySnapshot)
-        repositorySnapshot = {
-          ...repositorySnapshot,
-          contentV2: {
-            ...repositorySnapshot.contentV2,
-            quizzes: repositorySnapshot.contentV2.quizzes.map((item) =>
-              item.topicId === topicId && item.id === quizId
-                ? {
-                    ...item,
-                    publishedHash: result.contentHash,
-                    publishedAt: result.publishedAt,
-                  }
-                : item,
-            ),
-            topics: repositorySnapshot.contentV2.topics.map((item) =>
-              topicResult && item.id === topicId
-                ? {
-                    ...item,
-                    publishedHash: topicResult.contentHash,
-                    publishedAt: topicResult.publishedAt,
-                  }
-                : item,
-            ),
-          },
-        };
+            publishContainingTopic ? 2 : 0,
+          );
+          const topicResult = publishContainingTopic
+            ? await publishing.publishContentV2Topic(
+                topic,
+                topicSummary.localHash,
+                topicQuizIds,
+                control,
+              )
+            : null;
+          await recordContentV2Published(
+            summary.filePath,
+            result.contentHash,
+            result.publishedAt,
+          );
+          if (topicResult)
+            await recordContentV2Published(
+              topicSummary.filePath,
+              topicResult.contentHash,
+              topicResult.publishedAt,
+            );
+          await writeContentV2QuizPublishState(summary.filePath, {
+            schemaVersion: 1,
+            targets: {
+              ...publishState.targets,
+              [result.projectId]: {
+                environment: result.environment,
+                projectId: result.projectId,
+                contentHash: result.contentHash,
+                publishedAt: result.publishedAt,
+                items: result.items,
+              },
+            },
+          });
+          if (repositorySnapshot)
+            repositorySnapshot = {
+              ...repositorySnapshot,
+              contentV2: {
+                ...repositorySnapshot.contentV2,
+                quizzes: repositorySnapshot.contentV2.quizzes.map((item) =>
+                  item.topicId === topicId && item.id === quizId
+                    ? {
+                        ...item,
+                        publishedHash: result.contentHash,
+                        publishedAt: result.publishedAt,
+                      }
+                    : item,
+                ),
+                topics: repositorySnapshot.contentV2.topics.map((item) =>
+                  topicResult && item.id === topicId
+                    ? {
+                        ...item,
+                        publishedHash: topicResult.contentHash,
+                        publishedAt: topicResult.publishedAt,
+                      }
+                    : item,
+                ),
+              },
+            };
           return { ...result, snapshot: requireSnapshot() };
         },
       );
@@ -1919,64 +2323,107 @@ app.whenReady().then(async () => {
       throw new Error("Invalid clipboard text");
     clipboard.writeText(text);
   });
-  ipcMain.handle("resources:youtube:resolve", async (_event, input: unknown) => {
-    if (!Array.isArray(input) || input.length > 100 || input.some((value) => typeof value !== "string")) {
-      throw new Error("Paste up to 100 YouTube links at a time.");
-    }
-    return Promise.all(input.map(async (requestedUrl) => {
-      try {
-        const parsed = new URL(requestedUrl);
-        const host = parsed.hostname.toLowerCase();
-        let videoId = host === "youtu.be" ? parsed.pathname.split("/").filter(Boolean)[0] : parsed.searchParams.get("v");
-        if (!videoId && (host === "youtube.com" || host.endsWith(".youtube.com"))) {
-          const parts = parsed.pathname.split("/").filter(Boolean);
-          if (["shorts", "embed", "live"].includes(parts[0])) videoId = parts[1];
-        }
-        if ((host !== "youtu.be" && host !== "youtube.com" && !host.endsWith(".youtube.com")) || !videoId || !/^[\w-]{6,20}$/.test(videoId)) {
-          throw new Error("Not a valid YouTube video URL");
-        }
-        const url = `https://www.youtube.com/watch?v=${videoId}`;
-        const endpoint = new URL("https://www.youtube.com/oembed");
-        endpoint.searchParams.set("url", url);
-        endpoint.searchParams.set("format", "json");
-        const response = await fetch(endpoint, { signal: AbortSignal.timeout(10_000) });
-        const watchResponse = await fetch(`${url}&hl=en`, {
-          headers: { "accept-language": "en-US,en;q=0.9" },
-          signal: AbortSignal.timeout(10_000),
-        }).catch(() => null);
-        if (!response.ok) throw new Error(`YouTube returned ${response.status}`);
-        const metadata = await response.json() as { title?: unknown };
-        if (typeof metadata.title !== "string" || !metadata.title.trim()) throw new Error("YouTube returned no title");
-        let durationSeconds: number | undefined;
-        const readDuration = (watchHtml: string) => {
-          const secondsMatch = watchHtml.match(/(?:"|\\")lengthSeconds(?:"|\\")\s*:\s*(?:"|\\")?(\d+)/);
-          const millisecondsMatch = watchHtml.match(/(?:"|\\")approxDurationMs(?:"|\\")\s*:\s*(?:"|\\")?(\d+)/);
-          const parsedDuration = secondsMatch
-            ? Number(secondsMatch[1])
-            : millisecondsMatch
-              ? Math.round(Number(millisecondsMatch[1]) / 1000)
-              : Number.NaN;
-          return Number.isSafeInteger(parsedDuration) && parsedDuration > 0 ? parsedDuration : undefined;
-        };
-        if (watchResponse?.ok) {
-          durationSeconds = readDuration(await watchResponse.text());
-        }
-        if (!durationSeconds) {
-          const retryResponse = await fetch(`${url}&hl=en&gl=US&bpctr=9999999999&has_verified=1`, {
-            headers: {
-              "accept-language": "en-US,en;q=0.9",
-              "cache-control": "no-cache",
-            },
-            signal: AbortSignal.timeout(10_000),
-          }).catch(() => null);
-          if (retryResponse?.ok) durationSeconds = readDuration(await retryResponse.text());
-        }
-        return { url, title: metadata.title.trim(), ...(durationSeconds ? { durationSeconds } : {}) };
-      } catch (cause) {
-        return { url: requestedUrl, error: cause instanceof Error ? cause.message : String(cause) };
+  ipcMain.handle(
+    "resources:youtube:resolve",
+    async (_event, input: unknown) => {
+      if (
+        !Array.isArray(input) ||
+        input.length > 100 ||
+        input.some((value) => typeof value !== "string")
+      ) {
+        throw new Error("Paste up to 100 YouTube links at a time.");
       }
-    }));
-  });
+      return Promise.all(
+        input.map(async (requestedUrl) => {
+          try {
+            const parsed = new URL(requestedUrl);
+            const host = parsed.hostname.toLowerCase();
+            let videoId =
+              host === "youtu.be"
+                ? parsed.pathname.split("/").filter(Boolean)[0]
+                : parsed.searchParams.get("v");
+            if (
+              !videoId &&
+              (host === "youtube.com" || host.endsWith(".youtube.com"))
+            ) {
+              const parts = parsed.pathname.split("/").filter(Boolean);
+              if (["shorts", "embed", "live"].includes(parts[0]))
+                videoId = parts[1];
+            }
+            if (
+              (host !== "youtu.be" &&
+                host !== "youtube.com" &&
+                !host.endsWith(".youtube.com")) ||
+              !videoId ||
+              !/^[\w-]{6,20}$/.test(videoId)
+            ) {
+              throw new Error("Not a valid YouTube video URL");
+            }
+            const url = `https://www.youtube.com/watch?v=${videoId}`;
+            const endpoint = new URL("https://www.youtube.com/oembed");
+            endpoint.searchParams.set("url", url);
+            endpoint.searchParams.set("format", "json");
+            const response = await fetch(endpoint, {
+              signal: AbortSignal.timeout(10_000),
+            });
+            const watchResponse = await fetch(`${url}&hl=en`, {
+              headers: { "accept-language": "en-US,en;q=0.9" },
+              signal: AbortSignal.timeout(10_000),
+            }).catch(() => null);
+            if (!response.ok)
+              throw new Error(`YouTube returned ${response.status}`);
+            const metadata = (await response.json()) as { title?: unknown };
+            if (typeof metadata.title !== "string" || !metadata.title.trim())
+              throw new Error("YouTube returned no title");
+            let durationSeconds: number | undefined;
+            const readDuration = (watchHtml: string) => {
+              const secondsMatch = watchHtml.match(
+                /(?:"|\\")lengthSeconds(?:"|\\")\s*:\s*(?:"|\\")?(\d+)/,
+              );
+              const millisecondsMatch = watchHtml.match(
+                /(?:"|\\")approxDurationMs(?:"|\\")\s*:\s*(?:"|\\")?(\d+)/,
+              );
+              const parsedDuration = secondsMatch
+                ? Number(secondsMatch[1])
+                : millisecondsMatch
+                  ? Math.round(Number(millisecondsMatch[1]) / 1000)
+                  : Number.NaN;
+              return Number.isSafeInteger(parsedDuration) && parsedDuration > 0
+                ? parsedDuration
+                : undefined;
+            };
+            if (watchResponse?.ok) {
+              durationSeconds = readDuration(await watchResponse.text());
+            }
+            if (!durationSeconds) {
+              const retryResponse = await fetch(
+                `${url}&hl=en&gl=US&bpctr=9999999999&has_verified=1`,
+                {
+                  headers: {
+                    "accept-language": "en-US,en;q=0.9",
+                    "cache-control": "no-cache",
+                  },
+                  signal: AbortSignal.timeout(10_000),
+                },
+              ).catch(() => null);
+              if (retryResponse?.ok)
+                durationSeconds = readDuration(await retryResponse.text());
+            }
+            return {
+              url,
+              title: metadata.title.trim(),
+              ...(durationSeconds ? { durationSeconds } : {}),
+            };
+          } catch (cause) {
+            return {
+              url: requestedUrl,
+              error: cause instanceof Error ? cause.message : String(cause),
+            };
+          }
+        }),
+      );
+    },
+  );
   ipcMain.handle(
     "shell:open-external",
     async (_event, requestedUrl: unknown) => {
@@ -1996,14 +2443,17 @@ app.whenReady().then(async () => {
         "/project/tnp-getgo-stg/",
         "/project/tnp-getgo/",
       ];
-      const allowedFirebaseConsole = url.hostname === "console.firebase.google.com" &&
+      const allowedFirebaseConsole =
+        url.hostname === "console.firebase.google.com" &&
         allowedFirebasePaths.some((prefix) => url.pathname.startsWith(prefix));
-      const allowedLocalhost = url.protocol === "http:" &&
+      const allowedLocalhost =
+        url.protocol === "http:" &&
         (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
         url.port === "5173";
       if (
         !allowedLocalhost &&
-        (url.protocol !== "https:" || (!allowedHosts.has(url.hostname) && !allowedFirebaseConsole))
+        (url.protocol !== "https:" ||
+          (!allowedHosts.has(url.hostname) && !allowedFirebaseConsole))
       )
         throw new Error("External URL is not allowed");
       await shell.openExternal(url.toString());
@@ -2049,7 +2499,10 @@ app.whenReady().then(async () => {
         throw new Error("Choose a quiz repository first.");
       const manifest = path.resolve(manifestPath);
       const manifestRelative = path.relative(current.repositoryPath, manifest);
-      if (manifestRelative.startsWith("..") || path.isAbsolute(manifestRelative))
+      if (
+        manifestRelative.startsWith("..") ||
+        path.isAbsolute(manifestRelative)
+      )
         throw new Error("Quiz is outside the selected repository");
       if (
         typeof assetReference !== "string" ||
@@ -2075,7 +2528,12 @@ app.whenReady().then(async () => {
         const relative = path.relative(directory, candidate);
         if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
           continue;
-        if (await fs.access(candidate).then(() => true).catch(() => false)) {
+        if (
+          await fs
+            .access(candidate)
+            .then(() => true)
+            .catch(() => false)
+        ) {
           assetPath = candidate;
           break;
         }
@@ -2102,31 +2560,53 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle(
     "quiz-asset:save",
-    async (_event, manifestPath: unknown, suggestedName: unknown, dataUrl: unknown) => {
+    async (
+      _event,
+      manifestPath: unknown,
+      suggestedName: unknown,
+      dataUrl: unknown,
+    ) => {
       if (typeof manifestPath !== "string" || !path.isAbsolute(manifestPath))
         throw new Error("Invalid quiz manifest path");
       if (typeof suggestedName !== "string" || !suggestedName.trim())
         throw new Error("Invalid asset filename");
       if (typeof dataUrl !== "string") throw new Error("Invalid image data");
       const current = await settings.read();
-      if (!current.repositoryPath) throw new Error("Choose a quiz repository first.");
+      if (!current.repositoryPath)
+        throw new Error("Choose a quiz repository first.");
       const manifest = path.resolve(manifestPath);
       const manifestRelative = path.relative(current.repositoryPath, manifest);
-      if (manifestRelative.startsWith("..") || path.isAbsolute(manifestRelative))
+      if (
+        manifestRelative.startsWith("..") ||
+        path.isAbsolute(manifestRelative)
+      )
         throw new Error("Quiz is outside the selected repository");
-      const match = /^data:(image\/(?:avif|gif|jpeg|png|svg\+xml|webp));base64,([\s\S]+)$/.exec(dataUrl);
+      const match =
+        /^data:(image\/(?:avif|gif|jpeg|png|svg\+xml|webp));base64,([\s\S]+)$/.exec(
+          dataUrl,
+        );
       if (!match) throw new Error("Paste or select a supported image file.");
       const extensions: Record<string, string> = {
-        "image/avif": "avif", "image/gif": "gif", "image/jpeg": "jpg",
-        "image/png": "png", "image/svg+xml": "svg", "image/webp": "webp",
+        "image/avif": "avif",
+        "image/gif": "gif",
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/svg+xml": "svg",
+        "image/webp": "webp",
       };
-      const stem = path.basename(suggestedName, path.extname(suggestedName))
-        .toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+      const stem = path
+        .basename(suggestedName, path.extname(suggestedName))
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
       if (!stem) throw new Error("Invalid asset filename");
       const filename = `${stem}.${extensions[match[1]]}`;
       const assetsDirectory = path.join(path.dirname(manifest), "assets");
       await fs.mkdir(assetsDirectory, { recursive: true });
-      await fs.writeFile(path.join(assetsDirectory, filename), Buffer.from(match[2].replace(/\s/g, ""), "base64"));
+      await fs.writeFile(
+        path.join(assetsDirectory, filename),
+        Buffer.from(match[2].replace(/\s/g, ""), "base64"),
+      );
       await acceptCurrentRepositoryStructure(current.repositoryPath);
       return { reference: `asset:${filename}`, preview: dataUrl };
     },
@@ -2438,7 +2918,7 @@ app.whenReady().then(async () => {
     return repositorySnapshot;
   });
   startupLog("IPC handlers registered");
-  createWindow();
+  startupLog("Startup complete", { logFile: startupLogFile });
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

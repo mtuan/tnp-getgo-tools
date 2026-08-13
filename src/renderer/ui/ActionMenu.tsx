@@ -14,10 +14,10 @@ export interface ActionMenuItem {
   onSelect(): void
 }
 
-export function ActionMenu({ label = "Actions", items, disabled = false, variant = "outline", color = "neutral", iconOnly = false }: { label?: string; items: ActionMenuItem[]; disabled?: boolean; variant?: ButtonVariant; color?: ButtonColor; iconOnly?: boolean }) {
+export function ActionMenu({ label = "Actions", items, disabled = false, variant = "outline", color = "neutral", iconOnly = false, buttonClassName = "" }: { label?: string; items: ActionMenuItem[]; disabled?: boolean; variant?: ButtonVariant; color?: ButtonColor; iconOnly?: boolean; buttonClassName?: string }) {
   const dropdown = useSelectDropdown()
   return <div className="ui-action-menu-trigger" ref={dropdown.ref}>
-    <Button variant={iconOnly ? "icon" : variant} color={color} disabled={disabled} aria-label={iconOnly ? label : undefined} title={iconOnly ? label : undefined} aria-haspopup="menu" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(open => !open)}>{iconOnly ? <MoreHorizontal size={18} /> : <>{label}<ChevronDown size={14} /></>}</Button>
+    <Button className={buttonClassName} variant={iconOnly ? "icon" : variant} color={color} disabled={disabled} aria-label={iconOnly ? label : undefined} title={iconOnly ? label : undefined} aria-haspopup="menu" aria-expanded={dropdown.open} onClick={(event) => { event.stopPropagation(); dropdown.setOpen(open => !open); }}>{iconOnly ? <MoreHorizontal size={18} /> : <>{label}<ChevronDown size={14} /></>}</Button>
     {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="ui-action-menu" role="menu" style={{ right: Math.max(8, window.innerWidth - dropdown.position.left - dropdown.position.width), top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }}>
       {items.map(item => {
         if (item.type === "label") return <div className="ui-action-menu-label" key={item.id}>{item.label}</div>

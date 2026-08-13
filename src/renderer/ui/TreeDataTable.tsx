@@ -7,13 +7,14 @@ export interface TreeDataRow<T> {
   children?: TreeDataRow<T>[];
 }
 
-export function TreeDataTable<T>({ rows, columns, rowKey, ariaLabel, emptyText = "No rows yet.", onRowClick, renderIdentity }: {
+export function TreeDataTable<T>({ rows, columns, rowKey, ariaLabel, emptyText = "No rows yet.", onRowClick, toggleParentOnRowClick = false, renderIdentity }: {
   rows: TreeDataRow<T>[];
   columns: DataColumn<T>[];
   rowKey(row: T): string;
   ariaLabel: string;
   emptyText?: string;
   onRowClick?(row: T): void;
+  toggleParentOnRowClick?: boolean;
   renderIdentity?(row: T, depth: number, toggle: ReactNode): ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -27,7 +28,7 @@ export function TreeDataTable<T>({ rows, columns, rowKey, ariaLabel, emptyText =
     }}><ChevronRight className={expanded ? "expanded" : ""} /></button> : <span className="ui-tree-data-toggle-spacer" />;
     const effectiveColumns = renderIdentity ? columns.map((column, columnIndex) => columnIndex === 0 ? { ...column, render: (row: T) => renderIdentity(row, depth, toggle) } : column) : columns;
     return <tbody className={`ui-tree-data-group ${expanded ? "open" : ""}`} key={key}>
-      <tr className={[onRowClick && "clickable", depth === 0 ? "ui-tree-data-parent" : "ui-tree-data-child"].filter(Boolean).join(" ")} onClick={onRowClick ? () => onRowClick(item.row) : undefined}><DataTableCells columns={effectiveColumns} row={item.row} index={index} /></tr>
+      <tr className={[(onRowClick || (toggleParentOnRowClick && branch)) && "clickable", depth === 0 ? "ui-tree-data-parent" : "ui-tree-data-child"].filter(Boolean).join(" ")} onClick={toggleParentOnRowClick && branch ? () => setCollapsed((current) => { const next = new Set(current); if (expanded) next.add(key); else next.delete(key); return next; }) : onRowClick ? () => onRowClick(item.row) : undefined}><DataTableCells columns={effectiveColumns} row={item.row} index={index} /></tr>
       {branch && <tr className="ui-tree-data-region-row"><td colSpan={columns.length}><div className="ui-tree-data-region" aria-hidden={!expanded} inert={!expanded}><div className="ui-tree-data-region-inner"><table><DataTableColumns columns={columns} />{renderRows(item.children ?? [], depth + 1)}</table></div></div></td></tr>}
     </tbody>;
   });
