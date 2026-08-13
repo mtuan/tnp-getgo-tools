@@ -19,9 +19,9 @@ export function renderTopicTree(context: TopicTreeContext) {
 isContest,
     loadTreeTopicQuizzes,
     locale,
+    openQuiz,
     setContestTab,
     setPage,
-    setQuizTab,
     snapshot,
     topicMode,
     topicsView,
@@ -164,8 +164,7 @@ isContest,
                       setPage({ kind: "contest", contest: row.contest.id });
                       setContestTab("quizzes");
                     } else {
-                      setPage({ kind: "quiz", quiz: row.quiz });
-                      setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets");
+                      openQuiz(row.quiz);
                     }
                   }}
                   onExpand={(row) =>

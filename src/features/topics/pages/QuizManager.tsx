@@ -19,7 +19,6 @@ import type { AlphabetEditorTab } from "../../quiz-editor/components/AlphabetLet
 import {
   comparableQuestion,
   questionDiff,
-  questionPrompt,
   restoredPage,
   type ContestDetailTab,
   type ManagerPage,
@@ -166,33 +165,6 @@ export function QuizManager({
       JSON.stringify(comparableQuestion(storedQuestion)),
   );
   const saveButtonEnabled = saveButtonDirty && !saving && !savingVerification;
-
-  useEffect(() => {
-    const selectedRecord =
-      selectedQuestion === null
-        ? null
-        : (questionRecords[selectedQuestion] ?? null);
-    console.info("[GetGo Tools][Question navigation][state]", {
-      selectedIndex: selectedQuestion,
-      selectedQuestionNo: selectedRecord
-        ? String(selectedRecord.question_no)
-        : null,
-      draftQuestionNo: questionDraftRecord
-        ? String(questionDraftRecord.question_no)
-        : null,
-      identitiesMatch: Boolean(
-        selectedRecord &&
-        questionDraftRecord &&
-        String(selectedRecord.question_no) ===
-          String(questionDraftRecord.question_no),
-      ),
-      draftTextPreview: questionDraftRecord
-        ? questionPrompt(
-            questionDraftRecord.text_en ?? questionDraftRecord.text_vn,
-          ).slice(0, 120)
-        : null,
-    });
-  }, [questionDraftRecord?.question_no, questionRecords, selectedQuestion]);
 
   const updateQuestionDraft = useCallback(
     (originQuestionNo: string, next: QuizQuestionRecord) => {
@@ -457,6 +429,19 @@ export function QuizManager({
   const backToQuestions = useCallback(() => {
     setSelectedQuestion(null);
     setPendingQuestionNo(null);
+    setQuestionDraftRecord(null);
+  }, []);
+
+  const openQuiz = useCallback((quiz: QuizSummary) => {
+    setSelectedQuestion(null);
+    setPendingQuestionNo(null);
+    setQuestionDraftRecord(null);
+    setPreviewQuestion(null);
+    setQuestionOrder(null);
+    setQuestionRecords([]);
+    setSourceError(null);
+    setQuizTab(quiz.type === "contest" ? "questions" : "alphabets");
+    setPage({ kind: "quiz", quiz });
   }, []);
 
   const goBack = useCallback(() => {
@@ -566,6 +551,7 @@ export function QuizManager({
     migrateLegacyQuizzes,
     migrationForQuiz,
     migrationResults,
+    openQuiz,
     onOpenJobs,
     onRouteChange,
     onSnapshotChange,

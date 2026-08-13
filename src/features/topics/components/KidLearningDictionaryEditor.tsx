@@ -11,6 +11,7 @@ import { useSaveShortcut } from "../../../shared/ui/useSaveShortcut";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import { DictionaryAssetThumbnail } from "./DictionaryAssetThumbnail";
+import * as ui from "../../../shared/ui";
 
 type DictionaryRow = {
   id: string;
@@ -316,7 +317,14 @@ export function KidLearningDictionaryEditor({
           /></div> : selected ? <div className="topic-dictionary-preview">
           <div className="topic-dictionary-preview-summary">
             <div className="topic-dictionary-preview-image">
-              {previewLoading ? <span>Loading image…</span> : imagePreview ? <img src={imagePreview} alt={selected.enText || selected.viText || selected.id} /> : <span>No linked image</span>}
+              <ui.Image
+                src={imagePreview}
+                alt={selected.enText || selected.viText || selected.id}
+                fit="contain"
+                inset={12}
+                loading={previewLoading}
+                fallback="No linked image"
+              />
             </div>
             <div className="topic-dictionary-preview-identity">
               <span className="topic-dictionary-preview-id">{selected.id}</span>

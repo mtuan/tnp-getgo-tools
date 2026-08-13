@@ -1943,7 +1943,7 @@ html {
   scroll-behavior: smooth;
 }
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 button {
   -webkit-tap-highlight-color: transparent;
@@ -5639,6 +5639,19 @@ button.danger svg {
     100vh - var(--routebar-height) - var(--topbar-height) -
       var(--sticky-content-gap) * 2
   );
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.topic-asset-preview-panel > .panel-heading {
+  flex: 0 0 auto;
+}
+
+.topic-asset-preview-panel > .topic-asset-preview {
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -5681,6 +5694,30 @@ button.danger svg {
   gap: 12px;
 }
 
+.ui-image {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+}
+
+.ui-image-element {
+  display: block;
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.ui-image-spinner,
+.ui-image-fallback {
+  grid-area: 1 / 1;
+}
+
 .topic-dictionary-table-image {
   display: inline-grid;
   width: 36px;
@@ -5690,14 +5727,6 @@ button.danger svg {
   border-radius: 8px;
   color: var(--muted);
   background: var(--soft);
-}
-
-.topic-dictionary-table-image img {
-  width: 100%;
-  height: 100%;
-  padding: 4px;
-  object-fit: contain;
-  box-sizing: border-box;
 }
 
 .topic-dictionary-table-word {
@@ -5759,15 +5788,6 @@ button.danger svg {
   border-radius: 12px;
   background: #fff;
   overflow: hidden;
-}
-
-.topic-dictionary-preview-image img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 12px;
-  object-fit: contain;
-  box-sizing: border-box;
 }
 
 .topic-dictionary-preview-identity {
@@ -5942,6 +5962,10 @@ button.danger svg {
   .topic-assets-layout > .topic-asset-preview-panel {
     position: static;
     max-height: none;
+    overflow: visible;
+  }
+  .topic-asset-preview-panel > .topic-asset-preview {
+    overflow: visible;
   }
   .topic-dictionary-layout {
     grid-template-columns: 1fr;
@@ -6218,17 +6242,33 @@ button.danger svg {
     100vh - var(--routebar-height) - var(--topbar-height) -
       var(--sticky-content-gap) * 2
   );
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 .question-preview-panel {
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
   background: white;
+  overflow: hidden;
 }
 .question-preview-panel > .panel-heading {
+  flex: 0 0 auto;
   min-height: 68px;
   padding: 0 18px;
   background: white;
+}
+.question-preview-panel > .question-preview,
+.question-preview-panel > .alphabet-letter-preview,
+.question-preview-panel > .alphabet-word-preview,
+.question-preview-panel > .alphabet-word-preview-empty,
+.question-preview-panel > .alphabet-resource-preview {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 .question-preview-panel > .panel-heading h2 {
   margin: 0;
@@ -7031,6 +7071,19 @@ button.danger svg {
   }
   .advanced-question-sidebar {
     position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .question-preview-panel {
+    max-height: none;
+    overflow: visible;
+  }
+  .question-preview-panel > .question-preview,
+  .question-preview-panel > .alphabet-letter-preview,
+  .question-preview-panel > .alphabet-word-preview,
+  .question-preview-panel > .alphabet-word-preview-empty,
+  .question-preview-panel > .alphabet-resource-preview {
+    overflow: visible;
   }
 }
 .ui-data-table-empty {

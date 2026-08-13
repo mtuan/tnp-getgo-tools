@@ -20,9 +20,9 @@ export function renderManagerList(context: ManagerListContext) {
     isContest,
     locale,
     migrationForQuiz,
+    openQuiz,
     setContestTab,
     setPage,
-    setQuizTab,
     snapshot,
     topicMode,
     topicsView,
@@ -105,8 +105,7 @@ export function renderManagerList(context: ManagerListContext) {
                           <tr
                             key={quiz.key}
                             onClick={() => {
-                              setPage({ kind: "quiz", quiz });
-                              setQuizTab(quiz.type === "contest" ? "questions" : "alphabets");
+                              openQuiz(quiz);
                             }}
                           >
                             <td>
@@ -135,8 +134,7 @@ export function renderManagerList(context: ManagerListContext) {
                                 }
                                 ariaLabel="Open quiz questions"
                                 onClick={() => {
-                                  setPage({ kind: "quiz", quiz });
-                                  setQuizTab(quiz.type === "contest" ? "questions" : "alphabets");
+                                  openQuiz(quiz);
                                 }}
                               >
                                 {review.reviewed}/{review.total}
@@ -179,12 +177,7 @@ export function renderManagerList(context: ManagerListContext) {
                             <tr
                               key={quiz.key}
                               onClick={() => {
-                                setPage({ kind: "quiz", quiz });
-                                setQuizTab(
-                                  quiz.type === "contest"
-                                    ? "questions"
-                                    : "alphabets",
-                                );
+                                openQuiz(quiz);
                               }}
                             >
                               <td>
