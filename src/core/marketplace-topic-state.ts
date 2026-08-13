@@ -18,7 +18,7 @@ export function marketplaceTopicState(
 ): MarketplaceTopicState {
   if (metadata?.state) return metadata.state;
   if (metadata?.featured) return "featured";
-  return metadata?.listed === false ? "unlisted" : "listed";
+  return metadata?.listed === true ? "listed" : "unlisted";
 }
 
 export function withMarketplaceTopicState<T extends MarketplaceStateMetadata>(

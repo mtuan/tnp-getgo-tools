@@ -37,6 +37,7 @@ test("marketplace topic states map to remote listing flags", () => {
   });
   assert.equal(marketplaceTopicState({ listed: false }), "unlisted");
   assert.equal(marketplaceTopicState({ featured: true }), "featured");
+  assert.equal(marketplaceTopicState(), "unlisted");
 });
 
 const alphabetTopic = {

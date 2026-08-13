@@ -1,12 +1,14 @@
-import { ChevronRight, CloudUpload, ListOrdered, Pencil, Search, Rows3 } from "lucide-react";
+import { ChevronRight, ListOrdered, Search, Rows3 } from "lucide-react";
 import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../core/models";
 import { Button } from "../ui/Button";
 import { StatusBadge } from "../ui/StatusBadge";
 import { ActionMenu } from "../ui/ActionMenu";
-import { TableActionButton } from "../ui/TableActionButton";
-import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
+import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
 import { ManagerListIcon, quizReviewStatus } from "./shared";
 import { renderTopicTree } from "./TopicTree";
+import { withMarketplaceTopicState, type MarketplaceTopicState } from "../../core/marketplace-topic-state";
+import en from "../locales/en.json";
+import vi from "../locales/vi.json";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type ManagerListContext = Record<string, any> & {
@@ -17,11 +19,11 @@ type ManagerListContext = Record<string, any> & {
 
 export function renderManagerList(context: ManagerListContext) {
   const {
+    buttonAction,
     contestTab,
     isContest,
-    managerApi,
+    locale,
     migrationForQuiz,
-    onOpenJobs,
     onSnapshotChange,
     query,
     runButtonAction,
@@ -31,12 +33,52 @@ export function renderManagerList(context: ManagerListContext) {
     setQuizTab,
     setTopicsView,
     snapshot,
+    selectedContest,
     toast,
     topicMode,
     topicsView,
     visibleContests,
     visibleQuizzes,
   } = context;
+  const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
+  const batchMarketplaceState = (state: MarketplaceTopicState) =>
+    runButtonAction(`batch-market-${state}`, async () => {
+      let latest: RepositorySnapshot | null = null;
+      if (isContest) {
+        const quizzes = snapshot.contentV2.quizzes.filter(
+          (quiz) => quiz.topicId === selectedContest?.id,
+        );
+        for (const summary of quizzes) {
+          const quiz = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
+          latest = await window.getgo.saveContentV2Quiz(summary.topicId, {
+            ...quiz,
+            marketplace: withMarketplaceTopicState(quiz.marketplace, state),
+          });
+        }
+        if (latest) onSnapshotChange(latest);
+        toast.show({
+          title: marketplaceCopy.batchUpdated,
+          description: marketplaceCopy.batchUpdatedDescription
+            .replace("{count}", String(quizzes.length))
+            .replace("{state}", marketplaceCopy.states[state]),
+        });
+        return;
+      }
+      for (const summary of snapshot.contentV2.topics) {
+        const topic = await window.getgo.loadContentV2Topic(summary.id);
+        latest = await window.getgo.saveContentV2Topic({
+          ...topic,
+          marketplace: withMarketplaceTopicState(topic.marketplace, state),
+        });
+      }
+      if (latest) onSnapshotChange(latest);
+      toast.show({
+        title: marketplaceCopy.batchUpdated,
+        description: marketplaceCopy.batchUpdatedDescription
+          .replace("{count}", String(snapshot.contentV2.topics.length))
+          .replace("{state}", marketplaceCopy.states[state]),
+      });
+    });
   return (
     <>
       {(!isContest || contestTab === "quizzes") && (
@@ -54,6 +96,24 @@ export function renderManagerList(context: ManagerListContext) {
                 }
               />
             </div>
+            {topicMode && (isContest || topicsView === "list") && (
+              <ActionMenu
+                label={marketplaceCopy.batchActions}
+                disabled={Boolean(buttonAction)}
+                items={[
+                  {
+                    id: "list-all",
+                    label: marketplaceCopy.listAll,
+                    onSelect: () => void batchMarketplaceState("listed"),
+                  },
+                  {
+                    id: "unlist-all",
+                    label: marketplaceCopy.unlistAll,
+                    onSelect: () => void batchMarketplaceState("unlisted"),
+                  },
+                ]}
+              />
+            )}
             {!isContest && topicMode && (
               <Button
                 className="manager-view-switcher"
@@ -90,7 +150,6 @@ export function renderManagerList(context: ManagerListContext) {
                     <col style={{ width: 136 }} />
                     <col style={{ width: 112 }} />
                     <col style={{ width: 144 }} />
-                    <col style={{ width: 104 }} />
                   </colgroup>
                 )}
                 <thead>
@@ -102,7 +161,6 @@ export function renderManagerList(context: ManagerListContext) {
                         <th className="manager-column-centered">Review</th>
                         <th className="manager-column-centered">State</th>
                         <th className="manager-column-centered">Sync status</th>
-                        <th />
                       </>
                     ) : isContest ? (
                       <>
@@ -113,7 +171,7 @@ export function renderManagerList(context: ManagerListContext) {
                         <th>Questions</th>
                         <th>Reviewed</th>
                         <th>Status</th>
-                        <th />
+                        {!topicMode && <th />}
                       </>
                     ) : (
                       <>
@@ -188,17 +246,15 @@ export function renderManagerList(context: ManagerListContext) {
                               </StatusBadge>
                             </td>
                             <td className="manager-status-cell">
-                              <StatusBadge tone="primary">
-                                {marketplaceStateLabel(quiz.marketplace).label}
-                              </StatusBadge>
+                              {(() => {
+                                const state = marketplaceStateLabel(quiz.marketplace).state;
+                                return <StatusBadge tone={marketplaceStateTone(state)}>{marketplaceCopy.states[state]}</StatusBadge>;
+                              })()}
                             </td>
                             <td className="manager-status-cell">
                               <StatusBadge tone={quizMarketplaceStatus(quiz).kind === "current" ? "success" : "warning"}>
                                 {quizMarketplaceStatus(quiz).label}
                               </StatusBadge>
-                            </td>
-                            <td>
-                              <span className="topic-status-na">—</span>
                             </td>
                           </tr>
                         );
@@ -324,7 +380,13 @@ export function renderManagerList(context: ManagerListContext) {
                             (topic) => topic.id === contest.id,
                           );
                           return (
-                            <tr key={contest.id}>
+                            <tr
+                              key={contest.id}
+                              onClick={() => {
+                                setPage({ kind: "contest", contest: contest.id });
+                                setContestTab("info");
+                              }}
+                            >
                               <td>
                                 <div className="manager-list-identity">
                                   <ManagerListIcon
@@ -365,14 +427,6 @@ export function renderManagerList(context: ManagerListContext) {
                                                 ? "warning"
                                                 : "neutral"
                                           }
-                                          ariaLabel="Open topic review"
-                                          onClick={() => {
-                                            setPage({
-                                              kind: "contest",
-                                              contest: contest.id,
-                                            });
-                                            setContestTab("info");
-                                          }}
                                         >
                                           {status === "reviewed" ? "Ready" : status === "rejected" ? "Rejected" : "Needs review"}
                                         </StatusBadge>
@@ -380,9 +434,10 @@ export function renderManagerList(context: ManagerListContext) {
                                     })()}
                                   </td>
                                   <td className="manager-status-cell">
-                                    <StatusBadge tone="primary">
-                                      {marketplaceStateLabel(topicSummary.marketplace).label}
-                                    </StatusBadge>
+                                    {(() => {
+                                      const state = marketplaceStateLabel(topicSummary.marketplace).state;
+                                      return <StatusBadge tone={marketplaceStateTone(state)}>{marketplaceCopy.states[state]}</StatusBadge>;
+                                    })()}
                                   </td>
                                   <td className="manager-status-cell">
                                     {(() => {
@@ -396,14 +451,6 @@ export function renderManagerList(context: ManagerListContext) {
                                                 ? "warning"
                                                 : "neutral"
                                           }
-                                          ariaLabel="Open topic marketplace tab"
-                                          onClick={() => {
-                                            setPage({
-                                              kind: "contest",
-                                              contest: contest.id,
-                                            });
-                                            setContestTab("info");
-                                          }}
                                         >
                                           {status.label}
                                         </StatusBadge>
@@ -417,52 +464,7 @@ export function renderManagerList(context: ManagerListContext) {
                                   <td>{builds}</td>
                                 </>
                               )}
-                              <td>
-                                {topicMode ? (
-                                  <div className="manager-row-actions">
-                                    <TableActionButton
-                                      color="primary"
-                                      icon={<Pencil />}
-                                      aria-label="Edit topic"
-                                      title="Edit topic"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        setPage({
-                                          kind: "contest",
-                                          contest: contest.id,
-                                        });
-                                        setContestTab("info");
-                                      }}
-                                    />
-                                    <ActionMenu
-                                      label="More actions"
-                                      iconOnly
-                                      items={[
-                                        {
-                                          id: "publish-market",
-                                          label: "Publish to Market",
-                                          icon: CloudUpload,
-                                          onSelect: () =>
-                                            void runButtonAction(
-                                              "quick-publish-market",
-                                              async () => {
-                                                const result = await managerApi.publishContentV2Topic(contest.id);
-                                                if (result.snapshot) onSnapshotChange(result.snapshot);
-                                                onOpenJobs();
-                                                toast.show({
-                                                  title: "Publish to Market started",
-                                                  description: `Synchronizing ${contest.title} content and marketplace listing.`,
-                                                });
-                                              },
-                                            ),
-                                        },
-                                      ]}
-                                    />
-                                  </div>
-                                ) : (
-                                  <ChevronRight size={16} />
-                                )}
-                              </td>
+                              {!topicMode && <td><ChevronRight size={16} /></td>}
                             </tr>
                           );
                         })}

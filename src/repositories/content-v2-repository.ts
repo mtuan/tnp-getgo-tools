@@ -15,18 +15,9 @@ import {
   type ContentV2Quiz,
   type ContentV2Topic,
 } from "../core/content-v2.js";
-import type {
-  ContentV2QuestionSummary,
-  ContentV2QuizSummary,
-  ContentV2Snapshot,
-  ContentV2TopicSummary,
-  ScanIssue,
-} from "../core/models.js";
+import type { ContentV2QuestionSummary, ContentV2QuizSummary, ContentV2Snapshot, ContentV2TopicSummary, ScanIssue } from "../core/models.js";
 import type { ContentV2QuizPublishState } from "../core/content-v2-publish-state.js";
-import {
-  parseAlphabetDictionary,
-  parseKidLearningDictionary,
-} from "./alphabet-dictionary.js";
+import { parseAlphabetDictionary, parseKidLearningDictionary } from "./alphabet-dictionary.js";
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
@@ -123,7 +114,7 @@ export interface ContentV2Asset {
 
 export async function scanContentV2Repository(
   repositoryPath: string,
-  options: { lightweight?: boolean } = {},
+  options: { lightweight?: boolean; topicId?: string } = {},
 ): Promise<LoadedContentV2> {
   const scanStartedAt = Date.now();
   const root = contentRoot(repositoryPath);
@@ -134,7 +125,8 @@ export async function scanContentV2Repository(
   const issues: ScanIssue[] = [];
   const questionKeys = new Set<string>();
 
-  for (const topicDirectoryName of await directories(root)) {
+  const topicDirectories = options.topicId ? [validateId(options.topicId, "Topic ID")] : await directories(root);
+  for (const topicDirectoryName of topicDirectories) {
     const topicStartedAt = Date.now();
     const topicFile = path.join(root, topicDirectoryName, "topic.json");
     let topic: ContentV2Topic;
@@ -444,6 +436,10 @@ export async function scanContentV2Repository(
   return {
     snapshot: { topics, quizzes, questions, issues },
   };
+}
+
+export function loadContentV2TopicFolder(repositoryPath: string, topicId: string): Promise<LoadedContentV2> {
+  return scanContentV2Repository(repositoryPath, { topicId });
 }
 
 export async function saveContentV2Topic(

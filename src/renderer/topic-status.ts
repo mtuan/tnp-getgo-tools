@@ -1,5 +1,6 @@
 import type { ContentV2TopicSummary, QuizSummary } from "../core/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../core/marketplace-topic-state";
+import type { StatusBadgeTone } from "./ui/StatusBadge";
 
 export type TopicStatus = { kind: "none" | "current" | "changed"; label: string };
 
@@ -24,6 +25,13 @@ export function marketplaceStateLabel(metadata?: QuizSummary["marketplace"]): {
 } {
   const state = marketplaceTopicState(metadata);
   return { state, label: state[0].toUpperCase() + state.slice(1) };
+}
+
+export function marketplaceStateTone(state: MarketplaceTopicState): StatusBadgeTone {
+  if (state === "listed") return "success";
+  if (state === "featured") return "primary";
+  if (state === "removed") return "danger";
+  return "neutral";
 }
 
 export function quizMarketplaceStatus(quiz: QuizSummary): TopicStatus {

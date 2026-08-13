@@ -1,12 +1,11 @@
-import { CloudUpload, Pencil } from "lucide-react";
 import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../core/models";
 import { TreeDataTable, type TreeDataRow } from "../ui/TreeDataTable";
 import type { DataColumn } from "../ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../ui/StatusBadge";
-import { ActionMenu } from "../ui/ActionMenu";
-import { TableActionButton } from "../ui/TableActionButton";
-import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
+import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
 import { ManagerListIcon, quizReviewStatus } from "./shared";
+import en from "../locales/en.json";
+import vi from "../locales/vi.json";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type TopicTreeContext = Record<string, any> & {
@@ -19,20 +18,17 @@ export function renderTopicTree(context: TopicTreeContext) {
   const {
 isContest,
     loadTreeTopicQuizzes,
-    managerApi,
-    onOpenJobs,
-    onSnapshotChange,
-    runButtonAction,
+    locale,
     setContestTab,
     setPage,
     setQuizTab,
     snapshot,
-    toast,
     topicMode,
     topicsView,
     treeTopicQuizzes,
     visibleContests
   } = context;
+  const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
   return (
     <>
           {!isContest && topicMode && (
@@ -59,7 +55,9 @@ isContest,
                           hasChildren: summary.quizCount > 0,
                           ...(treeTopicQuizzes[contest.id]
                             ? {
-                                children: treeTopicQuizzes[contest.id].map(
+                                children: snapshot.quizzes.filter(
+                                  (quiz) => quiz.contest === contest.id,
+                                ).map(
                                   (quiz) => ({
                                     row: { kind: "quiz" as const, quiz },
                                   }),
@@ -75,7 +73,7 @@ isContest,
                 {
                   key: "identity",
                   title: "Topic / quiz",
-                  width: "calc(100% - 596px)",
+                  width: "calc(100% - 492px)",
                   render: () => null,
                 },
                 {
@@ -103,19 +101,6 @@ isContest,
                     return (
                       <StatusBadge
                         tone={tone}
-                        ariaLabel={`Open ${row.kind} review`}
-                        onClick={() => {
-                          if (row.kind === "topic") {
-                            setPage({
-                              kind: "contest",
-                              contest: row.contest.id,
-                            });
-                            setContestTab("info");
-                          } else {
-                            setPage({ kind: "quiz", quiz: row.quiz });
-                            setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets");
-                          }
-                        }}
                       >
                         {review.label}
                       </StatusBadge>
@@ -129,7 +114,8 @@ isContest,
                   align: "center",
                   render: (row) => {
                     const metadata = row.kind === "topic" ? row.summary.marketplace : row.quiz.marketplace;
-                    return <StatusBadge tone="primary">{marketplaceStateLabel(metadata).label}</StatusBadge>;
+                    const state = marketplaceStateLabel(metadata).state;
+                    return <StatusBadge tone={marketplaceStateTone(state)}>{marketplaceCopy.states[state]}</StatusBadge>;
                   },
                 },
                 {
@@ -150,70 +136,11 @@ isContest,
                     return (
                       <StatusBadge
                         tone={tone}
-                        ariaLabel={`Open ${row.kind} info`}
-                        onClick={() => {
-                          if (row.kind === "topic") {
-                            setPage({ kind: "contest", contest: row.contest.id });
-                            setContestTab("info");
-                          } else {
-                            setPage({ kind: "quiz", quiz: row.quiz });
-                            setQuizTab("info");
-                          }
-                        }}
                       >
                         {status.label}
                       </StatusBadge>
                     );
                   },
-                },
-                {
-                  key: "action",
-                  title: "",
-                  width: 104,
-                  align: "right",
-                  role: "actions",
-                  render: (row) => (
-                    <div className="manager-row-actions">
-                      {row.kind === "topic" && <TableActionButton
-                          color="primary"
-                          icon={<Pencil />}
-                          aria-label="Edit topic"
-                          title="Edit topic"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setPage({
-                              kind: "contest",
-                              contest: row.contest.id,
-                            });
-                            setContestTab("info");
-                          }}
-                        />}
-                      {row.kind === "topic" && <ActionMenu
-                        label="More actions"
-                        iconOnly
-                        items={[
-                          {
-                            id: "publish-market",
-                            label: "Publish to Market",
-                            icon: CloudUpload,
-                            onSelect: () =>
-                              void runButtonAction(
-                                "quick-publish-market",
-                                async () => {
-                                  const result = await managerApi.publishContentV2Topic(row.contest.id);
-                                  if (result.snapshot) onSnapshotChange(result.snapshot);
-                                  onOpenJobs();
-                                  toast.show({
-                                    title: "Publish to Market started",
-                                    description: `Synchronizing ${row.contest.title} content and marketplace listing.`,
-                                  });
-                                },
-                              ),
-                          },
-                        ]}
-                      />}
-                    </div>
-                  ),
                 },
               ];
               return (
@@ -227,12 +154,15 @@ isContest,
                   }
                   ariaLabel="Topics and quizzes"
                   emptyText="No matching topics."
-                  toggleParentOnRowClick
                   singleExpand
                   onRowClick={(row) => {
-                    if (row.kind !== "quiz") return;
-                    setPage({ kind: "quiz", quiz: row.quiz });
-                    setQuizTab("info");
+                    if (row.kind === "topic") {
+                      setPage({ kind: "contest", contest: row.contest.id });
+                      setContestTab("info");
+                    } else {
+                      setPage({ kind: "quiz", quiz: row.quiz });
+                      setQuizTab("info");
+                    }
                   }}
                   onExpand={(row) =>
                     row.kind === "topic"

@@ -277,7 +277,10 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   if (field.type === "icon") return <IconControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
-  if (field.type === "number") return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null ? "" : Number(value)} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />
+  if (field.type === "number") {
+    const numericValue = typeof value === "number" ? value : Number(value)
+    return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null || value === "" || !Number.isFinite(numericValue) ? "" : numericValue} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />
+  }
   return <input name={field.name} type={field.type} autoComplete={field.autoComplete} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
 }
 

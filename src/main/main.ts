@@ -76,6 +76,7 @@ import {
   loadContentV2Quiz,
   loadContentV2QuizResources,
   loadContentV2TopicDictionary,
+  loadContentV2TopicFolder,
   loadContentV2Topic,
   recordContentV2Published,
   readContentV2QuizPublishState,
@@ -1511,79 +1512,19 @@ app.whenReady().then(async () => {
       if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
       const root = await repositoryRoot();
       const topic = await loadContentV2Topic(root, topicId);
-      const saved = await saveContentV2Quiz(root, topic, value);
+      await saveContentV2Quiz(root, topic, value);
+      await acceptCurrentRepositoryStructure(root);
+      const loaded = (await loadContentV2TopicFolder(root, topicId)).snapshot;
       const current = requireSnapshot();
-      const existing = current.contentV2.quizzes.find(
-        (item) => item.topicId === topicId && item.id === saved.id,
-      );
-      const quizQuestions = current.contentV2.questions.filter(
-        (item) => item.topicId === topicId && item.quizId === saved.id,
-      );
-      const localHash = await calculateContentV2QuizHash(
-        root,
-        topicId,
-        saved.id,
-      );
-      const summary = {
-        ...(existing ?? {}),
-        key: `${topicId}/${saved.id}`,
-        topicId,
-        id: saved.id,
-        type: saved.type,
-        title: saved.title,
-        description: saved.description,
-        status: saved.status,
-        order: saved.order,
-        filePath:
-          existing?.filePath ??
-          path.join(
-            root,
-            "content-v2",
-            "topics",
-            topicId,
-            "quizzes",
-            saved.id,
-            "quiz.json",
-          ),
-        localHash,
-        publishedHash: saved.publishedHash ?? null,
-        publishedAt: saved.publishedAt ?? null,
-        questionCount: quizQuestions.length,
-        reviewedQuestionCount: quizQuestions.filter(
-          (item) => item.status === "reviewed",
-        ).length,
-        ...(saved.type === "competition-paper"
-          ? { grade: saved.grade, round: saved.round, year: saved.year }
-          : { language: saved.language }),
-      };
-      const quizzes = existing
-        ? current.contentV2.quizzes.map((item) =>
-            item.key === summary.key ? summary : item,
-          )
-        : [...current.contentV2.quizzes, summary];
       repositorySnapshot = {
         ...current,
         contentV2: {
-          ...current.contentV2,
-          quizzes,
-          topics: current.contentV2.topics.map((item) =>
-            item.id === topicId
-              ? {
-                  ...item,
-                  quizCount: quizzes.filter((quiz) => quiz.topicId === topicId)
-                    .length,
-                  localHash: hashContentV2({
-                    topic: sanitizeContentV2Topic(topic),
-                    quizzes: quizzes
-                      .filter((quiz) => quiz.topicId === topicId)
-                      .map(({ id, type, order }) => ({ id, type, order })),
-                  }),
-                }
-              : item,
-          ),
+          topics: [...current.contentV2.topics.filter((item) => item.id !== topicId), ...loaded.topics],
+          quizzes: [...current.contentV2.quizzes.filter((item) => item.topicId !== topicId), ...loaded.quizzes],
+          questions: [...current.contentV2.questions.filter((item) => item.topicId !== topicId), ...loaded.questions],
+          issues: [...current.contentV2.issues.filter((item) => !item.path.startsWith(`content-v2/topics/${topicId}/`)), ...loaded.issues],
         },
       };
-      await acceptCurrentRepositoryStructure(root);
       return requireSnapshot();
     },
   );

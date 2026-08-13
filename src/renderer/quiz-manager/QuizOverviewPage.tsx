@@ -114,13 +114,13 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                     options={Object.entries(marketplaceCopy.states).map(
                       ([value, label]) => ({ value, label }),
                     )}
-                    onValueChange={(value) =>
+                    onValueChange={(value) => {
                       void runButtonAction("market-state", async () => {
-                        const stored = await window.getgo.loadContentV2Quiz(
+                        const stored = await managerApi.loadContentV2Quiz(
                           quiz.contest,
                           quiz.id,
                         );
-                        const next = await window.getgo.saveContentV2Quiz(
+                        await managerApi.saveContentV2Quiz(
                           quiz.contest,
                           {
                             ...stored,
@@ -130,7 +130,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                             ),
                           },
                         );
-                        onSnapshotChange(next);
                         toast.show({
                           title: marketplaceCopy.stateUpdated,
                           description: marketplaceCopy.stateUpdatedDescription.replace(
@@ -138,8 +137,8 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                             marketplaceCopy.states[value as MarketplaceTopicState],
                           ),
                         });
-                      })
-                    }
+                      });
+                    }}
                   />
                 )}
                 <Button
@@ -308,7 +307,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
             {quizContest.settingsPath.includes("content-v2") && (
               <MarketplaceMetadataSection
                 locale={locale}
-                load={() => window.getgo.loadContentV2Quiz(quiz.contest, quiz.id)}
+                load={() => managerApi.loadContentV2Quiz(quiz.contest, quiz.id)}
                 loadSubjectOptions={async () => {
                   const topic = await window.getgo.loadContentV2Topic(quiz.contest);
                   return topic.marketplace?.subjects ??
@@ -316,8 +315,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                 }}
                 save={async (record) => {
                   if (!("topicId" in record)) throw new Error("Expected quiz metadata.");
-                  const next = await window.getgo.saveContentV2Quiz(quiz.contest, record);
-                  onSnapshotChange(next);
+                  await managerApi.saveContentV2Quiz(quiz.contest, record);
                 }}
               />
             )}

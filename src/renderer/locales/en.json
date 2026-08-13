@@ -5,6 +5,11 @@
     "stateLabel": "Marketplace state",
     "stateUpdated": "Marketplace state updated",
     "stateUpdatedDescription": "This topic will be synced as {state}.",
+    "batchActions": "Marketplace actions",
+    "listAll": "List all",
+    "unlistAll": "Unlist all",
+    "batchUpdated": "Marketplace states updated",
+    "batchUpdatedDescription": "Updated {count} items to {state}.",
     "states": {
       "listed": "Listed",
       "featured": "Featured",

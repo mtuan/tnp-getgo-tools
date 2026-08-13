@@ -120,6 +120,8 @@ export type QuizManagerApi = Pick<
   | "publishContentV2Topic"
   | "loadContentV2Topic"
   | "saveContentV2Topic"
+  | "loadContentV2Quiz"
+  | "saveContentV2Quiz"
   | "publishMarketplaceTopic"
 > & {
   loadTopicQuizzes?(topicId: string): Promise<QuizSummary[]>;
@@ -386,4 +388,3 @@ export function restoredPage(
     quizTab,
   };
 }
-

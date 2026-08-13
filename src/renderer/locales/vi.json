@@ -5,6 +5,11 @@
     "stateLabel": "Trạng thái kho nội dung",
     "stateUpdated": "Đã cập nhật trạng thái kho nội dung",
     "stateUpdatedDescription": "Chủ đề này sẽ được đồng bộ ở trạng thái {state}.",
+    "batchActions": "Thao tác kho nội dung",
+    "listAll": "Hiển thị tất cả",
+    "unlistAll": "Ẩn tất cả",
+    "batchUpdated": "Đã cập nhật trạng thái kho nội dung",
+    "batchUpdatedDescription": "Đã cập nhật {count} mục thành {state}.",
     "states": {
       "listed": "Đang hiển thị",
       "featured": "Nổi bật",

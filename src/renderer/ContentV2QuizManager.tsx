@@ -237,6 +237,7 @@ export function ContentV2QuizManager(props: Props) {
                 title: record.title,
                 description: record.description,
                 icon: record.icon,
+                marketplace: record.marketplace,
                 status: record.status,
                 order: record.order,
                 ...(record.type === "competition-paper"
@@ -343,6 +344,11 @@ export function ContentV2QuizManager(props: Props) {
       },
       loadContentV2Topic: window.getgo.loadContentV2Topic,
       saveContentV2Topic: async (topic) => refresh(await window.getgo.saveContentV2Topic(topic)),
+      loadContentV2Quiz: window.getgo.loadContentV2Quiz,
+      saveContentV2Quiz: async (topicId, quiz) => {
+        const next = await window.getgo.saveContentV2Quiz(topicId, quiz);
+        return refresh(next);
+      },
       publishMarketplaceTopic: async (topicId, state) => {
         const result = await window.getgo.publishMarketplaceTopic(topicId, state);
         refresh(result.snapshot);
