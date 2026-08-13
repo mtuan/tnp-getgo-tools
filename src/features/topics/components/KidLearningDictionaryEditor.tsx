@@ -12,6 +12,7 @@ import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import { DictionaryAssetThumbnail } from "./DictionaryAssetThumbnail";
 import * as ui from "../../../shared/ui";
+import { dictionaryStartingLetters, dictionaryWordsStartWith } from "../domain/dictionary-letter-filter";
 
 type DictionaryRow = {
   id: string;
@@ -95,6 +96,7 @@ export function KidLearningDictionaryEditor({
 }) {
   const [rows, setRows] = useState(() => rowsFromDictionary(dictionary));
   const [filter, setFilter] = useState("");
+  const [startingLetter, setStartingLetter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(
     () => dictionary.entries[0]?.id ?? null,
   );
@@ -117,14 +119,25 @@ export function KidLearningDictionaryEditor({
   }, [dictionary]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
   const labels = (locale === "vi" ? vi : en).alphabetDictionary;
+  const startingLetters = useMemo(
+    () => dictionaryStartingLetters(rows, locale),
+    [locale, rows],
+  );
+  useEffect(() => {
+    if (startingLetter && !startingLetters.includes(startingLetter))
+      setStartingLetter("");
+  }, [startingLetter, startingLetters]);
   const filteredRows = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase(locale);
-    if (!query) return rows;
-    return rows.filter((row) => [
-      row.id, row.enText, row.enMeaning, row.enAliases,
-      row.viClassifier, row.viText, row.viMeaning, row.viAliases,
-    ].some((value) => value?.toLocaleLowerCase(locale).includes(query)));
-  }, [filter, locale, rows]);
+    return rows.filter((row) => {
+      const matchesText = !query || [
+        row.id, row.enText, row.enMeaning, row.enAliases,
+        row.viClassifier, row.viText, row.viMeaning, row.viAliases,
+      ].some((value) => value?.toLocaleLowerCase(locale).includes(query));
+      const matchesLetter = dictionaryWordsStartWith(row, startingLetter);
+      return matchesText && matchesLetter;
+    });
+  }, [filter, locale, rows, startingLetter]);
   const dirty = Boolean(draft && selected && JSON.stringify(draft) !== JSON.stringify(selected));
   const draftValid = Boolean(draft?.id.trim() && draft.minimumAge >= 3 && draft.minimumAge <= 8);
   useEffect(() => {
@@ -278,13 +291,25 @@ export function KidLearningDictionaryEditor({
       <Panel
         title="Shared multilingual dictionary"
         description={labels.reviewedHelp}
-        meta={<SearchField
-          value={filter}
-          placeholder={labels.filter}
-          ariaLabel={labels.filter}
-          clearLabel={labels.clearFilter}
-          onValueChange={setFilter}
-        />}
+        meta={<ui.ControlGroup className="topic-dictionary-filters">
+          <SearchField
+            value={filter}
+            placeholder={labels.filter}
+            ariaLabel={labels.filter}
+            clearLabel={labels.clearFilter}
+            onValueChange={setFilter}
+          />
+          <ui.Select
+            className="topic-dictionary-letter-filter"
+            value={startingLetter}
+            ariaLabel={labels.startingLetter}
+            options={[
+              { value: "", label: labels.allLetters },
+              ...startingLetters.map((letter) => ({ value: letter, label: letter })),
+            ]}
+            onValueChange={setStartingLetter}
+          />
+        </ui.ControlGroup>}
       >
         {error && <div className="error-banner"><strong>Dictionary operation failed</strong><span>{error}</span></div>}
         <DataTable

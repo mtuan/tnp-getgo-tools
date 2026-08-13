@@ -3,6 +3,7 @@ export * from "./ActionMenu";
 export * from "./Breadcrumbs";
 export * from "./Button";
 export * from "./Checkbox";
+export * from "./ControlGroup";
 export * from "./Input";
 export * from "./Image";
 export * from "./DataTable";

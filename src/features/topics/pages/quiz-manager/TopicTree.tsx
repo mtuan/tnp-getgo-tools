@@ -3,7 +3,7 @@ import { TreeDataTable, type TreeDataRow } from "../../../../shared/ui/TreeDataT
 import type { DataColumn } from "../../../../shared/ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../../../../shared/ui/StatusBadge";
 import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
-import { ManagerListIcon, quizReviewStatus } from "./shared";
+import { contentV2QuizReviewStatus, ManagerListIcon } from "./shared";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 
@@ -95,7 +95,7 @@ isContest,
                           const reviewed = questions.filter((question) => question.status === "reviewed").length;
                           return { kind: questions.length > 0 && reviewed === questions.length ? "current" : reviewed > 0 ? "changed" : "none", label: `${reviewed}/${questions.length}` };
                         })()
-                      : (() => { const value = quizReviewStatus(row.quiz); return { kind: value.kind === "full" ? "current" : value.kind === "partial" ? "changed" : "none", label: `${value.reviewed}/${value.total}` }; })();
+                      : (() => { const value = contentV2QuizReviewStatus(snapshot, row.quiz); return { kind: value.kind === "full" ? "current" : value.kind === "partial" ? "changed" : "none", label: value.label }; })();
                     const tone: StatusBadgeTone =
                       review.kind === "current"
                         ? "success"

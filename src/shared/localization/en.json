@@ -221,7 +221,7 @@
     "text": "Word",
     "classifier": "Classifier",
     "meaning": "Simple meaning",
-    "image": "Image reference",
+    "image": "Image",
     "age": "Minimum age",
     "add": "Add word",
     "empty": "No dictionary words yet.",
@@ -233,6 +233,8 @@
     ,"clearFilter": "Clear dictionary filter"
     ,"reviewed": "Reviewed"
     ,"toggleAllReviewed": "Mark or unmark all dictionary words as reviewed"
+    ,"startingLetter": "Filter by starting letter"
+    ,"allLetters": "All"
     ,"concept": "Concept"
     ,"english": "English"
     ,"vietnamese": "Vietnamese"

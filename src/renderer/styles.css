@@ -5604,6 +5604,7 @@ button.danger svg {
 .ui-data-table th {
   height: 38px;
   padding: 9px 11px;
+  text-transform: none;
 }
 .ui-data-table td {
   height: 54px;
@@ -5692,6 +5693,34 @@ button.danger svg {
 .topic-dictionary-preview {
   display: grid;
   gap: 12px;
+}
+
+.ui-control-group {
+  --ui-control-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--ui-control-height);
+}
+
+.ui-control-group > .schema-select {
+  margin-top: 0;
+}
+
+.ui-control-group > .schema-select > button,
+.ui-control-group > .ui-search-field,
+.ui-control-group > .ui-button {
+  height: var(--ui-control-height);
+  min-height: var(--ui-control-height);
+}
+
+.topic-dictionary-filters {
+  flex-wrap: nowrap;
+}
+
+.topic-dictionary-letter-filter {
+  width: 78px;
+  flex: 0 0 78px;
 }
 
 .ui-image {

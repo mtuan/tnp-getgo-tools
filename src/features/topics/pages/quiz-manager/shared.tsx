@@ -215,6 +215,30 @@ export function quizReviewStatus(quiz: QuizSummary): {
   return { kind: "none", label: "Not reviewed", reviewed, total };
 }
 
+export function contentV2QuizReviewStatus(
+  snapshot: RepositorySnapshot,
+  quiz: QuizSummary,
+) {
+  const questions = snapshot.contentV2.questions.filter(
+    (question) =>
+      question.topicId === quiz.contest && question.quizId === quiz.id,
+  );
+  const reviewed = questions.filter(
+    (question) => question.status === "reviewed",
+  ).length;
+  const total = questions.length;
+  return {
+    kind: total > 0 && reviewed === total
+      ? "full" as const
+      : reviewed > 0
+        ? "partial" as const
+        : "none" as const,
+    label: `${reviewed}/${total}`,
+    reviewed,
+    total,
+  };
+}
+
 export function ManagerListIcon({
   topicId,
   reference,

@@ -221,7 +221,7 @@
     "text": "Từ",
     "classifier": "Danh từ chỉ loại",
     "meaning": "Nghĩa đơn giản",
-    "image": "Tham chiếu hình ảnh",
+    "image": "Hình ảnh",
     "age": "Tuổi tối thiểu",
     "add": "Thêm từ",
     "empty": "Chưa có từ nào trong từ điển.",
@@ -233,6 +233,8 @@
     ,"clearFilter": "Xóa bộ lọc từ điển"
     ,"reviewed": "Đã duyệt"
     ,"toggleAllReviewed": "Đánh dấu hoặc bỏ đánh dấu tất cả các từ là đã duyệt"
+    ,"startingLetter": "Lọc theo chữ cái đầu"
+    ,"allLetters": "Tất cả"
     ,"concept": "Khái niệm"
     ,"english": "Tiếng Anh"
     ,"vietnamese": "Tiếng Việt"

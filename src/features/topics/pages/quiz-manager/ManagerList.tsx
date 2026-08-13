@@ -2,7 +2,7 @@ import { ChevronRight } from "lucide-react";
 import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../../../shared/domain/models";
 import { StatusBadge } from "../../../../shared/ui/StatusBadge";
 import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
-import { ManagerListIcon, quizReviewStatus } from "./shared";
+import { contentV2QuizReviewStatus, ManagerListIcon, quizReviewStatus } from "./shared";
 import { renderTopicTree } from "./TopicTree";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
@@ -100,7 +100,7 @@ export function renderManagerList(context: ManagerListContext) {
                 <tbody>
                   {topicMode && isContest
                     ? visibleQuizzes.map((quiz) => {
-                        const review = quizReviewStatus(quiz);
+                        const review = contentV2QuizReviewStatus(snapshot, quiz);
                         return (
                           <tr
                             key={quiz.key}
