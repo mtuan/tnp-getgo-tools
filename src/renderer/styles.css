@@ -17,6 +17,10 @@
   background: #f3f5f1;
   font-synthesis: none;
 }
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
 
 /* Images to PDF utility */
 .image-pdf-page { display: grid; gap: 20px; }
@@ -1487,7 +1491,7 @@ td strong {
   color: #25392e;
   font-size: 13px;
 }
-td span:not(.badge) {
+td span:not(.badge):not(.ui-status-badge) {
   display: block;
   max-width: 230px;
   margin-top: 3px;
@@ -2713,7 +2717,7 @@ td {
 td strong {
   color: #1e293b;
 }
-td span:not(.badge) {
+td span:not(.badge):not(.ui-status-badge) {
   color: #94a3b8;
 }
 tbody tr:hover {
@@ -3286,12 +3290,14 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   min-height: 26px;
+  margin: 0;
   padding: 4px 9px;
   border-radius: 999px;
   color: #64748b;
   background: #f1f5f9;
   font-size: 12px;
   font-weight: 700;
+  line-height: 18px;
   white-space: nowrap;
 }
 .ui-status-badge-primary { color: #6d28d9; background: #ede9fe; }
