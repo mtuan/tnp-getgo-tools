@@ -274,7 +274,7 @@ export interface AlphabetDictionary {
 
 export interface KidLearningDictionaryEntry {
   id: string;
-  image?: string;
+  reviewed?: boolean; image?: string;
   audio?: string;
   minimumAge: number;
   translations: Partial<Record<"en" | "vi", Omit<AlphabetSample, "image" | "minimumAge">>>;

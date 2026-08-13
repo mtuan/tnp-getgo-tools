@@ -17,7 +17,7 @@ import {
 } from "../../../features/topics/domain/content-v2.js";
 import type { ContentV2QuestionSummary, ContentV2QuizSummary, ContentV2Snapshot, ContentV2TopicSummary, ScanIssue } from "../../../shared/domain/models.js";
 import type { ContentV2QuizPublishState } from "../../../features/topics/domain/content-v2-publish-state.js";
-import { parseAlphabetDictionary, parseKidLearningDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
+import { parseAlphabetDictionary, parseKidLearningDictionary, reviewedKidLearningDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
@@ -535,7 +535,7 @@ export async function loadContentV2QuizResources(
   if (quiz.type !== "alphabet" && quiz.type !== "spelling") return {};
   const dictionaryPath = sharedDictionaryPath(repositoryPath, topicId);
   return {
-    dictionary: parseKidLearningDictionary(await readJson(dictionaryPath)),
+    dictionary: reviewedKidLearningDictionary(parseKidLearningDictionary(await readJson(dictionaryPath))),
   };
 }
 

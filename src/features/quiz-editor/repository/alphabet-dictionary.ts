@@ -121,6 +121,7 @@ export function parseKidLearningDictionary(parsed: unknown): KidLearningDictiona
       ) as KidLearningDictionary["entries"][number]["translations"];
       return {
         id: entry.id,
+        reviewed: entry.reviewed === true,
         ...(typeof entry.image === "string" ? { image: entry.image } : {}),
         ...(typeof entry.audio === "string" ? { audio: entry.audio } : {}),
         minimumAge: Number(entry.minimumAge),
@@ -139,7 +140,7 @@ export function localizedAlphabetDictionary(
 ): AlphabetDictionary {
   return {
     schemaVersion: 1,
-    words: dictionary.entries.flatMap((entry) => {
+    words: dictionary.entries.filter((entry) => entry.reviewed === true).flatMap((entry) => {
       const translation = entry.translations[language];
       if (!translation) return [];
       const { aliases = [], ...primary } = translation;
@@ -149,6 +150,15 @@ export function localizedAlphabetDictionary(
         minimumAge: entry.minimumAge,
       }));
     }),
+  };
+}
+
+export function reviewedKidLearningDictionary(
+  dictionary: KidLearningDictionary,
+): KidLearningDictionary {
+  return {
+    ...dictionary,
+    entries: dictionary.entries.filter((entry) => entry.reviewed === true),
   };
 }
 

@@ -15,6 +15,7 @@ test("expands multilingual aliases into localized quiz words", () => {
     schemaVersion: 2,
     entries: [{
       id: "apple",
+      reviewed: true,
       image: "asset:apple.svg",
       minimumAge: 3,
       translations: {
@@ -24,6 +25,19 @@ test("expands multilingual aliases into localized quiz words", () => {
     }],
   });
   assert.deepEqual(localizedAlphabetDictionary(shared, "vi").words.map((word) => word.text), ["táo", "quả táo"]);
+});
+
+test("excludes unreviewed shared words from localized publish resources", () => {
+  const shared = parseKidLearningDictionary({
+    schemaVersion: 2,
+    entries: [{
+      id: "draft-word",
+      reviewed: false,
+      minimumAge: 3,
+      translations: { en: { text: "Draft" } },
+    }],
+  });
+  assert.deepEqual(localizedAlphabetDictionary(shared, "en").words, []);
 });
 
 test("loads and sanitizes a quiz-level alphabet dictionary", async () => {

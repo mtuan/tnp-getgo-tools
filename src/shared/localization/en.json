@@ -229,6 +229,14 @@
     "saved": "Dictionary saved",
     "savedDescription": "The shared multilingual dictionary was updated.",
     "saveError": "Could not save dictionary"
+    ,"filter": "Filter dictionary words"
+    ,"clearFilter": "Clear dictionary filter"
+    ,"reviewed": "Reviewed"
+    ,"toggleAllReviewed": "Mark or unmark all dictionary words as reviewed"
+    ,"concept": "Concept"
+    ,"english": "English"
+    ,"vietnamese": "Vietnamese"
+    ,"reviewedHelp": "Only reviewed words are included when quizzes are published."
   },
   "speechSettings": {
     "title": "Speech settings",

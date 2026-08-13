@@ -229,6 +229,14 @@
     "saved": "Đã lưu từ điển",
     "savedDescription": "Từ điển đa ngôn ngữ dùng chung đã được cập nhật.",
     "saveError": "Không thể lưu từ điển"
+    ,"filter": "Lọc từ trong từ điển"
+    ,"clearFilter": "Xóa bộ lọc từ điển"
+    ,"reviewed": "Đã duyệt"
+    ,"toggleAllReviewed": "Đánh dấu hoặc bỏ đánh dấu tất cả các từ là đã duyệt"
+    ,"concept": "Khái niệm"
+    ,"english": "Tiếng Anh"
+    ,"vietnamese": "Tiếng Việt"
+    ,"reviewedHelp": "Chỉ các từ đã duyệt được đưa vào khi xuất bản bài kiểm tra."
   },
   "speechSettings": {
     "title": "Cài đặt giọng đọc",

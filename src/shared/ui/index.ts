@@ -2,6 +2,7 @@ export * from "./Accordion";
 export * from "./ActionMenu";
 export * from "./Breadcrumbs";
 export * from "./Button";
+export * from "./Checkbox";
 export * from "./Input";
 export * from "./DataTable";
 export * from "./DialogFrame";

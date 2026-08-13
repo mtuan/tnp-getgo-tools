@@ -244,6 +244,7 @@ export function renderManagerPage(context: ManagerPageContext) {
             )}
             <KidLearningDictionaryEditor
               topicId={selectedTopic.id}
+              locale={locale}
               dictionary={topicDictionary}
               onSave={async (dictionary) => {
                 const next = await window.getgo.saveContentV2TopicDictionary(
