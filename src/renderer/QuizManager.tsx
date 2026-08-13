@@ -69,7 +69,7 @@ import { ActionMenu } from "./ui/ActionMenu";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { useToast } from "./ui/Toast";
 import { useSaveShortcut } from "./ui/useSaveShortcut";
-import { TopicMarketplacePanel } from "./TopicMarketplacePanel";
+import { MarketplaceMetadataSection } from "./MarketplaceMetadataSection";
 import {
   quizPublishStatus,
   topicMarketplaceStatus,
@@ -202,7 +202,7 @@ type ManagerPage =
 type QuizDetailTab =
   "questions" | "alphabets" | "dictionary" | "info";
 type ContestDetailTab =
-  "info" | "quizzes" | "dictionaries" | "assets" | "marketplace";
+  "info" | "quizzes" | "dictionaries" | "assets";
 
 interface QuestionListItem {
   number: string;
@@ -527,12 +527,11 @@ export function QuizManager({
     if (routeMode !== "topics" || !initialRoute) return "quizzes";
     try {
       const tab = new URL(initialRoute, "app://getgo").searchParams.get("tab");
-      return tab === "marketplace" ||
-        tab === "info" ||
+      return tab === "info" ||
         tab === "dictionaries" ||
         tab === "assets"
         ? tab
-        : "quizzes";
+        : tab === "marketplace" ? "info" : "quizzes";
     } catch {
       return "quizzes";
     }
@@ -2079,35 +2078,48 @@ export function QuizManager({
           ].filter((item): item is Exclude<typeof item, null> => Boolean(item))}
         />
         {quizTab === "info" && quizContest && (
-          <QuizCrudDialog
-            embedded
-            quiz={quiz}
-            contest={quizContest}
-            onDirtyChange={setQuizInfoDirty}
-            onClose={() => undefined}
-            onSaved={async (input) => {
-              const next = await managerApi.updateQuiz(quiz.manifestPath, {
-                title: input.title,
-                icon: input.icon,
-                type: input.type,
-                language: input.language,
-                grade: input.grade,
-                round: input.round,
-                year: input.year,
-                status: input.status,
-                quizBuilderApiVersion: input.quizBuilderApiVersion,
-              });
-              onSnapshotChange(next);
-              const updated = next.quizzes.find(
-                (item) => item.key === quiz.key,
-              );
-              if (updated) setPage({ kind: "quiz", quiz: updated });
-              toast.show({
-                title: "Quiz updated",
-                description: `${input.title} was saved.`,
-              });
-            }}
-          />
+          <>
+            <QuizCrudDialog
+              embedded
+              quiz={quiz}
+              contest={quizContest}
+              onDirtyChange={setQuizInfoDirty}
+              onClose={() => undefined}
+              onSaved={async (input) => {
+                const next = await managerApi.updateQuiz(quiz.manifestPath, {
+                  title: input.title,
+                  icon: input.icon,
+                  type: input.type,
+                  language: input.language,
+                  grade: input.grade,
+                  round: input.round,
+                  year: input.year,
+                  status: input.status,
+                  quizBuilderApiVersion: input.quizBuilderApiVersion,
+                });
+                onSnapshotChange(next);
+                const updated = next.quizzes.find(
+                  (item) => item.key === quiz.key,
+                );
+                if (updated) setPage({ kind: "quiz", quiz: updated });
+                toast.show({
+                  title: "Quiz updated",
+                  description: `${input.title} was saved.`,
+                });
+              }}
+            />
+            {topicMode && (
+              <MarketplaceMetadataSection
+                locale={locale}
+                load={() => window.getgo.loadContentV2Quiz(quiz.contest, quiz.id)}
+                save={async (record) => {
+                  if (!("topicId" in record)) throw new Error("Expected quiz metadata.");
+                  const next = await window.getgo.saveContentV2Quiz(quiz.contest, record);
+                  onSnapshotChange(next);
+                }}
+              />
+            )}
+          </>
         )}
         {quizTab === "questions" && (
           <>
@@ -2362,49 +2374,42 @@ export function QuizManager({
                   { id: "assets" as const, label: "Assets" },
                 ]
               : []),
-            ...(topicMode
-              ? [
-                  {
-                    id: "marketplace" as const,
-                    label: (locale === "vi" ? vi : en).marketplaceManager.tab,
-                  },
-                ]
-              : []),
           ]}
         />
       )}
       {isContest && contestTab === "info" && selectedContest && (
-        <ContestSettingsDialog
-          embedded
-          topicMode={topicMode}
-          contest={selectedContest}
-          onDirtyChange={setTopicInfoDirty}
-          onClose={() => undefined}
-          onSaved={async (settings) => {
-            const next = await managerApi.updateContest(
-              selectedContest.id,
-              settings,
-            );
-            onSnapshotChange(next);
-            toast.show({
-              title: `${topicMode ? "Topic" : "Contest"} updated`,
-              description: `${settings.book.title} was saved.`,
-            });
-          }}
-        />
-      )}
-      {topicMode &&
-        isContest &&
-        contestTab === "marketplace" &&
-        selectedTopic && (
-          <TopicMarketplacePanel
-            topic={selectedTopic}
-            locale={locale}
-            api={managerApi}
-            onSnapshotChange={onSnapshotChange}
-            onOpenJobs={onOpenJobs}
+        <>
+          <ContestSettingsDialog
+            embedded
+            topicMode={topicMode}
+            contest={selectedContest}
+            onDirtyChange={setTopicInfoDirty}
+            onClose={() => undefined}
+            onSaved={async (settings) => {
+              const next = await managerApi.updateContest(
+                selectedContest.id,
+                settings,
+              );
+              onSnapshotChange(next);
+              toast.show({
+                title: `${topicMode ? "Topic" : "Contest"} updated`,
+                description: `${settings.book.title} was saved.`,
+              });
+            }}
           />
-        )}
+          {topicMode && selectedTopic && (
+            <MarketplaceMetadataSection
+              locale={locale}
+              load={() => managerApi.loadContentV2Topic(selectedTopic.id)}
+              save={async (record) => {
+                if ("topicId" in record) throw new Error("Expected topic metadata.");
+                const next = await managerApi.saveContentV2Topic(record);
+                onSnapshotChange(next);
+              }}
+            />
+          )}
+        </>
+      )}
       {topicMode &&
         isContest &&
         contestTab === "dictionaries" &&
@@ -2558,7 +2563,7 @@ export function QuizManager({
                           } else {
                             setPage({ kind: "quiz", quiz: row.quiz });
                             setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets");
-                          }
+                          }}
                         }}
                       >
                         {review.label}
@@ -2594,7 +2599,7 @@ export function QuizManager({
                         ariaLabel="Open topic marketplace tab"
                         onClick={() => {
                           setPage({ kind: "contest", contest: row.contest.id });
-                          setContestTab("marketplace");
+                          setContestTab("info");
                         }}
                       >
                         {status.label}
@@ -2610,25 +2615,20 @@ export function QuizManager({
                   role: "actions",
                   render: (row) => (
                     <div className="manager-row-actions">
-                      <TableActionButton
-                        color="primary"
-                        icon={<Pencil />}
-                        aria-label={`Edit ${row.kind}`}
-                        title={`Edit ${row.kind}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (row.kind === "topic") {
+                      {row.kind === "topic" && <TableActionButton
+                          color="primary"
+                          icon={<Pencil />}
+                          aria-label="Edit topic"
+                          title="Edit topic"
+                          onClick={(event) => {
+                            event.stopPropagation();
                             setPage({
                               kind: "contest",
                               contest: row.contest.id,
                             });
                             setContestTab("info");
-                          } else {
-                            setPage({ kind: "quiz", quiz: row.quiz });
-                            setQuizTab("info");
                           }
-                        }}
-                      />
+                        />}
                       {row.kind === "topic" && <ActionMenu
                         label="More actions"
                         iconOnly
@@ -2670,6 +2670,11 @@ export function QuizManager({
                   emptyText="No matching topics."
                   toggleParentOnRowClick
                   singleExpand
+                  onRowClick={(row) => {
+                    if (row.kind !== "quiz") return;
+                    setPage({ kind: "quiz", quiz: row.quiz });
+                    setQuizTab("info");
+                  }}
                   onExpand={(row) =>
                     row.kind === "topic"
                       ? loadTreeTopicQuizzes(row.contest.id)
@@ -2786,11 +2791,7 @@ export function QuizManager({
                             key={quiz.key}
                             onClick={() => {
                               setPage({ kind: "quiz", quiz });
-                              setQuizTab(
-                                quiz.type === "contest"
-                                  ? "questions"
-                                  : "alphabets",
-                              );
+                              setQuizTab("info");
                             }}
                           >
                             <td>
@@ -2832,19 +2833,7 @@ export function QuizManager({
                               </StatusBadge>
                             </td>
                             <td>
-                              <div className="manager-row-actions">
-                                <TableActionButton
-                                  color="primary"
-                                  icon={<Pencil />}
-                                  aria-label="Edit quiz"
-                                  title="Edit quiz"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setPage({ kind: "quiz", quiz });
-                                    setQuizTab("info");
-                                  }}
-                                />
-                              </div>
+                              <span className="topic-status-na">—</span>
                             </td>
                           </tr>
                         );
@@ -3044,7 +3033,7 @@ export function QuizManager({
                                               kind: "contest",
                                               contest: contest.id,
                                             });
-                                            setContestTab("marketplace");
+                                            setContestTab("info");
                                           }}
                                         >
                                           {status.label}
