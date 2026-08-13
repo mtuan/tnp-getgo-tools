@@ -90,7 +90,11 @@ isContest,
                   align: "center",
                   render: (row) => {
                     const review = row.kind === "topic"
-                      ? { kind: row.summary.status === "reviewed" ? "current" : row.summary.status === "rejected" ? "changed" : "none", label: row.summary.status === "reviewed" ? "Ready" : row.summary.status === "rejected" ? "Rejected" : "Needs review" }
+                      ? (() => {
+                          const questions = snapshot.contentV2.questions.filter((question) => question.topicId === row.summary.id);
+                          const reviewed = questions.filter((question) => question.status === "reviewed").length;
+                          return { kind: questions.length > 0 && reviewed === questions.length ? "current" : reviewed > 0 ? "changed" : "none", label: `${reviewed}/${questions.length}` };
+                        })()
                       : (() => { const value = quizReviewStatus(row.quiz); return { kind: value.kind === "full" ? "current" : value.kind === "partial" ? "changed" : "none", label: `${value.reviewed}/${value.total}` }; })();
                     const tone: StatusBadgeTone =
                       review.kind === "current"

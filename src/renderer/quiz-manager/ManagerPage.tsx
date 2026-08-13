@@ -1,4 +1,4 @@
-import { FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { FolderOpen, Trash2 } from "lucide-react";
 import type { QuizCrudInput, RepositorySnapshot } from "../../core/models";
 import { QuizCrudDialog } from "../CrudDialogs";
 import { ContestSettingsDialog } from "../ContestSettingsDialog";
@@ -13,6 +13,7 @@ import { KidLearningDictionaryEditor } from "../KidLearningDictionaryEditor";
 import { TopicAssetsEditor } from "../TopicAssetsEditor";
 import type { ContestDetailTab } from "./shared";
 import { renderManagerList } from "./ManagerList";
+import { ManagerHeaderControls } from "./ManagerHeaderControls";
 import {
   marketplaceTopicState,
   withMarketplaceTopicState,
@@ -27,16 +28,12 @@ type ManagerPageContext = Record<string, any> & {
 
 export function renderManagerPage(context: ManagerPageContext) {
   const {
-    allLegacyQuizCount,
     buttonAction,
     contestDialog,
     contestTab,
     contests,
-    legacyQuizCount,
     locale,
     managerApi,
-    migrateAllLegacyQuizzes,
-    migrateLegacyQuizzes,
     migrationResults,
     onRouteChange,
     onSnapshotChange,
@@ -108,46 +105,7 @@ export function renderManagerPage(context: ManagerPageContext) {
         }
         actions={
           <>
-            {!isContest && allLegacyQuizCount > 0 && (
-              <Button
-                icon={<RefreshCw size={15} />}
-                loading={buttonAction === "migrate-all-legacy"}
-                variant="solid"
-                color="warning"
-                disabled={Boolean(buttonAction)}
-                onClick={() => void migrateAllLegacyQuizzes()}
-              >
-                Migrate all {allLegacyQuizCount}
-              </Button>
-            )}
-            {isContest && contestTab === "quizzes" && legacyQuizCount > 0 && (
-              <Button
-                icon={<RefreshCw size={15} />}
-                loading={buttonAction === "migrate-legacy"}
-                variant="solid"
-                color="warning"
-                disabled={Boolean(buttonAction)}
-                onClick={() => void migrateLegacyQuizzes()}
-              >
-                Migrate {legacyQuizCount}
-              </Button>
-            )}
-            {(!isContest || contestTab === "quizzes") && (
-              <Button
-                icon={<Plus size={15} />}
-                variant="solid"
-                disabled={Boolean(buttonAction)}
-                onClick={() =>
-                  isContest
-                    ? setQuizDialog("create")
-                    : setContestDialog("create")
-                }
-              >
-                {isContest
-                  ? "Create quiz"
-                  : `Create ${topicMode ? "topic" : "contest"}`}
-              </Button>
-            )}
+            {(!isContest || contestTab === "quizzes") && <ManagerHeaderControls {...context} isContest={isContest} topicMode={topicMode} />}
             {isContest && contestTab === "info" && selectedContest && (
               <>
                 {topicMode && selectedTopic && (

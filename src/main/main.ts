@@ -1,23 +1,10 @@
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  dialog,
-  ipcMain,
-  shell,
-} from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
 import { config as loadEnvironment } from "dotenv";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type {
-  AppSettings,
-  ImagePdfInput,
-  ImagePdfOrientation,
-  ImagePdfSelection,
-  RepositorySnapshot,
-} from "../core/models.js";
+import type { AppSettings, ImagePdfInput, ImagePdfOrientation, ImagePdfSelection, RepositorySnapshot } from "../core/models.js";
 import {
   hashContentV2,
   marketplaceTopicState,
@@ -64,6 +51,7 @@ import { WebDeploymentJobManager } from "./web-deployment-jobs.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { LocalWebRuntimeManager } from "./local-web-runtime.js";
 import { setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
+import { syncAllMarketplaceTopics } from "./marketplace-sync-all.js";
 import {
   createContentV2TopicPublishPreview,
   createContentV2QuizPublishPreview,
@@ -1059,6 +1047,16 @@ return repositorySnapshot;
       );
     },
   );
+  ipcMain.handle("marketplace:topics:sync-all", async () => {
+    const active = (await publishJobs.list()).find((job) => job.name === "Sync marketplace · All topics" && ["queued", "running", "paused"].includes(job.status));
+    if (active) return backgroundJobsSnapshot();
+    const root = await repositoryRoot(), snapshot = requireSnapshot();
+    if (!firebaseAuth) throw new Error("Publishing is not initialized.");
+    await publishJobs.start({ name: "Sync marketplace · All topics", description: "Synchronize local marketplace states and metadata", route: "/topics" }, async (control) => {
+      repositorySnapshot = await syncAllMarketplaceTopics(root, snapshot, publishing, control);
+    });
+    return backgroundJobsSnapshot();
+  });
   ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
     if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
     return loadContentV2Topic(await repositoryRoot(), topicId);

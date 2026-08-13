@@ -828,10 +828,17 @@ main {
   flex: 0 0 auto;
   gap: 8px;
 }
-.ui-page-header-actions > .ui-button,
-.ui-page-header-actions > .schema-select > button {
+.ui-page-header-actions .ui-button,
+.ui-page-header-actions .schema-select > button,
+.ui-page-header-actions .ui-page-header-control,
+.ui-page-header-actions .ui-page-header-control input {
   height: var(--ui-page-header-control-height);
   min-height: var(--ui-page-header-control-height);
+}
+.ui-page-header-actions .ui-action-menu-trigger {
+  display: flex;
+  align-items: stretch;
+  height: var(--ui-page-header-control-height);
 }
 .ui-page-header-actions > .schema-select {
   margin-top: 0;
@@ -3338,18 +3345,7 @@ tbody tr:hover {
     border-color 0.2s,
     box-shadow 0.2s;
 }
-.manager-list-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.manager-list-toolbar .manager-search {
-  flex: 1 1 auto;
-}
-.manager-view-switcher {
-  flex: 0 0 auto;
-}
+.ui-page-header-actions .manager-search { width: min(260px, 24vw); }
 .ui-status-badge {
   display: inline-flex;
   align-items: center;

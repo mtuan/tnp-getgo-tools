@@ -8,6 +8,8 @@
     "batchActions": "Marketplace actions",
     "listAll": "List all",
     "unlistAll": "Unlist all",
+    "sync": "Sync",
+    "syncing": "Syncing {completed}/{total}",
     "batchUpdated": "Marketplace states updated",
     "batchUpdatedDescription": "Updated {count} items to {state}.",
     "states": {

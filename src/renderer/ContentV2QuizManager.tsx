@@ -99,7 +99,11 @@ export function adaptContentV2Snapshot(snapshot: RepositorySnapshot): Repository
     settingsPath: topic.filePath,
     settings: managerSettings(topic),
   }));
-  const quizzes: QuizSummary[] = snapshot.contentV2.quizzes.map((quiz) => ({
+  const quizzes: QuizSummary[] = snapshot.contentV2.quizzes.map((quiz) => {
+    const questions = snapshot.contentV2.questions.filter(
+      (question) => question.topicId === quiz.topicId && question.quizId === quiz.id,
+    );
+    return ({
     key: quiz.key,
     relativePath: `content-v2/topics/${quiz.topicId}/quizzes/${quiz.id}`,
     manifestPath: quiz.filePath,
@@ -125,12 +129,12 @@ export function adaptContentV2Snapshot(snapshot: RepositorySnapshot): Repository
     publishedAt: quiz.publishedAt,
     marketplace: quiz.marketplace,
     localContentHash: quiz.localHash,
-    questionCount: quiz.questionCount,
-    reviewedQuestionCount: quiz.reviewedQuestionCount,
+    questionCount: questions.length,
+    reviewedQuestionCount: questions.filter((question) => question.status === "reviewed").length,
     migrationErrorCount: 0,
     quizBuilderApiVersion: 1,
     modifiedAt: snapshot.scannedAt,
-  }));
+  }); });
   return { ...snapshot, contests, quizzes };
 }
 

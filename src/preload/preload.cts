@@ -25,6 +25,8 @@ const api: DesktopApi = {
     ) as Promise<RepositorySnapshot>,
   publishMarketplaceTopic: (topicId, state) =>
     ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
+  syncContentV2Marketplace: () =>
+    ipcRenderer.invoke("marketplace:topics:sync-all"),
   loadContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:load", topicId),
   loadContentV2Quiz: (topicId, quizId) =>

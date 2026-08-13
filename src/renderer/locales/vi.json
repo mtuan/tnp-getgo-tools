@@ -8,6 +8,8 @@
     "batchActions": "Thao tác kho nội dung",
     "listAll": "Hiển thị tất cả",
     "unlistAll": "Ẩn tất cả",
+    "sync": "Đồng bộ",
+    "syncing": "Đang đồng bộ {completed}/{total}",
     "batchUpdated": "Đã cập nhật trạng thái kho nội dung",
     "batchUpdatedDescription": "Đã cập nhật {count} mục thành {state}.",
     "states": {

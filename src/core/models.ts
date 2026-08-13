@@ -7,8 +7,7 @@ export const contentStatuses = [
   "published",
 ] as const;
 
-export type ContentStatus = (typeof contentStatuses)[number];
-export type DeploymentStatus =
+export type ContentStatus = (typeof contentStatuses)[number]; export type DeploymentStatus =
   "not-built" | "not-uploaded" | "uploaded" | "outdated" | "unknown";
 export type QuestionStorageVersion = "legacy" | "questions-v1";
 export const quizTypes = [
@@ -600,7 +599,7 @@ export interface DesktopApi {
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
-  publishMarketplaceTopic(topicId: string, state: import("./content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>;
+  publishMarketplaceTopic(topicId: string, state: import("./content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>; syncContentV2Marketplace(): Promise<BackgroundJobsSnapshot>;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;
   loadContentV2Question(

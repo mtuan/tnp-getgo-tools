@@ -1,12 +1,9 @@
-import { ChevronRight, ListOrdered, Search, Rows3 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../core/models";
-import { Button } from "../ui/Button";
 import { StatusBadge } from "../ui/StatusBadge";
-import { ActionMenu } from "../ui/ActionMenu";
 import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
 import { ManagerListIcon, quizReviewStatus } from "./shared";
 import { renderTopicTree } from "./TopicTree";
-import { marketplaceTopicState, type MarketplaceTopicState } from "../../core/marketplace-topic-state";
 import en from "../locales/en.json";
 import vi from "../locales/vi.json";
 
@@ -19,123 +16,24 @@ type ManagerListContext = Record<string, any> & {
 
 export function renderManagerList(context: ManagerListContext) {
   const {
-    buttonAction,
     contestTab,
     isContest,
     locale,
-    managerApi,
     migrationForQuiz,
-    onSnapshotChange,
-    query,
-    runButtonAction,
     setContestTab,
     setPage,
-    setQuery,
     setQuizTab,
-    setTopicsView,
     snapshot,
-    selectedContest,
-    toast,
     topicMode,
     topicsView,
     visibleContests,
     visibleQuizzes,
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
-  const batchMarketplaceState = (state: MarketplaceTopicState) =>
-    runButtonAction(`batch-market-${state}`, async () => {
-      if (isContest) {
-        const quizzes = snapshot.contentV2.quizzes.filter(
-          (quiz) =>
-            quiz.topicId === selectedContest?.id &&
-            (state !== "listed" || marketplaceTopicState(quiz.marketplace) === "unlisted"),
-        );
-        if (quizzes.length)
-          onSnapshotChange(await managerApi.setContentV2MarketplaceState(
-            "quizzes", quizzes.map((quiz) => quiz.id), state, selectedContest?.id,
-          ));
-        toast.show({
-          title: marketplaceCopy.batchUpdated,
-          description: marketplaceCopy.batchUpdatedDescription
-            .replace("{count}", String(quizzes.length))
-            .replace("{state}", marketplaceCopy.states[state]),
-        });
-        return;
-      }
-      const topics = snapshot.contentV2.topics.filter(
-        (topic) =>
-          state !== "listed" ||
-          marketplaceTopicState(topic.marketplace) === "unlisted",
-      );
-      if (topics.length)
-        onSnapshotChange(await managerApi.setContentV2MarketplaceState(
-          "topics", topics.map((topic) => topic.id), state,
-        ));
-      toast.show({
-        title: marketplaceCopy.batchUpdated,
-        description: marketplaceCopy.batchUpdatedDescription
-          .replace("{count}", String(topics.length))
-          .replace("{state}", marketplaceCopy.states[state]),
-      });
-    });
   return (
     <>
       {(!isContest || contestTab === "quizzes") && (
         <>
-          <div className="manager-list-toolbar">
-            <div className="manager-search">
-              <Search size={17} />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={
-                  isContest
-                    ? "Search quizzes…"
-                    : `Search ${topicMode ? "topics" : "contests"}…`
-                }
-              />
-            </div>
-            {topicMode && (isContest || topicsView === "list") && (
-              <ActionMenu
-                label={marketplaceCopy.batchActions}
-                disabled={Boolean(buttonAction)}
-                items={[
-                  {
-                    id: "list-all",
-                    label: marketplaceCopy.listAll,
-                    onSelect: () => void batchMarketplaceState("listed"),
-                  },
-                  {
-                    id: "unlist-all",
-                    label: marketplaceCopy.unlistAll,
-                    onSelect: () => void batchMarketplaceState("unlisted"),
-                  },
-                ]}
-              />
-            )}
-            {!isContest && topicMode && (
-              <Button
-                className="manager-view-switcher"
-                variant="icon"
-                icon={topicsView === "tree" ? <Rows3 /> : <ListOrdered />}
-                aria-label={
-                  topicsView === "tree" ? "Show list view" : "Show tree view"
-                }
-                title={
-                  topicsView === "tree" ? "Show list view" : "Show tree view"
-                }
-                onClick={() => {
-                  const next = topicsView === "tree" ? "list" : "tree";
-                  setTopicsView(next);
-                  try {
-                    localStorage.setItem("getgo-tools.topics-view", next);
-                  } catch {
-                    /* Storage is optional. */
-                  }
-                }}
-              />
-            )}
-          </div>
           {renderTopicTree(context as any)}
           <div
             className="manager-table"
@@ -416,18 +314,19 @@ export function renderManagerList(context: ManagerListContext) {
                                 <>
                                   <td className="manager-status-cell">
                                     {(() => {
-                                      const status = topicSummary.status;
+                                      const questions = snapshot.contentV2.questions.filter((question) => question.topicId === topicSummary.id);
+                                      const reviewed = questions.filter((question) => question.status === "reviewed").length;
                                       return (
                                         <StatusBadge
                                           tone={
-                                            status === "reviewed"
+                                            questions.length > 0 && reviewed === questions.length
                                               ? "success"
-                                              : status === "rejected"
+                                              : reviewed > 0
                                                 ? "warning"
                                                 : "neutral"
                                           }
                                         >
-                                          {status === "reviewed" ? "Ready" : status === "rejected" ? "Rejected" : "Needs review"}
+                                          {reviewed}/{questions.length}
                                         </StatusBadge>
                                       );
                                     })()}
