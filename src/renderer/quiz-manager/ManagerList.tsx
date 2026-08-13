@@ -6,7 +6,7 @@ import { ActionMenu } from "../ui/ActionMenu";
 import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../topic-status";
 import { ManagerListIcon, quizReviewStatus } from "./shared";
 import { renderTopicTree } from "./TopicTree";
-import { withMarketplaceTopicState, type MarketplaceTopicState } from "../../core/marketplace-topic-state";
+import { marketplaceTopicState, type MarketplaceTopicState } from "../../core/marketplace-topic-state";
 import en from "../locales/en.json";
 import vi from "../locales/vi.json";
 
@@ -23,6 +23,7 @@ export function renderManagerList(context: ManagerListContext) {
     contestTab,
     isContest,
     locale,
+    managerApi,
     migrationForQuiz,
     onSnapshotChange,
     query,
@@ -43,19 +44,16 @@ export function renderManagerList(context: ManagerListContext) {
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
   const batchMarketplaceState = (state: MarketplaceTopicState) =>
     runButtonAction(`batch-market-${state}`, async () => {
-      let latest: RepositorySnapshot | null = null;
       if (isContest) {
         const quizzes = snapshot.contentV2.quizzes.filter(
-          (quiz) => quiz.topicId === selectedContest?.id,
+          (quiz) =>
+            quiz.topicId === selectedContest?.id &&
+            (state !== "listed" || marketplaceTopicState(quiz.marketplace) === "unlisted"),
         );
-        for (const summary of quizzes) {
-          const quiz = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
-          latest = await window.getgo.saveContentV2Quiz(summary.topicId, {
-            ...quiz,
-            marketplace: withMarketplaceTopicState(quiz.marketplace, state),
-          });
-        }
-        if (latest) onSnapshotChange(latest);
+        if (quizzes.length)
+          onSnapshotChange(await managerApi.setContentV2MarketplaceState(
+            "quizzes", quizzes.map((quiz) => quiz.id), state, selectedContest?.id,
+          ));
         toast.show({
           title: marketplaceCopy.batchUpdated,
           description: marketplaceCopy.batchUpdatedDescription
@@ -64,18 +62,19 @@ export function renderManagerList(context: ManagerListContext) {
         });
         return;
       }
-      for (const summary of snapshot.contentV2.topics) {
-        const topic = await window.getgo.loadContentV2Topic(summary.id);
-        latest = await window.getgo.saveContentV2Topic({
-          ...topic,
-          marketplace: withMarketplaceTopicState(topic.marketplace, state),
-        });
-      }
-      if (latest) onSnapshotChange(latest);
+      const topics = snapshot.contentV2.topics.filter(
+        (topic) =>
+          state !== "listed" ||
+          marketplaceTopicState(topic.marketplace) === "unlisted",
+      );
+      if (topics.length)
+        onSnapshotChange(await managerApi.setContentV2MarketplaceState(
+          "topics", topics.map((topic) => topic.id), state,
+        ));
       toast.show({
         title: marketplaceCopy.batchUpdated,
         description: marketplaceCopy.batchUpdatedDescription
-          .replace("{count}", String(snapshot.contentV2.topics.length))
+          .replace("{count}", String(topics.length))
           .replace("{state}", marketplaceCopy.states[state]),
       });
     });
@@ -209,7 +208,7 @@ export function renderManagerList(context: ManagerListContext) {
                             key={quiz.key}
                             onClick={() => {
                               setPage({ kind: "quiz", quiz });
-                              setQuizTab("info");
+                              setQuizTab(quiz.type === "contest" ? "questions" : "alphabets");
                             }}
                           >
                             <td>
@@ -384,7 +383,7 @@ export function renderManagerList(context: ManagerListContext) {
                               key={contest.id}
                               onClick={() => {
                                 setPage({ kind: "contest", contest: contest.id });
-                                setContestTab("info");
+                                setContestTab("quizzes");
                               }}
                             >
                               <td>

@@ -261,6 +261,7 @@ export function renderManagerPage(context: ManagerPageContext) {
           />
           {topicMode && selectedTopic && (
             <MarketplaceMetadataSection
+              recordKey={`topic:${selectedTopic.id}`}
               locale={locale}
               load={() => managerApi.loadContentV2Topic(selectedTopic.id)}
               save={async (record) => {

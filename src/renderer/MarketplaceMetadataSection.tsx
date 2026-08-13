@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { RotateCcw, Save } from "lucide-react";
 import type {
   ContentV2Quiz,
@@ -75,11 +75,13 @@ function metadata(record: MarketplaceRecord): MarketplaceTopicMetadata {
 }
 
 export function MarketplaceMetadataSection({
+  recordKey,
   locale,
   load,
   loadSubjectOptions,
   save,
 }: {
+  recordKey: string;
   locale: AppSettings["locale"];
   load(): Promise<MarketplaceRecord>;
   loadSubjectOptions?(): Promise<string[]>;
@@ -93,6 +95,10 @@ export function MarketplaceMetadataSection({
   const [parentSubjects, setParentSubjects] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const loadRef = useRef(load);
+  const loadSubjectOptionsRef = useRef(loadSubjectOptions);
+  loadRef.current = load;
+  loadSubjectOptionsRef.current = loadSubjectOptions;
   const dirty = Boolean(
     source && draft && JSON.stringify(source) !== JSON.stringify(draft),
   );
@@ -100,7 +106,10 @@ export function MarketplaceMetadataSection({
   useEffect(() => {
     let active = true;
     setBusy(true);
-    void Promise.all([load(), loadSubjectOptions?.() ?? Promise.resolve([])])
+    void Promise.all([
+      loadRef.current(),
+      loadSubjectOptionsRef.current?.() ?? Promise.resolve([]),
+    ])
       .then(([record, subjects]) => {
         if (!active) return;
         setSource(record);
@@ -121,7 +130,9 @@ export function MarketplaceMetadataSection({
     return () => {
       active = false;
     };
-  }, [copy.loadFailed, load, loadSubjectOptions, toast]);
+  // Like the general-information editor, keep the local draft intact until the
+  // user saves, discards, or navigates to a different record.
+  }, [recordKey]);
   const current = draft ? metadata(draft) : null;
   const isTopic = Boolean(draft && !("topicId" in draft));
   const subjectOptions = useMemo(() => {

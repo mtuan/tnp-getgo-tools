@@ -53,6 +53,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     runButtonAction,
     saveQuestionOrder,
     setPage,
+    setContestTab,
     setPendingQuestionNo,
     setPreviewQuestion,
     setQuestionDraftRecord,
@@ -160,6 +161,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                       );
                       const parentRoute = contestRoute(quiz.contest);
                       onRouteChange(parentRoute);
+                      setContestTab("quizzes");
                       setPage({ kind: "contest", contest: quiz.contest });
                       onSnapshotChange(next);
                       toast.show({
@@ -306,6 +308,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
             />
             {quizContest.settingsPath.includes("content-v2") && (
               <MarketplaceMetadataSection
+                recordKey={`quiz:${quiz.contest}/${quiz.id}`}
                 locale={locale}
                 load={() => managerApi.loadContentV2Quiz(quiz.contest, quiz.id)}
                 loadSubjectOptions={async () => {

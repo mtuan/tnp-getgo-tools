@@ -461,9 +461,10 @@ export function QuizManager({
 
   const goBack = useCallback(() => {
     setQuery("");
-    if (page.kind === "quiz")
+    if (page.kind === "quiz") {
+      setContestTab("quizzes");
       setPage({ kind: "contest", contest: page.quiz.contest });
-    else setPage({ kind: "contests" });
+    } else setPage({ kind: "contests" });
   }, [page]);
 
   useEffect(() => {

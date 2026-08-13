@@ -120,6 +120,7 @@ export type QuizManagerApi = Pick<
   | "publishContentV2Topic"
   | "loadContentV2Topic"
   | "saveContentV2Topic"
+  | "setContentV2MarketplaceState"
   | "loadContentV2Quiz"
   | "saveContentV2Quiz"
   | "publishMarketplaceTopic"

@@ -158,10 +158,10 @@ isContest,
                   onRowClick={(row) => {
                     if (row.kind === "topic") {
                       setPage({ kind: "contest", contest: row.contest.id });
-                      setContestTab("info");
+                      setContestTab("quizzes");
                     } else {
                       setPage({ kind: "quiz", quiz: row.quiz });
-                      setQuizTab("info");
+                      setQuizTab(row.quiz.type === "contest" ? "questions" : "alphabets");
                     }
                   }}
                   onExpand={(row) =>

@@ -634,8 +634,8 @@ export interface DesktopApi {
   readContentV2TopicAsset(topicId: string, filename: string): Promise<string>;
   importContentV2TopicAssets(topicId: string): Promise<ContentV2TopicAssetSummary[]>;
   trashContentV2TopicAsset(topicId: string, filename: string): Promise<ContentV2TopicAssetSummary[]>;
-  showContentV2TopicAssetsFolder(topicId: string): Promise<void>;
-  saveContentV2Topic(topic: ContentV2Topic): Promise<RepositorySnapshot>;
+  showContentV2TopicAssetsFolder(topicId: string): Promise<void>; saveContentV2Topic(topic: ContentV2Topic): Promise<RepositorySnapshot>;
+  setContentV2MarketplaceState(target: "topics" | "quizzes", ids: string[], state: import("./content-v2.js").MarketplaceTopicState, topicId?: string): Promise<RepositorySnapshot>;
   saveContentV2Quiz(
     topicId: string,
     quiz: ContentV2Quiz,

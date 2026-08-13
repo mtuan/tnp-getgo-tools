@@ -64,6 +64,7 @@ import { PublishJobManager } from "./publish-jobs.js";
 import { WebDeploymentJobManager } from "./web-deployment-jobs.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { LocalWebRuntimeManager } from "./local-web-runtime.js";
+import { setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
 import {
   createContentV2TopicPublishPreview,
   createContentV2QuizPublishPreview,
@@ -76,7 +77,6 @@ import {
   loadContentV2Quiz,
   loadContentV2QuizResources,
   loadContentV2TopicDictionary,
-  loadContentV2TopicFolder,
   loadContentV2Topic,
   recordContentV2Published,
   readContentV2QuizPublishState,
@@ -430,7 +430,6 @@ app.whenReady().then(async () => {
   let repositoryScanPath: string | null = null;
   let repositoryWatcher: FSWatcher | null = null;
   let repositoryWatchTimer: NodeJS.Timeout | null = null;
-  let knownRepositoryPaths = new Set<string>();
   const structureRoots = ["content-v2", "quizzes", "schemas", "generated"];
   const ignoredStructureNames = new Set([
     ".DS_Store",
@@ -450,41 +449,9 @@ app.whenReady().then(async () => {
           /\.sw[opx]$/i.test(segment) ||
           /\.tmp$/i.test(segment),
       );
-  const collectRepositoryPaths = async (repositoryPath: string) => {
-    const startedAt = Date.now();
-    const result = new Set<string>();
-    const visit = async (absolute: string, relative: string): Promise<void> => {
-      const entries = await fs
-        .readdir(absolute, { withFileTypes: true })
-        .catch(() => []);
-      await Promise.all(
-        entries.map(async (entry) => {
-          const childRelative = path.join(relative, entry.name);
-          if (ignoredRepositoryPath(childRelative)) return;
-          result.add(childRelative);
-          if (entry.isDirectory())
-            await visit(path.join(absolute, entry.name), childRelative);
-        }),
-      );
-    };
-    await Promise.all(
-      structureRoots.map((name) =>
-        visit(path.join(repositoryPath, name), name),
-      ),
-    );
-    console.info("[GetGo Tools][Repository paths] Collected", {
-      paths: result.size,
-      durationMs: Date.now() - startedAt,
-    });
-    return result;
-  };
-  const samePaths = (left: Set<string>, right: Set<string>) =>
-    left.size === right.size && [...left].every((item) => right.has(item));
   const startRepositoryWatcher = async (repositoryPath: string) => {
-    repositoryWatcher?.close();
-    repositoryWatcher = null;
+    repositoryWatcher?.close(); repositoryWatcher = null;
     if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
-    knownRepositoryPaths = await collectRepositoryPaths(repositoryPath);
     repositoryWatcher = watch(
       repositoryPath,
       { recursive: true },
@@ -501,20 +468,11 @@ app.whenReady().then(async () => {
           return;
         if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
         repositoryWatchTimer = setTimeout(() => {
-          void collectRepositoryPaths(repositoryPath)
-            .then((nextPaths) => {
-              if (samePaths(knownRepositoryPaths, nextPaths)) return;
-              knownRepositoryPaths = nextPaths;
-              mainWindow?.webContents.send("repository:structure-changed", {
-                detectedAt: new Date().toISOString(),
-                path: relative,
-              });
-            })
-            .catch((cause) =>
-              console.error(
-                `[GetGo Tools][Repository structure watcher] ${cause instanceof Error ? cause.message : String(cause)}`,
-              ),
-            );
+          repositoryWatchTimer = null;
+          mainWindow?.webContents.send("repository:structure-changed", {
+            detectedAt: new Date().toISOString(),
+            path: relative,
+          });
         }, 250);
       },
     );
@@ -524,12 +482,10 @@ app.whenReady().then(async () => {
       ),
     );
   };
-  const acceptCurrentRepositoryStructure = async (repositoryPath: string) => {
+  const acceptCurrentRepositoryStructure = async (_repositoryPath: string) => {
     if (repositoryWatchTimer) {
-      clearTimeout(repositoryWatchTimer);
-      repositoryWatchTimer = null;
+      clearTimeout(repositoryWatchTimer); repositoryWatchTimer = null;
     }
-    knownRepositoryPaths = await collectRepositoryPaths(repositoryPath);
   };
   const scanRepository = async (
     repositoryPath: string,
@@ -1507,24 +1463,63 @@ app.whenReady().then(async () => {
     return requireSnapshot();
   });
   ipcMain.handle(
+    "content-v2:marketplace-state:set",
+    async (
+      _event,
+      target: unknown,
+      ids: unknown,
+      stateValue: unknown,
+      topicIdValue: unknown,
+    ) => {
+      if (target !== "topics" && target !== "quizzes")
+        throw new Error("Invalid marketplace batch target.");
+      if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string"))
+        throw new Error("Invalid marketplace batch IDs.");
+      const state = parseMarketplaceTopicState(stateValue);
+      const root = await repositoryRoot(); repositorySnapshot = await setContentV2MarketplaceState({
+        root,
+        snapshot: requireSnapshot(),
+        target,
+        ids,
+        state,
+        ...(typeof topicIdValue === "string" ? { topicId: topicIdValue } : {}),
+      }); await acceptCurrentRepositoryStructure(root);
+      return requireSnapshot();
+    },
+  );
+  ipcMain.handle(
     "content-v2:quiz:save",
     async (_event, topicId: unknown, value: unknown) => {
       if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
       const root = await repositoryRoot();
       const topic = await loadContentV2Topic(root, topicId);
-      await saveContentV2Quiz(root, topic, value);
-      await acceptCurrentRepositoryStructure(root);
-      const loaded = (await loadContentV2TopicFolder(root, topicId)).snapshot;
+      const saved = await saveContentV2Quiz(root, topic, value);
       const current = requireSnapshot();
       repositorySnapshot = {
         ...current,
         contentV2: {
-          topics: [...current.contentV2.topics.filter((item) => item.id !== topicId), ...loaded.topics],
-          quizzes: [...current.contentV2.quizzes.filter((item) => item.topicId !== topicId), ...loaded.quizzes],
-          questions: [...current.contentV2.questions.filter((item) => item.topicId !== topicId), ...loaded.questions],
-          issues: [...current.contentV2.issues.filter((item) => !item.path.startsWith(`content-v2/topics/${topicId}/`)), ...loaded.issues],
+          ...current.contentV2,
+          quizzes: current.contentV2.quizzes.map((summary) =>
+            summary.topicId === topicId && summary.id === saved.id
+              ? {
+                  ...summary,
+                  title: saved.title,
+                  icon: saved.icon,
+                  description: saved.description,
+                  status: saved.status,
+                  order: saved.order,
+                  publishedHash: saved.publishedHash ?? null,
+                  publishedAt: saved.publishedAt ?? null,
+                  marketplace: saved.marketplace,
+                  ...(saved.type === "competition-paper"
+                    ? { grade: saved.grade, round: saved.round, year: saved.year }
+                    : { language: saved.language }),
+                }
+              : summary,
+          ),
         },
       };
+      await acceptCurrentRepositoryStructure(root);
       return requireSnapshot();
     },
   );
