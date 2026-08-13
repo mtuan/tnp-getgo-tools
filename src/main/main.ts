@@ -21,9 +21,11 @@ import type {
 } from "../core/models.js";
 import {
   hashContentV2,
+  marketplaceTopicState,
   sanitizeMarketplaceTopic,
   sanitizeContentV2Question,
   sanitizeContentV2Topic,
+  withMarketplaceTopicState,
 } from "../core/content-v2.js";
 import {
   readContestSummary,
@@ -70,6 +72,7 @@ import { LocalAiService } from "./local-ai.js";
 import { AiMigrationJobManager } from "./ai-migration-jobs.js";
 import { PublishJobManager } from "./publish-jobs.js";
 import { WebDeploymentJobManager } from "./web-deployment-jobs.js";
+import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { LocalWebRuntimeManager } from "./local-web-runtime.js";
 import {
   createContentV2TopicPublishPreview,
@@ -1082,11 +1085,10 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle(
     "marketplace:topics:publish",
-    async (_event, topicId: unknown, listed: unknown) => {
+    async (_event, topicId: unknown, state: unknown) => {
       if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
         throw new Error("Invalid marketplace topic ID.");
-      if (typeof listed !== "boolean")
-        throw new Error("Invalid marketplace listing state.");
+      const marketplaceState = parseMarketplaceTopicState(state);
       const root = await repositoryRoot();
       const snapshot = requireSnapshot();
       const summary = snapshot.contentV2.topics.find(
@@ -1105,44 +1107,38 @@ app.whenReady().then(async () => {
       const existing = await loadContentV2Topic(root, topicId);
       const topic = {
         ...existing,
-        marketplace: { ...existing.marketplace, listed },
+        marketplace: withMarketplaceTopicState(existing.marketplace, marketplaceState),
       };
       const saved = await saveContentV2Topic(root, topic);
       const contentHash = hashContentV2(sanitizeMarketplaceTopic(saved));
       return publishJobs.track(
         {
-          name: `${listed ? "Publish" : "Remove"} marketplace topic · ${summary.title}`,
-          description: listed
-            ? "Publish the topic metadata to the marketplace catalog"
-            : "Remove the topic from marketplace discovery without deleting learning content",
+          name: `${marketplaceState === "removed" ? "Remove" : "Sync"} marketplace topic · ${summary.title}`,
+          description: marketplaceState === "removed"
+            ? "Remove the marketplace document without deleting learning content"
+            : `Synchronize the marketplace document as ${marketplaceState}`,
           route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace`,
         },
         async (control) => {
           await control.setTotal(
             1,
-            listed
-              ? "Publishing marketplace listing"
+            marketplaceState !== "removed"
+              ? "Synchronizing marketplace listing"
               : "Removing marketplace listing",
           );
-          const result = listed
-            ? await publishing.publishMarketplaceTopic(saved, contentHash)
-            : (await publishing.removeMarketplaceTopic(topicId),
-              {
-                kind: "topic" as const,
-                topicId,
-                contentHash,
-                publishedAt: new Date().toISOString(),
-              });
-          const marketplace = {
-            ...saved.marketplace,
-            listed,
-            publishedHash: listed ? result.contentHash : undefined,
-            publishedAt: listed ? result.publishedAt : undefined,
-          };
+          const result = await syncMarketplaceTopic(
+            publishing,
+            saved,
+            contentHash,
+            marketplaceState,
+          );
+          const marketplace = syncedMarketplaceMetadata(
+            saved.marketplace, marketplaceState, result,
+          );
           await saveContentV2Topic(root, { ...saved, marketplace });
           await control.advance(
-            listed
-              ? "Published marketplace document"
+            marketplaceState !== "removed"
+              ? "Synchronized marketplace document"
               : "Removed marketplace document",
           );
           const current = requireSnapshot();
@@ -1156,10 +1152,10 @@ app.whenReady().then(async () => {
                       ...item,
                       marketplace,
                       marketplaceLocalHash: contentHash,
-                      marketplacePublishedHash: listed
+                      marketplacePublishedHash: marketplaceState !== "removed"
                         ? result.contentHash
                         : null,
-                      marketplacePublishedAt: listed
+                      marketplacePublishedAt: marketplaceState !== "removed"
                         ? result.publishedAt
                         : null,
                     }
@@ -1169,7 +1165,7 @@ app.whenReady().then(async () => {
           };
           return {
             topicId,
-            listed,
+            state: marketplaceState,
             contentHash: result.contentHash,
             publishedAt: result.publishedAt,
             snapshot: requireSnapshot(),
@@ -2047,15 +2043,16 @@ app.whenReady().then(async () => {
           await control.advance("Published topic document");
           // The marketplace record is the final commit in this job. A catalog
           // entry can therefore never point at partially synchronized content.
-          const listedTopic = {
+          const marketState = marketplaceTopicState(topic.marketplace);
+          const marketTopic = {
             ...topic,
-            marketplace: { ...topic.marketplace, listed: true },
+            marketplace: withMarketplaceTopicState(topic.marketplace, marketState),
           };
           const marketplaceHash = hashContentV2(
-            sanitizeMarketplaceTopic(listedTopic),
+            sanitizeMarketplaceTopic(marketTopic),
           );
           const marketplaceResult =
-            summary.marketplacePublishedHash === marketplaceHash
+            marketState !== "removed" && summary.marketplacePublishedHash === marketplaceHash
               ? {
                   kind: "topic" as const,
                   topicId,
@@ -2063,20 +2060,23 @@ app.whenReady().then(async () => {
                   publishedAt:
                     summary.marketplacePublishedAt ?? new Date().toISOString(),
                 }
-              : await publishing.publishMarketplaceTopic(
-                  listedTopic,
+              : await syncMarketplaceTopic(
+                  publishing,
+                  marketTopic,
                   marketplaceHash,
+                  marketState,
                 );
           const savedTopic = await saveContentV2Topic(root, {
-            ...listedTopic,
-            marketplace: {
-              ...listedTopic.marketplace,
-              listed: true,
-              publishedHash: marketplaceResult.contentHash,
-              publishedAt: marketplaceResult.publishedAt,
-            },
+            ...marketTopic,
+            marketplace: syncedMarketplaceMetadata(
+              marketTopic.marketplace, marketState, marketplaceResult,
+            ),
           });
-          await control.advance("Published marketplace catalog document");
+          await control.advance(
+            marketState === "removed"
+              ? "Removed marketplace catalog document"
+              : "Synchronized marketplace catalog document",
+          );
           if (repositorySnapshot) {
             const publishedByKey = new Map(
               publishedQuizResults.map((item) => [item.key, item]),
@@ -2094,9 +2094,9 @@ app.whenReady().then(async () => {
                         marketplace: savedTopic.marketplace,
                         marketplaceLocalHash: marketplaceHash,
                         marketplacePublishedHash:
-                          marketplaceResult.contentHash,
+                          marketState === "removed" ? null : marketplaceResult.contentHash,
                         marketplacePublishedAt:
-                          marketplaceResult.publishedAt,
+                          marketState === "removed" ? null : marketplaceResult.publishedAt,
                       }
                     : item,
                 ),

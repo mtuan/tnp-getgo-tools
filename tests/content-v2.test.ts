@@ -8,6 +8,8 @@ import {
   hashContentV2,
   sanitizeContentV2Topic,
   sanitizeContentV2Question,
+  marketplaceTopicState,
+  withMarketplaceTopicState,
 } from "../src/core/content-v2.js";
 import { buildContentV2QuestionsCode } from "../src/main/firestore-publishing.js";
 import {
@@ -19,6 +21,23 @@ import {
   readContentV2QuizPublishState,
   writeContentV2QuizPublishState,
 } from "../src/repositories/content-v2-repository.js";
+
+test("marketplace topic states map to remote listing flags", () => {
+  assert.deepEqual(withMarketplaceTopicState({}, "listed"), {
+    state: "listed", listed: true, featured: false,
+  });
+  assert.deepEqual(withMarketplaceTopicState({}, "featured"), {
+    state: "featured", listed: true, featured: true,
+  });
+  assert.deepEqual(withMarketplaceTopicState({}, "unlisted"), {
+    state: "unlisted", listed: false, featured: false,
+  });
+  assert.deepEqual(withMarketplaceTopicState({}, "removed"), {
+    state: "removed", listed: false, featured: false,
+  });
+  assert.equal(marketplaceTopicState({ listed: false }), "unlisted");
+  assert.equal(marketplaceTopicState({ featured: true }), "featured");
+});
 
 const alphabetTopic = {
   schemaVersion: 2 as const,

@@ -2,6 +2,15 @@
   "marketplaceManager": {
     "tab": "Kho nội dung",
     "topicDescription": "Quản lý khả năng hiển thị, nội dung giới thiệu, khám phá và giá trên kho nội dung, độc lập với dữ liệu học tập.",
+    "stateLabel": "Trạng thái kho nội dung",
+    "stateUpdated": "Đã cập nhật trạng thái kho nội dung",
+    "stateUpdatedDescription": "Chủ đề này sẽ được đồng bộ ở trạng thái {state}.",
+    "states": {
+      "listed": "Đang hiển thị",
+      "featured": "Nổi bật",
+      "unlisted": "Không hiển thị",
+      "removed": "Đã gỡ"
+    },
     "editMetadata": "Sửa thông tin",
     "publishStatus": "Trạng thái xuất bản",
     "notPublished": "Chưa xuất bản",

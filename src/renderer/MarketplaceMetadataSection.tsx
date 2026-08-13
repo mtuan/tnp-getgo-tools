@@ -110,8 +110,6 @@ export function MarketplaceMetadataSection({
   const current = draft ? metadata(draft) : null;
   const values: FormValues = current
     ? {
-        listed: current.listed,
-        featured: current.featured,
         shortDescription: current.shortDescription,
         fullDescription: current.fullDescription,
         subjects: toLines(current.subjects),
@@ -127,20 +125,6 @@ export function MarketplaceMetadataSection({
     : {};
   const fields = useMemo<FormSchema[]>(
     () => [
-      [
-        {
-          type: "toggle",
-          name: "listed",
-          label: copy.fields.listed,
-          presentation: "row",
-        },
-        {
-          type: "toggle",
-          name: "featured",
-          label: copy.fields.featured,
-          presentation: "row",
-        },
-      ],
       {
         type: "textarea",
         name: "shortDescription",

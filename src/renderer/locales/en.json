@@ -2,6 +2,15 @@
   "marketplaceManager": {
     "tab": "Marketplace",
     "topicDescription": "Manage marketplace visibility, presentation, discovery, and pricing independently from learning content.",
+    "stateLabel": "Marketplace state",
+    "stateUpdated": "Marketplace state updated",
+    "stateUpdatedDescription": "This topic will be synced as {state}.",
+    "states": {
+      "listed": "Listed",
+      "featured": "Featured",
+      "unlisted": "Unlisted",
+      "removed": "Removed"
+    },
     "editMetadata": "Edit metadata",
     "publishStatus": "Publish status",
     "notPublished": "Not published",

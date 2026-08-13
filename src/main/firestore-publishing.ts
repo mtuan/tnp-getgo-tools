@@ -361,7 +361,6 @@ export class FirestorePublishingService {
       publisherId: topic.publisherId,
       publisher: topic.publisher,
       ...topic.marketplace,
-      listed: true,
       contentHash,
       publishedAt,
     }) } }]);

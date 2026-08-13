@@ -117,7 +117,7 @@ export interface ContentV2TopicSummary {
 
 export interface MarketplaceTopicPublishResult {
   topicId: string;
-  listed: boolean;
+  state: import("./content-v2.js").MarketplaceTopicState;
   contentHash: string;
   publishedAt: string;
   snapshot: RepositorySnapshot;
@@ -606,7 +606,7 @@ export interface DesktopApi {
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
-  publishMarketplaceTopic(topicId: string, listed: boolean): Promise<MarketplaceTopicPublishResult>;
+  publishMarketplaceTopic(topicId: string, state: import("./content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>;
   onRepositoryStructureChanged(
     listener: (change: RepositoryStructureChange) => void,
   ): () => void;

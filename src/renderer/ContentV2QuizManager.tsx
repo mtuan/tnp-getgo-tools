@@ -342,8 +342,8 @@ export function ContentV2QuizManager(props: Props) {
       },
       loadContentV2Topic: window.getgo.loadContentV2Topic,
       saveContentV2Topic: async (topic) => refresh(await window.getgo.saveContentV2Topic(topic)),
-      publishMarketplaceTopic: async (topicId, listed) => {
-        const result = await window.getgo.publishMarketplaceTopic(topicId, listed);
+      publishMarketplaceTopic: async (topicId, state) => {
+        const result = await window.getgo.publishMarketplaceTopic(topicId, state);
         refresh(result.snapshot);
         return result;
       },

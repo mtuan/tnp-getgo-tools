@@ -4133,6 +4133,10 @@ tbody tr:hover {
 .marketplace-metadata-form .schema-toggle-row {
   min-height: var(--ui-form-control-height);
 }
+.manager-market-state-select {
+  width: 150px;
+  margin-top: 0;
+}
 .settings-section-actions {
   display: flex;
   align-items: center;

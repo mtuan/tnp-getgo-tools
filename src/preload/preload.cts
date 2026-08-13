@@ -24,8 +24,8 @@ const api: DesktopApi = {
       path,
       force,
     ) as Promise<RepositorySnapshot>,
-  publishMarketplaceTopic: (topicId, listed) =>
-    ipcRenderer.invoke("marketplace:topics:publish", topicId, listed),
+  publishMarketplaceTopic: (topicId, state) =>
+    ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
   onRepositoryStructureChanged: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, change: RepositoryStructureChange) => listener(change);
     ipcRenderer.on("repository:structure-changed", handler);

@@ -4,6 +4,7 @@ import { QuizCrudDialog } from "../CrudDialogs";
 import { ContestSettingsDialog } from "../ContestSettingsDialog";
 import { MigrationResultsDrawer } from "../MigrationResultsDrawer";
 import { Button } from "../ui/Button";
+import { Select } from "../ui/Select";
 import { PageHeader } from "../ui/PageHeader";
 import { Tabs } from "../ui/Tabs";
 import { MarketplaceMetadataSection } from "../MarketplaceMetadataSection";
@@ -11,6 +12,13 @@ import { KidLearningDictionaryEditor } from "../KidLearningDictionaryEditor";
 import { TopicAssetsEditor } from "../TopicAssetsEditor";
 import type { ContestDetailTab } from "./shared";
 import { renderManagerList } from "./ManagerList";
+import {
+  marketplaceTopicState,
+  withMarketplaceTopicState,
+  type MarketplaceTopicState,
+} from "../../core/marketplace-topic-state";
+import en from "../locales/en.json";
+import vi from "../locales/vi.json";
 
 type ManagerPageContext = Record<string, any> & {
   snapshot: RepositorySnapshot;
@@ -50,6 +58,7 @@ export function renderManagerPage(context: ManagerPageContext) {
   } = context;
   const isContest = page.kind === "contest";
   const topicMode = routeMode === "topics";
+  const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
   const selectedTopic = isContest
     ? snapshot.contentV2.topics.find((topic) => topic.id === page.contest)
     : undefined;
@@ -140,6 +149,40 @@ export function renderManagerPage(context: ManagerPageContext) {
             )}
             {isContest && contestTab === "info" && selectedContest && (
               <>
+                {topicMode && selectedTopic && (
+                  <Select
+                    className="manager-market-state-select"
+                    ariaLabel={marketplaceCopy.stateLabel}
+                    value={marketplaceTopicState(selectedTopic.marketplace)}
+                    disabled={Boolean(buttonAction)}
+                    options={[
+                      { value: "listed", label: marketplaceCopy.states.listed },
+                      { value: "featured", label: marketplaceCopy.states.featured },
+                      { value: "unlisted", label: marketplaceCopy.states.unlisted },
+                      { value: "removed", label: marketplaceCopy.states.removed },
+                    ]}
+                    onValueChange={(value) =>
+                      void runButtonAction("market-state", async () => {
+                        const topic = await managerApi.loadContentV2Topic(selectedTopic.id);
+                        const next = await managerApi.saveContentV2Topic({
+                          ...topic,
+                          marketplace: withMarketplaceTopicState(
+                            topic.marketplace,
+                            value as MarketplaceTopicState,
+                          ),
+                        });
+                        onSnapshotChange(next);
+                        toast.show({
+                          title: marketplaceCopy.stateUpdated,
+                          description: marketplaceCopy.stateUpdatedDescription.replace(
+                            "{state}",
+                            marketplaceCopy.states[value as MarketplaceTopicState],
+                          ),
+                        });
+                      })
+                    }
+                  />
+                )}
                 <Button
                   icon={<Trash2 size={15} />}
                   loading={buttonAction === "delete-contest"}

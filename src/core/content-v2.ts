@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { marketplaceTopicStates } from "./marketplace-topic-state.js";
+
+export {
+  marketplaceTopicState,
+  marketplaceTopicStates,
+  withMarketplaceTopicState,
+  type MarketplaceTopicState,
+} from "./marketplace-topic-state.js";
+import type { MarketplaceTopicState } from "./marketplace-topic-state.js";
 
 export const contentV2ReviewStatuses = [
   "draft",
@@ -19,6 +28,7 @@ const iconSchema = z.string().refine(
   "Icon must be an asset reference or one Unicode symbol.",
 ).optional();
 export const marketplaceTopicMetadataSchema = z.object({
+  state: z.enum(marketplaceTopicStates).optional(),
   listed: z.boolean().default(true),
   shortDescription: z.string().default(""),
   fullDescription: z.string().default(""),
