@@ -3,7 +3,6 @@ import type {
   AppSettings,
   DesktopApi,
   RepositorySnapshot,
-  RepositoryStructureChange,
 } from "../core/models.js";
 
 const api: DesktopApi = {
@@ -26,11 +25,6 @@ const api: DesktopApi = {
     ) as Promise<RepositorySnapshot>,
   publishMarketplaceTopic: (topicId, state) =>
     ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
-  onRepositoryStructureChanged: (listener) => {
-    const handler = (_event: Electron.IpcRendererEvent, change: RepositoryStructureChange) => listener(change);
-    ipcRenderer.on("repository:structure-changed", handler);
-    return () => ipcRenderer.removeListener("repository:structure-changed", handler);
-  },
   loadContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:load", topicId),
   loadContentV2Quiz: (topicId, quizId) =>

@@ -85,11 +85,6 @@ export interface RepositorySnapshot {
   contentV2: ContentV2Snapshot;
 }
 
-export interface RepositoryStructureChange {
-  detectedAt: string;
-  path: string | null;
-}
-
 export interface ContentV2TopicSummary {
   id: string;
   type: "competition" | "kid-learning";
@@ -606,9 +601,6 @@ export interface DesktopApi {
   chooseRepository(): Promise<RepositorySnapshot | null>;
   scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
   publishMarketplaceTopic(topicId: string, state: import("./content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>;
-  onRepositoryStructureChanged(
-    listener: (change: RepositoryStructureChange) => void,
-  ): () => void;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;
   loadContentV2Question(

@@ -7,7 +7,6 @@ import {
   shell,
 } from "electron";
 import { config as loadEnvironment } from "dotenv";
-import { watch, type FSWatcher } from "node:fs";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -428,65 +427,6 @@ app.whenReady().then(async () => {
   let repositorySnapshot: RepositorySnapshot | null = null;
   let repositoryScanPromise: Promise<RepositorySnapshot> | null = null;
   let repositoryScanPath: string | null = null;
-  let repositoryWatcher: FSWatcher | null = null;
-  let repositoryWatchTimer: NodeJS.Timeout | null = null;
-  const structureRoots = ["content-v2", "quizzes", "schemas", "generated"];
-  const ignoredStructureNames = new Set([
-    ".DS_Store",
-    "Thumbs.db",
-    "desktop.ini",
-    "publish-state.json",
-  ]);
-  const ignoredRepositoryPath = (value: string) =>
-    value
-      .split(/[\\/]/)
-      .some(
-        (segment) =>
-          ignoredStructureNames.has(segment) ||
-          segment.startsWith(".") ||
-          segment.endsWith("~") ||
-          /^~\$/.test(segment) ||
-          /\.sw[opx]$/i.test(segment) ||
-          /\.tmp$/i.test(segment),
-      );
-  const startRepositoryWatcher = async (repositoryPath: string) => {
-    repositoryWatcher?.close(); repositoryWatcher = null;
-    if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
-    repositoryWatcher = watch(
-      repositoryPath,
-      { recursive: true },
-      (eventType, filename) => {
-        if (eventType !== "rename" || !filename) return;
-        const relative = String(filename);
-        if (ignoredRepositoryPath(relative)) return;
-        if (
-          !structureRoots.some(
-            (root) =>
-              relative === root || relative.startsWith(`${root}${path.sep}`),
-          )
-        )
-          return;
-        if (repositoryWatchTimer) clearTimeout(repositoryWatchTimer);
-        repositoryWatchTimer = setTimeout(() => {
-          repositoryWatchTimer = null;
-          mainWindow?.webContents.send("repository:structure-changed", {
-            detectedAt: new Date().toISOString(),
-            path: relative,
-          });
-        }, 250);
-      },
-    );
-    repositoryWatcher.on("error", (cause) =>
-      console.error(
-        `[GetGo Tools][Repository structure watcher] ${cause.message}`,
-      ),
-    );
-  };
-  const acceptCurrentRepositoryStructure = async (_repositoryPath: string) => {
-    if (repositoryWatchTimer) {
-      clearTimeout(repositoryWatchTimer); repositoryWatchTimer = null;
-    }
-  };
   const scanRepository = async (
     repositoryPath: string,
     options?: Parameters<typeof scanQuizRepository>[1],
@@ -513,7 +453,6 @@ app.whenReady().then(async () => {
     repositoryScanPromise = (async () => {
       const next = await scanQuizRepository(resolved, options);
       repositorySnapshot = next;
-      await startRepositoryWatcher(resolved);
       console.info("[GetGo Tools][Repository index] Snapshot ready", {
         contests: next.contests.length,
         legacyQuizzes: next.quizzes.length,
@@ -567,8 +506,7 @@ app.whenReady().then(async () => {
         quiz,
       ].sort((a, b) => a.key.localeCompare(b.key)),
     };
-    await acceptCurrentRepositoryStructure(root);
-    return repositorySnapshot;
+return repositorySnapshot;
   };
   const settingsStartedAt = Date.now();
   const initialSettings = await settings.read();
@@ -1336,8 +1274,7 @@ app.whenReady().then(async () => {
           fs.copyFile(file, path.join(directory, path.basename(file))),
         ),
       );
-      await acceptCurrentRepositoryStructure(await repositoryRoot());
-      return listTopicAssets(topicId);
+return listTopicAssets(topicId);
     },
   );
   ipcMain.handle(
@@ -1385,8 +1322,7 @@ app.whenReady().then(async () => {
       if (!assetPath.startsWith(`${path.resolve(assetsDirectory)}${path.sep}`))
         throw new Error("Invalid asset selection.");
       await shell.trashItem(assetPath);
-      await acceptCurrentRepositoryStructure(root);
-      return listTopicAssets(topicId);
+return listTopicAssets(topicId);
     },
   );
   ipcMain.handle(
@@ -1459,8 +1395,7 @@ app.whenReady().then(async () => {
           : [...current.contentV2.topics, summary],
       },
     };
-    await acceptCurrentRepositoryStructure(root);
-    return requireSnapshot();
+return requireSnapshot();
   });
   ipcMain.handle(
     "content-v2:marketplace-state:set",
@@ -1483,7 +1418,7 @@ app.whenReady().then(async () => {
         ids,
         state,
         ...(typeof topicIdValue === "string" ? { topicId: topicIdValue } : {}),
-      }); await acceptCurrentRepositoryStructure(root);
+      });
       return requireSnapshot();
     },
   );
@@ -1519,8 +1454,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
-      await acceptCurrentRepositoryStructure(root);
-      return requireSnapshot();
+return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -1607,8 +1541,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
-      await acceptCurrentRepositoryStructure(root);
-      return requireSnapshot();
+return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -1685,8 +1618,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
-      await acceptCurrentRepositoryStructure(root);
-      return requireSnapshot();
+return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -1742,8 +1674,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
-      await acceptCurrentRepositoryStructure(root);
-      return requireSnapshot();
+return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -1809,8 +1740,7 @@ app.whenReady().then(async () => {
           ),
         },
       };
-      await acceptCurrentRepositoryStructure(root);
-      return requireSnapshot();
+return requireSnapshot();
     },
   );
   ipcMain.handle(
@@ -2583,8 +2513,7 @@ app.whenReady().then(async () => {
         path.join(assetsDirectory, filename),
         Buffer.from(match[2].replace(/\s/g, ""), "base64"),
       );
-      await acceptCurrentRepositoryStructure(current.repositoryPath);
-      return { reference: `asset:${filename}`, preview: dataUrl };
+return { reference: `asset:${filename}`, preview: dataUrl };
     },
   );
   ipcMain.handle("quiz-source:read", async (_event, manifestPath: unknown) => {
@@ -2760,8 +2689,7 @@ app.whenReady().then(async () => {
           a.id.localeCompare(b.id),
         ),
       };
-      await acceptCurrentRepositoryStructure(root);
-      return repositorySnapshot;
+return repositorySnapshot;
     },
   );
   ipcMain.handle(
@@ -2836,8 +2764,7 @@ app.whenReady().then(async () => {
         contests: snapshot.contests.filter((item) => item.id !== id),
         quizzes: snapshot.quizzes.filter((item) => item.contest !== id),
       };
-      await acceptCurrentRepositoryStructure(root);
-      return repositorySnapshot;
+return repositorySnapshot;
     },
   );
   ipcMain.handle(
@@ -2880,7 +2807,6 @@ app.whenReady().then(async () => {
     },
   );
   ipcMain.handle("crud:quiz:delete", async (_event, manifestPath: unknown) => {
-    const root = await repositoryRoot();
     const manifest = await resolveManifest(manifestPath);
     await shell.trashItem(path.dirname(manifest));
     const snapshot = requireSnapshot();
@@ -2890,8 +2816,7 @@ app.whenReady().then(async () => {
         (item) => item.manifestPath !== manifest,
       ),
     };
-    await acceptCurrentRepositoryStructure(root);
-    return repositorySnapshot;
+return repositorySnapshot;
   });
   startupLog("IPC handlers registered");
   startupLog("Startup complete", { logFile: startupLogFile });
