@@ -10,8 +10,8 @@ import {
   sanitizeContentV2Question,
   marketplaceTopicState,
   withMarketplaceTopicState,
-} from "../src/core/content-v2.js";
-import { buildContentV2QuestionsCode } from "../src/main/firestore-publishing.js";
+} from "../src/features/topics/domain/content-v2.js";
+import { buildContentV2QuestionsCode } from "../src/features/topics/main/firestore-publishing.js";
 import {
   saveContentV2Question,
   saveContentV2Quiz,
@@ -20,7 +20,7 @@ import {
   calculateContentV2QuizHash,
   readContentV2QuizPublishState,
   writeContentV2QuizPublishState,
-} from "../src/repositories/content-v2-repository.js";
+} from "../src/features/topics/repository/content-v2-repository.js";
 
 test("marketplace topic states map to remote listing flags", () => {
   assert.deepEqual(withMarketplaceTopicState({}, "listed"), {

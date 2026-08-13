@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { deriveDeploymentStatus } from "../src/core/status.js"
+import { deriveDeploymentStatus } from "../src/features/deployment/domain/status.js"
 
 test("a quiz without a generated artifact is not built", () => {
   assert.equal(deriveDeploymentStatus({ contentStatus: "validated", hasGeneratedArtifact: false, localArtifactHash: null }), "not-built")

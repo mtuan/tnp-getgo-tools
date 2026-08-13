@@ -1,6 +1,6 @@
-import type { ContentV2TopicSummary, QuizSummary } from "../core/models";
-import { marketplaceTopicState, type MarketplaceTopicState } from "../core/marketplace-topic-state";
-import type { StatusBadgeTone } from "./ui/StatusBadge";
+import type { ContentV2TopicSummary, QuizSummary } from "../shared/domain/models";
+import { marketplaceTopicState, type MarketplaceTopicState } from "../features/topics/domain/marketplace-topic-state";
+import type { StatusBadgeTone } from "../shared/ui/StatusBadge";
 
 export type TopicStatus = { kind: "none" | "current" | "changed"; label: string };
 

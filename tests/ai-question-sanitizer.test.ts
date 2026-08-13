@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { sanitizeQuestionForAi } from "../src/core/ai-question-sanitizer.js"
+import { sanitizeQuestionForAi } from "../src/features/ai/domain/ai-question-sanitizer.js"
 
 test("AI question payload preserves asset references without image contents", () => {
   const payload = sanitizeQuestionForAi({

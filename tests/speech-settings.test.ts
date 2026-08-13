@@ -4,7 +4,7 @@ import {
   defaultSpeechSettings,
   speechVoiceDisplayName,
   withSpeechLanguageSettings,
-} from "../src/core/speech-settings.js";
+} from "../src/features/speech/domain/speech-settings.js";
 
 const settings = {
   repositoryPath: null,

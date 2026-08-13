@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { questionIsVerified, questionStatus, withQuestionStatus } from "../src/core/question-status.js"
+import { questionIsVerified, questionStatus, withQuestionStatus } from "../src/features/quiz-editor/domain/question-status.js"
 
 test("legacy verified values remain compatible without treating false as rejected", () => {
   assert.equal(questionStatus({ verified: true }), "verified")

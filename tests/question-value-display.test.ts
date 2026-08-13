@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { Fraction } from "@tnp/getgo-logics/quiz-builder"
-import { displayQuestionValue } from "../src/core/question-value-display"
+import { displayQuestionValue } from "../src/features/quiz-editor/domain/question-value-display"
 
 test("question values render live and serialized fractions as mixed numbers", () => {
   assert.equal(displayQuestionValue(new Fraction(5, 4)), "1 1/4")

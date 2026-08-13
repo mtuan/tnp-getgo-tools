@@ -7,13 +7,13 @@ import {
   canonicalQuestionJson,
   hashPublishedQuestions,
   sanitizePublishedQuestion,
-} from "../src/core/publishing.js";
-import { recordPublishedHash } from "../src/repositories/quiz-publishing.js";
-import { createContentV2QuizPublishPreview } from "../src/main/firestore-publishing.js";
+} from "../src/features/topics/domain/publishing.js";
+import { recordPublishedHash } from "../src/features/topics/repository/quiz-publishing.js";
+import { createContentV2QuizPublishPreview } from "../src/features/topics/main/firestore-publishing.js";
 import {
   contentV2PublishedItems,
   diffContentV2PublishedItems,
-} from "../src/core/content-v2-publish-state.js";
+} from "../src/features/topics/domain/content-v2-publish-state.js";
 
 test("content v2 assets publish to shared topic Storage paths", () => {
   const preview = createContentV2QuizPublishPreview(

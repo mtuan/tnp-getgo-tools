@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { questionService } from "../src/renderer/question-service"
-import type { QuizQuestionRecord } from "../src/core/models"
+import { questionService } from "../src/features/quiz-editor/components/question-service"
+import type { QuizQuestionRecord } from "../src/shared/domain/models"
 
 const question = (fixed: boolean): QuizQuestionRecord => ({
   question_no: 1,

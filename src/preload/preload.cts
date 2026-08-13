@@ -3,7 +3,7 @@ import type {
   AppSettings,
   DesktopApi,
   RepositorySnapshot,
-} from "../core/models.js";
+} from "../shared/domain/models.js";
 
 const api: DesktopApi = {
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,

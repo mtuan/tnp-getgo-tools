@@ -4,8 +4,8 @@ import {
   reviewedTopicQuizzes,
   shouldPublishContainingTopic,
   stalePublishedQuizIds,
-} from "../src/core/content-v2-publish-policy.js";
-import type { ContentV2QuizSummary } from "../src/core/models.js";
+} from "../src/features/topics/domain/content-v2-publish-policy.js";
+import type { ContentV2QuizSummary } from "../src/shared/domain/models.js";
 
 function quiz(
   id: string,

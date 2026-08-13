@@ -8,7 +8,7 @@ import {
   loadAlphabetDictionary,
   parseKidLearningDictionary,
   saveAlphabetDictionary,
-} from "../src/repositories/alphabet-dictionary.js";
+} from "../src/features/quiz-editor/repository/alphabet-dictionary.js";
 
 test("expands multilingual aliases into localized quiz words", () => {
   const shared = parseKidLearningDictionary({

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { visibleModelValue } from "../src/core/editor-context.js"
+import { visibleModelValue } from "../src/features/quiz-editor/domain/editor-context.js"
 
 test("extracts only editable code from a Monaco type-context model", () => {
   const prefix = "export {}\nconst hidden = 1\nconst callback =\n"

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { questionHasDynamicParams } from "../src/core/question-dynamics.js"
+import { questionHasDynamicParams } from "../src/features/quiz-editor/domain/question-dynamics.js"
 
 test("identifies only parameter generators with named return values as dynamic", () => {
   assert.equal(questionHasDynamicParams({ paramsGeneratorTs: "() => ({})" }), false)

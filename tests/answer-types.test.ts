@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { answerTypeDefinitions, staticAnswerType } from "../src/core/answer-types.js"
+import { answerTypeDefinitions, staticAnswerType } from "../src/features/quiz-editor/domain/answer-types.js"
 
 test("static answer editor exposes single input, multiple inputs, and choice", () => {
   assert.deepEqual(answerTypeDefinitions.map(definition => definition.id), ["input", "multiple_input", "choice"])

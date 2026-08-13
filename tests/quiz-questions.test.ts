@@ -12,7 +12,7 @@ import {
   reorderQuizQuestions,
   resetQuizQuestion,
   saveQuizQuestion,
-} from "../src/repositories/quiz-questions.js";
+} from "../src/features/quiz-editor/repository/quiz-questions.js";
 
 test("marks all split questions reviewed in one bulk operation", async () => {
   const directory = await fs.mkdtemp(

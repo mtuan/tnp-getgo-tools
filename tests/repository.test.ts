@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { scanQuizRepository } from "../src/repositories/quiz-repository.js"
+import { scanQuizRepository } from "../src/features/topics/repository/quiz-repository.js"
 
 test("scans valid quizzes and reports malformed manifests", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-tools-"))

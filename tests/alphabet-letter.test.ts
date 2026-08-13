@@ -5,7 +5,7 @@ import {
   relatedAlphabetWords,
   formatAlphabetWord,
   isAlphabetLetterCharacter,
-} from "../src/core/alphabet-letter.js";
+} from "../src/features/quiz-editor/domain/alphabet-letter.js";
 
 test("matches English alphabet letters without case sensitivity", () => {
   assert.equal(isAlphabetLetterCharacter("D", "d", "English"), true);

@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { PublishJobManager } from "../src/main/publish-jobs.js";
+import { PublishJobManager } from "../src/features/jobs/main/publish-jobs.js";
 
 test("publish jobs persist completed and failed operation history", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-jobs-"));

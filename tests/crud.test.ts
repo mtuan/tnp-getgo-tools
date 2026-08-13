@@ -4,9 +4,9 @@ import { promises as fs } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import type { ContestSettings } from "../src/core/models.js"
-import { createContestDirectory, createQuizFiles, updateContestSettings, updateQuizManifest, updateQuizSource } from "../src/repositories/quiz-crud.js"
-import { scanQuizRepository } from "../src/repositories/quiz-repository.js"
+import type { ContestSettings } from "../src/shared/domain/models.js"
+import { createContestDirectory, createQuizFiles, updateContestSettings, updateQuizManifest, updateQuizSource } from "../src/features/topics/repository/quiz-crud.js"
+import { scanQuizRepository } from "../src/features/topics/repository/quiz-repository.js"
 
 const settings: ContestSettings = {
   book: { code: "sample", title: "Sample Contest", description: "Initial", subject: 1, isActive: true },
