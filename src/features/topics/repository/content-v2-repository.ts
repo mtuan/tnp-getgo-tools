@@ -803,6 +803,13 @@ export async function recordContentV2Published(
   await writeJson(filePath, record);
 }
 
+export async function clearContentV2Published(filePath: string): Promise<void> {
+  const record = (await readJson(filePath)) as Record<string, unknown>;
+  delete record.publishedHash;
+  delete record.publishedAt;
+  await writeJson(filePath, record);
+}
+
 export async function readContentV2QuizPublishState(
   quizFilePath: string,
 ): Promise<ContentV2QuizPublishState> {

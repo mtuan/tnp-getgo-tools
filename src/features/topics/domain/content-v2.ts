@@ -27,8 +27,11 @@ const iconSchema = z.string().refine(
   "Icon must be an asset reference or one Unicode symbol.",
 ).optional();
 export const marketplaceTopicMetadataSchema = z.object({
-  state: z.enum(marketplaceTopicStates).optional(),
-  listed: z.boolean().default(true),
+  state: z.preprocess(
+    (value) => value === "removed" ? "unlisted" : value,
+    z.enum(marketplaceTopicStates),
+  ).optional(),
+  listed: z.boolean().default(false),
   shortDescription: z.string().default(""),
   fullDescription: z.string().default(""),
   featured: z.boolean().default(false),

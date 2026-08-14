@@ -32,12 +32,13 @@ test("marketplace topic states map to remote listing flags", () => {
   assert.deepEqual(withMarketplaceTopicState({}, "unlisted"), {
     state: "unlisted", listed: false, featured: false,
   });
-  assert.deepEqual(withMarketplaceTopicState({}, "removed"), {
-    state: "removed", listed: false, featured: false,
+  assert.deepEqual(withMarketplaceTopicState({}, "hidden"), {
+    state: "hidden", listed: false, featured: false,
   });
   assert.equal(marketplaceTopicState({ listed: false }), "unlisted");
   assert.equal(marketplaceTopicState({ featured: true }), "featured");
   assert.equal(marketplaceTopicState(), "unlisted");
+  assert.equal(marketplaceTopicState({ state: "removed" }), "unlisted");
 });
 
 const alphabetTopic = {

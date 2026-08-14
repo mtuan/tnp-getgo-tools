@@ -2883,63 +2883,57 @@ tbody tr:hover {
 .migration-results-drawer {
   width: min(680px, 100vw);
 }
-.marketplace-sync-drawer {
-  width: min(1120px, calc(100vw - 24px));
+.crud-dialog.marketplace-sync-drawer {
+  width: min(1440px, calc(100vw - 8px));
 }
-.marketplace-sync-definitions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+.marketplace-sync-drawer .crud-body {
+  display: flex;
+  padding: 0;
+  overflow: hidden;
 }
-.marketplace-sync-definitions > div {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #f8fafc;
+.marketplace-sync-drawer .ui-tree-data-table {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 0;
 }
-.marketplace-sync-definitions span {
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.45;
+.marketplace-sync-drawer .ui-data-table-scroll {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
 }
 .marketplace-sync-drawer .ui-data-table-horizontal table {
-  min-width: 900px;
+  width: max-content;
+  min-width: 100%;
+  table-layout: fixed;
 }
-.marketplace-sync-tree-identity {
-  display: flex;
-  align-items: center;
-  min-width: 0;
+.marketplace-sync-drawer .ui-data-table-horizontal thead {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+  background: inherit;
 }
-.marketplace-sync-tree-identity > .marketplace-sync-topic {
-  min-width: 0;
-}
-.marketplace-sync-summary {
-  display: grid;
-  gap: 4px;
-  padding: 14px 16px;
-  border: 1px solid #c7d2fe;
-  border-radius: 12px;
-  color: #4338ca;
-  background: #eef2ff;
-}
-.marketplace-sync-summary span,
 .marketplace-sync-topic small,
-.marketplace-sync-action small,
-.marketplace-sync-readiness small {
+.marketplace-sync-action small {
   color: #64748b;
   font-size: 11px;
   line-height: 1.4;
 }
 .marketplace-sync-topic,
-.marketplace-sync-action,
-.marketplace-sync-readiness {
+.marketplace-sync-action {
   display: grid;
   gap: 3px;
 }
-.marketplace-sync-readiness {
-  justify-items: center;
+.marketplace-sync-action ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.marketplace-sync-action li + li {
+  margin-top: 2px;
 }
 .migration-results-summary {
   display: grid;
@@ -8070,11 +8064,6 @@ button.danger svg {
   }
 }
 @media (prefers-color-scheme: dark) {
-  .marketplace-sync-summary {
-    color: #c7d2fe;
-    border-color: #6366f166;
-    background: #312e8159;
-  }
   .ui-search-field {
     color: #64748b;
     border-color: #ffffff1a;

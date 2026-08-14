@@ -9,9 +9,9 @@ test("marketplace sync plan describes only changed remote documents", () => {
   const plan = marketplaceSyncPlan([
     topic("create", { marketplace: { state: "listed" }, marketplacePublishedHash: null }),
     topic("update", { marketplace: { state: "featured" }, publishedHash: "old", marketplacePublishedHash: "old" }),
-    topic("remove", { marketplace: { state: "removed" }, marketplacePublishedHash: "old" }),
+    topic("remove", { marketplace: { state: "unlisted" }, publishedHash: "old", marketplacePublishedHash: "old" }),
     topic("current", { marketplace: { state: "listed" }, marketplacePublishedHash: "local" }),
-    topic("removed", { marketplace: { state: "removed" }, marketplacePublishedHash: null }),
+    topic("removed", { marketplace: { state: "unlisted" }, publishedHash: null, marketplacePublishedHash: null }),
   ] as never);
   assert.deepEqual(plan.map(({ topic: item, action }) => [item.id, action]), [
     ["create", "create"],

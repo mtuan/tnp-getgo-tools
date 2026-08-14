@@ -30,7 +30,7 @@ export function marketplaceStateLabel(metadata?: QuizSummary["marketplace"]): {
 export function marketplaceStateTone(state: MarketplaceTopicState): StatusBadgeTone {
   if (state === "listed") return "success";
   if (state === "featured") return "primary";
-  if (state === "removed") return "danger";
+  if (state === "unlisted") return "danger";
   return "neutral";
 }
 
@@ -42,7 +42,7 @@ export function quizMarketplaceStatus(quiz: QuizSummary): TopicStatus {
 }
 
 export function topicMarketplaceSyncStatus(topic: ContentV2TopicSummary): TopicStatus {
-  if (marketplaceTopicState(topic.marketplace) === "removed" && !topic.marketplacePublishedHash)
+  if (marketplaceTopicState(topic.marketplace) === "unlisted" && !topic.marketplacePublishedHash)
     return { kind: "current", label: "Up to date" };
   if (!topic.marketplacePublishedHash) return { kind: "none", label: "Needs sync" };
   return topic.marketplacePublishedHash === topic.marketplaceLocalHash

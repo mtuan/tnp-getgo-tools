@@ -363,6 +363,30 @@ export class FirestorePublishingService {
     await this.commit([{ delete: marketplaceTopicPath(topicId) }]);
   }
 
+  async removeContentV2Topic(topicId: string, control?: PublishJobControl): Promise<void> {
+    const quizIds = (await this.listDocumentNames(contentV2TopicPath(topicId), "quizzes"))
+      .map((name) => decodeURIComponent(name.split("/").at(-1)!));
+    await this.deleteContentV2TopicQuizzes(topicId, quizIds, control);
+    await control?.checkpoint();
+    await this.commit([
+      { delete: contentV2TopicPath(topicId) },
+      { delete: marketplaceTopicPath(topicId) },
+    ]);
+  }
+
+  async removeContentV2StorageItems(
+    state: ContentV2PublishTargetState | undefined,
+    control?: PublishJobControl,
+  ): Promise<void> {
+    const paths = Object.values(state?.items ?? {})
+      .filter((item) => item.kind === "storage-object")
+      .map((item) => item.path);
+    for (const path of paths) {
+      await control?.checkpoint();
+      await this.auth.deleteStorageObject(path);
+    }
+  }
+
   async staleContentV2TopicQuizIds(
     topicId: string,
     localQuizIds: string[],
@@ -425,8 +449,9 @@ export class FirestorePublishingService {
   }> {
     await control?.checkpoint();
     const target = await this.auth.publishingTarget();
-    if (marketplaceTopicState(quiz.marketplace) === "removed") {
+    if (marketplaceTopicState(quiz.marketplace) === "unlisted") {
       await control?.setTotal(1, "Removing quiz from the marketplace");
+      await this.removeContentV2StorageItems(previousState, control);
       await this.deleteContentV2TopicQuizzes(topicId, [quiz.id], control);
       return { kind: "quiz", topicId, quizId: quiz.id, contentHash,
         publishedAt: new Date().toISOString(), environment: target.environment,

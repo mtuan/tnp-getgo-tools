@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { BookOpen, ListOrdered, Save } from "lucide-react";
+import { useEffect } from "react";
+import { Save } from "lucide-react";
 import type {
   AppSettings,
   QuizQuestionRecord,
@@ -239,74 +239,6 @@ export function contentV2QuizReviewStatus(
   };
 }
 
-export function ManagerListIcon({
-  topicId,
-  reference,
-  label,
-  kind,
-}: {
-  topicId: string;
-  reference?: string;
-  label: string;
-  kind: "topic" | "quiz";
-}) {
-  const [source, setSource] = useState(() =>
-    reference?.startsWith("data:image/") ? reference : "",
-  );
-  useEffect(() => {
-    if (!reference) {
-      setSource("");
-      return;
-    }
-    if (
-      reference.startsWith("data:image/") ||
-      reference.startsWith("http://") ||
-      reference.startsWith("https://")
-    ) {
-      setSource(reference);
-      return;
-    }
-    if (!reference.startsWith("asset:")) {
-      setSource("");
-      return;
-    }
-    let active = true;
-    void window.getgo
-      .readContentV2TopicAsset(topicId, reference.slice("asset:".length))
-      .then((value) => {
-        if (active) setSource(value);
-      })
-      .catch(() => {
-        if (active) setSource("");
-      });
-    return () => {
-      active = false;
-    };
-  }, [reference, topicId]);
-  if (source)
-    return (
-      <span className="manager-list-icon">
-        <img src={source} alt={`${label} icon`} />
-      </span>
-    );
-  if (reference && !reference.startsWith("asset:"))
-    return (
-      <span
-        className="manager-list-icon manager-list-icon-text"
-        aria-hidden="true"
-      >
-        {reference}
-      </span>
-    );
-  return (
-    <span
-      className="manager-list-icon manager-list-icon-default"
-      aria-hidden="true"
-    >
-      {kind === "topic" ? <BookOpen /> : <ListOrdered />}
-    </span>
-  );
-}
 
 export function restoredPage(
   snapshot: RepositorySnapshot,

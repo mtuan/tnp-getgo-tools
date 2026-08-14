@@ -3,7 +3,7 @@ import path from "node:path";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
 import type { RepositorySnapshot } from "../../../shared/domain/models.js";
 import { hashContentV2, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
-import { loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import { localizedAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { syncAllMarketplaceTopics } from "./marketplace-sync-all.js";
@@ -35,12 +35,13 @@ ipcMain.handle(
     const summary = snapshot.contentV2.topics.find(
       (item) => item.id === topicId,
     );
-    if (!summary?.publishedAt)
+    if (!summary) throw new Error("The selected topic was not found.");
+    if (marketplaceState !== "unlisted" && !summary.publishedAt)
       throw new Error(
         "Publish this topic from its Publish tab before adding it to the marketplace.",
       );
     if (!firebaseAuth) throw new Error("Publishing is not initialized.");
-    if (!(await publishing.contentV2TopicExists(topicId)))
+    if (marketplaceState !== "unlisted" && !(await publishing.contentV2TopicExists(topicId)))
       throw new Error(
         "This topic is not published in the selected environment.",
       );
@@ -54,18 +55,39 @@ ipcMain.handle(
     const contentHash = hashContentV2(sanitizeMarketplaceTopic(saved));
     return publishJobs.track(
       {
-        name: `${marketplaceState === "removed" ? "Remove" : "Sync"} marketplace topic · ${summary.title}`,
-        description: marketplaceState === "removed"
-          ? "Remove the marketplace document without deleting learning content"
+        name: `${marketplaceState === "unlisted" ? "Remove" : "Sync"} marketplace topic · ${summary.title}`,
+        description: marketplaceState === "unlisted"
+          ? "Remove the marketplace document and topic learning data"
           : `Synchronize the marketplace document as ${marketplaceState}`,
         route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace`,
       },
       async (control) => {
+        if (marketplaceState === "unlisted") {
+          await control.setTotal(1, "Removing marketplace and topic data");
+          const topicQuizzes = snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId);
+          const target = await firebaseAuth.publishingTarget();
+          for (const quiz of topicQuizzes) {
+            const publishState = await readContentV2QuizPublishState(quiz.filePath);
+            await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], control);
+            await clearContentV2Published(quiz.filePath);
+            await writeContentV2QuizPublishState(quiz.filePath, { schemaVersion: 1, targets: {} });
+          }
+          await publishing.removeContentV2Topic(topicId, control);
+          await clearContentV2Published(summary.filePath);
+          const result = { contentHash, publishedAt: new Date().toISOString() };
+          const marketplace = syncedMarketplaceMetadata(saved.marketplace, marketplaceState, result);
+          await saveContentV2Topic(root, { ...saved, marketplace });
+          const current = requireSnapshot();
+          snapshotState.value = { ...current, contentV2: { ...current.contentV2,
+            topics: current.contentV2.topics.map((item) => item.id === topicId ? { ...item, publishedHash: null, publishedAt: null, marketplace, marketplaceLocalHash: contentHash, marketplacePublishedHash: null, marketplacePublishedAt: null } : item),
+            quizzes: current.contentV2.quizzes.map((item) => item.topicId === topicId ? { ...item, publishedHash: null, publishedAt: null } : item),
+          } };
+          await control.advance("Removed marketplace and topic data");
+          return { topicId, state: marketplaceState, contentHash, publishedAt: result.publishedAt, snapshot: requireSnapshot() };
+        }
         await control.setTotal(
           1,
-          marketplaceState !== "removed"
-            ? "Synchronizing marketplace listing"
-            : "Removing marketplace listing",
+          "Synchronizing marketplace listing",
         );
         const result = await syncMarketplaceTopic(
           publishing,
@@ -78,9 +100,7 @@ ipcMain.handle(
         );
         await saveContentV2Topic(root, { ...saved, marketplace });
         await control.advance(
-          marketplaceState !== "removed"
-            ? "Synchronized marketplace document"
-            : "Removed marketplace document",
+          "Synchronized marketplace document",
         );
         const current = requireSnapshot();
         snapshotState.value = {
@@ -93,12 +113,8 @@ ipcMain.handle(
                     ...item,
                     marketplace,
                     marketplaceLocalHash: contentHash,
-                    marketplacePublishedHash: marketplaceState !== "removed"
-                      ? result.contentHash
-                      : null,
-                    marketplacePublishedAt: marketplaceState !== "removed"
-                      ? result.publishedAt
-                      : null,
+                    marketplacePublishedHash: result.contentHash,
+                    marketplacePublishedAt: result.publishedAt,
                   }
                 : item,
             ),

@@ -9,11 +9,10 @@ import { DataTable, type DataColumn } from "../../../../shared/ui/DataTable";
 import { ActionMenu } from "../../../../shared/ui/ActionMenu";
 import { MarketplaceMetadataSection } from "../../components/MarketplaceMetadataSection";
 import { AccordionGroup } from "../../../../shared/ui/Accordion";
-import { Select } from "../../../../shared/ui/Select";
+import { MarketplaceStateSelect } from "../../components/MarketplaceStateSelect";
 import {
   marketplaceTopicState,
   withMarketplaceTopicState,
-  type MarketplaceTopicState,
 } from "../../../../features/topics/domain/marketplace-topic-state";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
@@ -104,45 +103,41 @@ export function renderQuizOverview(context: QuizOverviewContext) {
             />
           }
           actions={
-            quizTab === "info" ? (
-              <>
-                {contentQuiz && (
-                  <Select
-                    className="manager-market-state-select"
-                    ariaLabel={marketplaceCopy.stateLabel}
+            <>
+              {contentQuiz && (
+                  <MarketplaceStateSelect
+                    locale={locale}
                     value={marketplaceTopicState(contentQuiz.marketplace)}
                     disabled={Boolean(buttonAction)}
-                    options={Object.entries(marketplaceCopy.states).map(
-                      ([value, label]) => ({ value, label }),
-                    )}
-                    onValueChange={(value) => {
+                    onChange={(value) => {
                       void runButtonAction("market-state", async () => {
                         const stored = await managerApi.loadContentV2Quiz(
                           quiz.contest,
                           quiz.id,
                         );
-                        await managerApi.saveContentV2Quiz(
+                        const next = await managerApi.saveContentV2Quiz(
                           quiz.contest,
                           {
                             ...stored,
                             marketplace: withMarketplaceTopicState(
                               stored.marketplace,
-                              value as MarketplaceTopicState,
+                              value,
                             ),
                           },
                         );
+                        onSnapshotChange(next);
                         toast.show({
                           title: marketplaceCopy.stateUpdated,
                           description: marketplaceCopy.stateUpdatedDescription.replace(
                             "{state}",
-                            marketplaceCopy.states[value as MarketplaceTopicState],
+                            marketplaceCopy.states[value],
                           ),
                         });
                       });
                     }}
                   />
-                )}
-                <Button
+              )}
+              {quizTab === "info" ? <Button
                   icon={<Trash2 size={15} />}
                   loading={buttonAction === "delete-quiz"}
                   variant="solid"
@@ -172,9 +167,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                   }}
                 >
                   Delete quiz
-                </Button>
-              </>
-            ) : quizTab === "dictionary" ? null : questionOrder ? (
+                </Button> : quizTab === "dictionary" ? null : questionOrder ? (
               <QuestionOrderActions
                 dirty={questionOrderDirty}
                 busy={Boolean(buttonAction)}
@@ -252,7 +245,8 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                   ]}
                 />
               </>
-            )
+            )}
+            </>
           }
         />
         <Tabs<QuizDetailTab>

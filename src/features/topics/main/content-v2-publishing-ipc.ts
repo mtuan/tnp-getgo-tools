@@ -3,7 +3,7 @@ import type { RepositorySnapshot } from "../../../shared/domain/models.js";
 import { hashContentV2, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { reviewedTopicQuizzes, shouldPublishContainingTopic } from "../domain/content-v2-publish-policy.js";
 import { createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, type FirestorePublishingService } from "./firestore-publishing.js";
-import { loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
@@ -22,6 +22,32 @@ ipcMain.handle(
     );
     if (!summary) throw new Error("The selected topic was not found.");
     const topic = await loadContentV2Topic(root, topicId);
+    if (marketplaceTopicState(topic.marketplace) === "unlisted") {
+      return publishJobs.track(
+        { name: `Remove topic data · ${summary.title}`, description: "Remove marketplace, topic, quiz, question, resource, and asset data", route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace` },
+        async (control) => {
+          await control.setTotal(1, "Removing marketplace and topic data");
+          const topicQuizzes = snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId);
+          const target = await firebaseAuth.publishingTarget();
+          for (const quiz of topicQuizzes) {
+            const publishState = await readContentV2QuizPublishState(quiz.filePath);
+            await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], control);
+            await clearContentV2Published(quiz.filePath);
+            await writeContentV2QuizPublishState(quiz.filePath, { schemaVersion: 1, targets: {} });
+          }
+          await publishing.removeContentV2Topic(topicId, control);
+          await clearContentV2Published(summary.filePath);
+          const marketHash = hashContentV2(sanitizeMarketplaceTopic(topic));
+          const saved = await saveContentV2Topic(root, { ...topic, marketplace: syncedMarketplaceMetadata(topic.marketplace, "unlisted", { contentHash: marketHash, publishedAt: new Date().toISOString() }) });
+          if (snapshotState.value) snapshotState.value = { ...snapshotState.value, contentV2: { ...snapshotState.value.contentV2,
+            topics: snapshotState.value.contentV2.topics.map((item) => item.id === topicId ? { ...item, publishedHash: null, publishedAt: null, marketplace: saved.marketplace, marketplacePublishedHash: null, marketplacePublishedAt: null } : item),
+            quizzes: snapshotState.value.contentV2.quizzes.map((item) => item.topicId === topicId ? { ...item, publishedHash: null, publishedAt: null } : item),
+          } };
+          await control.advance("Removed marketplace and topic data");
+          return { kind: "topic" as const, topicId, contentHash: marketHash, publishedAt: new Date().toISOString(), snapshot: requireSnapshot() };
+        },
+      );
+    }
     const quizIds = reviewedTopicQuizzes(
       snapshot.contentV2.quizzes,
       topicId,
@@ -47,7 +73,7 @@ ipcMain.handle(
     const reviewedQuizzes = reviewedTopicQuizzes(
       snapshot.contentV2.quizzes,
       topicId,
-    ).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "removed");
+    ).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted");
     for (const quiz of reviewedQuizzes)
       if (quiz.questionCount !== quiz.reviewedQuestionCount)
         throw new Error(
@@ -63,7 +89,7 @@ ipcMain.handle(
         if (!firebaseAuth) throw new Error("Publishing is not initialized.");
         const target = await firebaseAuth.publishingTarget();
         const localQuizIds = snapshot.contentV2.quizzes.filter(
-            (quiz) => quiz.topicId === topicId && marketplaceTopicState(quiz.marketplace) !== "removed",
+            (quiz) => quiz.topicId === topicId && marketplaceTopicState(quiz.marketplace) !== "unlisted",
           )
           .map((quiz) => quiz.id);
         const staleQuizIds = await publishing.staleContentV2TopicQuizIds(
@@ -79,6 +105,7 @@ ipcMain.handle(
           contentHash: string;
           publishedAt: string;
         }> = [];
+        const removedQuizKeys = new Set<string>();
         for (const [index, quizSummary] of reviewedQuizzes.entries()) {
           await control.checkpoint();
           const quiz = await loadContentV2Quiz(root, topicId, quizSummary.id);
@@ -154,11 +181,12 @@ ipcMain.handle(
           control,
         );
         for (const removed of snapshot.contentV2.quizzes.filter((item) =>
-          item.topicId === topicId && marketplaceTopicState(item.marketplace) === "removed")) {
-          const publishedAt = new Date().toISOString();
-          await recordContentV2Published(removed.filePath, removed.localHash, publishedAt);
+          item.topicId === topicId && marketplaceTopicState(item.marketplace) === "unlisted")) {
+          const publishState = await readContentV2QuizPublishState(removed.filePath);
+          await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], control);
+          await clearContentV2Published(removed.filePath);
           await writeContentV2QuizPublishState(removed.filePath, { schemaVersion: 1, targets: {} });
-          publishedQuizResults.push({ key: removed.key, contentHash: removed.localHash, publishedAt });
+          removedQuizKeys.add(removed.key);
         }
         // Publish the catalog entry last so it never advertises a quiz early.
         const result = await publishing.publishContentV2Topic(
@@ -166,11 +194,7 @@ ipcMain.handle(
           summary.localHash,
           reviewedQuizzes.map((quiz) => quiz.id),
         );
-        await recordContentV2Published(
-          summary.filePath,
-          result.contentHash,
-          result.publishedAt,
-        );
+        await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);
         await control.advance("Published topic document");
         // The marketplace record is the final commit in this job. A catalog
         // entry can therefore never point at partially synchronized content.
@@ -183,7 +207,7 @@ ipcMain.handle(
           sanitizeMarketplaceTopic(marketTopic),
         );
         const marketplaceResult =
-          marketState !== "removed" && summary.marketplacePublishedHash === marketplaceHash
+          marketState !== "unlisted" && summary.marketplacePublishedHash === marketplaceHash
             ? {
                 kind: "topic" as const,
                 topicId,
@@ -204,7 +228,7 @@ ipcMain.handle(
           ),
         });
         await control.advance(
-          marketState === "removed"
+          marketState === "unlisted"
             ? "Removed marketplace catalog document"
             : "Synchronized marketplace catalog document",
         );
@@ -225,13 +249,15 @@ ipcMain.handle(
                       marketplace: savedTopic.marketplace,
                       marketplaceLocalHash: marketplaceHash,
                       marketplacePublishedHash:
-                        marketState === "removed" ? null : marketplaceResult.contentHash,
+                        marketState === "unlisted" ? null : marketplaceResult.contentHash,
                       marketplacePublishedAt:
-                        marketState === "removed" ? null : marketplaceResult.publishedAt,
+                        marketState === "unlisted" ? null : marketplaceResult.publishedAt,
                     }
                   : item,
               ),
               quizzes: snapshotState.value.contentV2.quizzes.map((item) => {
+                if (removedQuizKeys.has(item.key))
+                  return { ...item, publishedHash: null, publishedAt: null };
                 const published = publishedByKey.get(item.key);
                 return published
                   ? {
@@ -359,7 +385,7 @@ ipcMain.handle(
         const topicQuizIds = reviewedTopicQuizzes(
           snapshot.contentV2.quizzes,
           topicId,
-        ).filter((item) => marketplaceTopicState(item.marketplace) !== "removed")
+        ).filter((item) => marketplaceTopicState(item.marketplace) !== "unlisted")
           .map((item) => item.id);
         await control.checkpoint();
         if (!firebaseAuth) throw new Error("Publishing is not initialized.");
@@ -381,6 +407,7 @@ ipcMain.handle(
           control,
           publishContainingTopic ? 2 : 0,
         );
+        const removingQuiz = marketplaceTopicState(quiz.marketplace) === "unlisted";
         const topicResult = publishContainingTopic
           ? await publishing.publishContentV2Topic(
               topic,
@@ -389,18 +416,18 @@ ipcMain.handle(
               control,
             )
           : null;
-        await recordContentV2Published(
-          summary.filePath,
-          result.contentHash,
-          result.publishedAt,
-        );
+        if (removingQuiz) await clearContentV2Published(summary.filePath);
+        else await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);
         if (topicResult)
           await recordContentV2Published(
             topicSummary.filePath,
             topicResult.contentHash,
             topicResult.publishedAt,
           );
-        await writeContentV2QuizPublishState(summary.filePath, {
+        await writeContentV2QuizPublishState(summary.filePath, removingQuiz ? {
+          schemaVersion: 1,
+          targets: {},
+        } : {
           schemaVersion: 1,
           targets: {
             ...publishState.targets,
@@ -422,8 +449,8 @@ ipcMain.handle(
                 item.topicId === topicId && item.id === quizId
                   ? {
                       ...item,
-                      publishedHash: result.contentHash,
-                      publishedAt: result.publishedAt,
+                      publishedHash: removingQuiz ? null : result.contentHash,
+                      publishedAt: removingQuiz ? null : result.publishedAt,
                     }
                   : item,
               ),

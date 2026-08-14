@@ -3,7 +3,8 @@ import { TreeDataTable, type TreeDataRow } from "../../../../shared/ui/TreeDataT
 import type { DataColumn } from "../../../../shared/ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../../../../shared/ui/StatusBadge";
 import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
-import { contentV2QuizReviewStatus, ManagerListIcon } from "./shared";
+import { contentV2QuizReviewStatus } from "./shared";
+import { TopicQuizTreeIdentity } from "../../components/TopicQuizTreeIdentity";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 
@@ -172,40 +173,9 @@ isContest,
                       ? loadTreeTopicQuizzes(row.contest.id)
                       : undefined
                   }
-                  renderIdentity={(row, _depth, toggle) => (
-                    <div className="topics-tree-identity">
-                      {toggle}
-                      {row.kind === "topic" ? (
-                        <>
-                          <ManagerListIcon
-                            topicId={row.contest.id}
-                            reference={row.contest.settings.book.icon}
-                            label={row.contest.title}
-                            kind="topic"
-                          />
-                          <div>
-                            <strong>{row.contest.title}</strong>
-                            <span>
-                              {row.contest.description || row.contest.id}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <ManagerListIcon
-                            topicId={row.quiz.contest}
-                            reference={row.quiz.icon}
-                            label={row.quiz.title}
-                            kind="quiz"
-                          />
-                          <div>
-                            <strong>{row.quiz.title}</strong>
-                            <span>{row.quiz.id}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  renderIdentity={(row, _depth, toggle) => row.kind === "topic"
+                    ? <TopicQuizTreeIdentity toggle={toggle} topicId={row.contest.id} reference={row.contest.settings.book.icon} title={row.contest.title} description={row.contest.description || row.contest.id} kind="topic" count={row.summary.quizCount} />
+                    : <TopicQuizTreeIdentity toggle={toggle} topicId={row.quiz.contest} reference={row.quiz.icon} title={row.quiz.title} description={row.quiz.id} kind="quiz" />}
                 />
               );
               })()}

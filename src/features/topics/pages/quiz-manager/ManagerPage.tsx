@@ -4,7 +4,6 @@ import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { ContestSettingsDialog } from "../../components/ContestSettingsDialog";
 import { MigrationResultsDrawer } from "../../components/MigrationResultsDrawer";
 import { Button } from "../../../../shared/ui/Button";
-import { Select } from "../../../../shared/ui/Select";
 import { PageHeader } from "../../../../shared/ui/PageHeader";
 import { Tabs } from "../../../../shared/ui/Tabs";
 import { AccordionGroup } from "../../../../shared/ui/Accordion";
@@ -14,10 +13,10 @@ import { TopicAssetsEditor } from "../../components/TopicAssetsEditor";
 import type { ContestDetailTab } from "./shared";
 import { renderManagerList } from "./ManagerList";
 import { ManagerHeaderControls } from "./ManagerHeaderControls";
+import { MarketplaceStateSelect } from "../../components/MarketplaceStateSelect";
 import {
   marketplaceTopicState,
   withMarketplaceTopicState,
-  type MarketplaceTopicState,
 } from "../../../../features/topics/domain/marketplace-topic-state";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
@@ -106,28 +105,21 @@ export function renderManagerPage(context: ManagerPageContext) {
         actions={
           <>
             {(!isContest || contestTab === "quizzes") && <ManagerHeaderControls {...context} isContest={isContest} topicMode={topicMode} />}
-            {isContest && contestTab === "info" && selectedContest && (
+            {isContest && selectedContest && (
               <>
                 {topicMode && selectedTopic && (
-                  <Select
-                    className="manager-market-state-select"
-                    ariaLabel={marketplaceCopy.stateLabel}
+                  <MarketplaceStateSelect
+                    locale={locale}
                     value={marketplaceTopicState(selectedTopic.marketplace)}
                     disabled={Boolean(buttonAction)}
-                    options={[
-                      { value: "listed", label: marketplaceCopy.states.listed },
-                      { value: "featured", label: marketplaceCopy.states.featured },
-                      { value: "unlisted", label: marketplaceCopy.states.unlisted },
-                      { value: "removed", label: marketplaceCopy.states.removed },
-                    ]}
-                    onValueChange={(value) =>
+                    onChange={(value) =>
                       void runButtonAction("market-state", async () => {
                         const topic = await managerApi.loadContentV2Topic(selectedTopic.id);
                         const next = await managerApi.saveContentV2Topic({
                           ...topic,
                           marketplace: withMarketplaceTopicState(
                             topic.marketplace,
-                            value as MarketplaceTopicState,
+                            value,
                           ),
                         });
                         onSnapshotChange(next);
@@ -135,14 +127,14 @@ export function renderManagerPage(context: ManagerPageContext) {
                           title: marketplaceCopy.stateUpdated,
                           description: marketplaceCopy.stateUpdatedDescription.replace(
                             "{state}",
-                            marketplaceCopy.states[value as MarketplaceTopicState],
+                            marketplaceCopy.states[value],
                           ),
                         });
                       })
                     }
                   />
                 )}
-                <Button
+                {contestTab === "info" && <Button
                   icon={<Trash2 size={15} />}
                   loading={buttonAction === "delete-contest"}
                   variant="solid"
@@ -170,7 +162,7 @@ export function renderManagerPage(context: ManagerPageContext) {
                   }}
                 >
                   Delete {topicMode ? "topic" : "contest"}
-                </Button>
+                </Button>}
               </>
             )}
           </>

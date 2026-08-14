@@ -1,8 +1,8 @@
 export const marketplaceTopicStates = [
   "listed",
   "featured",
+  "hidden",
   "unlisted",
-  "removed",
 ] as const;
 
 export type MarketplaceTopicState = (typeof marketplaceTopicStates)[number];
@@ -14,9 +14,11 @@ type MarketplaceStateMetadata = {
 };
 
 export function marketplaceTopicState(
-  metadata?: MarketplaceStateMetadata,
+  metadata?: MarketplaceStateMetadata | { state?: string; listed?: boolean; featured?: boolean },
 ): MarketplaceTopicState {
-  if (metadata?.state) return metadata.state;
+  if (metadata?.state === "removed") return "unlisted";
+  if (metadata?.state && marketplaceTopicStates.includes(metadata.state as MarketplaceTopicState))
+    return metadata.state as MarketplaceTopicState;
   if (metadata?.featured) return "featured";
   return metadata?.listed === true ? "listed" : "unlisted";
 }

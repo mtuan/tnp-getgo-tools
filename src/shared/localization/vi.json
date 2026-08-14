@@ -11,24 +11,26 @@
     "sync": "Đồng bộ",
     "syncing": "Đang đồng bộ {completed}/{total}",
     "syncPreviewTitle": "Kiểm tra đồng bộ kho nội dung",
-    "syncPreviewCount": "{count} mục sẽ được đồng bộ",
-    "syncPreviewDescription": "Kiểm tra mọi thay đổi dữ liệu chủ đề và bộ câu hỏi trước khi bắt đầu tác vụ nền.",
     "syncItem": "Mục",
-    "syncTopic": "Chủ đề",
-    "syncQuiz": "Bộ câu hỏi",
     "syncAction": "Cách đồng bộ",
-    "syncMarketplaceState": "Trạng thái kho nội dung",
-    "syncMarketplaceStateDescription": "Quyết định khả năng hiển thị sau khi đồng bộ: Đang hiển thị là công khai, Nổi bật là công khai và được quảng bá, Không hiển thị là bị ẩn, và Đã gỡ sẽ xóa mục khỏi kho nội dung.",
-    "syncReadinessDescription": "Cho biết mục này có được đưa vào tác vụ đồng bộ hiện tại hay không. Bộ câu hỏi chỉ được bao gồm khi mọi câu hỏi đã được duyệt.",
-    "syncActions": { "create": "Tạo mục", "update": "Cập nhật mục", "remove": "Gỡ mục" },
-    "syncDetails": {
-      "topic": { "create": "Tạo 2 tài liệu: tài liệu chủ đề (gồm trường quizIds) và mục kho nội dung.", "update": "Cập nhật 2 tài liệu: tài liệu chủ đề (gồm trường quizIds) và mục kho nội dung.", "remove": "Xóa 1 tài liệu kho nội dung; giữ lại chủ đề và dữ liệu học tập." },
-      "quiz": { "create": "Tạo bộ câu hỏi, câu hỏi, tài nguyên và tài sản từ tệp cục bộ.", "update": "Cập nhật dữ liệu bộ câu hỏi đã đổi và xóa dữ liệu con không còn dùng.", "remove": "Xóa bộ câu hỏi, câu hỏi, tài nguyên và tài sản khỏi cơ sở dữ liệu." }
+    "syncMarketplaceState": "Trạng thái",
+    "syncReview": "Duyệt",
+    "syncActions": {
+      "topic": { "create": "Tạo chủ đề và mục kho", "update": "Cập nhật chủ đề và mục kho", "remove": "Xóa dữ liệu chủ đề" },
+      "quiz": { "create": "Tạo dữ liệu bộ câu hỏi", "update": "Cập nhật dữ liệu bộ câu hỏi", "remove": "Xóa dữ liệu bộ câu hỏi" }
     },
-    "syncReadiness": "Trạng thái",
-    "syncIncluded": "Bao gồm",
-    "syncNotIncluded": "Không bao gồm",
-    "syncBlocked": "{count} bộ câu hỏi còn câu hỏi chưa duyệt được hiển thị để tham khảo nhưng sẽ không được đồng bộ.",
+    "syncDetails": {
+      "topic": {
+        "create": ["Tạo tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId} cùng quizIds.", "Tạo tài liệu kho nội dung /getgo-marketplace-topics/{topicId} cho “{title}”."],
+        "update": ["Cập nhật tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId}, gồm quizIds.", "Cập nhật tài liệu kho nội dung /getgo-marketplace-topics/{topicId} cho “{title}”."],
+        "remove": ["Xóa tài liệu kho nội dung /getgo-marketplace-topics/{topicId} của “{title}”.", "Xóa tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId}.", "Xóa mọi bộ câu hỏi, câu hỏi, tài nguyên và tài sản thuộc chủ đề này."]
+      },
+      "quiz": {
+        "create": ["Tạo tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} cho “{title}”.", "Ghi {questionCount} tài liệu câu hỏi.", "Đồng bộ tài liệu tài nguyên và tệp tài sản được dữ liệu cục bộ tham chiếu."],
+        "update": ["Cập nhật tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} cho “{title}”.", "Đồng bộ thay đổi trong {questionCount} tài liệu câu hỏi.", "Đồng bộ tài liệu tài nguyên và tệp tài sản; xóa các bản ghi con cũ."],
+        "remove": ["Xóa tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} của “{title}”.", "Xóa toàn bộ tài liệu câu hỏi và tài nguyên con.", "Xóa toàn bộ bản ghi và tệp tài sản thuộc bộ câu hỏi này."]
+      }
+    },
     "syncNothing": "Mọi nội dung đã được đồng bộ.",
     "syncStart": "Bắt đầu đồng bộ",
     "batchUpdated": "Đã cập nhật trạng thái kho nội dung",
@@ -36,8 +38,8 @@
     "states": {
       "listed": "Đang hiển thị",
       "featured": "Nổi bật",
-      "unlisted": "Không hiển thị",
-      "removed": "Đã gỡ"
+      "hidden": "Đã ẩn",
+      "unlisted": "Không hiển thị"
     },
     "editMetadata": "Sửa thông tin",
     "publishStatus": "Trạng thái xuất bản",

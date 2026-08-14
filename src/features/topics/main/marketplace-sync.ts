@@ -12,7 +12,7 @@ export async function syncMarketplaceTopic(
   contentHash: string,
   state: MarketplaceTopicState,
 ) {
-  if (state !== "removed")
+  if (state !== "unlisted")
     return publishing.publishMarketplaceTopic(topic, contentHash);
   await publishing.removeMarketplaceTopic(topic.id);
   return {
@@ -36,7 +36,7 @@ export function syncedMarketplaceMetadata(
 ): MarketplaceTopicMetadataInput {
   return {
     ...metadata,
-    publishedHash: state === "removed" ? undefined : result.contentHash,
-    publishedAt: state === "removed" ? undefined : result.publishedAt,
+    publishedHash: state === "unlisted" ? undefined : result.contentHash,
+    publishedAt: state === "unlisted" ? undefined : result.publishedAt,
   };
 }
