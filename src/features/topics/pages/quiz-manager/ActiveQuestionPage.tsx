@@ -1,5 +1,5 @@
 import { Check, CircleCheck, CircleDashed, CircleX, FolderOpen, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
-import type { ContestQuizQuestionRecord, QuizQuestionRecord, RepositorySnapshot } from "../../../../shared/domain/models";
+import type { ContestQuizQuestionRecord, QuizQuestionRecord, RepositoryViewData } from "../../../../shared/domain/models";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { alphabetData } from "../../../../features/quiz-editor/domain/alphabet-question";
 import { questionIsVerified, questionStatus, withQuestionStatus } from "../../../../features/quiz-editor/domain/question-status";
@@ -14,7 +14,7 @@ import { QuestionEditorKeyboardShortcuts, comparableQuestion, questionDiff, type
 type ActiveQuestionContext = Record<string, any> & {
   questionRecords: QuizQuestionRecord[];
   questions: QuestionListItem[];
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
   setQuestionRecords: Dispatch<SetStateAction<QuizQuestionRecord[]>>;
   setQuestionDraftRecord: Dispatch<SetStateAction<QuizQuestionRecord | null>>;
   lastSavedQuestion: MutableRefObject<QuizQuestionRecord | null>;

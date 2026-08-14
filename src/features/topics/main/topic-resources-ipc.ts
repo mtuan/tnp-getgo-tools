@@ -1,9 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
-import type { RepositorySnapshot } from "../../../shared/domain/models.js";
 import { hashContentV2, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
-import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import { localizedAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { syncAllMarketplaceTopics } from "./marketplace-sync-all.js";
@@ -11,11 +10,8 @@ import type { FirestorePublishingService } from "./firestore-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 
-interface SnapshotState { value: RepositorySnapshot | null }
 interface Dependencies {
   mainWindow: BrowserWindow;
-  snapshotState: SnapshotState;
-  requireSnapshot(): RepositorySnapshot;
   repositoryRoot(): Promise<string>;
   publishing: FirestorePublishingService;
   publishJobs: PublishJobManager;
@@ -23,7 +19,7 @@ interface Dependencies {
   firebaseAuth: FirebaseAuthService;
 }
 
-export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, snapshotState, requireSnapshot, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth }: Dependencies): void {
+export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth }: Dependencies): void {
 ipcMain.handle(
   "marketplace:topics:publish",
   async (_event, topicId: unknown, state: unknown) => {
@@ -31,8 +27,8 @@ ipcMain.handle(
       throw new Error("Invalid marketplace topic ID.");
     const marketplaceState = parseMarketplaceTopicState(state);
     const root = await repositoryRoot();
-    const snapshot = requireSnapshot();
-    const summary = snapshot.contentV2.topics.find(
+    const content = (await loadContentV2TopicFolder(root, topicId)).content;
+    const summary = content.topics.find(
       (item) => item.id === topicId,
     );
     if (!summary) throw new Error("The selected topic was not found.");
@@ -64,7 +60,7 @@ ipcMain.handle(
       async (control) => {
         if (marketplaceState === "unlisted") {
           await control.setTotal(1, "Removing marketplace and topic data");
-          const topicQuizzes = snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId);
+          const topicQuizzes = content.quizzes;
           const target = await firebaseAuth.publishingTarget();
           for (const quiz of topicQuizzes) {
             const publishState = await readContentV2QuizPublishState(quiz.filePath);
@@ -77,13 +73,8 @@ ipcMain.handle(
           const result = { contentHash, publishedAt: new Date().toISOString() };
           const marketplace = syncedMarketplaceMetadata(saved.marketplace, marketplaceState, result);
           await saveContentV2Topic(root, { ...saved, marketplace });
-          const current = requireSnapshot();
-          snapshotState.value = { ...current, contentV2: { ...current.contentV2,
-            topics: current.contentV2.topics.map((item) => item.id === topicId ? { ...item, publishedHash: null, publishedAt: null, marketplace, marketplaceLocalHash: contentHash, marketplacePublishedHash: null, marketplacePublishedAt: null } : item),
-            quizzes: current.contentV2.quizzes.map((item) => item.topicId === topicId ? { ...item, publishedHash: null, publishedAt: null } : item),
-          } };
           await control.advance("Removed marketplace and topic data");
-          return { topicId, state: marketplaceState, contentHash, publishedAt: result.publishedAt, snapshot: requireSnapshot() };
+          return { topicId, state: marketplaceState, contentHash, publishedAt: result.publishedAt };
         }
         await control.setTotal(
           1,
@@ -102,30 +93,11 @@ ipcMain.handle(
         await control.advance(
           "Synchronized marketplace document",
         );
-        const current = requireSnapshot();
-        snapshotState.value = {
-          ...current,
-          contentV2: {
-            ...current.contentV2,
-            topics: current.contentV2.topics.map((item) =>
-              item.id === topicId
-                ? {
-                    ...item,
-                    marketplace,
-                    marketplaceLocalHash: contentHash,
-                    marketplacePublishedHash: result.contentHash,
-                    marketplacePublishedAt: result.publishedAt,
-                  }
-                : item,
-            ),
-          },
-        };
         return {
           topicId,
           state: marketplaceState,
           contentHash: result.contentHash,
           publishedAt: result.publishedAt,
-          snapshot: requireSnapshot(),
         };
       },
     );
@@ -134,12 +106,21 @@ ipcMain.handle(
 ipcMain.handle("marketplace:topics:sync-all", async () => {
   const active = (await publishJobs.list()).find((job) => job.name === "Sync marketplace · All topics" && ["queued", "running", "paused"].includes(job.status));
   if (active) return backgroundJobsSnapshot();
-  const root = await repositoryRoot(), snapshot = requireSnapshot();
   if (!firebaseAuth) throw new Error("Publishing is not initialized.");
   await publishJobs.start({ name: "Sync marketplace · All topics", description: "Synchronize local topics, quizzes, questions, resources, assets, and marketplace states", route: "/topics" }, async (control) => {
-    snapshotState.value = await syncAllMarketplaceTopics(root, snapshot, publishing, firebaseAuth, control);
+    const root = await repositoryRoot();
+    const content = (await loadContentV2WorkspaceFromFiles(root)).content;
+    await syncAllMarketplaceTopics(root, content, publishing, firebaseAuth, control);
   });
   return backgroundJobsSnapshot();
+});
+ipcMain.handle("content-v2:route:load", async (_event, topicId: unknown) => {
+  if (topicId !== undefined && typeof topicId !== "string") throw new Error("Invalid topic ID.");
+  const root = await repositoryRoot();
+  const loaded = typeof topicId === "string"
+    ? await loadContentV2TopicFolder(root, topicId)
+    : await loadContentV2TopicsOverview(root);
+  return { repositoryPath: root, loadedAt: new Date().toISOString(), content: loaded.content };
 });
 ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
   if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
@@ -198,18 +179,7 @@ ipcMain.handle(
       throw new Error("Invalid quiz selection.");
     const root = await repositoryRoot();
     const quiz = await loadContentV2Quiz(root, topicId, quizId);
-    await saveContentV2QuizDictionary(root, topicId, quiz, value);
-    const current = requireSnapshot();
-    snapshotState.value = {
-      ...current,
-      contentV2: {
-        ...current.contentV2,
-        quizzes: current.contentV2.quizzes.map((item) =>
-          item.topicId === topicId ? { ...item, localHash: "" } : item,
-        ),
-      },
-    };
-    return requireSnapshot();
+    return saveContentV2QuizDictionary(root, topicId, quiz, value);
   },
 );
 ipcMain.handle(
@@ -226,18 +196,7 @@ ipcMain.handle(
     if (typeof topicId !== "string")
       throw new Error("Invalid topic selection.");
     const root = await repositoryRoot();
-    await saveContentV2TopicDictionary(root, topicId, value);
-    const current = requireSnapshot();
-    snapshotState.value = {
-      ...current,
-      contentV2: {
-        ...current.contentV2,
-        quizzes: current.contentV2.quizzes.map((item) =>
-          item.topicId === topicId ? { ...item, localHash: "" } : item,
-        ),
-      },
-    };
-    return requireSnapshot();
+    return saveContentV2TopicDictionary(root, topicId, value);
   },
 );
 const topicAssetsDirectory = async (topicId: unknown) => {
@@ -381,10 +340,7 @@ ipcMain.handle(
     const root = await repositoryRoot();
     const referencingQuestion = (
       await Promise.all(
-        requireSnapshot()
-          .contentV2.questions.filter(
-            (question) => question.topicId === topicId,
-          )
+        (await loadContentV2TopicFolder(root, String(topicId))).content.questions
           .map((question) =>
             loadContentV2Question(
               root,

@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { ArrowDown, ArrowUp, Check, Pencil, Zap } from "lucide-react";
-import type { QuizQuestionRecord, QuizSummary, RepositorySnapshot } from "../../../../shared/domain/models";
+import type { QuizQuestionRecord, QuizSummary, RepositoryViewData } from "../../../../shared/domain/models";
 import { questionHasDynamicParams } from "../../../../features/quiz-editor/domain/question-dynamics";
 import { alphabetData } from "../../../../features/quiz-editor/domain/alphabet-question";
 import { relatedAlphabetWords } from "../../../../features/quiz-editor/domain/alphabet-letter";
@@ -15,7 +15,7 @@ import { renderQuizOverview } from "./QuizOverviewPage";
 
 type QuizPageContext = Record<string, any> & {
   page: { kind: "quiz"; quiz: QuizSummary };
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
   questionRecords: QuizQuestionRecord[];
   questionOrder: string[] | null;
   setQuestionOrder: Dispatch<SetStateAction<string[] | null>>;

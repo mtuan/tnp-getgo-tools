@@ -60,7 +60,7 @@ export interface QuizSummary {
   artifactHash: string | null;
   publishedHash: string | null;
   publishedAt: string | null; marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
-  /** Cached sanitized runtime hash, maintained by Tools mutations. */
+  /** Hash of the current sanitized file content. */
   localContentHash: string | null;
   questionCount: number | null;
   reviewedQuestionCount: number;
@@ -70,17 +70,17 @@ export interface QuizSummary {
   modifiedAt: string;
 }
 
-export interface ScanIssue {
+export interface FileLoadIssue {
   path: string;
   message: string;
 }
 
-export interface RepositorySnapshot {
+export interface RepositoryViewData {
   repositoryPath: string;
-  scannedAt: string;
+  loadedAt: string;
   contests: ContestSummary[];
   quizzes: QuizSummary[];
-  issues: ScanIssue[];
+  issues: FileLoadIssue[];
   contentV2: ContentV2Snapshot;
 }
 
@@ -113,7 +113,6 @@ export interface MarketplaceTopicPublishResult {
   state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState;
   contentHash: string;
   publishedAt: string;
-  snapshot: RepositorySnapshot;
 }
 
 export interface MarketplaceStateUpdateResult {
@@ -169,11 +168,17 @@ export interface ContentV2Snapshot {
   topics: ContentV2TopicSummary[];
   quizzes: ContentV2QuizSummary[];
   questions: ContentV2QuestionSummary[];
-  issues: ScanIssue[];
+  issues: FileLoadIssue[];
+}
+
+export interface ContentV2RouteData {
+  repositoryPath: string;
+  loadedAt: string;
+  content: ContentV2Snapshot;
 }
 
 export interface QuizMigrationResult {
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
   migratedQuizIds: string[];
   failures: Array<{ quizId: string; message: string }>;
 }
@@ -413,7 +418,6 @@ export interface ContentV2PublishResult {
   quizId?: string;
   contentHash: string;
   publishedAt: string;
-  snapshot?: RepositorySnapshot;
 }
 
 export interface ContentV2QuizPublishPreview {
@@ -608,10 +612,11 @@ export interface DesktopApi {
   resolveDroppedFilePath(file: File): string;
   saveGeneratedPdf(data: ArrayBuffer, suggestedName: string, defaultDirectory?: string | null): Promise<{ filePath: string } | null>;
   getSettings(): Promise<AppSettings>;
-  chooseRepository(): Promise<RepositorySnapshot | null>;
-  scanRepository(path?: string, force?: boolean): Promise<RepositorySnapshot>;
+  chooseRepository(): Promise<string | null>;
+  loadLegacyOverview(path?: string): Promise<RepositoryViewData>;
   publishMarketplaceTopic(topicId: string, state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>; syncContentV2Marketplace(): Promise<BackgroundJobsSnapshot>;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
+  loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;
   loadContentV2Question(
     topicId: string,
@@ -626,37 +631,37 @@ export interface DesktopApi {
     topicId: string,
     quizId: string,
     dictionary: AlphabetDictionary,
-  ): Promise<RepositorySnapshot>;
+  ): Promise<AlphabetDictionary>;
   loadContentV2TopicDictionary(topicId: string): Promise<KidLearningDictionary>;
   saveContentV2TopicDictionary(
     topicId: string,
     dictionary: KidLearningDictionary,
-  ): Promise<RepositorySnapshot>;
+  ): Promise<KidLearningDictionary>;
   listContentV2TopicAssets(topicId: string): Promise<ContentV2TopicAssetSummary[]>;
   readContentV2TopicAsset(topicId: string, filename: string): Promise<string>;
   importContentV2TopicAssets(topicId: string): Promise<ContentV2TopicAssetSummary[]>;
   trashContentV2TopicAsset(topicId: string, filename: string): Promise<ContentV2TopicAssetSummary[]>;
-  showContentV2TopicAssetsFolder(topicId: string): Promise<void>; saveContentV2Topic(topic: ContentV2Topic): Promise<RepositorySnapshot>;
+  showContentV2TopicAssetsFolder(topicId: string): Promise<void>; saveContentV2Topic(topic: ContentV2Topic): Promise<ContentV2Topic>;
   setContentV2MarketplaceState(target: "topics" | "quizzes", ids: string[], state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState, topicId?: string): Promise<MarketplaceStateUpdateResult>;
   saveContentV2Quiz(
     topicId: string,
     quiz: ContentV2Quiz,
-  ): Promise<RepositorySnapshot>;
+  ): Promise<ContentV2Quiz>;
   saveContentV2Question(
     topicId: string,
     quizId: string,
     question: ContentV2Question,
-  ): Promise<RepositorySnapshot>;
-  deleteContentV2Topic(topicId: string): Promise<RepositorySnapshot>;
+  ): Promise<ContentV2Question>;
+  deleteContentV2Topic(topicId: string): Promise<{ id: string }>;
   deleteContentV2Quiz(
     topicId: string,
     quizId: string,
-  ): Promise<RepositorySnapshot>;
+  ): Promise<{ topicId: string; id: string }>;
   deleteContentV2Question(
     topicId: string,
     quizId: string,
     questionId: string,
-  ): Promise<RepositorySnapshot>;
+  ): Promise<{ topicId: string; quizId: string; id: string }>;
   setEnvironment(environment: AppSettings["environment"]): Promise<AppSettings>;
   setAiProfile(profile: AppSettings["aiProfile"]): Promise<AppSettings>;
   setLocale(locale: AppSettings["locale"]): Promise<AppSettings>;
@@ -702,18 +707,18 @@ export interface DesktopApi {
   markAllContentV2QuizQuestionsReviewed(
     topicId: string,
     quizId: string,
-  ): Promise<RepositorySnapshot>;
+  ): Promise<{ topicId: string; quizId: string; reviewed: number }>;
   createQuizQuestion(
     manifestPath: string,
-  ): Promise<{ question: QuizQuestionRecord; snapshot: RepositorySnapshot }>;
+  ): Promise<{ question: QuizQuestionRecord; snapshot: RepositoryViewData }>;
   reorderQuizQuestions(
     manifestPath: string,
     questionNumbers: string[],
-  ): Promise<{ questions: QuizQuestionRecord[]; snapshot: RepositorySnapshot }>;
+  ): Promise<{ questions: QuizQuestionRecord[]; snapshot: RepositoryViewData }>;
   deleteQuizQuestion(
     manifestPath: string,
     questionNo: string,
-  ): Promise<{ questions: QuizQuestionRecord[]; snapshot: RepositorySnapshot }>;
+  ): Promise<{ questions: QuizQuestionRecord[]; snapshot: RepositoryViewData }>;
   resetQuizQuestion(
     manifestPath: string,
     question: QuizQuestionRecord,
@@ -723,22 +728,22 @@ export interface DesktopApi {
   resolveYouTubeResources(
     urls: string[],
   ): Promise<Array<{ url: string; title?: string; durationSeconds?: number; error?: string }>>;
-  createContest(settings: ContestSettings): Promise<RepositorySnapshot>;
+  createContest(settings: ContestSettings): Promise<RepositoryViewData>;
   updateContest(
     id: string,
     settings: ContestSettings,
-  ): Promise<RepositorySnapshot>;
-  renameContest(currentId: string, nextId: string): Promise<RepositorySnapshot>;
-  deleteContest(id: string): Promise<RepositorySnapshot>;
+  ): Promise<RepositoryViewData>;
+  renameContest(currentId: string, nextId: string): Promise<RepositoryViewData>;
+  deleteContest(id: string): Promise<RepositoryViewData>;
   createQuiz(
     contest: string,
     input: QuizCrudInput,
-  ): Promise<RepositorySnapshot>;
+  ): Promise<RepositoryViewData>;
   updateQuiz(
     manifestPath: string,
     input: Omit<QuizCrudInput, "id">,
-  ): Promise<RepositorySnapshot>;
-  deleteQuiz(manifestPath: string): Promise<RepositorySnapshot>;
+  ): Promise<RepositoryViewData>;
+  deleteQuiz(manifestPath: string): Promise<RepositoryViewData>;
   getAuthState(): Promise<AuthState>;
   signIn(email: string, password: string): Promise<AuthState>;
   signInWithProvider(

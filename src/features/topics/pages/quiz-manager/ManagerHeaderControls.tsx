@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { ListOrdered, Plus, RefreshCw, Search, Rows3 } from "lucide-react";
-import type { BackgroundJob, MarketplaceStateUpdateResult, RepositorySnapshot } from "../../../../shared/domain/models";
+import type { BackgroundJob, MarketplaceStateUpdateResult, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import { ActionMenu } from "../../../../shared/ui";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { MarketplaceSyncDrawer } from "../../components/MarketplaceSyncDrawer";
 
-type Context = Record<string, any> & { snapshot: RepositorySnapshot };
+type Context = Record<string, any> & { snapshot: RepositoryViewData };
 const activeStatuses = new Set(["queued", "running", "paused"]);
 const isSyncJob = (job: BackgroundJob) => job.kind === "publish" && job.name === "Sync marketplace · All topics" && activeStatuses.has(job.status);
 
-function applyMarketplaceStateUpdate(snapshot: RepositorySnapshot, result: MarketplaceStateUpdateResult): RepositorySnapshot {
+function applyMarketplaceStateUpdate(snapshot: RepositoryViewData, result: MarketplaceStateUpdateResult): RepositoryViewData {
   const records = new Map(result.records.map((record) => [record.id, record]));
   if (result.target === "topics") return { ...snapshot, contentV2: { ...snapshot.contentV2, topics: snapshot.contentV2.topics.map((topic) => {
     const record = records.get(topic.id);

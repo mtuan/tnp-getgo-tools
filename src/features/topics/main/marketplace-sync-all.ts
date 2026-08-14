@@ -1,5 +1,5 @@
 import { hashContentV2, marketplaceTopicState, sanitizeMarketplaceTopic } from "../../../features/topics/domain/content-v2.js";
-import type { RepositorySnapshot } from "../../../shared/domain/models.js";
+import type { ContentV2Snapshot } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan.js";
 import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
@@ -10,24 +10,24 @@ import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 
 export async function syncAllMarketplaceTopics(
   root: string,
-  snapshot: RepositorySnapshot,
+  content: ContentV2Snapshot,
   publishing: FirestorePublishingService,
   firebaseAuth: FirebaseAuthService,
   control: PublishJobControl,
-): Promise<RepositorySnapshot> {
-  const plan = marketplaceSyncPlan(snapshot.contentV2.topics, snapshot.contentV2.quizzes)
+): Promise<void> {
+  const plan = marketplaceSyncPlan(content.topics, content.quizzes)
     .filter((item) => item.ready);
   await control.setTotal(plan.length, "Preparing topic and quiz synchronization");
   const target = await firebaseAuth.publishingTarget();
-  let next = snapshot;
+  let next = content;
   const topicIds = [...new Set(plan.map((item) => item.topic.id))];
   for (const topicId of topicIds) {
-    const topicSummary = next.contentV2.topics.find((item) => item.id === topicId)!;
+    const topicSummary = next.topics.find((item) => item.id === topicId)!;
     const topic = await loadContentV2Topic(root, topicId);
     const topicPlan = plan.filter((item) => item.topic.id === topicId);
     const state = marketplaceTopicState(topic.marketplace);
     if (state === "unlisted") {
-      const topicQuizzes = next.contentV2.quizzes.filter((item) => item.topicId === topicId);
+      const topicQuizzes = next.quizzes.filter((item) => item.topicId === topicId);
       for (const quiz of topicQuizzes) {
         const publishState = await readContentV2QuizPublishState(quiz.filePath);
         await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], control);
@@ -43,10 +43,10 @@ export async function syncAllMarketplaceTopics(
           publishedAt: new Date().toISOString(),
         }),
       });
-      next = { ...next, contentV2: { ...next.contentV2,
-        topics: next.contentV2.topics.map((item) => item.id === topicId ? { ...item, publishedHash: null, publishedAt: null, marketplace: saved.marketplace, marketplacePublishedHash: null, marketplacePublishedAt: null } : item),
-        quizzes: next.contentV2.quizzes.map((item) => item.topicId === topicId ? { ...item, publishedHash: null, publishedAt: null } : item),
-      } };
+      next = { ...next,
+        topics: next.topics.map((item) => item.id === topicId ? { ...item, publishedHash: null, publishedAt: null, marketplace: saved.marketplace, marketplacePublishedHash: null, marketplacePublishedAt: null } : item),
+        quizzes: next.quizzes.map((item) => item.topicId === topicId ? { ...item, publishedHash: null, publishedAt: null } : item),
+      };
       await control.advance(`Removed topic data · ${topicSummary.title}`);
       continue;
     }
@@ -64,7 +64,7 @@ export async function syncAllMarketplaceTopics(
         continue;
       }
       const quiz = await loadContentV2Quiz(root, topicId, summary.id);
-      const questionIds = next.contentV2.questions.filter((question) => question.topicId === topicId && question.quizId === summary.id).sort((a, b) => a.order - b.order).map((question) => question.id);
+      const questionIds = next.questions.filter((question) => question.topicId === topicId && question.quizId === summary.id).sort((a, b) => a.order - b.order).map((question) => question.id);
       const [questions, resources] = await Promise.all([
         Promise.all(questionIds.map((id) => loadContentV2Question(root, topicId, summary.id, id))),
         loadContentV2QuizResources(root, topicId, quiz),
@@ -77,18 +77,17 @@ export async function syncAllMarketplaceTopics(
       quizResults.set(summary.key, result);
       await control.advance(`Synchronized quiz · ${summary.title}`);
     }
-    const reviewedQuizIds = reviewedTopicQuizzes(next.contentV2.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
+    const reviewedQuizIds = reviewedTopicQuizzes(next.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
     const topicResult = await publishing.publishContentV2Topic(topic, topicSummary.localHash, reviewedQuizIds);
     await recordContentV2Published(topicSummary.filePath, topicResult.contentHash, topicResult.publishedAt);
     const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
     const marketResult = await syncMarketplaceTopic(publishing, topic, marketplaceHash, state);
     const saved = await saveContentV2Topic(root, { ...topic, marketplace: syncedMarketplaceMetadata(topic.marketplace, state, marketResult) });
-    next = { ...next, contentV2: { ...next.contentV2,
-      topics: next.contentV2.topics.map((item) => item.id === topicId ? { ...item, publishedHash: topicResult.contentHash, publishedAt: topicResult.publishedAt, marketplace: saved.marketplace, marketplaceLocalHash: marketplaceHash, marketplacePublishedHash: marketResult.contentHash, marketplacePublishedAt: marketResult.publishedAt } : item),
-      quizzes: next.contentV2.quizzes.map((item) => { if (removedQuizKeys.has(item.key)) return { ...item, publishedHash: null, publishedAt: null }; const result = quizResults.get(item.key); return result ? { ...item, publishedHash: result.contentHash, publishedAt: result.publishedAt } : item; }),
-    } };
+    next = { ...next,
+      topics: next.topics.map((item) => item.id === topicId ? { ...item, publishedHash: topicResult.contentHash, publishedAt: topicResult.publishedAt, marketplace: saved.marketplace, marketplaceLocalHash: marketplaceHash, marketplacePublishedHash: marketResult.contentHash, marketplacePublishedAt: marketResult.publishedAt } : item),
+      quizzes: next.quizzes.map((item) => { if (removedQuizKeys.has(item.key)) return { ...item, publishedHash: null, publishedAt: null }; const result = quizResults.get(item.key); return result ? { ...item, publishedHash: result.contentHash, publishedAt: result.publishedAt } : item; }),
+    };
     if (topicPlan.some((item) => item.kind === "topic"))
       await control.advance(`Synchronized topic · ${topicSummary.title}`);
   }
-  return next;
 }

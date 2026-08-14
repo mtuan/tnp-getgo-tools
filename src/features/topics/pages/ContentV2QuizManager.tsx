@@ -8,7 +8,7 @@ import type {
   QuizCrudInput,
   QuizQuestionRecord,
   QuizSummary,
-  RepositorySnapshot,
+  RepositoryViewData,
   SpeechLanguage,
   SpeechLanguageSettings,
 } from "../../../shared/domain/models";
@@ -25,9 +25,9 @@ const defaultAlphabetQuizSpeechSettings = {
 interface Props {
   locale: AppSettings["locale"];
   speechSettings: AppSettings["speech"];
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
   initialRoute: string;
-  onSnapshotChange(snapshot: RepositorySnapshot): void;
+  onSnapshotChange(snapshot: RepositoryViewData): void;
   onRouteChange(route: string): void;
   onOpenJobs(): void;
   onBackActionChange(action: (() => void) | null): void;
@@ -63,7 +63,7 @@ export const contentV2ManagerRegistry = {
   } satisfies Record<ContentV2Question["type"], { managerType: "question" | "alphabet" }>,
 };
 
-function managerSettings(topic: RepositorySnapshot["contentV2"]["topics"][number]): ContestSettings {
+function managerSettings(topic: RepositoryViewData["contentV2"]["topics"][number]): ContestSettings {
   const definition = contentV2ManagerRegistry.topics[topic.type];
   return {
     book: {
@@ -89,7 +89,7 @@ function managerSettings(topic: RepositorySnapshot["contentV2"]["topics"][number
   };
 }
 
-export function adaptContentV2Snapshot(snapshot: RepositorySnapshot): RepositorySnapshot {
+export function adaptContentV2Snapshot(snapshot: RepositoryViewData): RepositoryViewData {
   const contests: ContestSummary[] = snapshot.contentV2.topics.map((topic) => ({
     id: topic.id,
     title: topic.title,
@@ -133,7 +133,7 @@ export function adaptContentV2Snapshot(snapshot: RepositorySnapshot): Repository
     reviewedQuestionCount: questions.filter((question) => question.status === "reviewed").length,
     migrationErrorCount: 0,
     quizBuilderApiVersion: 1,
-    modifiedAt: snapshot.scannedAt,
+    modifiedAt: snapshot.loadedAt,
   }); });
   return { ...snapshot, contests, quizzes };
 }
@@ -192,13 +192,13 @@ function fromManagerQuestion(stored: ContentV2Question, question: QuizQuestionRe
   };
 }
 
-function findQuiz(snapshot: RepositorySnapshot, manifestPath: string) {
+function findQuiz(snapshot: RepositoryViewData, manifestPath: string) {
   const quiz = snapshot.contentV2.quizzes.find((item) => item.filePath === manifestPath);
   if (!quiz) throw new Error("The v2 quiz is no longer available.");
   return quiz;
 }
 
-function findQuestionSummary(snapshot: RepositorySnapshot, topicId: string, quizId: string, number: string | number) {
+function findQuestionSummary(snapshot: RepositoryViewData, topicId: string, quizId: string, number: string | number) {
   const value = String(number);
   const summary = snapshot.contentV2.questions.find((item) => item.topicId === topicId && item.quizId === quizId && (item.id === value || String(questionNumber(item.id, item.order)) === value));
   if (!summary) throw new Error(`Question ${value} was not found.`);
@@ -211,9 +211,20 @@ export function ContentV2QuizManager(props: Props) {
     [props.snapshot],
   );
   const api = useMemo<QuizManagerApi>(() => {
-    const refresh = (next: RepositorySnapshot) => {
+    const refresh = (next: RepositoryViewData) => {
       props.onSnapshotChange(next);
       return adaptContentV2Snapshot(next);
+    };
+    const reloadFromFiles = async (topicId?: string) => {
+      const loaded = await window.getgo.loadContentV2Route(topicId);
+      const contentV2 = topicId ? {
+        ...loaded.content,
+        topics: props.snapshot.contentV2.topics.map((topic) =>
+          topic.id === topicId ? loaded.content.topics[0] ?? topic : topic),
+        quizzes: [...props.snapshot.contentV2.quizzes.filter((quiz) => quiz.topicId !== topicId), ...loaded.content.quizzes],
+        questions: [...props.snapshot.contentV2.questions.filter((question) => question.topicId !== topicId), ...loaded.content.questions],
+      } : loaded.content;
+      return refresh({ ...props.snapshot, repositoryPath: loaded.repositoryPath, loadedAt: loaded.loadedAt, issues: contentV2.issues, contentV2 });
     };
     const loadQuestions = async (manifestPath: string) => {
       const quiz = findQuiz(props.snapshot, manifestPath);
@@ -222,36 +233,27 @@ export function ContentV2QuizManager(props: Props) {
     };
     return {
       loadTopicQuizzes: async (topicId) => {
-        const summaries = props.snapshot.contentV2.quizzes.filter(
-          (quiz) => quiz.topicId === topicId,
-        );
-        const records = await Promise.all(
-          summaries.map((summary) =>
-            window.getgo.loadContentV2Quiz(topicId, summary.id),
-          ),
-        );
+        const routeData = await window.getgo.loadContentV2Route(topicId);
+        const summaries = routeData.content.quizzes;
         const hydrated = {
           ...props.snapshot,
           contentV2: {
-            ...props.snapshot.contentV2,
-            quizzes: summaries.map((summary, index) => {
-              const record = records[index];
-              return {
-                ...summary,
-                title: record.title,
-                description: record.description,
-                icon: record.icon,
-                marketplace: record.marketplace,
-                status: record.status,
-                order: record.order,
-                ...(record.type === "competition-paper"
-                  ? { grade: record.grade, round: record.round, year: record.year }
-                  : { language: record.language }),
-              };
-            }),
+            ...routeData.content,
+            topics: props.snapshot.contentV2.topics.map((topic) =>
+              topic.id === topicId ? routeData.content.topics[0] ?? topic : topic,
+            ),
+            quizzes: [
+              ...props.snapshot.contentV2.quizzes.filter((quiz) => quiz.topicId !== topicId),
+              ...summaries,
+            ],
+            questions: [
+              ...props.snapshot.contentV2.questions.filter((question) => question.topicId !== topicId),
+              ...routeData.content.questions,
+            ],
           },
         };
-        return adaptContentV2Snapshot(hydrated).quizzes;
+        props.onSnapshotChange(hydrated);
+        return adaptContentV2Snapshot(hydrated).quizzes.filter((quiz) => quiz.contest === topicId);
       },
       getAiMigrationJobs: async () => ({ concurrency: 0, jobs: [] }),
       migrateLegacyQuizzes: async () => ({ snapshot: managerSnapshot, migratedQuizIds: [], failures: [] }),
@@ -270,13 +272,12 @@ export function ContentV2QuizManager(props: Props) {
       },
       saveAlphabetDictionary: async (manifestPath, dictionary) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
-        refresh(
-          await window.getgo.saveContentV2QuizDictionary(
+        await window.getgo.saveContentV2QuizDictionary(
             quiz.topicId,
             quiz.id,
             dictionary,
-          ),
-        );
+          );
+        await reloadFromFiles(quiz.topicId);
         return dictionary;
       },
       saveQuizQuestion: async (manifestPath, question) => {
@@ -284,17 +285,20 @@ export function ContentV2QuizManager(props: Props) {
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, question.question_no);
         const stored = await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, summary.id);
         const next = fromManagerQuestion(stored, question);
-        refresh(await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next));
+        await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next);
+        await reloadFromFiles(quiz.topicId);
         return toManagerQuestion(next);
       },
       markAllQuizQuestionsReviewed: async (manifestPath) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
-        const next = await window.getgo.markAllContentV2QuizQuestionsReviewed(
+        await window.getgo.markAllContentV2QuizQuestionsReviewed(
           quiz.topicId,
           quiz.id,
         );
-        props.onSnapshotChange(next);
-        return loadQuestions(manifestPath);
+        await reloadFromFiles(quiz.topicId);
+        const loaded = await window.getgo.loadContentV2Route(quiz.topicId);
+        const summaries = loaded.content.questions.filter((item) => item.quizId === quiz.id).sort((a, b) => a.order - b.order);
+        return Promise.all(summaries.map(async (item) => toManagerQuestion(await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, item.id))));
       },
       resetQuizQuestion: async (manifestPath, question) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
@@ -308,61 +312,58 @@ export function ContentV2QuizManager(props: Props) {
         const record: ContentV2Question = quiz.type === "alphabet"
           ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?", resources: [] }
           : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "New question" }, assets: [], answer: { type: "input", correct: "" } };
-        const next = await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
-        return { question: toManagerQuestion(record), snapshot: refresh(next) };
+        await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
+        return { question: toManagerQuestion(record), snapshot: await reloadFromFiles(quiz.topicId) };
       },
       deleteQuizQuestion: async (manifestPath, number) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, number);
-        const next = await window.getgo.deleteContentV2Question(quiz.topicId, quiz.id, summary.id);
-        props.onSnapshotChange(next);
-        const adapted = adaptContentV2Snapshot(next);
-        const nextQuiz = findQuiz(next, manifestPath);
-        const questions = await Promise.all(next.contentV2.questions.filter((item) => item.topicId === nextQuiz.topicId && item.quizId === nextQuiz.id).sort((a, b) => a.order - b.order).map(async (item) => toManagerQuestion(await window.getgo.loadContentV2Question(nextQuiz.topicId, nextQuiz.id, item.id))));
+        await window.getgo.deleteContentV2Question(quiz.topicId, quiz.id, summary.id);
+        const adapted = await reloadFromFiles(quiz.topicId);
+        const questions = await Promise.all(adapted.contentV2.questions.filter((item) => item.topicId === quiz.topicId && item.quizId === quiz.id).sort((a, b) => a.order - b.order).map(async (item) => toManagerQuestion(await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, item.id))));
         return { questions, snapshot: adapted };
       },
       reorderQuizQuestions: async (manifestPath, numbers) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
-        let latest = props.snapshot;
         const records: QuizQuestionRecord[] = [];
         for (const [order, number] of numbers.entries()) {
           const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, number);
           const stored = await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, summary.id);
           const next = { ...stored, order } as ContentV2Question;
-          latest = await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next);
+          await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next);
           records.push(toManagerQuestion(next));
         }
-        return { questions: records, snapshot: refresh(latest) };
+        return { questions: records, snapshot: await reloadFromFiles(quiz.topicId) };
       },
       publishQuiz: async (topicId, quizId) => {
         const result = await window.getgo.publishContentV2Quiz(topicId, quizId);
-        const next = result.snapshot ?? props.snapshot;
-        refresh(next);
+        const next = await reloadFromFiles(topicId);
         const quiz = next.contentV2.quizzes.find((item) => item.topicId === topicId && item.id === quizId);
         return { contestId: topicId, quizId, contentHash: result.contentHash, questionCount: quiz?.questionCount ?? 0, publishedAt: result.publishedAt };
       },
       publishContentV2Topic: async (topicId) => {
         const result = await window.getgo.publishContentV2Topic(topicId);
-        if (result.snapshot) refresh(result.snapshot);
+        await reloadFromFiles(topicId);
         return result;
       },
       loadContentV2Topic: window.getgo.loadContentV2Topic,
-      saveContentV2Topic: async (topic) => refresh(await window.getgo.saveContentV2Topic(topic)),
+      saveContentV2Topic: async (topic) => { await window.getgo.saveContentV2Topic(topic); return reloadFromFiles(topic.id); },
       setContentV2MarketplaceState: (target, ids, state, topicId) =>
         window.getgo.setContentV2MarketplaceState(target, ids, state, topicId),
       loadContentV2Quiz: window.getgo.loadContentV2Quiz,
       saveContentV2Quiz: async (topicId, quiz) => {
-        const next = await window.getgo.saveContentV2Quiz(topicId, quiz);
-        return refresh(next);
+        await window.getgo.saveContentV2Quiz(topicId, quiz);
+        return reloadFromFiles(topicId);
       },
       publishMarketplaceTopic: async (topicId, state) => {
         const result = await window.getgo.publishMarketplaceTopic(topicId, state);
-        refresh(result.snapshot);
+        await reloadFromFiles(topicId);
         return result;
       },
       deleteQuiz: async (manifestPath) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
-        return refresh(await window.getgo.deleteContentV2Quiz(quiz.topicId, quiz.id));
+        await window.getgo.deleteContentV2Quiz(quiz.topicId, quiz.id);
+        return reloadFromFiles(quiz.topicId);
       },
       updateQuiz: async (manifestPath, input) => {
         const summary = findQuiz(props.snapshot, manifestPath);
@@ -371,7 +372,8 @@ export function ContentV2QuizManager(props: Props) {
         const next: ContentV2Quiz = input.type === "contest"
           ? { ...common, type: "competition-paper", grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
           : { ...common, type: "alphabet", language: input.language ?? "en", speech: stored.type === "alphabet" ? stored.speech : defaultAlphabetQuizSpeechSettings };
-        return refresh(await window.getgo.saveContentV2Quiz(summary.topicId, next));
+        await window.getgo.saveContentV2Quiz(summary.topicId, next);
+        return reloadFromFiles(summary.topicId);
       },
       createQuiz: async (topicId, input: QuizCrudInput) => {
         const topic = await window.getgo.loadContentV2Topic(topicId);
@@ -379,14 +381,16 @@ export function ContentV2QuizManager(props: Props) {
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
           ? { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
           : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
-        return refresh(await window.getgo.saveContentV2Quiz(topicId, quiz));
+        await window.getgo.saveContentV2Quiz(topicId, quiz);
+        return reloadFromFiles(topicId);
       },
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
         const topic: ContentV2Topic = settings.book.topicType === "kid-learning"
           ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
           : { schemaVersion: 2, id: settings.book.code, type: "competition", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
-        return refresh(await window.getgo.saveContentV2Topic(topic));
+        await window.getgo.saveContentV2Topic(topic);
+        return reloadFromFiles();
       },
       updateContest: async (id, settings) => {
         const stored = await window.getgo.loadContentV2Topic(id);
@@ -425,9 +429,10 @@ export function ContentV2QuizManager(props: Props) {
               supportedLanguages: stored.type === "kid-learning" ? stored.supportedLanguages : ["en", "vi"],
               recommendedAgeRange: stored.type === "kid-learning" ? stored.recommendedAgeRange : { minimum: 3, maximum: 7 },
             };
-        return refresh(await window.getgo.saveContentV2Topic(next));
+        await window.getgo.saveContentV2Topic(next);
+        return reloadFromFiles(id);
       },
-      deleteContest: async (id) => refresh(await window.getgo.deleteContentV2Topic(id)),
+      deleteContest: async (id) => { await window.getgo.deleteContentV2Topic(id); return reloadFromFiles(); },
     };
   }, [managerSnapshot, props]);
   return <QuizManager locale={props.locale} speechSettings={props.speechSettings} snapshot={managerSnapshot} initialRoute={props.initialRoute} onSnapshotChange={() => undefined} onRouteChange={props.onRouteChange} onOpenJobs={props.onOpenJobs} onBackActionChange={props.onBackActionChange} onSpeechSettingsChange={props.onSpeechSettingsChange} api={api} routeMode="topics" />;

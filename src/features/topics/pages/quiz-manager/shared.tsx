@@ -4,7 +4,7 @@ import type {
   AppSettings,
   QuizQuestionRecord,
   QuizSummary,
-  RepositorySnapshot,
+  RepositoryViewData,
   SpeechLanguage,
   SpeechLanguageSettings,
   DesktopApi,
@@ -17,9 +17,9 @@ import type { AlphabetEditorTab } from "../../../quiz-editor/components/Alphabet
 export interface QuizManagerProps {
   locale: AppSettings["locale"];
   speechSettings: AppSettings["speech"];
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
   initialRoute?: string;
-  onSnapshotChange(snapshot: RepositorySnapshot): void;
+  onSnapshotChange(snapshot: RepositoryViewData): void;
   onRouteChange(route: string): void;
   onOpenJobs(): void;
   onBackActionChange(action: (() => void) | null): void;
@@ -119,13 +119,13 @@ export type QuizManagerApi = Pick<
   | "createQuiz"
   | "publishContentV2Topic"
   | "loadContentV2Topic"
-  | "saveContentV2Topic"
   | "setContentV2MarketplaceState"
   | "loadContentV2Quiz"
-  | "saveContentV2Quiz"
   | "publishMarketplaceTopic"
 > & {
   loadTopicQuizzes?(topicId: string): Promise<QuizSummary[]>;
+  saveContentV2Topic(topic: import("../../../../features/topics/domain/content-v2").ContentV2Topic): Promise<RepositoryViewData>;
+  saveContentV2Quiz(topicId: string, quiz: import("../../../../features/topics/domain/content-v2").ContentV2Quiz): Promise<RepositoryViewData>;
 };
 
 export type ManagerPage =
@@ -216,7 +216,7 @@ export function quizReviewStatus(quiz: QuizSummary): {
 }
 
 export function contentV2QuizReviewStatus(
-  snapshot: RepositorySnapshot,
+  snapshot: RepositoryViewData,
   quiz: QuizSummary,
 ) {
   const questions = snapshot.contentV2.questions.filter(
@@ -241,7 +241,7 @@ export function contentV2QuizReviewStatus(
 
 
 export function restoredPage(
-  snapshot: RepositorySnapshot,
+  snapshot: RepositoryViewData,
   route?: string,
   routeMode: "legacy" | "topics" = "legacy",
 ): {

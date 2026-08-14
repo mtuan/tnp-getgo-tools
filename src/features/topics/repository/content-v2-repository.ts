@@ -15,7 +15,7 @@ import {
   type ContentV2Quiz,
   type ContentV2Topic,
 } from "../../../features/topics/domain/content-v2.js";
-import type { ContentV2QuestionSummary, ContentV2QuizSummary, ContentV2Snapshot, ContentV2TopicSummary, ScanIssue } from "../../../shared/domain/models.js";
+import type { ContentV2QuestionSummary, ContentV2QuizSummary, ContentV2Snapshot, ContentV2TopicSummary, FileLoadIssue } from "../../../shared/domain/models.js";
 import type { ContentV2QuizPublishState } from "../../../features/topics/domain/content-v2-publish-state.js";
 import { parseAlphabetDictionary, parseKidLearningDictionary, reviewedKidLearningDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 
@@ -101,7 +101,7 @@ async function questionFiles(directory: string): Promise<string[]> {
 }
 
 export interface LoadedContentV2 {
-  snapshot: ContentV2Snapshot;
+  content: ContentV2Snapshot;
 }
 
 export interface ContentV2Asset {
@@ -112,17 +112,17 @@ export interface ContentV2Asset {
   data: Uint8Array;
 }
 
-export async function scanContentV2Repository(
+export async function loadContentV2WorkspaceFromFiles(
   repositoryPath: string,
-  options: { lightweight?: boolean; topicId?: string } = {},
+  options: { lightweight?: boolean; topicId?: string; includeQuestions?: boolean } = {},
 ): Promise<LoadedContentV2> {
-  const scanStartedAt = Date.now();
+  const loadStartedAt = Date.now();
   const root = contentRoot(repositoryPath);
-  console.info("[GetGo Tools][Content V2 index] Started", { root });
+  console.info("[GetGo Tools][Content files] Loading", { root });
   const topics: ContentV2TopicSummary[] = [];
   const quizzes: ContentV2QuizSummary[] = [];
   const questions: ContentV2QuestionSummary[] = [];
-  const issues: ScanIssue[] = [];
+  const issues: FileLoadIssue[] = [];
   const questionKeys = new Set<string>();
 
   const topicDirectories = options.topicId ? [validateId(options.topicId, "Topic ID")] : await directories(root);
@@ -175,9 +175,10 @@ export async function scanContentV2Repository(
       }> = [];
       const questionsStartedAt = Date.now();
       const lightweight = options.lightweight === true;
-      for (const questionFile of await questionFiles(
-        path.join(path.dirname(quizFile), "questions"),
-      )) {
+      const files = options.includeQuestions === false
+        ? []
+        : await questionFiles(path.join(path.dirname(quizFile), "questions"));
+      for (const questionFile of files) {
         try {
           const question = contentV2QuestionSchema.parse(
             await readJson(questionFile),
@@ -316,7 +317,7 @@ export async function scanContentV2Repository(
       // Keep startup diagnostics useful without printing hundreds of routine
       // quiz entries (and making the measured startup itself slower).
       if (quizDurationMs >= 100) {
-        console.info("[GetGo Tools][Content V2 index] Slow quiz indexed", {
+        console.info("[GetGo Tools][Content files] Slow quiz load", {
           topicId: topic.id,
           quizId: quiz.id,
           questions: quizQuestions.length,
@@ -373,7 +374,7 @@ export async function scanContentV2Repository(
             recommendedAgeRange: topic.recommendedAgeRange,
           }),
     });
-    console.info("[GetGo Tools][Content V2 index] Topic indexed", {
+    console.info("[GetGo Tools][Content files] Topic loaded", {
       topicId: topic.id,
       quizzes: topicQuizzes.length,
       durationMs: Date.now() - topicStartedAt,
@@ -397,20 +398,28 @@ export async function scanContentV2Repository(
       left.order - right.order ||
       left.id.localeCompare(right.id),
   );
-  console.info("[GetGo Tools][Content V2 index] Completed", {
+  console.info("[GetGo Tools][Content files] Loaded", {
     topics: topics.length,
     quizzes: quizzes.length,
     questions: questions.length,
     issues: issues.length,
-    durationMs: Date.now() - scanStartedAt,
+    durationMs: Date.now() - loadStartedAt,
   });
   return {
-    snapshot: { topics, quizzes, questions, issues },
+    content: { topics, quizzes, questions, issues },
   };
 }
 
 export function loadContentV2TopicFolder(repositoryPath: string, topicId: string): Promise<LoadedContentV2> {
-  return scanContentV2Repository(repositoryPath, { topicId });
+  return loadContentV2WorkspaceFromFiles(repositoryPath, { topicId, lightweight: true });
+}
+
+/** Reads topic and quiz metadata directly from their folders without opening question files. */
+export function loadContentV2TopicsOverview(repositoryPath: string): Promise<LoadedContentV2> {
+  return loadContentV2WorkspaceFromFiles(repositoryPath, {
+    lightweight: true,
+    includeQuestions: false,
+  });
 }
 
 export async function saveContentV2Topic(

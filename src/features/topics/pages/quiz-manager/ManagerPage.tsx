@@ -1,5 +1,5 @@
 import { FolderOpen, Trash2 } from "lucide-react";
-import type { QuizCrudInput, RepositorySnapshot } from "../../../../shared/domain/models";
+import type { QuizCrudInput, RepositoryViewData } from "../../../../shared/domain/models";
 import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { ContestSettingsDialog } from "../../components/ContestSettingsDialog";
 import { MigrationResultsDrawer } from "../../components/MigrationResultsDrawer";
@@ -19,7 +19,7 @@ import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 
 type ManagerPageContext = Record<string, any> & {
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
 };
 
 export function renderManagerPage(context: ManagerPageContext) {
@@ -227,12 +227,11 @@ export function renderManagerPage(context: ManagerPageContext) {
               locale={locale}
               dictionary={topicDictionary}
               onSave={async (dictionary) => {
-                const next = await window.getgo.saveContentV2TopicDictionary(
+                await window.getgo.saveContentV2TopicDictionary(
                   selectedTopic.id,
                   dictionary,
                 );
                 setTopicDictionary(dictionary);
-                onSnapshotChange(next);
                 toast.show({
                   title: "Shared dictionary saved",
                   description:

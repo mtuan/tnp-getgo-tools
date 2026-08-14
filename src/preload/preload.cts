@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   AppSettings,
   DesktopApi,
-  RepositorySnapshot,
+  RepositoryViewData,
 } from "../shared/domain/models.js";
 
 const api: DesktopApi = {
@@ -13,22 +13,17 @@ const api: DesktopApi = {
   resolveDroppedFilePath: (file) => webUtils.getPathForFile(file),
   saveGeneratedPdf: (data, suggestedName, defaultDirectory) => ipcRenderer.invoke("utility:pdf:save", data, suggestedName, defaultDirectory),
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,
-  chooseRepository: () =>
-    ipcRenderer.invoke(
-      "repository:choose",
-    ) as Promise<RepositorySnapshot | null>,
-  scanRepository: (path?: string, force?: boolean) =>
-    ipcRenderer.invoke(
-      "repository:scan",
-      path,
-      force,
-    ) as Promise<RepositorySnapshot>,
+  chooseRepository: () => ipcRenderer.invoke("repository:choose") as Promise<string | null>,
+  loadLegacyOverview: (path?: string) =>
+    ipcRenderer.invoke("legacy:overview:load", path) as Promise<RepositoryViewData>,
   publishMarketplaceTopic: (topicId, state) =>
     ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
   syncContentV2Marketplace: () =>
     ipcRenderer.invoke("marketplace:topics:sync-all"),
   loadContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:load", topicId),
+  loadContentV2Route: (topicId) =>
+    ipcRenderer.invoke("content-v2:route:load", topicId),
   loadContentV2Quiz: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:quiz:load", topicId, quizId),
   loadContentV2Question: (topicId, quizId, questionId) =>
@@ -157,41 +152,41 @@ const api: DesktopApi = {
     ipcRenderer.invoke(
       "crud:contest:create",
       settings,
-    ) as Promise<RepositorySnapshot>,
+    ) as Promise<RepositoryViewData>,
   updateContest: (id, settings) =>
     ipcRenderer.invoke(
       "crud:contest:update",
       id,
       settings,
-    ) as Promise<RepositorySnapshot>,
+    ) as Promise<RepositoryViewData>,
   renameContest: (currentId, nextId) =>
     ipcRenderer.invoke(
       "crud:contest:rename",
       currentId,
       nextId,
-    ) as Promise<RepositorySnapshot>,
+    ) as Promise<RepositoryViewData>,
   deleteContest: (id) =>
     ipcRenderer.invoke(
       "crud:contest:delete",
       id,
-    ) as Promise<RepositorySnapshot>,
+    ) as Promise<RepositoryViewData>,
   createQuiz: (contest, input) =>
     ipcRenderer.invoke(
       "crud:quiz:create",
       contest,
       input,
-    ) as Promise<RepositorySnapshot>,
+    ) as Promise<RepositoryViewData>,
   updateQuiz: (manifestPath, input) =>
     ipcRenderer.invoke(
       "crud:quiz:update",
       manifestPath,
       input,
-    ) as Promise<RepositorySnapshot>,
+    ) as Promise<RepositoryViewData>,
   deleteQuiz: (manifestPath) =>
     ipcRenderer.invoke(
       "crud:quiz:delete",
       manifestPath,
-    ) as Promise<RepositorySnapshot>,
+    ) as Promise<RepositoryViewData>,
   getAuthState: () => ipcRenderer.invoke("auth:state"),
   signIn: (email, password) =>
     ipcRenderer.invoke("auth:sign-in", email, password),

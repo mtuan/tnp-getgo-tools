@@ -16,7 +16,7 @@ import {
   saveContentV2Question,
   saveContentV2Quiz,
   saveContentV2Topic,
-  scanContentV2Repository,
+  loadContentV2WorkspaceFromFiles,
   calculateContentV2QuizHash,
   readContentV2QuizPublishState,
   writeContentV2QuizPublishState,
@@ -138,7 +138,7 @@ test("v2 publishing excludes editor feedback", () => {
   assert.equal("feedback" in runtime, false);
 });
 
-test("v2 repository persists and scans typed topic content", async () => {
+test("v2 repository persists and loads typed topic content", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-v2-"));
   await saveContentV2Topic(root, alphabetTopic);
   await saveContentV2Quiz(root, alphabetTopic, alphabetQuiz);
@@ -152,21 +152,21 @@ test("v2 repository persists and scans typed topic content", async () => {
     uppercase: "A",
     lowercase: "a",
   });
-  const result = await scanContentV2Repository(root);
-  assert.equal(result.snapshot.topics.length, 1);
-  assert.equal(result.snapshot.quizzes[0]?.questionCount, 1);
-  assert.equal(result.snapshot.quizzes[0]?.reviewedQuestionCount, 1);
-  assert.equal(result.snapshot.questions[0]?.label, "A a");
-  assert.equal(result.snapshot.issues.length, 0);
+  const result = await loadContentV2WorkspaceFromFiles(root);
+  assert.equal(result.content.topics.length, 1);
+  assert.equal(result.content.quizzes[0]?.questionCount, 1);
+  assert.equal(result.content.quizzes[0]?.reviewedQuestionCount, 1);
+  assert.equal(result.content.questions[0]?.label, "A a");
+  assert.equal(result.content.issues.length, 0);
 
-  const lightweight = await scanContentV2Repository(root, { lightweight: true });
-  assert.equal(lightweight.snapshot.quizzes[0]?.questionCount, 1);
-  assert.equal(lightweight.snapshot.quizzes[0]?.reviewedQuestionCount, 1);
-  assert.equal(lightweight.snapshot.questions[0]?.status, "reviewed");
+  const lightweight = await loadContentV2WorkspaceFromFiles(root, { lightweight: true });
+  assert.equal(lightweight.content.quizzes[0]?.questionCount, 1);
+  assert.equal(lightweight.content.quizzes[0]?.reviewedQuestionCount, 1);
+  assert.equal(lightweight.content.questions[0]?.status, "reviewed");
 });
 
 test("calculates the canonical quiz hash directly from current files", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-v2-cache-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-v2-files-"));
   await saveContentV2Topic(root, alphabetTopic);
   await saveContentV2Quiz(root, alphabetTopic, alphabetQuiz);
   const question = {
@@ -190,10 +190,10 @@ test("calculates the canonical quiz hash directly from current files", async () 
     alphabetTopic.id,
     alphabetQuiz.id,
   );
-  const rescannedHash = (await scanContentV2Repository(root)).snapshot.quizzes[0]?.localHash;
+  const reloadedHash = (await loadContentV2WorkspaceFromFiles(root)).content.quizzes[0]?.localHash;
 
   assert.ok(directHash);
-  assert.equal(directHash, rescannedHash);
+  assert.equal(directHash, reloadedHash);
 });
 
 test("builds deterministic question code in published order", () => {

@@ -1,4 +1,4 @@
-import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../../../shared/domain/models";
+import type { ContestSummary, QuizSummary, RepositoryViewData } from "../../../../shared/domain/models";
 import { TreeDataTable, type TreeDataRow } from "../../../../shared/ui/TreeDataTable";
 import type { DataColumn } from "../../../../shared/ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../../../../shared/ui/StatusBadge";
@@ -11,7 +11,7 @@ import vi from "../../../../shared/localization/vi.json";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type TopicTreeContext = Record<string, any> & {
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
   visibleContests: ContestWithQuizzes[];
   treeTopicQuizzes: Record<string, QuizSummary[]>;
 };

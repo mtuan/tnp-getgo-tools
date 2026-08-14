@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../../../shared/domain/models";
+import type { ContestSummary, QuizSummary, RepositoryViewData } from "../../../../shared/domain/models";
 import { StatusBadge } from "../../../../shared/ui/StatusBadge";
 import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
 import { contentV2QuizReviewStatus, quizReviewStatus } from "./shared";
@@ -11,7 +11,7 @@ import vi from "../../../../shared/localization/vi.json";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type ManagerListContext = Record<string, any> & {
-  snapshot: RepositorySnapshot;
+  snapshot: RepositoryViewData;
   visibleContests: ContestWithQuizzes[];
   visibleQuizzes: QuizSummary[];
 };

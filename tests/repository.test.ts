@@ -3,9 +3,9 @@ import { promises as fs } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { scanQuizRepository } from "../src/features/topics/repository/quiz-repository.js"
+import { loadLegacyOverviewFromFiles } from "../src/features/topics/repository/quiz-repository.js"
 
-test("scans valid quizzes and reports malformed manifests", async (t) => {
+test("loads valid quizzes and reports malformed manifests", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-tools-"))
   t.after(() => fs.rm(root, { recursive: true, force: true }))
   const valid = path.join(root, "quizzes", "seamo", "legacy-1")
@@ -23,7 +23,7 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
   }))
   await fs.writeFile(path.join(valid, "quiz.ts"), "export {}")
   await fs.writeFile(path.join(invalid, "manifest.json"), "{}")
-  const result = await scanQuizRepository(root)
+  const result = await loadLegacyOverviewFromFiles(root)
   assert.equal(result.quizzes.length, 1)
   assert.equal(result.contests[0].id, "seamo")
   assert.equal(result.contests[0].title, "SEAMO")
@@ -37,6 +37,6 @@ test("scans valid quizzes and reports malformed manifests", async (t) => {
 
   await fs.mkdir(path.join(valid, "questions"))
   await fs.writeFile(path.join(valid, "questions", "q1.json"), JSON.stringify({ question_no: 1 }))
-  const converted = await scanQuizRepository(root)
+  const converted = await loadLegacyOverviewFromFiles(root)
   assert.equal(converted.quizzes[0].questionStorageVersion, "questions-v1")
 })

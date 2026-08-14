@@ -1,25 +1,22 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { shell, type IpcMain } from "electron";
-import type { RepositorySnapshot } from "../../../shared/domain/models.js";
+import type { RepositoryViewData } from "../../../shared/domain/models.js";
 import type { SettingsStore } from "../../settings/main/settings.js";
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repository/quiz-crud.js";
-import { readContestSummary } from "../repository/quiz-repository.js";
 import { createQuizQuestion, deleteQuizQuestion, loadQuizQuestions, markAllQuizQuestionsReviewed, quizQuestionFile, reorderQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../../quiz-editor/repository/quiz-questions.js";
 import { loadAlphabetDictionary, saveAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { registerResourceLinksIpc } from "./resource-links-ipc.js";
 
-interface SnapshotState { value: RepositorySnapshot | null }
 interface Dependencies {
   settings: SettingsStore;
-  snapshotState: SnapshotState;
-  requireSnapshot(): RepositorySnapshot;
-  replaceQuiz(root: string, manifestPath: string): Promise<RepositorySnapshot>;
+  loadLegacyFiles(): Promise<RepositoryViewData>;
+  replaceQuiz(root: string, manifestPath: string): Promise<RepositoryViewData>;
 }
 
 export function registerLegacyQuizIpc(
   ipcMain: IpcMain,
-  { settings, snapshotState, requireSnapshot, replaceQuiz }: Dependencies,
+  { settings, loadLegacyFiles, replaceQuiz }: Dependencies,
 ): void {
 ipcMain.handle("shell:show", async (_event, filePath: string) => {
   if (typeof filePath !== "string" || !path.isAbsolute(filePath))
@@ -207,7 +204,7 @@ ipcMain.handle(
   async (_event, manifestPath: unknown) => {
     const manifest = await resolveManifest(manifestPath);
     const wasLegacy =
-      snapshotState.value?.quizzes.find(
+      (await loadLegacyFiles()).quizzes.find(
         (item) => item.manifestPath === manifest,
       )?.questionStorageVersion === "legacy";
     const questions = await loadQuizQuestions(manifest);
@@ -233,7 +230,7 @@ ipcMain.handle(
     if (typeof contestId !== "string" || !/^[a-z0-9_-]+$/i.test(contestId))
       throw new Error("Invalid contest ID");
     const root = await repositoryRoot();
-    const before = requireSnapshot();
+    const before = await loadLegacyFiles();
     if (!before.contests.some((contest) => contest.id === contestId))
       throw new Error(`Contest “${contestId}” was not found.`);
     const legacy = before.quizzes.filter(
@@ -264,7 +261,7 @@ ipcMain.handle(
       );
       if (quiz) await replaceQuiz(root, quiz.manifestPath);
     }
-    return { snapshot: requireSnapshot(), migratedQuizIds, failures };
+    return { snapshot: await loadLegacyFiles(), migratedQuizIds, failures };
   },
 );
 ipcMain.handle(
@@ -348,22 +345,7 @@ ipcMain.handle(
       root,
       contestSettings as Parameters<typeof createContestDirectory>[1],
     );
-    const contest = await readContestSummary(
-      root,
-      validateRepositoryId(
-        (contestSettings as Parameters<typeof createContestDirectory>[1]).book
-          .code,
-        "Contest ID",
-      ),
-    );
-    const snapshot = requireSnapshot();
-    snapshotState.value = {
-      ...snapshot,
-      contests: [...snapshot.contests, contest].sort((a, b) =>
-        a.id.localeCompare(b.id),
-      ),
-    };
-return snapshotState.value;
+    return loadLegacyFiles();
   },
 );
 ipcMain.handle(
@@ -381,15 +363,7 @@ ipcMain.handle(
       id,
       contestSettings as Parameters<typeof updateContestSettings>[2],
     );
-    const contest = await readContestSummary(root, id);
-    const snapshot = requireSnapshot();
-    snapshotState.value = {
-      ...snapshot,
-      contests: snapshot.contests.map((item) =>
-        item.id === id ? contest : item,
-      ),
-    };
-    return snapshotState.value;
+    return loadLegacyFiles();
   },
 );
 ipcMain.handle(
@@ -399,27 +373,7 @@ ipcMain.handle(
       throw new Error("Invalid contest ID");
     const root = await repositoryRoot();
     await renameContestDirectory(root, currentId, nextId);
-    const snapshot = requireSnapshot();
-    const current = validateRepositoryId(currentId, "Contest ID");
-    const next = validateRepositoryId(nextId, "Contest ID");
-    const contest = await readContestSummary(root, next);
-    const affected = snapshot.quizzes.filter(
-      (item) => item.contest === current,
-    );
-    snapshotState.value = {
-      ...snapshot,
-      contests: snapshot.contests.map((item) =>
-        item.id === current ? contest : item,
-      ),
-      quizzes: snapshot.quizzes.filter((item) => item.contest !== current),
-    };
-    for (const oldQuiz of affected) {
-      await replaceQuiz(
-        root,
-        path.join(root, "quizzes", next, oldQuiz.id, "manifest.json"),
-      );
-    }
-    return requireSnapshot();
+    return loadLegacyFiles();
   },
 );
 ipcMain.handle(
@@ -432,13 +386,7 @@ ipcMain.handle(
     const directory = path.join(root, "quizzes", id);
     await fs.access(directory);
     await shell.trashItem(directory);
-    const snapshot = requireSnapshot();
-    snapshotState.value = {
-      ...snapshot,
-      contests: snapshot.contests.filter((item) => item.id !== id),
-      quizzes: snapshot.quizzes.filter((item) => item.contest !== id),
-    };
-return snapshotState.value;
+    return loadLegacyFiles();
   },
 );
 ipcMain.handle(
@@ -483,14 +431,6 @@ ipcMain.handle(
 ipcMain.handle("crud:quiz:delete", async (_event, manifestPath: unknown) => {
   const manifest = await resolveManifest(manifestPath);
   await shell.trashItem(path.dirname(manifest));
-  const snapshot = requireSnapshot();
-  snapshotState.value = {
-    ...snapshot,
-    quizzes: snapshot.quizzes.filter(
-      (item) => item.manifestPath !== manifest,
-    ),
-  };
-return snapshotState.value;
+  return loadLegacyFiles();
 });
 }
-

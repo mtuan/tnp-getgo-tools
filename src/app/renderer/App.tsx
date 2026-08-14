@@ -31,7 +31,7 @@ import type {
   SpeechLanguage,
   SpeechLanguageSettings,
   EnvironmentReadiness,
-  RepositorySnapshot,
+  QuizSummary,
 } from "../../shared/domain/models";
 import { defaultSpeechSettings } from "../../features/speech/domain/speech-settings";
 import { useAuth } from "../../features/authentication/components/AuthContext";
@@ -47,8 +47,8 @@ import { SummaryCard } from "../../shared/ui/SummaryCard";
 import { Select, type SelectOption } from "../../shared/ui/Select";
 import { SegmentedControl } from "../../shared/ui/SegmentedControl";
 import { useToast } from "../../shared/ui/Toast";
-import { QuizManager } from "../../features/topics/pages/QuizManager";
-import { ContentV2QuizManager } from "../../features/topics/pages/ContentV2QuizManager";
+import { FilesystemLegacyManager } from "../../features/topics/pages/FilesystemLegacyManager";
+import { FilesystemContentV2Manager } from "../../features/topics/pages/FilesystemContentV2Manager";
 import en from "../../shared/localization/en.json";
 import vi from "../../shared/localization/vi.json";
 
@@ -86,20 +86,6 @@ type View =
 type NavigableView = Exclude<View, "not-found">;
 const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
-const emptyContentV2: RepositorySnapshot["contentV2"] = {
-  topics: [],
-  quizzes: [],
-  questions: [],
-  issues: [],
-};
-function normalizeRepositorySnapshot(
-  snapshot: RepositorySnapshot,
-): RepositorySnapshot {
-  return {
-    ...snapshot,
-    contentV2: snapshot.contentV2 ?? emptyContentV2,
-  };
-}
 const readLastRoute = () => {
   try {
     return localStorage.getItem(lastRouteKey) || "/dashboard";
@@ -114,10 +100,7 @@ const readSidebarCollapsed = () => {
     return false;
   }
 };
-function viewFromRoute(
-  route: string,
-  snapshot?: RepositorySnapshot | null,
-): View {
+function viewFromRoute(route: string): View {
   let pathname: string;
   try {
     pathname = new URL(route, "app://getgo").pathname;
@@ -144,48 +127,19 @@ function viewFromRoute(
     });
   if (parts[0] === "topics") {
     if (parts.length === 1) return "topics";
-    const topic = snapshot?.contentV2?.topics.find(
-      (item) => item.id === parts[1],
-    );
-    if (snapshot && !topic) return "not-found";
     if (parts.length === 2) return "topics";
     if (parts[2] !== "quizzes" || !parts[3]) return "not-found";
-    const quiz = snapshot?.contentV2?.quizzes.find(
-      (item) => item.topicId === parts[1] && item.id === parts[3],
-    );
-    if (snapshot && !quiz) return "not-found";
     if (parts.length === 4) return "topics";
     if (parts[4] !== "questions" || !parts[5] || parts.length !== 6)
-      return "not-found";
-    if (
-      snapshot &&
-      !snapshot.contentV2?.questions.some(
-        (item) =>
-          item.topicId === parts[1] &&
-          item.quizId === parts[3] &&
-          (item.id === parts[5] || String(item.order + 1) === parts[5]),
-      )
-    )
       return "not-found";
     return "topics";
   }
   if (parts[0] !== "quizzes" || parts[1] !== "contests") return "not-found";
   if (parts.length === 2) return "quizzes";
   const contestId = parts[2];
-  if (
-    !contestId ||
-    (snapshot && !snapshot.contests.some((contest) => contest.id === contestId))
-  )
-    return "not-found";
+  if (!contestId) return "not-found";
   if (parts.length === 3) return "quizzes";
   if (parts[3] !== "quizzes" || !parts[4]) return "not-found";
-  if (
-    snapshot &&
-    !snapshot.quizzes.some(
-      (quiz) => quiz.contest === contestId && quiz.id === parts[4],
-    )
-  )
-    return "not-found";
   if (parts.length === 5) return "quizzes";
   return parts.length === 7 && parts[5] === "questions" && Boolean(parts[6])
     ? "quizzes"
@@ -234,12 +188,6 @@ export function App() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const contentCopy = (settings.locale === "vi" ? vi : en).contentV2;
   const imagePdfCopy = (settings.locale === "vi" ? vi : en).imagePdf;
-  const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null);
-  const updateSnapshot = useCallback(
-    (next: RepositorySnapshot) =>
-      setSnapshot(normalizeRepositorySnapshot(next)),
-    [],
-  );
   const [loading, setLoading] = useState(true);
   const [choosingRepository, setChoosingRepository] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -262,45 +210,16 @@ export function App() {
   const environmentCheckId = useRef(0);
   const quizBackAction = useRef<(() => void) | null>(null);
 
-  async function scan(path?: string, announce = false, force = false) {
-    const startedAt = performance.now();
-    setLoading(true);
-    setRepositoryError(null);
-    try {
-      updateSnapshot(await window.getgo.scanRepository(path, force));
-      rendererStartupLog("Repository snapshot received", {
-        durationMs: Math.round(performance.now() - startedAt),
-        force,
-      });
-      if (announce)
-        toast.show({
-          title: "Repository refreshed",
-          description: "Local contests and quizzes are up to date.",
-        });
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
-      setRepositoryError(message);
-      if (announce)
-        toast.show({
-          title: "Refresh failed",
-          description: message,
-          variant: "error",
-        });
-    } finally {
-      setLoading(false);
-    }
-  }
   async function choose() {
     setChoosingRepository(true);
     try {
       const result = await window.getgo.chooseRepository();
       if (result) {
-        updateSnapshot(result);
-        setSettings((s) => ({ ...s, repositoryPath: result.repositoryPath }));
+        setSettings((s) => ({ ...s, repositoryPath: result }));
         setRepositoryError(null);
         toast.show({
           title: "Repository connected",
-          description: result.repositoryPath,
+          description: result,
         });
       }
     } catch (cause) {
@@ -445,7 +364,6 @@ export function App() {
                 setCheckingEnvironment(false);
             });
         }
-        if (value.repositoryPath) return scan(value.repositoryPath);
         setLoading(false);
       })
       .catch((cause) => {
@@ -489,19 +407,9 @@ export function App() {
     quizBackAction.current = action;
     setCanNavigateBack(Boolean(action));
   }, []);
-  useEffect(() => {
-    if (
-      !snapshot ||
-      view !== "quizzes" ||
-      viewFromRoute(currentRoute, snapshot) !== "not-found"
-    )
-      return;
-    updateQuizBackAction(null);
-    setView("not-found");
-  }, [currentRoute, snapshot, updateQuizBackAction, view]);
   function goToRoute(route: string) {
     const nextRoute = normalizedRoute(route);
-    const nextView = viewFromRoute(nextRoute, snapshot);
+    const nextView = viewFromRoute(nextRoute);
     if (nextView !== "quizzes") updateQuizBackAction(null);
     setView(nextView);
     setCurrentRoute(nextRoute);
@@ -575,14 +483,14 @@ export function App() {
     );
   }
 
-  const quizzes = snapshot?.quizzes ?? [];
+  const quizzes: QuizSummary[] = [];
   const built = quizzes.filter((q) => q.hasGeneratedArtifact).length;
   const ready = quizzes.filter((q) =>
     ["reviewed", "validated", "published"].includes(q.contentStatus),
   ).length;
-  const contests = snapshot?.contests.length ?? 0;
+  const contests = 0;
 
-  if (loading && !snapshot)
+  if (loading)
     return <StartupLoadingScreen settingsLoaded={settingsLoaded} />;
 
   return (
@@ -803,14 +711,9 @@ export function App() {
                     detail={`${quizzes.length - built} require a build`}
                   />
                   <SummaryCard
-                    className={snapshot?.issues.length ? "warn" : ""}
-                    label="Scan issues"
-                    value={snapshot?.issues.length ?? 0}
-                    detail={
-                      snapshot?.issues.length
-                        ? "manifests need attention"
-                        : "repository looks healthy"
-                    }
+                    label="Filesystem"
+                    value={settings.repositoryPath ? 1 : 0}
+                    detail="loaded on demand"
                   />
                 </section>
                 <Panel
@@ -818,10 +721,7 @@ export function App() {
                   description="Current manifest status across the repository"
                   meta={
                     <>
-                      Scanned{" "}
-                      {snapshot
-                        ? new Date(snapshot.scannedAt).toLocaleTimeString()
-                        : "—"}
+                      Filesystem data loads with each page
                     </>
                   }
                 >
@@ -854,26 +754,22 @@ export function App() {
                 </Panel>
               </>
             )}
-            {settings.repositoryPath && view === "quizzes" && snapshot && (
-              <QuizManager
+            {settings.repositoryPath && view === "quizzes" && (
+              <FilesystemLegacyManager
                 locale={settings.locale}
                 speechSettings={settings.speech}
-                snapshot={snapshot}
                 initialRoute={routeRequest.route}
-                onSnapshotChange={updateSnapshot}
                 onRouteChange={setCurrentRoute}
                 onOpenJobs={() => goToRoute("/jobs")}
                 onBackActionChange={updateQuizBackAction}
                 onSpeechSettingsChange={changeSpeechSettings}
               />
             )}
-            {settings.repositoryPath && view === "topics" && snapshot && (
-              <ContentV2QuizManager
+            {settings.repositoryPath && view === "topics" && (
+              <FilesystemContentV2Manager
                 locale={settings.locale}
                 speechSettings={settings.speech}
-                snapshot={snapshot}
                 initialRoute={routeRequest.route}
-                onSnapshotChange={updateSnapshot}
                 onRouteChange={setCurrentRoute}
                 onOpenJobs={() => goToRoute("/jobs")}
                 onBackActionChange={updateQuizBackAction}
@@ -915,15 +811,6 @@ export function App() {
                   </label>
                   <div>
                     <code>{settings.repositoryPath}</code>
-                    <Button
-                      icon={<RefreshCw size={15} />}
-                      loading={loading}
-                      variant="secondary"
-                      disabled={choosingRepository}
-                      onClick={() => void scan(undefined, true, true)}
-                    >
-                      Rescan repository
-                    </Button>
                     <button
                       className="secondary"
                       disabled={loading}
@@ -1052,7 +939,7 @@ export function App() {
       {loading && (
         <div className="loading">
           <span />
-          Scanning repository…
+          Loading files…
         </div>
       )}
     </div>

@@ -7,8 +7,8 @@ import type {
   QuizManifest,
   QuizQuestionRecord,
   QuizSummary,
-  RepositorySnapshot,
-  ScanIssue,
+  RepositoryViewData,
+  FileLoadIssue,
 } from "../../../shared/domain/models.js";
 import { questionIsVerified } from "../../../features/quiz-editor/domain/question-status.js";
 import { contestSettingsSchema, quizManifestSchema } from "../../../features/topics/domain/schema.js";
@@ -18,7 +18,7 @@ import {
   hashPublishedQuestions,
   sanitizePublishedQuestion,
 } from "../../../features/topics/domain/publishing.js";
-import { scanContentV2Repository } from "./content-v2-repository.js";
+import { loadContentV2WorkspaceFromFiles } from "./content-v2-repository.js";
 
 async function exists(filePath: string): Promise<boolean> {
   try {
@@ -293,17 +293,18 @@ export function readQuizSummary(
   return mapQuiz(root, manifestPath, true, onQuestions);
 }
 
-export async function scanQuizRepository(
+export async function loadLegacyOverviewFromFiles(
   repositoryPath: string,
   options: {
     inspectQuestionRecords?: boolean;
     lightweight?: boolean;
+    includeContentV2?: boolean;
     onQuizQuestions?: (quiz: QuizSummary, records: unknown[]) => void;
   } = {},
-): Promise<RepositorySnapshot> {
-  const scanStartedAt = Date.now();
+): Promise<RepositoryViewData> {
+  const loadStartedAt = Date.now();
   const root = path.resolve(repositoryPath);
-  console.info("[GetGo Tools][Repository index] Started", {
+  console.info("[GetGo Tools][Legacy files] Loading", {
     repositoryPath: root,
   });
   if (!(await exists(path.join(root, "quizzes")))) {
@@ -317,14 +318,14 @@ export async function scanQuizRepository(
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
-  console.info("[GetGo Tools][Repository index] Legacy structure discovered", {
+  console.info("[GetGo Tools][Legacy files] Folders discovered", {
     contests: contestIds.length,
     manifests: manifests.length,
     durationMs: Date.now() - discoveryStartedAt,
   });
   const contests: ContestSummary[] = [];
   const quizzes: QuizSummary[] = [];
-  const issues: ScanIssue[] = [];
+  const issues: FileLoadIssue[] = [];
   const contestsStartedAt = Date.now();
   for (const id of contestIds) {
     try {
@@ -336,7 +337,7 @@ export async function scanQuizRepository(
       });
     }
   }
-  console.info("[GetGo Tools][Repository index] Contest summaries loaded", {
+  console.info("[GetGo Tools][Legacy files] Contests loaded", {
     loaded: contests.length,
     issues: issues.length,
     durationMs: Date.now() - contestsStartedAt,
@@ -359,31 +360,31 @@ export async function scanQuizRepository(
       });
     }
   }
-  console.info("[GetGo Tools][Repository index] Legacy quiz summaries loaded", {
+  console.info("[GetGo Tools][Legacy files] Quizzes loaded", {
     loaded: quizzes.length,
     issues: issues.length,
     durationMs: Date.now() - legacyQuizzesStartedAt,
   });
   const contentV2StartedAt = Date.now();
-  const contentV2 = await scanContentV2Repository(root, {
-    lightweight: options.lightweight,
-  });
-  console.info("[GetGo Tools][Repository index] Content V2 summaries loaded", {
-    topics: contentV2.snapshot.topics.length,
-    quizzes: contentV2.snapshot.quizzes.length,
-    questions: contentV2.snapshot.questions.length,
-    issues: contentV2.snapshot.issues.length,
+  const contentV2 = options.includeContentV2 === false
+    ? { content: { topics: [], quizzes: [], questions: [], issues: [] } }
+    : await loadContentV2WorkspaceFromFiles(root, { lightweight: options.lightweight });
+  console.info("[GetGo Tools][Legacy files] Content folders loaded", {
+    topics: contentV2.content.topics.length,
+    quizzes: contentV2.content.quizzes.length,
+    questions: contentV2.content.questions.length,
+    issues: contentV2.content.issues.length,
     durationMs: Date.now() - contentV2StartedAt,
   });
-  console.info("[GetGo Tools][Repository index] Completed", {
-    durationMs: Date.now() - scanStartedAt,
+  console.info("[GetGo Tools][Legacy files] Loaded", {
+    durationMs: Date.now() - loadStartedAt,
   });
   return {
     repositoryPath: root,
-    scannedAt: new Date().toISOString(),
+    loadedAt: new Date().toISOString(),
     contests,
     quizzes,
     issues,
-    contentV2: contentV2.snapshot,
+    contentV2: contentV2.content,
   };
 }

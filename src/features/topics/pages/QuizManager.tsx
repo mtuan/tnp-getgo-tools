@@ -57,6 +57,16 @@ export function QuizManager({
   const quizRoute = (contestId: string, quizId: string) =>
     `${contestRoute(contestId)}/quizzes/${encodeURIComponent(quizId)}`;
   const [page, setPage] = useState<ManagerPage>(restored.page);
+  const loadedTopicRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (routeMode !== "topics" || page.kind !== "contest" || !api?.loadTopicQuizzes)
+      return;
+    if (loadedTopicRef.current === page.contest) return;
+    loadedTopicRef.current = page.contest;
+    void api.loadTopicQuizzes(page.contest).catch(() => {
+      loadedTopicRef.current = null;
+    });
+  }, [api, page, routeMode]);
   const [query, setQuery] = useState("");
   const [topicsView, setTopicsView] = useState<"list" | "tree">(() => {
     try {

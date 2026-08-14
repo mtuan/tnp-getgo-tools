@@ -3,7 +3,7 @@ import { config as loadEnvironment } from "dotenv";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { RepositoryRuntime } from "../../features/topics/main/repository-runtime.js";
+import { loadLegacyOverviewFromFiles } from "../../features/topics/repository/quiz-repository.js";
 import { loadQuizQuestions } from "../../features/quiz-editor/repository/quiz-questions.js";
 import { createPublishPayloadFromQuestions, recordPublishedHash } from "../../features/topics/repository/quiz-publishing.js";
 import { SettingsStore } from "../../features/settings/main/settings.js";
@@ -115,45 +115,17 @@ app.whenReady().then(async () => {
   startupLog("Electron ready");
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath);
   const settings = new SettingsStore(app.getPath("userData"));
-  const repository = new RepositoryRuntime();
-  let repositorySnapshot: Awaited<ReturnType<typeof repository.scan>> | null = null;
-  const snapshotState = {
-    get value() { return repositorySnapshot; },
-    set value(value) { repositorySnapshot = value; },
-  };
-  const scanRepository = async (
-    repositoryPath: string,
-    options?: Parameters<typeof repository.scan>[1],
-    force = false,
-  ) => {
-    repositorySnapshot = await repository.scan(repositoryPath, options, force);
-    return repositorySnapshot;
-  };
-  const requireSnapshot = () => {
-    if (!repositorySnapshot) {
-      throw new Error(
-        "Repository data is not loaded. Restart Tools or choose the repository again.",
-      );
-    }
-    return repositorySnapshot;
-  };
-  const waitForSnapshot = async (repositoryPath: string) => {
-    const resolved = path.resolve(repositoryPath);
-    if (repositorySnapshot?.repositoryPath === resolved) return repositorySnapshot;
-    repositorySnapshot = await repository.wait(resolved);
-    return repositorySnapshot;
-  };
-  const replaceQuiz = async (root: string, manifestPath: string) => {
-    repository.replace(requireSnapshot());
-    repositorySnapshot = await repository.replaceQuiz(root, manifestPath);
-    return repositorySnapshot;
-  };
   const repositoryRoot = async (): Promise<string> => {
     const current = await settings.read();
     if (!current.repositoryPath)
       throw new Error("Choose a quiz repository first.");
     return current.repositoryPath;
   };
+  const loadLegacyFiles = async (requestedPath?: string) => {
+    const root = requestedPath ?? await repositoryRoot();
+    return loadLegacyOverviewFromFiles(root, { inspectQuestionRecords: false, lightweight: true, includeContentV2: false });
+  };
+  const replaceQuiz = async (_root: string, _manifestPath: string) => loadLegacyFiles();
   const settingsStartedAt = Date.now();
   const initialSettings = await settings.read();
   startupLog("Settings loaded", {
@@ -165,36 +137,18 @@ app.whenReady().then(async () => {
   // is already visible.
   ipcMain.handle("settings:get", () => settings.read());
   ipcMain.handle(
-    "repository:scan",
-    async (_event, requestedPath?: string, force = false) => {
+    "legacy:overview:load",
+    async (_event, requestedPath?: string) => {
       const current = await settings.read();
       const repositoryPath = requestedPath ?? current.repositoryPath;
       if (!repositoryPath) throw new Error("Choose a quiz repository first.");
-      const snapshot = await scanRepository(repositoryPath, undefined, force);
+      const snapshot = await loadLegacyFiles(repositoryPath);
       await settings.update({ repositoryPath: snapshot.repositoryPath });
       return snapshot;
     },
   );
-  // Create the renderer before repository indexing so users see immediate
-  // startup feedback instead of a blank window during the scan.
+  // Create the renderer immediately. Feature pages read their own folders on demand.
   createWindow();
-  if (initialSettings.repositoryPath) {
-    const startupScanStartedAt = Date.now();
-    void scanRepository(initialSettings.repositoryPath, {
-      inspectQuestionRecords: false,
-      lightweight: true,
-    })
-      .then(() =>
-        startupLog("Startup repository index ready", {
-          durationMs: Date.now() - startupScanStartedAt,
-        }),
-      )
-      .catch((cause) =>
-        console.error(
-          `[GetGo Tools][Repository startup scan] ${cause instanceof Error ? cause.message : String(cause)}`,
-        ),
-      );
-  }
   firebaseAuth = new FirebaseAuthService(
     app.getPath("userData"),
     async () => (await settings.read()).environment,
@@ -247,7 +201,7 @@ app.whenReady().then(async () => {
       const current = await settings.read();
       if (!current.repositoryPath)
         throw new Error("Choose a quiz repository first.");
-      const snapshot = await waitForSnapshot(current.repositoryPath);
+      const snapshot = await loadLegacyFiles(current.repositoryPath);
       const quiz = snapshot.quizzes.find(
         (item) => item.contest === contestId && item.id === quizId,
       );
@@ -270,19 +224,6 @@ app.whenReady().then(async () => {
             result.contentHash,
             result.publishedAt,
           );
-          if (repositorySnapshot)
-            repositorySnapshot = {
-              ...repositorySnapshot,
-              quizzes: repositorySnapshot.quizzes.map((item) =>
-                item.key === quiz.key
-                  ? {
-                      ...item,
-                      publishedHash: result.contentHash,
-                      publishedAt: result.publishedAt,
-                    }
-                  : item,
-              ),
-            };
           return result;
         },
       );
@@ -293,15 +234,15 @@ app.whenReady().then(async () => {
       properties: ["openDirectory"],
     });
     if (result.canceled || !result.filePaths[0]) return null;
-    const snapshot = await scanRepository(result.filePaths[0]);
-    await settings.update({ repositoryPath: snapshot.repositoryPath });
-    return snapshot;
+    const repositoryPath = path.resolve(result.filePaths[0]);
+    await settings.update({ repositoryPath });
+    return repositoryPath;
   });
-  registerTopicResourcesIpc(ipcMain, { mainWindow: mainWindow!, snapshotState, requireSnapshot, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth });
-  registerContentV2CrudIpc(ipcMain, { snapshotState, requireSnapshot, repositoryRoot });
-  registerContentV2PublishingIpc(ipcMain, { snapshotState, requireSnapshot, repositoryRoot, publishing, publishJobs, firebaseAuth });
+  registerTopicResourcesIpc(ipcMain, { mainWindow: mainWindow!, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth });
+  registerContentV2CrudIpc(ipcMain, { repositoryRoot });
+  registerContentV2PublishingIpc(ipcMain, { repositoryRoot, publishing, publishJobs, firebaseAuth });
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
-  registerLegacyQuizIpc(ipcMain, { settings, snapshotState, requireSnapshot, replaceQuiz });
+  registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });
   startupLog("IPC handlers registered");
   startupLog("Startup complete", { logFile: startupLogFile });
   app.on("activate", () => {
