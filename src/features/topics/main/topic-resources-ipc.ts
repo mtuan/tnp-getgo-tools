@@ -8,6 +8,7 @@ import { localizedAlphabetDictionary } from "../../quiz-editor/repository/alphab
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { syncAllMarketplaceTopics } from "./marketplace-sync-all.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
+import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 
 interface SnapshotState { value: RepositorySnapshot | null }
@@ -19,7 +20,7 @@ interface Dependencies {
   publishing: FirestorePublishingService;
   publishJobs: PublishJobManager;
   backgroundJobsSnapshot(): unknown;
-  firebaseAuth: unknown;
+  firebaseAuth: FirebaseAuthService;
 }
 
 export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, snapshotState, requireSnapshot, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth }: Dependencies): void {
@@ -119,8 +120,8 @@ ipcMain.handle("marketplace:topics:sync-all", async () => {
   if (active) return backgroundJobsSnapshot();
   const root = await repositoryRoot(), snapshot = requireSnapshot();
   if (!firebaseAuth) throw new Error("Publishing is not initialized.");
-  await publishJobs.start({ name: "Sync marketplace · All topics", description: "Synchronize local marketplace states and metadata", route: "/topics" }, async (control) => {
-    snapshotState.value = await syncAllMarketplaceTopics(root, snapshot, publishing, control);
+  await publishJobs.start({ name: "Sync marketplace · All topics", description: "Synchronize local topics, quizzes, questions, resources, assets, and marketplace states", route: "/topics" }, async (control) => {
+    snapshotState.value = await syncAllMarketplaceTopics(root, snapshot, publishing, firebaseAuth, control);
   });
   return backgroundJobsSnapshot();
 });

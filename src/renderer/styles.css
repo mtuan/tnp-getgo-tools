@@ -2883,6 +2883,64 @@ tbody tr:hover {
 .migration-results-drawer {
   width: min(680px, 100vw);
 }
+.marketplace-sync-drawer {
+  width: min(1120px, calc(100vw - 24px));
+}
+.marketplace-sync-definitions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.marketplace-sync-definitions > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.marketplace-sync-definitions span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.marketplace-sync-drawer .ui-data-table-horizontal table {
+  min-width: 900px;
+}
+.marketplace-sync-tree-identity {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.marketplace-sync-tree-identity > .marketplace-sync-topic {
+  min-width: 0;
+}
+.marketplace-sync-summary {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  color: #4338ca;
+  background: #eef2ff;
+}
+.marketplace-sync-summary span,
+.marketplace-sync-topic small,
+.marketplace-sync-action small,
+.marketplace-sync-readiness small {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.marketplace-sync-topic,
+.marketplace-sync-action,
+.marketplace-sync-readiness {
+  display: grid;
+  gap: 3px;
+}
+.marketplace-sync-readiness {
+  justify-items: center;
+}
 .migration-results-summary {
   display: grid;
   gap: 5px;
@@ -8012,6 +8070,11 @@ button.danger svg {
   }
 }
 @media (prefers-color-scheme: dark) {
+  .marketplace-sync-summary {
+    color: #c7d2fe;
+    border-color: #6366f166;
+    background: #312e8159;
+  }
   .ui-search-field {
     color: #64748b;
     border-color: #ffffff1a;

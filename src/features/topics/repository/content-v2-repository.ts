@@ -178,37 +178,6 @@ export async function scanContentV2Repository(
       for (const questionFile of await questionFiles(
         path.join(path.dirname(quizFile), "questions"),
       )) {
-        if (lightweight) {
-          const id = path.basename(questionFile, ".json");
-          const order = Number(id) || quizQuestions.length;
-          quizQuestions.push({
-            record: {
-              id,
-              order,
-              status: "pending",
-              type:
-                quiz.type === "competition-paper"
-                  ? "competition-question"
-                  : "alphabet-letter",
-            } as ContentV2Question,
-            summary: {
-              key: `${topic.id}/${quiz.id}/${id}`,
-              topicId: topic.id,
-              quizId: quiz.id,
-              id,
-              type:
-                quiz.type === "competition-paper"
-                  ? "competition-question"
-                  : "alphabet-letter",
-              order,
-              status: "pending",
-              filePath: questionFile,
-              localHash: "",
-              label: id,
-            },
-          });
-          continue;
-        }
         try {
           const question = contentV2QuestionSchema.parse(
             await readJson(questionFile),
@@ -231,7 +200,9 @@ export async function scanContentV2Repository(
               order: question.order,
               status: question.status,
               filePath: questionFile,
-              localHash: hashContentV2(sanitizeContentV2Question(question)),
+              localHash: lightweight
+                ? ""
+                : hashContentV2(sanitizeContentV2Question(question)),
               label:
                 question.type === "alphabet-letter"
                   ? `${question.uppercase} ${question.lowercase}`

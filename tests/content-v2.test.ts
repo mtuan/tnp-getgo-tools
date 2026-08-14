@@ -157,6 +157,11 @@ test("v2 repository persists and scans typed topic content", async () => {
   assert.equal(result.snapshot.quizzes[0]?.reviewedQuestionCount, 1);
   assert.equal(result.snapshot.questions[0]?.label, "A a");
   assert.equal(result.snapshot.issues.length, 0);
+
+  const lightweight = await scanContentV2Repository(root, { lightweight: true });
+  assert.equal(lightweight.snapshot.quizzes[0]?.questionCount, 1);
+  assert.equal(lightweight.snapshot.quizzes[0]?.reviewedQuestionCount, 1);
+  assert.equal(lightweight.snapshot.questions[0]?.status, "reviewed");
 });
 
 test("calculates the canonical quiz hash directly from current files", async () => {
