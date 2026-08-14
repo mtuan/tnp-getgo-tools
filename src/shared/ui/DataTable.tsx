@@ -6,6 +6,7 @@ export interface DataColumn<T> {
   title: ReactNode;
   width?: string | number;
   align?: "left" | "center" | "right";
+  className?: string;
   role?: "actions";
   render(row: T, index: number): ReactNode;
   sortValue?(row: T): string | number;
@@ -28,7 +29,9 @@ export interface DataTableProps<T> {
 }
 
 function columnClassName<T>(column: DataColumn<T>): string | undefined {
-  return column.role === "actions" ? "ui-data-table-actions-column" : undefined;
+  return [column.role === "actions" && "ui-data-table-actions-column", column.className]
+    .filter(Boolean)
+    .join(" ") || undefined;
 }
 
 export function DataTableHeader<T>({ columns }: { columns: DataColumn<T>[] }) {

@@ -2,9 +2,10 @@ import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../../.
 import { TreeDataTable, type TreeDataRow } from "../../../../shared/ui/TreeDataTable";
 import type { DataColumn } from "../../../../shared/ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../../../../shared/ui/StatusBadge";
-import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
+import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
 import { contentV2QuizReviewStatus } from "./shared";
 import { TopicQuizTreeIdentity } from "../../components/TopicQuizTreeIdentity";
+import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 
@@ -20,12 +21,15 @@ export function renderTopicTree(context: TopicTreeContext) {
 isContest,
     loadTreeTopicQuizzes,
     locale,
+    managerApi,
     openQuiz,
+    onSnapshotChange,
     setContestTab,
     setPage,
     snapshot,
     topicMode,
     topicsView,
+    toast,
     treeTopicQuizzes,
     visibleContests
   } = context;
@@ -117,10 +121,11 @@ isContest,
                   title: "State",
                   width: 112,
                   align: "center",
+                  className: "manager-status-cell manager-market-state-table-cell",
                   render: (row) => {
                     const metadata = row.kind === "topic" ? row.summary.marketplace : row.quiz.marketplace;
                     const state = marketplaceStateLabel(metadata).state;
-                    return <StatusBadge tone={marketplaceStateTone(state)}>{marketplaceCopy.states[state]}</StatusBadge>;
+                    return <MarketplaceStateCell locale={locale} value={state} target={row.kind === "topic" ? "topics" : "quizzes"} id={row.kind === "topic" ? row.summary.id : row.quiz.id} topicId={row.kind === "quiz" ? row.quiz.contest : undefined} api={managerApi} onSnapshotChange={onSnapshotChange} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                   },
                 },
                 {

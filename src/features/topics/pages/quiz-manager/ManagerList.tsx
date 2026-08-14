@@ -1,9 +1,10 @@
 import { ChevronRight } from "lucide-react";
 import type { ContestSummary, QuizSummary, RepositorySnapshot } from "../../../../shared/domain/models";
 import { StatusBadge } from "../../../../shared/ui/StatusBadge";
-import { marketplaceStateLabel, marketplaceStateTone, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
+import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
 import { contentV2QuizReviewStatus, quizReviewStatus } from "./shared";
 import { TopicQuizIcon as ManagerListIcon } from "../../components/TopicQuizTreeIdentity";
+import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import { renderTopicTree } from "./TopicTree";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
@@ -20,12 +21,15 @@ export function renderManagerList(context: ManagerListContext) {
     contestTab,
     isContest,
     locale,
+    managerApi,
     migrationForQuiz,
     openQuiz,
+    onSnapshotChange,
     setContestTab,
     setPage,
     snapshot,
     topicMode,
+    toast,
     topicsView,
     visibleContests,
     visibleQuizzes,
@@ -141,10 +145,10 @@ export function renderManagerList(context: ManagerListContext) {
                                 {review.reviewed}/{review.total}
                               </StatusBadge>
                             </td>
-                            <td className="manager-status-cell">
+                            <td className="manager-status-cell manager-market-state-table-cell">
                               {(() => {
                                 const state = marketplaceStateLabel(quiz.marketplace).state;
-                                return <StatusBadge tone={marketplaceStateTone(state)}>{marketplaceCopy.states[state]}</StatusBadge>;
+                                return <MarketplaceStateCell locale={locale} value={state} target="quizzes" id={quiz.id} topicId={quiz.contest} api={managerApi} onSnapshotChange={onSnapshotChange} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                               })()}
                             </td>
                             <td className="manager-status-cell">
@@ -325,10 +329,10 @@ export function renderManagerList(context: ManagerListContext) {
                                       );
                                     })()}
                                   </td>
-                                  <td className="manager-status-cell">
+                                  <td className="manager-status-cell manager-market-state-table-cell">
                                     {(() => {
                                       const state = marketplaceStateLabel(topicSummary.marketplace).state;
-                                      return <StatusBadge tone={marketplaceStateTone(state)}>{marketplaceCopy.states[state]}</StatusBadge>;
+                                      return <MarketplaceStateCell locale={locale} value={state} target="topics" id={topicSummary.id} api={managerApi} onSnapshotChange={onSnapshotChange} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                                     })()}
                                   </td>
                                   <td className="manager-status-cell">

@@ -3620,6 +3620,9 @@ tbody tr:hover {
 .manager-status-cell {
   text-align: center;
 }
+.manager-status-cell {
+  vertical-align: middle;
+}
 .manager-row-open.icon-button {
   width: 32px;
   height: 32px;
@@ -4190,9 +4193,31 @@ tbody tr:hover {
 .marketplace-metadata-form .schema-toggle-row {
   min-height: var(--ui-form-control-height);
 }
-.manager-market-state-select {
+.schema-select.manager-market-state-select {
   width: 150px;
   margin-top: 0;
+}
+.schema-select.manager-market-state-select.compact {
+  display: block;
+  width: 104px;
+  height: 34px;
+  margin-block: 0;
+  line-height: normal;
+  vertical-align: middle;
+}
+.manager-market-state-select.compact > button {
+  min-height: 34px;
+  height: 34px;
+  padding-inline: 9px;
+  font-size: 11px;
+}
+.manager-market-state-cell {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  vertical-align: middle;
 }
 .settings-section-actions {
   display: flex;
