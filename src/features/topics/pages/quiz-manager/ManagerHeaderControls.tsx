@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ListOrdered, Plus, RefreshCw, Search, Rows3 } from "lucide-react";
-import type { BackgroundJob, RepositorySnapshot } from "../../../../shared/domain/models";
+import type { BackgroundJob, MarketplaceStateUpdateResult, RepositorySnapshot } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import { ActionMenu } from "../../../../shared/ui";
 import en from "../../../../shared/localization/en.json";
@@ -10,6 +10,25 @@ import { MarketplaceSyncDrawer } from "../../components/MarketplaceSyncDrawer";
 type Context = Record<string, any> & { snapshot: RepositorySnapshot };
 const activeStatuses = new Set(["queued", "running", "paused"]);
 const isSyncJob = (job: BackgroundJob) => job.kind === "publish" && job.name === "Sync marketplace · All topics" && activeStatuses.has(job.status);
+
+function applyMarketplaceStateUpdate(snapshot: RepositorySnapshot, result: MarketplaceStateUpdateResult): RepositorySnapshot {
+  const records = new Map(result.records.map((record) => [record.id, record]));
+  if (result.target === "topics") return { ...snapshot, contentV2: { ...snapshot.contentV2, topics: snapshot.contentV2.topics.map((topic) => {
+    const record = records.get(topic.id);
+    return record ? { ...topic, marketplace: record.marketplace, marketplaceLocalHash: record.marketplaceLocalHash } : topic;
+  }) } };
+  return {
+    ...snapshot,
+    quizzes: snapshot.quizzes.map((quiz) => {
+      const record = quiz.contest === result.topicId ? records.get(quiz.id) : undefined;
+      return record ? { ...quiz, marketplace: record.marketplace } : quiz;
+    }),
+    contentV2: { ...snapshot.contentV2, quizzes: snapshot.contentV2.quizzes.map((quiz) => {
+      const record = quiz.topicId === result.topicId ? records.get(quiz.id) : undefined;
+      return record ? { ...quiz, marketplace: record.marketplace } : quiz;
+    }) },
+  };
+}
 
 function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"]) {
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
@@ -42,7 +61,10 @@ export function ManagerHeaderControls(context: Context) {
   const batch = (state: MarketplaceTopicState) => runButtonAction(`batch-market-${state}`, async () => {
     const records = (isContest ? snapshot.contentV2.quizzes.filter((item) => item.topicId === selectedContest?.id) : snapshot.contentV2.topics)
       .filter((item) => state !== "listed" || marketplaceTopicState(item.marketplace) === "unlisted");
-    if (records.length) onSnapshotChange(await managerApi.setContentV2MarketplaceState(isContest ? "quizzes" : "topics", records.map((item: { id: string }) => item.id), state, selectedContest?.id));
+    if (records.length) {
+      const result = await managerApi.setContentV2MarketplaceState(isContest ? "quizzes" : "topics", records.map((item: { id: string }) => item.id), state, selectedContest?.id);
+      onSnapshotChange(applyMarketplaceStateUpdate(snapshot, result));
+    }
     toast.show({ title: copy.batchUpdated, description: copy.batchUpdatedDescription.replace("{count}", String(records.length)).replace("{state}", copy.states[state]) });
   });
   if (!topicMode) return null;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AppSettings, RepositorySnapshot } from "../../../shared/domain/models";
+import type { AppSettings } from "../../../shared/domain/models";
 import type { MarketplaceTopicState } from "../domain/marketplace-topic-state";
 import type { QuizManagerApi } from "../pages/quiz-manager/shared";
 import { MarketplaceStateSelect } from "./MarketplaceStateSelect";
@@ -11,8 +11,9 @@ export function MarketplaceStateCell({
   id,
   topicId,
   api,
-  onSnapshotChange,
+  onSaved,
   onError,
+  compact = true,
 }: {
   locale: AppSettings["locale"];
   value: MarketplaceTopicState;
@@ -20,18 +21,21 @@ export function MarketplaceStateCell({
   id: string;
   topicId?: string;
   api: QuizManagerApi;
-  onSnapshotChange(snapshot: RepositorySnapshot): void;
+  onSaved(value: MarketplaceTopicState): void;
   onError(error: unknown): void;
+  compact?: boolean;
 }) {
   const [selected, setSelected] = useState(value);
   const [saving, setSaving] = useState(false);
   useEffect(() => setSelected(value), [value]);
   const change = async (next: MarketplaceTopicState) => {
+    if (next === selected || saving) return;
     const previous = selected;
     setSelected(next);
     setSaving(true);
     try {
-      onSnapshotChange(await api.setContentV2MarketplaceState(target, [id], next, topicId));
+      await api.setContentV2MarketplaceState(target, [id], next, topicId);
+      onSaved(next);
     } catch (error) {
       setSelected(previous);
       onError(error);
@@ -40,6 +44,6 @@ export function MarketplaceStateCell({
     }
   };
   return <span className="manager-market-state-cell" onClick={(event) => event.stopPropagation()}>
-    <MarketplaceStateSelect locale={locale} value={selected} disabled={saving} compact onChange={(next) => void change(next)} />
+    <MarketplaceStateSelect locale={locale} value={selected} disabled={saving} compact={compact} onChange={(next) => void change(next)} />
   </span>;
 }

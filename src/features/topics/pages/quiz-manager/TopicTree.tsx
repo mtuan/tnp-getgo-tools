@@ -23,7 +23,6 @@ isContest,
     locale,
     managerApi,
     openQuiz,
-    onSnapshotChange,
     setContestTab,
     setPage,
     snapshot,
@@ -125,7 +124,7 @@ isContest,
                   render: (row) => {
                     const metadata = row.kind === "topic" ? row.summary.marketplace : row.quiz.marketplace;
                     const state = marketplaceStateLabel(metadata).state;
-                    return <MarketplaceStateCell locale={locale} value={state} target={row.kind === "topic" ? "topics" : "quizzes"} id={row.kind === "topic" ? row.summary.id : row.quiz.id} topicId={row.kind === "quiz" ? row.quiz.contest : undefined} api={managerApi} onSnapshotChange={onSnapshotChange} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
+                    return <MarketplaceStateCell locale={locale} value={state} target={row.kind === "topic" ? "topics" : "quizzes"} id={row.kind === "topic" ? row.summary.id : row.quiz.id} topicId={row.kind === "quiz" ? row.quiz.contest : undefined} api={managerApi} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                   },
                 },
                 {

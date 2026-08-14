@@ -9,11 +9,8 @@ import { DataTable, type DataColumn } from "../../../../shared/ui/DataTable";
 import { ActionMenu } from "../../../../shared/ui/ActionMenu";
 import { MarketplaceMetadataSection } from "../../components/MarketplaceMetadataSection";
 import { AccordionGroup } from "../../../../shared/ui/Accordion";
-import { MarketplaceStateSelect } from "../../components/MarketplaceStateSelect";
-import {
-  marketplaceTopicState,
-  withMarketplaceTopicState,
-} from "../../../../features/topics/domain/marketplace-topic-state";
+import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
+import { marketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
@@ -105,36 +102,22 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           actions={
             <>
               {contentQuiz && (
-                  <MarketplaceStateSelect
+                  <MarketplaceStateCell
                     locale={locale}
                     value={marketplaceTopicState(contentQuiz.marketplace)}
-                    disabled={Boolean(buttonAction)}
-                    onChange={(value) => {
-                      void runButtonAction("market-state", async () => {
-                        const stored = await managerApi.loadContentV2Quiz(
-                          quiz.contest,
-                          quiz.id,
-                        );
-                        const next = await managerApi.saveContentV2Quiz(
-                          quiz.contest,
-                          {
-                            ...stored,
-                            marketplace: withMarketplaceTopicState(
-                              stored.marketplace,
-                              value,
-                            ),
-                          },
-                        );
-                        onSnapshotChange(next);
-                        toast.show({
+                    target="quizzes"
+                    id={quiz.id}
+                    topicId={quiz.contest}
+                    api={managerApi}
+                    compact={false}
+                    onSaved={(value) => toast.show({
                           title: marketplaceCopy.stateUpdated,
                           description: marketplaceCopy.stateUpdatedDescription.replace(
                             "{state}",
                             marketplaceCopy.states[value],
                           ),
-                        });
-                      });
-                    }}
+                        })}
+                    onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })}
                   />
               )}
               {quizTab === "info" ? <Button

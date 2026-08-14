@@ -24,7 +24,6 @@ export function renderManagerList(context: ManagerListContext) {
     managerApi,
     migrationForQuiz,
     openQuiz,
-    onSnapshotChange,
     setContestTab,
     setPage,
     snapshot,
@@ -148,7 +147,7 @@ export function renderManagerList(context: ManagerListContext) {
                             <td className="manager-status-cell manager-market-state-table-cell">
                               {(() => {
                                 const state = marketplaceStateLabel(quiz.marketplace).state;
-                                return <MarketplaceStateCell locale={locale} value={state} target="quizzes" id={quiz.id} topicId={quiz.contest} api={managerApi} onSnapshotChange={onSnapshotChange} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
+                                return <MarketplaceStateCell locale={locale} value={state} target="quizzes" id={quiz.id} topicId={quiz.contest} api={managerApi} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                               })()}
                             </td>
                             <td className="manager-status-cell">
@@ -332,7 +331,7 @@ export function renderManagerList(context: ManagerListContext) {
                                   <td className="manager-status-cell manager-market-state-table-cell">
                                     {(() => {
                                       const state = marketplaceStateLabel(topicSummary.marketplace).state;
-                                      return <MarketplaceStateCell locale={locale} value={state} target="topics" id={topicSummary.id} api={managerApi} onSnapshotChange={onSnapshotChange} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
+                                      return <MarketplaceStateCell locale={locale} value={state} target="topics" id={topicSummary.id} api={managerApi} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                                     })()}
                                   </td>
                                   <td className="manager-status-cell">

@@ -26,6 +26,9 @@ export function MarketplaceStateSelect({
     disabled={disabled}
     color={tone === "info" ? "normal" : tone}
     options={Object.entries(copy.states).map(([state, label]) => ({ state, label, value: state }))}
-    onValueChange={(state) => onChange(state as MarketplaceTopicState)}
+    onValueChange={(state) => {
+      const next = state as MarketplaceTopicState;
+      if (next !== value) onChange(next);
+    }}
   />;
 }

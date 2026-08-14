@@ -90,15 +90,14 @@ ipcMain.handle(
     if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string"))
       throw new Error("Invalid marketplace batch IDs.");
     const state = parseMarketplaceTopicState(stateValue);
-    const root = await repositoryRoot(); snapshotState.value = await setContentV2MarketplaceState({
+    const root = await repositoryRoot();
+    return setContentV2MarketplaceState({
       root,
-      snapshot: requireSnapshot(),
       target,
       ids,
       state,
       ...(typeof topicIdValue === "string" ? { topicId: topicIdValue } : {}),
     });
-    return requireSnapshot();
   },
 );
 ipcMain.handle(

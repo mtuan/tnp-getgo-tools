@@ -13,11 +13,8 @@ import { TopicAssetsEditor } from "../../components/TopicAssetsEditor";
 import type { ContestDetailTab } from "./shared";
 import { renderManagerList } from "./ManagerList";
 import { ManagerHeaderControls } from "./ManagerHeaderControls";
-import { MarketplaceStateSelect } from "../../components/MarketplaceStateSelect";
-import {
-  marketplaceTopicState,
-  withMarketplaceTopicState,
-} from "../../../../features/topics/domain/marketplace-topic-state";
+import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
+import { marketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 
@@ -108,30 +105,21 @@ export function renderManagerPage(context: ManagerPageContext) {
             {isContest && selectedContest && (
               <>
                 {topicMode && selectedTopic && (
-                  <MarketplaceStateSelect
+                  <MarketplaceStateCell
                     locale={locale}
                     value={marketplaceTopicState(selectedTopic.marketplace)}
-                    disabled={Boolean(buttonAction)}
-                    onChange={(value) =>
-                      void runButtonAction("market-state", async () => {
-                        const topic = await managerApi.loadContentV2Topic(selectedTopic.id);
-                        const next = await managerApi.saveContentV2Topic({
-                          ...topic,
-                          marketplace: withMarketplaceTopicState(
-                            topic.marketplace,
-                            value,
-                          ),
-                        });
-                        onSnapshotChange(next);
-                        toast.show({
+                    target="topics"
+                    id={selectedTopic.id}
+                    api={managerApi}
+                    compact={false}
+                    onSaved={(value) => toast.show({
                           title: marketplaceCopy.stateUpdated,
                           description: marketplaceCopy.stateUpdatedDescription.replace(
                             "{state}",
                             marketplaceCopy.states[value],
                           ),
-                        });
-                      })
-                    }
+                        })}
+                    onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })}
                   />
                 )}
                 {contestTab === "info" && <Button

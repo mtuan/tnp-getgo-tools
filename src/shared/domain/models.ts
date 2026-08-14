@@ -116,6 +116,17 @@ export interface MarketplaceTopicPublishResult {
   snapshot: RepositorySnapshot;
 }
 
+export interface MarketplaceStateUpdateResult {
+  target: "topics" | "quizzes";
+  topicId?: string;
+  records: Array<{
+    id: string;
+    state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState;
+    marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
+    marketplaceLocalHash?: string;
+  }>;
+}
+
 export interface ContentV2QuizSummary {
   key: string;
   topicId: string;
@@ -626,7 +637,7 @@ export interface DesktopApi {
   importContentV2TopicAssets(topicId: string): Promise<ContentV2TopicAssetSummary[]>;
   trashContentV2TopicAsset(topicId: string, filename: string): Promise<ContentV2TopicAssetSummary[]>;
   showContentV2TopicAssetsFolder(topicId: string): Promise<void>; saveContentV2Topic(topic: ContentV2Topic): Promise<RepositorySnapshot>;
-  setContentV2MarketplaceState(target: "topics" | "quizzes", ids: string[], state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState, topicId?: string): Promise<RepositorySnapshot>;
+  setContentV2MarketplaceState(target: "topics" | "quizzes", ids: string[], state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState, topicId?: string): Promise<MarketplaceStateUpdateResult>;
   saveContentV2Quiz(
     topicId: string,
     quiz: ContentV2Quiz,
