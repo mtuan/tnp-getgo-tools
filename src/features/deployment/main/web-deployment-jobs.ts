@@ -21,18 +21,27 @@ const targetScripts: Record<WebDeploymentTarget, string> = {
 };
 
 function cleanLine(value: string) {
-  return value.replace(/\u001b\[[0-9;]*m/g, "").trim().slice(-180);
+  return value.replace(/\u001b\[[0-9;]*m/g, "").trim().slice(-2000);
+}
+
+function reportedDeploymentError(job: DeploymentJob) {
+  const details = job.report?.steps.flatMap((step) => step.details) ?? [];
+  return [...details].reverse().find((line) =>
+    line.startsWith("Error:")
+    && !line.startsWith("Error: Command failed with exit code"),
+  );
 }
 
 function progressTotal(operation: DeploymentOperation, component: DeploymentComponent) {
-  if (operation === "build") return component === "firebase-rules" ? 5 : 4;
+  if (operation === "build") return component === "firebase" ? 6 : 4;
   return 3;
 }
 
 function outputPhase(line: string, component: DeploymentComponent) {
   if (line.includes("Generating shared editor types") || line.includes("Generating canonical Firebase rules") || line.includes("Checking and building @tnp/getgo-logics")) return "dependencies";
-  if (component === "firebase-rules" && line.includes("Synced firestore.rules")) return "firestore";
-  if (component === "firebase-rules" && line.includes("Synced storage.rules")) return "storage";
+  if (component === "firebase" && line.includes("Synced firestore.rules")) return "firestore";
+  if (component === "firebase" && line.includes("Synced storage.rules")) return "storage";
+  if (component === "firebase" && (line.includes("Assembled functions/src") || line.includes("Building functions"))) return "functions";
   if (component === "web" && (line.includes("Building…") || /vite v\d/i.test(line))) return "build";
   if (component === "web" && /built in \d/i.test(line)) return "bundle";
   if (line.includes("Resources to deploy:") || line.includes("Resources (would be deployed):")) return "plan";
@@ -45,6 +54,7 @@ const phaseLabels: Record<string, string> = {
   dependencies: "Prepare shared dependencies",
   firestore: "Generate Firestore rules and indexes",
   storage: "Generate Cloud Storage rules",
+  functions: "Build Cloud Functions",
   build: "Compile Web application",
   bundle: "Finalize Web bundle",
   plan: "Compare deployment artifacts",
@@ -77,13 +87,34 @@ export class WebDeploymentJobManager {
   private async load() {
     try {
       const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as { jobs?: DeploymentJob[]; builds?: BuildRecord[]; deployments?: DeploymentRecord[] };
-      this.builds = stored.builds ?? [];
-      this.deployments = stored.deployments ?? [];
-      this.jobs = (stored.jobs ?? []).slice(0, 50).map((job) =>
-        ["queued", "running", "paused"].includes(job.status)
-          ? { ...job, status: "failed", cancellable: false, retryable: Boolean(job.component && job.target), finishedAt: new Date().toISOString(), error: "Deployment was interrupted when GetGo Tools stopped." }
-          : job,
-      );
+      const migrateComponent = (component: DeploymentComponent | "firebase-rules" | undefined) => component === "firebase-rules" ? "firebase" : component;
+      this.builds = (stored.builds ?? []).map((item) => ({ ...item, component: migrateComponent(item.component) as DeploymentComponent }));
+      this.deployments = (stored.deployments ?? []).map((item) => ({ ...item, component: migrateComponent(item.component) as DeploymentComponent }));
+      this.jobs = (stored.jobs ?? []).slice(0, 50).map((storedJob) => {
+        const job = { ...storedJob, component: migrateComponent(storedJob.component) } as DeploymentJob;
+        if (["queued", "running", "paused"].includes(job.status)) {
+          job.status = "failed";
+          job.cancellable = false;
+          job.retryable = Boolean(job.component && job.target);
+          job.finishedAt = new Date().toISOString();
+          job.error = "Deployment was interrupted when GetGo Tools stopped.";
+        }
+        if (job.status === "failed" && /^Deployment exited with code/.test(job.error ?? ""))
+          job.error = reportedDeploymentError(job) ?? job.error;
+        if (job.report && !job.report.finishedAt && ["failed", "cancelled"].includes(job.status)) {
+          const finishedAt = job.finishedAt ?? new Date().toISOString();
+          const lastStep = job.report.steps.at(-1);
+          if (lastStep && !lastStep.finishedAt) {
+            lastStep.status = job.status === "cancelled" ? "cancelled" : "failed";
+            lastStep.finishedAt = finishedAt;
+            lastStep.durationMs = Math.max(0, Date.parse(finishedAt) - Date.parse(lastStep.startedAt));
+          }
+          job.report.finishedAt = finishedAt;
+          job.report.durationMs = Math.max(0, Date.parse(finishedAt) - Date.parse(job.report.startedAt));
+          job.report.steps.push({ id: "complete", label: phaseLabels.complete, status: job.status === "cancelled" ? "cancelled" : "failed", startedAt: finishedAt, finishedAt, durationMs: 0, details: job.error ? [job.error] : [] });
+        }
+        return job;
+      });
     } catch {
       this.jobs = [];
       this.builds = [];
@@ -148,11 +179,12 @@ export class WebDeploymentJobManager {
     const deployRoot = path.join(webRoot, "configs", "deploys", "getgo");
     if (component === "web")
       return [{ id: "web", localHash: await this.hashDirectory(path.join(webRoot, "dist")), deployedHash: null, changed: false }];
-    return await Promise.all([
+    const ruleItems = await Promise.all([
       ["firestore-rules", "firestore.rules"],
       ["firestore-indexes", "firestore.indexes.json"],
       ["storage-rules", "storage.rules"],
     ].map(async ([id, filename]) => ({ id: id as DeploymentItemState["id"], localHash: await this.hashFile(path.join(deployRoot, filename)), deployedHash: null, changed: false })));
+    return [...ruleItems, { id: "functions", localHash: await this.hashDirectory(path.join(deployRoot, "functions", "src")), deployedHash: null, changed: false }];
   }
 
   private async recordBuild(component: DeploymentComponent, target: WebDeploymentTarget) {
@@ -167,7 +199,7 @@ export class WebDeploymentJobManager {
       .map((item) => `${item.id}:${item[source] ?? ""}`)
       .sort();
     if (!values.length || values.some((value) => value.endsWith(":"))) return undefined;
-    return `${component === "web" ? "web" : "rules"}-${createHash("sha256").update(values.join("\n")).digest("hex").slice(0, 12)}`;
+    return `${component === "web" ? "web" : "firebase"}-${createHash("sha256").update(values.join("\n")).digest("hex").slice(0, 12)}`;
   }
 
   private async recordDeployment(component: DeploymentComponent, target: WebDeploymentTarget) {
@@ -196,7 +228,7 @@ export class WebDeploymentJobManager {
     if (detail) {
       const step = job.report.steps.at(-1)!;
       step.details.push(detail);
-      if (step.details.length > 20) step.details.shift();
+      if (step.details.length > 200) step.details.shift();
     }
   }
 
@@ -224,10 +256,14 @@ export class WebDeploymentJobManager {
     const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as { firebaseProject: string; url: string };
     const deployed = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, ".deploy-hashes.json"), "utf8").catch(() => "{}")) as Record<string, string>;
     const componentState = (component: DeploymentComponent): DeploymentComponentState => {
-      const build = this.builds.find((item) => item.component === component && item.format === "shared-v1");
+      const build = this.builds.find((item) =>
+        item.component === component
+        && item.format === "shared-v1"
+        && (component === "web" || item.items.some((artifact) => artifact.id === "functions")),
+      );
       const keys = component === "web"
         ? [["web", "hosting"]]
-        : [["firestore-rules", "firestore:rules"], ["firestore-indexes", "firestore:indexes"], ["storage-rules", "storage"]];
+        : [["firestore-rules", "firestore:rules"], ["firestore-indexes", "firestore:indexes"], ["storage-rules", "storage"], ["functions", "functions"]];
       const items = keys.map(([id, key]) => {
         const localHash = build?.items.find((item) => item.id === id)?.localHash ?? null;
         const deployedHash = deployed[key] ?? null;
@@ -245,7 +281,7 @@ export class WebDeploymentJobManager {
       firebaseProject: targetConfig.firebaseProject,
       firebaseConsoleUrl: `https://console.firebase.google.com/project/${encodeURIComponent(targetConfig.firebaseProject)}/overview`,
       webUrl: targetConfig.url,
-      rules: componentState("firebase-rules"),
+      rules: componentState("firebase"),
       web: componentState("web"),
     };
   }
@@ -254,7 +290,7 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const activeJobs = this.jobs.filter((job) => ["queued", "running", "paused"].includes(job.status));
     if (activeJobs.some((job) => job.component === component))
-      throw new Error(`Another ${component === "web" ? "Web" : "Firebase rules"} job is already active.`);
+      throw new Error(`Another ${component === "web" ? "Web" : "Firebase"} job is already active.`);
     if (operation === "deploy" && activeJobs.some((job) => job.operation === "deploy"))
       throw new Error("Another deployment is already active.");
     const webRoot = await this.webRoot();
@@ -272,11 +308,11 @@ export class WebDeploymentJobManager {
       target,
       operation,
       name: operation === "build"
-        ? `Build ${component === "web" ? "Web" : "Firebase rules"}`
-        : `Deploy ${component === "web" ? "Web" : "Firebase rules"} · ${target}`,
+        ? `Build ${component === "web" ? "Web" : "Firebase"}`
+        : `Deploy ${component === "web" ? "Web" : "Firebase"} · ${target}`,
       description: operation === "build"
-        ? `Prepare local ${component === "web" ? "GetGo Web" : "Firestore and Storage rules"} deployment files`
-        : `Publish ${component === "web" ? "GetGo Web" : "Firestore and Storage rules"} to ${target}`,
+        ? `Prepare local ${component === "web" ? "GetGo Web" : "Firebase rules, indexes, and Cloud Functions"} deployment files`
+        : `Publish ${component === "web" ? "GetGo Web" : "Firebase rules, indexes, and Cloud Functions"} to ${target}`,
       status: "queued",
       completed: 0,
       total: progressTotal(operation, component),
@@ -296,7 +332,7 @@ export class WebDeploymentJobManager {
     this.jobs.unshift(job);
     await this.persist();
 
-    const scope = component === "web" ? "web" : "rules";
+    const scope = component === "web" ? "web" : "firebase";
     const args = ["run", targetScripts[target], "--", `--scope=${scope}`];
     if (operation === "build") args.push("--build-only", "--no-lint", "--no-typecheck");
     else args.push("--deploy-only", "--no-lint", "--no-typecheck");
@@ -352,7 +388,7 @@ export class WebDeploymentJobManager {
         await this.finalizeReport(job, "completed");
       } else {
         job.status = "failed";
-        job.error = cause?.message ?? `Deployment exited with code ${code ?? "unknown"}.`;
+        job.error = cause?.message ?? reportedDeploymentError(job) ?? `Deployment exited with code ${code ?? "unknown"}.`;
         job.progressLabel = "Failed";
         job.retryable = true;
         await this.finalizeReport(job, "failed");

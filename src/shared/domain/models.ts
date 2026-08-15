@@ -496,10 +496,10 @@ export interface AiMigrationJobsSnapshot {
 
 export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy";
 export type WebDeploymentTarget = "development" | "staging" | "production";
-export type DeploymentComponent = "firebase-rules" | "web";
+export type DeploymentComponent = "firebase" | "web";
 export type DeploymentOperation = "build" | "deploy";
 export interface DeploymentItemState {
-  id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "web";
+  id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "functions" | "web";
   localHash: string | null;
   deployedHash: string | null;
   changed: boolean;

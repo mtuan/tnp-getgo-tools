@@ -2,12 +2,12 @@ import { AlertTriangle, Check, Copy } from "lucide-react"
 import { useState } from "react"
 import { useToast } from "./Toast"
 
-export function ErrorFrame({ message, className = "" }: { message: string; className?: string }) {
+export function ErrorFrame({ message, copyValue = message, className = "" }: { message: string; copyValue?: string; className?: string }) {
   const toast = useToast()
   const [copied, setCopied] = useState(false)
   async function copyError() {
     try {
-      await window.getgo.copyText(message)
+      await window.getgo.copyText(copyValue)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1400)
       toast.show({ title: "Error copied", description: "The complete error message was copied to the clipboard.", variant: "info" })

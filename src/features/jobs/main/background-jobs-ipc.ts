@@ -33,7 +33,7 @@ export function registerBackgroundJobsIpc(
   ipcMain.handle("jobs:list", snapshot);
   ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown) => {
     if (!(operation === "build" || operation === "deploy")) throw new Error("Invalid deployment operation.");
-    if (!(component === "firebase-rules" || component === "web")) throw new Error("Invalid deployment component.");
+    if (!(component === "firebase" || component === "web")) throw new Error("Invalid deployment component.");
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     await webDeploymentJobs.start(operation, component, target);
     return snapshot();
