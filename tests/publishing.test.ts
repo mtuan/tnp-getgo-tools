@@ -9,6 +9,7 @@ import {
   sanitizePublishedQuestion,
 } from "../src/features/topics/domain/publishing.js";
 import { recordPublishedHash } from "../src/features/topics/repository/quiz-publishing.js";
+import { loadContentV2Assets } from "../src/features/topics/repository/content-v2-repository.js";
 import { createContentV2QuizPublishPreview } from "../src/features/topics/main/firestore-publishing.js";
 import {
   contentV2PublishedItems,
@@ -71,6 +72,17 @@ test("content v2 assets publish to shared topic Storage paths", () => {
       hash: "a".repeat(64),
     },
   ]);
+});
+
+test("topic-owned assets are not assigned to a quiz publish state", async () => {
+  const repository = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-topic-assets-"));
+  const topicAssets = path.join(repository, "content-v2", "topics", "kid-learning", "assets", "icons");
+  await fs.mkdir(topicAssets, { recursive: true });
+  await fs.writeFile(path.join(topicAssets, "topic-icon.png"), new Uint8Array([1, 2, 3]));
+  const topic = { icon: "asset:icons/topic-icon.png" };
+
+  assert.equal((await loadContentV2Assets(repository, "kid-learning", "english-alphabet", { quiz: {} })).length, 0);
+  assert.equal((await loadContentV2Assets(repository, "kid-learning", undefined, { topic })).length, 1);
 });
 
 const dynamic = {

@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { ContentV2QuizSummary, ContentV2TopicSummary } from "../../../shared/domain/models";
+import type { ContentV2QuizSummary, ContentV2TopicSummary, MarketplaceSyncJobItem } from "../../../shared/domain/models";
 import { marketplaceTopicState } from "../domain/marketplace-topic-state";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan";
 import type { MarketplaceSyncPlanItem } from "../domain/marketplace-sync-plan";
@@ -38,7 +38,7 @@ export function MarketplaceSyncDrawer({
   locale: "en" | "vi";
   busy: boolean;
   onClose(): void;
-  onSync(): Promise<void>;
+  onSync(items: MarketplaceSyncJobItem[]): Promise<void>;
 }) {
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const plan = marketplaceSyncPlan(topics, quizzes).filter((item) => item.ready);
@@ -94,7 +94,9 @@ export function MarketplaceSyncDrawer({
   ];
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    void onSync();
+    void onSync(plan.map((item) => item.kind === "quiz"
+      ? { kind: "quiz", topicId: item.topic.id, quizId: item.quiz.id }
+      : { kind: "topic", topicId: item.topic.id }));
   };
   return <ui.DialogFrame
     presentation="drawer"

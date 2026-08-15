@@ -11,7 +11,10 @@ export interface PublishJobControl {
 }
 interface Runtime { paused: boolean; cancelled: boolean; resume?: () => void }
 type PublishTask = (control: PublishJobControl) => Promise<unknown>;
-type PublishInput = Pick<PublishJob, "name" | "description" | "route">;
+type PublishInput = Pick<PublishJob, "name" | "description" | "route"> & {
+  initialTotal?: number;
+  initialProgressLabel?: string;
+};
 
 export class PublishJobManager {
   private jobs: PublishJob[] = [];
@@ -90,8 +93,8 @@ export class PublishJobManager {
       route: input.route,
       status: "queued",
       completed: 0,
-      total: 1,
-      progressLabel: "Waiting",
+      total: Math.max(1, Math.floor(input.initialTotal ?? 1)),
+      progressLabel: input.initialProgressLabel ?? "Waiting",
       cancellable: true,
       retryable: false,
       createdAt: new Date().toISOString(),
@@ -177,7 +180,7 @@ export class PublishJobManager {
     };
     job.status = "running";
     job.startedAt = new Date().toISOString();
-    job.progressLabel = "Publishing";
+    if (job.progressLabel === "Waiting") job.progressLabel = "Publishing";
     await this.persist();
     try {
       const result = await task({ checkpoint, setTotal, advance });

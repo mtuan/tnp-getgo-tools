@@ -10,6 +10,8 @@
     "unlistAll": "Unlist all",
     "sync": "Sync",
     "syncing": "Syncing {completed}/{total}",
+    "syncStarted": "Marketplace sync started",
+    "syncStartedDescription": "Open Jobs to follow its progress.",
     "syncPreviewTitle": "Review marketplace sync",
     "syncItem": "Item",
     "syncAction": "How it will sync",

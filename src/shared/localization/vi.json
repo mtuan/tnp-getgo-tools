@@ -10,6 +10,8 @@
     "unlistAll": "Ẩn tất cả",
     "sync": "Đồng bộ",
     "syncing": "Đang đồng bộ {completed}/{total}",
+    "syncStarted": "Đã bắt đầu đồng bộ kho nội dung",
+    "syncStartedDescription": "Mở Tác vụ để theo dõi tiến độ.",
     "syncPreviewTitle": "Kiểm tra đồng bộ kho nội dung",
     "syncItem": "Mục",
     "syncAction": "Cách đồng bộ",

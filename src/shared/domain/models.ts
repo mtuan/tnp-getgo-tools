@@ -575,6 +575,11 @@ export interface BackgroundJobsSnapshot {
   aiConcurrency: number;
   jobs: BackgroundJob[];
 }
+export interface MarketplaceSyncJobItem {
+  kind: "topic" | "quiz";
+  topicId: string;
+  quizId?: string;
+}
 
 export interface ImagePdfInput {
   path: string;
@@ -614,7 +619,7 @@ export interface DesktopApi {
   getSettings(): Promise<AppSettings>;
   chooseRepository(): Promise<string | null>;
   loadLegacyOverview(path?: string): Promise<RepositoryViewData>;
-  publishMarketplaceTopic(topicId: string, state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>; syncContentV2Marketplace(): Promise<BackgroundJobsSnapshot>;
+  publishMarketplaceTopic(topicId: string, state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>; syncContentV2Marketplace(items: MarketplaceSyncJobItem[]): Promise<BackgroundJobsSnapshot>;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;

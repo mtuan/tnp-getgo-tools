@@ -262,7 +262,6 @@ export async function loadContentV2WorkspaceFromFiles(
         } else {
           assetHashes = (
             await loadContentV2Assets(repositoryPath, topic.id, quiz.id, {
-              topic,
               quiz,
               questions: quizQuestions.map((item) => item.record),
               resources,
@@ -617,18 +616,16 @@ function collectAssetReferences(
 export async function loadContentV2Assets(
   repositoryPath: string,
   topicId: string,
-  quizId: string,
+  quizId: string | undefined,
   content: unknown,
 ): Promise<ContentV2Asset[]> {
   const topicDirectory = path.join(
     contentRoot(repositoryPath),
     validateId(topicId, "Topic ID"),
   );
-  const quizDirectory = path.join(
-    topicDirectory,
-    "quizzes",
-    validateId(quizId, "Quiz ID"),
-  );
+  const quizDirectory = quizId
+    ? path.join(topicDirectory, "quizzes", validateId(quizId, "Quiz ID"))
+    : null;
   const mimeTypes: Record<string, string> = {
     ".avif": "image/avif",
     ".gif": "image/gif",
@@ -648,7 +645,7 @@ export async function loadContentV2Assets(
     )
       throw new Error(`Invalid asset reference: ${reference}.`);
     const candidates = [
-      path.resolve(quizDirectory, "assets", relativeAsset),
+      ...(quizDirectory ? [path.resolve(quizDirectory, "assets", relativeAsset)] : []),
       path.resolve(topicDirectory, "assets", relativeAsset),
     ];
     let sourcePath: string | null = null;
@@ -689,7 +686,6 @@ export async function calculateContentV2QuizHash(
   topicId: string,
   quizId: string,
 ): Promise<string> {
-  const topic = await loadContentV2Topic(repositoryPath, topicId);
   const quiz = await loadContentV2Quiz(repositoryPath, topicId, quizId);
   const questionDirectory = path.join(
     contentRoot(repositoryPath),
@@ -714,7 +710,6 @@ export async function calculateContentV2QuizHash(
   );
   const assets = (
     await loadContentV2Assets(repositoryPath, topicId, quizId, {
-      topic,
       quiz,
       questions,
       resources,

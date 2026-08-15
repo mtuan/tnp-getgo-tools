@@ -435,5 +435,5 @@ export function ContentV2QuizManager(props: Props) {
       deleteContest: async (id) => { await window.getgo.deleteContentV2Topic(id); return reloadFromFiles(); },
     };
   }, [managerSnapshot, props]);
-  return <QuizManager locale={props.locale} speechSettings={props.speechSettings} snapshot={managerSnapshot} initialRoute={props.initialRoute} onSnapshotChange={() => undefined} onRouteChange={props.onRouteChange} onOpenJobs={props.onOpenJobs} onBackActionChange={props.onBackActionChange} onSpeechSettingsChange={props.onSpeechSettingsChange} api={api} routeMode="topics" />;
+  return <QuizManager locale={props.locale} speechSettings={props.speechSettings} snapshot={managerSnapshot} initialRoute={props.initialRoute} onSnapshotChange={props.onSnapshotChange} onRouteChange={props.onRouteChange} onOpenJobs={props.onOpenJobs} onBackActionChange={props.onBackActionChange} onSpeechSettingsChange={props.onSpeechSettingsChange} api={api} routeMode="topics" />;
 }

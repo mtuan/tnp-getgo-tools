@@ -47,6 +47,27 @@ test("publish jobs expose item-level totals and current-step progress", async ()
   assert.equal(job.progressLabel, "Published");
 });
 
+test("publish jobs expose known totals immediately when started", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-initial-progress-"));
+  const manager = new PublishJobManager(directory);
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => { release = resolve; });
+  const started = await manager.start(
+    {
+      name: "Sync marketplace · All topics",
+      description: "6 topics · 12 quizzes",
+      route: "/topics",
+      initialTotal: 18,
+      initialProgressLabel: "Preparing 6 topics and 12 quizzes",
+    },
+    async () => blocked,
+  );
+  assert.equal(started.total, 18);
+  assert.equal(started.completed, 0);
+  assert.equal(started.progressLabel, "Preparing 6 topics and 12 quizzes");
+  release();
+});
+
 test("publish jobs pause, resume, and cancel at safe checkpoints", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-control-"));
   const manager = new PublishJobManager(directory);

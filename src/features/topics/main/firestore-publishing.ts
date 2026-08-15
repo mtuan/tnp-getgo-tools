@@ -334,6 +334,22 @@ export class FirestorePublishingService {
     return { kind: "topic", topicId: topic.id, contentHash, publishedAt };
   }
 
+  async uploadContentV2TopicAssets(
+    topicId: string,
+    assets: ContentV2Asset[],
+    control?: PublishJobControl,
+  ): Promise<void> {
+    for (const asset of assets) {
+      await control?.checkpoint();
+      const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
+      await this.auth.uploadStorageObject(
+        `getgo-content-v2/topics/${topicId}/assets/${reference}`,
+        asset.data,
+        asset.mimeType,
+      );
+    }
+  }
+
   async contentV2TopicExists(topicId: string): Promise<boolean> {
     const result = await this.getDocument(contentV2TopicPath(topicId));
     return result.document !== null;

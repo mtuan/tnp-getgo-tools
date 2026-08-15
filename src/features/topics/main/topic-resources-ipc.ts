@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
 import { hashContentV2, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
-import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import { localizedAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { syncAllMarketplaceTopics } from "./marketplace-sync-all.js";
@@ -103,14 +103,32 @@ ipcMain.handle(
     );
   },
 );
-ipcMain.handle("marketplace:topics:sync-all", async () => {
+ipcMain.handle("marketplace:topics:sync-all", async (_event, value: unknown) => {
   const active = (await publishJobs.list()).find((job) => job.name === "Sync marketplace · All topics" && ["queued", "running", "paused"].includes(job.status));
   if (active) return backgroundJobsSnapshot();
   if (!firebaseAuth) throw new Error("Publishing is not initialized.");
-  await publishJobs.start({ name: "Sync marketplace · All topics", description: "Synchronize local topics, quizzes, questions, resources, assets, and marketplace states", route: "/topics" }, async (control) => {
+  if (!Array.isArray(value)) throw new Error("Invalid marketplace sync plan.");
+  const idPattern = /^[a-z][a-z0-9-]*$/;
+  const plan = value.map((item): { kind: "topic" | "quiz"; topicId: string; quizId?: string } => {
+    if (!item || typeof item !== "object") throw new Error("Invalid marketplace sync item.");
+    const input = item as Record<string, unknown>;
+    if ((input.kind !== "topic" && input.kind !== "quiz") || typeof input.topicId !== "string" || !idPattern.test(input.topicId))
+      throw new Error("Invalid marketplace sync item.");
+    if (input.kind === "quiz" && (typeof input.quizId !== "string" || !idPattern.test(input.quizId)))
+      throw new Error("Invalid marketplace quiz sync item.");
+    return input.kind === "quiz" ? { kind: "quiz", topicId: input.topicId, quizId: input.quizId as string } : { kind: "topic", topicId: input.topicId };
+  });
+  const topicCount = plan.filter((item) => item.kind === "topic").length;
+  const quizCount = plan.length - topicCount;
+  await publishJobs.start({
+    name: "Sync marketplace · All topics",
+    description: `${topicCount} topics · ${quizCount} quizzes`,
+    route: "/topics",
+    initialTotal: plan.length,
+    initialProgressLabel: `Preparing ${topicCount} topics and ${quizCount} quizzes`,
+  }, async (control) => {
     const root = await repositoryRoot();
-    const content = (await loadContentV2WorkspaceFromFiles(root)).content;
-    await syncAllMarketplaceTopics(root, content, publishing, firebaseAuth, control);
+    await syncAllMarketplaceTopics(root, plan, publishing, firebaseAuth, control);
   });
   return backgroundJobsSnapshot();
 });

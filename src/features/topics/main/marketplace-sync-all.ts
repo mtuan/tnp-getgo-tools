@@ -1,8 +1,8 @@
 import { hashContentV2, marketplaceTopicState, sanitizeMarketplaceTopic } from "../../../features/topics/domain/content-v2.js";
-import type { ContentV2Snapshot } from "../../../shared/domain/models.js";
+import type { MarketplaceSyncJobItem } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicFolder, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
@@ -10,21 +10,25 @@ import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 
 export async function syncAllMarketplaceTopics(
   root: string,
-  content: ContentV2Snapshot,
+  requestedPlan: MarketplaceSyncJobItem[],
   publishing: FirestorePublishingService,
   firebaseAuth: FirebaseAuthService,
   control: PublishJobControl,
 ): Promise<void> {
-  const plan = marketplaceSyncPlan(content.topics, content.quizzes)
-    .filter((item) => item.ready);
-  await control.setTotal(plan.length, "Preparing topic and quiz synchronization");
+  await control.setTotal(requestedPlan.length, "Initializing marketplace sync");
   const target = await firebaseAuth.publishingTarget();
-  let next = content;
-  const topicIds = [...new Set(plan.map((item) => item.topic.id))];
+  const topicIds = [...new Set(requestedPlan.map((item) => item.topicId))];
   for (const topicId of topicIds) {
-    const topicSummary = next.topics.find((item) => item.id === topicId)!;
+    await control.checkpoint();
+    const content = (await loadContentV2TopicFolder(root, topicId)).content;
+    let next = content;
+    const requested = requestedPlan.filter((item) => item.topicId === topicId);
+    const requestedKeys = new Set(requested.map((item) => item.kind === "quiz" ? `quiz:${item.quizId}` : "topic"));
+    const plan = marketplaceSyncPlan(content.topics, content.quizzes).filter((item) => item.ready);
+    const topicPlan = plan.filter((item) => requestedKeys.has(item.kind === "quiz" ? `quiz:${item.quiz.id}` : "topic"));
+    const topicSummary = next.topics.find((item) => item.id === topicId);
+    if (!topicSummary) throw new Error(`Topic ${topicId} was not found.`);
     const topic = await loadContentV2Topic(root, topicId);
-    const topicPlan = plan.filter((item) => item.topic.id === topicId);
     const state = marketplaceTopicState(topic.marketplace);
     if (state === "unlisted") {
       const topicQuizzes = next.quizzes.filter((item) => item.topicId === topicId);
@@ -33,6 +37,8 @@ export async function syncAllMarketplaceTopics(
         await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], control);
         await clearContentV2Published(quiz.filePath);
         await writeContentV2QuizPublishState(quiz.filePath, { schemaVersion: 1, targets: {} });
+        if (requestedKeys.has(`quiz:${quiz.id}`))
+          await control.advance(`Removed quiz · ${quiz.title}`);
       }
       await publishing.removeContentV2Topic(topicId, control);
       await clearContentV2Published(topicSummary.filePath);
@@ -69,7 +75,7 @@ export async function syncAllMarketplaceTopics(
         Promise.all(questionIds.map((id) => loadContentV2Question(root, topicId, summary.id, id))),
         loadContentV2QuizResources(root, topicId, quiz),
       ]);
-      const assets = await loadContentV2Assets(root, topicId, summary.id, { topic, quiz, questions, resources });
+      const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources });
       const previous = await readContentV2QuizPublishState(summary.filePath);
       const result = await publishing.publishContentV2Quiz(topicId, quiz, questions, resources, assets, summary.localHash, previous.targets[target.projectId]);
       await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);
@@ -78,6 +84,8 @@ export async function syncAllMarketplaceTopics(
       await control.advance(`Synchronized quiz · ${summary.title}`);
     }
     const reviewedQuizIds = reviewedTopicQuizzes(next.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
+    const topicAssets = await loadContentV2Assets(root, topicId, undefined, { topic });
+    await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
     const topicResult = await publishing.publishContentV2Topic(topic, topicSummary.localHash, reviewedQuizIds);
     await recordContentV2Published(topicSummary.filePath, topicResult.contentHash, topicResult.publishedAt);
     const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
@@ -89,5 +97,9 @@ export async function syncAllMarketplaceTopics(
     };
     if (topicPlan.some((item) => item.kind === "topic"))
       await control.advance(`Synchronized topic · ${topicSummary.title}`);
+    const processedKeys = new Set(topicPlan.map((item) => item.kind === "quiz" ? `quiz:${item.quiz.id}` : "topic"));
+    for (const item of requested)
+      if (!processedKeys.has(item.kind === "quiz" ? `quiz:${item.quizId}` : "topic"))
+        await control.advance(`Skipped item already synchronized · ${item.kind === "quiz" ? item.quizId : topicId}`);
   }
 }

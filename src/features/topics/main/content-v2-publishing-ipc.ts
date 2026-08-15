@@ -122,7 +122,7 @@ ipcMain.handle(
             root,
             topicId,
             quizSummary.id,
-            { topic, quiz, questions, resources },
+            { quiz, questions, resources },
           );
           const publishState = await readContentV2QuizPublishState(
             quizSummary.filePath,
@@ -170,6 +170,10 @@ ipcMain.handle(
           await clearContentV2Published(removed.filePath);
           await writeContentV2QuizPublishState(removed.filePath, { schemaVersion: 1, targets: {} });
         }
+        // Topic-owned assets are uploaded after quiz cleanup so an old quiz
+        // publish state can never remove the shared topic icon permanently.
+        const topicAssets = await loadContentV2Assets(root, topicId, undefined, { topic });
+        await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
         // Publish the catalog entry last so it never advertises a quiz early.
         const result = await publishing.publishContentV2Topic(
           topic,
@@ -231,7 +235,6 @@ ipcMain.handle(
     );
     if (!summary) throw new Error("The selected quiz was not found.");
     const quiz = await loadContentV2Quiz(root, topicId, quizId);
-    const topic = await loadContentV2Topic(root, topicId);
     const questionIds = content.questions
       .filter(
         (question) =>
@@ -248,7 +251,6 @@ ipcMain.handle(
       loadContentV2QuizResources(root, topicId, quiz),
     ]);
     const assets = await loadContentV2Assets(root, topicId, quizId, {
-      topic,
       quiz,
       questions,
       resources,
@@ -316,7 +318,6 @@ ipcMain.handle(
           loadContentV2QuizResources(root, topicId, quiz),
         ]);
         const assets = await loadContentV2Assets(root, topicId, quizId, {
-          topic,
           quiz,
           questions,
           resources,
@@ -351,6 +352,8 @@ ipcMain.handle(
           control,
           publishContainingTopic ? 2 : 0,
         );
+        const topicAssets = await loadContentV2Assets(root, topicId, undefined, { topic });
+        await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
         const removingQuiz = marketplaceTopicState(quiz.marketplace) === "unlisted";
         const topicResult = publishContainingTopic
           ? await publishing.publishContentV2Topic(

@@ -18,8 +18,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("legacy:overview:load", path) as Promise<RepositoryViewData>,
   publishMarketplaceTopic: (topicId, state) =>
     ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
-  syncContentV2Marketplace: () =>
-    ipcRenderer.invoke("marketplace:topics:sync-all"),
+  syncContentV2Marketplace: (items) =>
+    ipcRenderer.invoke("marketplace:topics:sync-all", items),
   loadContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:load", topicId),
   loadContentV2Route: (topicId) =>
