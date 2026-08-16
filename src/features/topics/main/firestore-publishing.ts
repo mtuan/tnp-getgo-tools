@@ -634,7 +634,14 @@ export class FirestorePublishingService {
     parentPath: string,
     collectionId: string,
   ): Promise<string[]> {
-    const names: string[] = [];
+    return (await this.listDocuments(parentPath, collectionId)).map((document) => document.name);
+  }
+
+  private async listDocuments(
+    parentPath: string,
+    collectionId: string,
+  ): Promise<FirestoreDocument[]> {
+    const documents: FirestoreDocument[] = [];
     let pageToken = "";
     do {
       const query = new URLSearchParams({
@@ -644,16 +651,16 @@ export class FirestorePublishingService {
       const { response } = await this.auth.firestoreRequest(
         `${parentPath}/${collectionId}?${query}`,
       );
-      if (response.status === 404) return names;
+      if (response.status === 404) return documents;
       if (!response.ok) throw await responseError(response);
       const payload = (await response.json()) as {
         documents?: FirestoreDocument[];
         nextPageToken?: string;
       };
-      names.push(...(payload.documents ?? []).map((document) => document.name));
+      documents.push(...(payload.documents ?? []));
       pageToken = payload.nextPageToken ?? "";
     } while (pageToken);
-    return names;
+    return documents;
   }
 
   private async commit(writes: Array<Record<string, unknown>>): Promise<void> {

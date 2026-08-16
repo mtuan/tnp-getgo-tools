@@ -4238,11 +4238,13 @@ tbody tr:hover {
 }
 .manager-market-state-cell {
   display: inline-flex;
-  height: 34px;
   align-items: center;
   justify-content: center;
-  line-height: 0;
   vertical-align: middle;
+}
+.manager-market-state-cell.compact {
+  height: 34px;
+  line-height: 0;
 }
 .settings-section-actions {
   display: flex;

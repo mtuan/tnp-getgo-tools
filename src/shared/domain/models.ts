@@ -581,7 +581,6 @@ export interface MarketplaceSyncJobItem {
   topicId: string;
   quizId?: string;
 }
-
 export interface ImagePdfInput {
   path: string;
   directory: string;

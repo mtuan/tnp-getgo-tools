@@ -43,7 +43,7 @@ export function MarketplaceStateCell({
       setSaving(false);
     }
   };
-  return <span className="manager-market-state-cell" onClick={(event) => event.stopPropagation()}>
+  return <span className={`manager-market-state-cell${compact ? " compact" : ""}`} onClick={(event) => event.stopPropagation()}>
     <MarketplaceStateSelect locale={locale} value={selected} disabled={saving} compact={compact} onChange={(next) => void change(next)} />
   </span>;
 }
