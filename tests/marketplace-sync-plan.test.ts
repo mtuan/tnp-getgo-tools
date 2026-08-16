@@ -33,3 +33,14 @@ test("marketplace sync plan includes changed quizzes and review readiness", () =
     ["quiz", "pending", "create", false],
   ]);
 });
+
+test("unreviewed quiz changes do not create an empty actionable topic row", () => {
+  const topics = [{ id: "ikmc", title: "IKMC", localHash: "topic", publishedHash: "topic", marketplaceLocalHash: "market", marketplacePublishedHash: "market", marketplace: { state: "listed" } }];
+  const quizzes = [
+    { key: "ikmc/pending", id: "pending", topicId: "ikmc", title: "Pending", localHash: "new", publishedHash: null, questionCount: 2, reviewedQuestionCount: 1, marketplace: { state: "listed" } },
+  ];
+  const plan = marketplaceSyncPlan(topics as never, quizzes as never);
+  assert.deepEqual(plan.map((item) => [item.kind, item.kind === "quiz" ? item.quiz.id : item.topic.id, item.ready]), [
+    ["quiz", "pending", false],
+  ]);
+});

@@ -64,8 +64,21 @@ export function ManagerHeaderControls(context: Context) {
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const sync = useMarketplaceSync(locale, toast, onOpenJobs);
   const [syncPreviewOpen, setSyncPreviewOpen] = useState(false);
+  const [loadingSyncPreview, setLoadingSyncPreview] = useState(false);
   const [startingSync, setStartingSync] = useState(false);
-  const openSyncPreview = () => setSyncPreviewOpen(true);
+  const openSyncPreview = async () => {
+    if (loadingSyncPreview) return;
+    setLoadingSyncPreview(true);
+    try {
+      const contentV2 = await window.getgo.loadMarketplaceSyncContent();
+      onSnapshotChange({ ...snapshot, contentV2 });
+      setSyncPreviewOpen(true);
+    } catch (error) {
+      toast.show({ title: copy.publishFailed, description: String(error), variant: "error" });
+    } finally {
+      setLoadingSyncPreview(false);
+    }
+  };
   const batch = (state: MarketplaceTopicState) => runButtonAction(`batch-market-${state}`, async () => {
     const records = (isContest ? snapshot.contentV2.quizzes.filter((item) => item.topicId === selectedContest?.id) : snapshot.contentV2.topics)
       .filter((item) => state !== "listed" || marketplaceTopicState(item.marketplace) === "unlisted");
@@ -82,7 +95,7 @@ export function ManagerHeaderControls(context: Context) {
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     { id: "list-all", label: copy.listAll, onSelect: () => void batch("listed") },
     ...((isContest || topicsView === "list") ? [{ id: "unlist-all", label: copy.unlistAll, onSelect: () => void batch("unlisted") }] : []),
-    ...(!isContest ? [{ id: "sync", label: sync.label, icon: RefreshCw, disabled: Boolean(sync.job), onSelect: openSyncPreview }, { id: "view", label: topicsView === "tree" ? "Show list view" : "Show tree view", icon: topicsView === "tree" ? Rows3 : ListOrdered, onSelect: () => { const next = topicsView === "tree" ? "list" : "tree"; setTopicsView(next); try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* optional */ } } }] : []),
+    ...(!isContest ? [{ id: "sync", label: sync.label, icon: RefreshCw, disabled: Boolean(sync.job) || loadingSyncPreview, onSelect: () => void openSyncPreview() }, { id: "view", label: topicsView === "tree" ? "Show list view" : "Show tree view", icon: topicsView === "tree" ? Rows3 : ListOrdered, onSelect: () => { const next = topicsView === "tree" ? "list" : "tree"; setTopicsView(next); try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* optional */ } } }] : []),
   ];
   return <>
     <label className="manager-search ui-page-header-control"><Search size={17} /><input aria-label={isContest ? "Search quizzes" : "Search topics"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search topics…"} /></label>

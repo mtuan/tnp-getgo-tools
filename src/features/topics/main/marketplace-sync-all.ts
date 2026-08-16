@@ -20,7 +20,10 @@ export async function syncAllMarketplaceTopics(
   const topicIds = [...new Set(requestedPlan.map((item) => item.topicId))];
   for (const topicId of topicIds) {
     await control.checkpoint();
-    const content = (await loadContentV2TopicFolder(root, topicId)).content;
+    const content = (await loadContentV2TopicFolder(root, topicId, {
+      lightweight: false,
+      projectId: target.projectId,
+    })).content;
     let next = content;
     const requested = requestedPlan.filter((item) => item.topicId === topicId);
     const requestedKeys = new Set(requested.map((item) => item.kind === "quiz" ? `quiz:${item.quizId}` : "topic"));
@@ -36,7 +39,8 @@ export async function syncAllMarketplaceTopics(
         const publishState = await readContentV2QuizPublishState(quiz.filePath);
         await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], control);
         await clearContentV2Published(quiz.filePath);
-        await writeContentV2QuizPublishState(quiz.filePath, { schemaVersion: 1, targets: {} });
+        const { [target.projectId]: _removed, ...remainingTargets } = publishState.targets;
+        await writeContentV2QuizPublishState(quiz.filePath, { schemaVersion: 1, targets: remainingTargets });
         if (requestedKeys.has(`quiz:${quiz.id}`))
           await control.advance(`Removed quiz · ${quiz.title}`);
       }
@@ -64,7 +68,9 @@ export async function syncAllMarketplaceTopics(
       if (item.action === "remove") {
         await publishing.deleteContentV2TopicQuizzes(topicId, [summary.id]);
         await clearContentV2Published(summary.filePath);
-        await writeContentV2QuizPublishState(summary.filePath, { schemaVersion: 1, targets: {} });
+        const previous = await readContentV2QuizPublishState(summary.filePath);
+        const { [target.projectId]: _removed, ...remainingTargets } = previous.targets;
+        await writeContentV2QuizPublishState(summary.filePath, { schemaVersion: 1, targets: remainingTargets });
         removedQuizKeys.add(summary.key);
         await control.advance(`Removed quiz · ${summary.title}`);
         continue;
@@ -90,7 +96,12 @@ export async function syncAllMarketplaceTopics(
     await recordContentV2Published(topicSummary.filePath, topicResult.contentHash, topicResult.publishedAt);
     const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
     const marketResult = await syncMarketplaceTopic(publishing, topic, marketplaceHash, state);
-    const saved = await saveContentV2Topic(root, { ...topic, marketplace: syncedMarketplaceMetadata(topic.marketplace, state, marketResult) });
+    const saved = await saveContentV2Topic(root, {
+      ...topic,
+      publishedHash: topicResult.contentHash,
+      publishedAt: topicResult.publishedAt,
+      marketplace: syncedMarketplaceMetadata(topic.marketplace, state, marketResult),
+    });
     next = { ...next,
       topics: next.topics.map((item) => item.id === topicId ? { ...item, publishedHash: topicResult.contentHash, publishedAt: topicResult.publishedAt, marketplace: saved.marketplace, marketplaceLocalHash: marketplaceHash, marketplacePublishedHash: marketResult.contentHash, marketplacePublishedAt: marketResult.publishedAt } : item),
       quizzes: next.quizzes.map((item) => { if (removedQuizKeys.has(item.key)) return { ...item, publishedHash: null, publishedAt: null }; const result = quizResults.get(item.key); return result ? { ...item, publishedHash: result.contentHash, publishedAt: result.publishedAt } : item; }),

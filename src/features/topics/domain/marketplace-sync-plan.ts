@@ -13,6 +13,12 @@ function changed(local: string | undefined, published: string | null | undefined
   return local !== published;
 }
 
+function quizReady(topicState: string, quiz: ContentV2QuizSummary) {
+  const state = marketplaceTopicState(quiz.marketplace);
+  return topicState === "unlisted" || state === "unlisted" ||
+    (quiz.questionCount > 0 && quiz.questionCount === quiz.reviewedQuestionCount);
+}
+
 export function marketplaceSyncPlan(
   topics: ContentV2TopicSummary[],
   quizzes: ContentV2QuizSummary[] = [],
@@ -32,7 +38,7 @@ export function marketplaceSyncPlan(
       ? Boolean(topic.publishedHash || topic.marketplacePublishedHash)
       : changed(topic.localHash, topic.publishedHash) ||
         changed(topic.marketplaceLocalHash, topic.marketplacePublishedHash);
-    if (topicChanged || changedQuizzes.length) {
+    if (topicChanged || changedQuizzes.some((quiz) => quizReady(marketState, quiz))) {
       items.push({
         kind: "topic",
         topic,
@@ -51,8 +57,7 @@ export function marketplaceSyncPlan(
         action: marketState === "unlisted" || state === "unlisted"
           ? "remove"
           : quiz.publishedHash ? "update" : "create",
-        ready: marketState === "unlisted" || state === "unlisted" ||
-          (quiz.questionCount > 0 && quiz.questionCount === quiz.reviewedQuestionCount),
+        ready: quizReady(marketState, quiz),
       });
     }
   }
