@@ -312,7 +312,7 @@ export class WebDeploymentJobManager {
         : `Deploy ${component === "web" ? "Web" : "Firebase"} · ${target}`,
       description: operation === "build"
         ? `Prepare local ${component === "web" ? "GetGo Web" : "Firebase rules, indexes, and Cloud Functions"} deployment files`
-        : `Publish ${component === "web" ? "GetGo Web" : "Firebase rules, indexes, and Cloud Functions"} to ${target}`,
+        : `Publish ${component === "web" ? "GetGo Web" : "only changed Firebase rules, indexes, or Cloud Functions"} to ${target}`,
       status: "queued",
       completed: 0,
       total: progressTotal(operation, component),

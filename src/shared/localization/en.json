@@ -339,7 +339,7 @@
     "description": "Deploy Firebase backend resources and GetGo Web independently to the environment selected in the header.",
     "openJobs": "Deployment jobs",
     "rulesTitle": "Firebase",
-    "rulesDescription": "Deploy security rules, indexes, and Cloud Functions without rebuilding Web.",
+    "rulesDescription": "Build Firebase resources together, then deploy only the rules, indexes, or Cloud Functions that changed.",
     "firestoreRules": "Firestore security rules",
     "firestoreIndexes": "Firestore indexes",
     "storageRules": "Cloud Storage security rules",

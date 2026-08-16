@@ -339,7 +339,7 @@
     "description": "Triển khai riêng tài nguyên Firebase backend và GetGo Web đến môi trường đang chọn trên thanh tiêu đề.",
     "openJobs": "Công việc triển khai",
     "rulesTitle": "Firebase",
-    "rulesDescription": "Triển khai quy tắc bảo mật, chỉ mục và Cloud Functions mà không build lại Web.",
+    "rulesDescription": "Build chung tài nguyên Firebase, sau đó chỉ triển khai quy tắc, chỉ mục hoặc Cloud Functions đã thay đổi.",
     "firestoreRules": "Quy tắc bảo mật Firestore",
     "firestoreIndexes": "Chỉ mục Firestore",
     "storageRules": "Quy tắc bảo mật Cloud Storage",
