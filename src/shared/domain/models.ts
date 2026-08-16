@@ -516,6 +516,7 @@ export interface DeploymentComponentState {
 export interface DeploymentStateSnapshot {
   target: WebDeploymentTarget;
   firebaseProject: string;
+  functionsRegion: string;
   firebaseConsoleUrl: string;
   webUrl: string;
   rules: DeploymentComponentState;

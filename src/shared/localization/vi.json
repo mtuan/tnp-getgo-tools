@@ -344,6 +344,7 @@
     "firestoreIndexes": "Chỉ mục Firestore",
     "storageRules": "Quy tắc bảo mật Cloud Storage",
     "cloudFunctions": "Cloud Functions",
+    "functionsRegion": "Khu vực Functions",
     "deployRules": "Triển khai Firebase",
     "openFirebase": "Mở Firebase",
     "buildLocal": "Build",

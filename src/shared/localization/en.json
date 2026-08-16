@@ -344,6 +344,7 @@
     "firestoreIndexes": "Firestore indexes",
     "storageRules": "Cloud Storage security rules",
     "cloudFunctions": "Cloud Functions",
+    "functionsRegion": "Functions region",
     "deployRules": "Deploy Firebase",
     "openFirebase": "Open Firebase",
     "buildLocal": "Build",
