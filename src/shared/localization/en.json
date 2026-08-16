@@ -376,7 +376,7 @@
     "starting": "Starting",
     "failed": "Failed",
     "managedByTools": "Managed by Tools",
-    "notManaged": "Not running",
+    "notManaged": "Running outside Tools",
     "productionConfirm": "Deploy {component} to production?",
     "recentDeployments": "Recent deployments",
     "openAllJobs": "All jobs",

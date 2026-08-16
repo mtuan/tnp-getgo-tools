@@ -1,9 +1,11 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { promisify } from "node:util";
 import type { LocalWebRuntimeSnapshot } from "../../../shared/domain/models.js";
 
 const LOCAL_WEB_URL = "http://localhost:5173";
+const execFileAsync = promisify(execFile);
 interface PersistedRuntime {
   pid: number;
   startedAt: string;
@@ -68,6 +70,17 @@ export class LocalWebRuntimeManager {
       return response.ok;
     } catch {
       return false;
+    }
+  }
+
+  private async listenerPid(): Promise<number | null> {
+    if (process.platform === "win32") return null;
+    try {
+      const { stdout } = await execFileAsync("lsof", ["-nP", "-tiTCP:5173", "-sTCP:LISTEN"]);
+      const pid = Number(stdout.trim().split(/\s+/)[0]);
+      return Number.isInteger(pid) && pid > 0 ? pid : null;
+    } catch {
+      return null;
     }
   }
 
@@ -144,11 +157,16 @@ export class LocalWebRuntimeManager {
   }
 
   async restart() {
-    if (!this.child && !await this.persistedRuntime() && await this.isOnline())
-      throw new Error("The localhost server was not started by GetGo Tools and cannot be restarted here.");
-    await this.terminate();
+    const managed = Boolean(this.child || await this.persistedRuntime());
+    if (managed) await this.terminate();
+    else if (await this.isOnline()) {
+      const pid = await this.listenerPid();
+      if (!pid) throw new Error("The process using port 5173 could not be identified for restart.");
+      process.kill(pid, "SIGTERM");
+    }
     for (let attempt = 0; attempt < 15 && await this.isOnline(); attempt += 1)
       await new Promise((resolve) => setTimeout(resolve, 200));
+    if (await this.isOnline()) throw new Error("The existing localhost server did not stop in time.");
     return this.start();
   }
 

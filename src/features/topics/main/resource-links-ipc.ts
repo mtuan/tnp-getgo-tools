@@ -70,7 +70,10 @@ function assertAllowedExternalUrl(requestedUrl: unknown): URL {
 
 export function registerResourceLinksIpc(ipc: IpcMain): void {
   ipc.handle("clipboard:write", (_event, text: unknown) => {
-    if (typeof text !== "string" || text.length > 2048)
+    // Deployment reports can contain complete multi-step command output.
+    // Keep type validation at the IPC boundary without imposing a tiny
+    // message-length limit that makes the shared copy action fail.
+    if (typeof text !== "string" || text.length > 10_000_000)
       throw new Error("Invalid clipboard text");
     clipboard.writeText(text);
   });

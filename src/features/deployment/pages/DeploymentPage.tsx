@@ -158,9 +158,9 @@ export function DeploymentPage({
         </div>
         <div className="deployment-card-actions">
           <Button icon={<ExternalLink />} disabled={localWeb?.status !== "online"} onClick={() => localWeb && void window.getgo.openExternal(localWeb.url)}>{copy.openLocalhost}</Button>
-          {localWeb?.managed
+          {localWeb?.status === "online" || localWeb?.managed
             ? <Button variant="solid" icon={<RotateCw />} loading={localWebAction === "restart"} onClick={() => void controlLocalWeb("restart")}>{copy.restartLocalhost}</Button>
-            : <Button variant="solid" icon={<Power />} loading={localWebAction === "start"} disabled={localWeb?.status === "online"} onClick={() => void controlLocalWeb("start")}>{copy.runLocalhost}</Button>}
+            : <Button variant="solid" icon={<Power />} loading={localWebAction === "start"} onClick={() => void controlLocalWeb("start")}>{copy.runLocalhost}</Button>}
         </div>
       </Panel>
     </div>
