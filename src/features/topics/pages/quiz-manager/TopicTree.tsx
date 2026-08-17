@@ -2,7 +2,8 @@ import type { ContestSummary, QuizSummary, RepositoryViewData } from "../../../.
 import { TreeDataTable, type TreeDataRow } from "../../../../shared/ui/TreeDataTable";
 import type { DataColumn } from "../../../../shared/ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../../../../shared/ui/StatusBadge";
-import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
+import { marketplaceStateLabel } from "../../../../renderer/topic-status";
+import { marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
 import { contentV2QuizReviewStatus } from "./shared";
 import { TopicQuizTreeIdentity } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
@@ -33,6 +34,7 @@ isContest,
     visibleContests
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
+  const syncPlan = marketplaceSyncPlan(snapshot.contentV2.topics, snapshot.contentV2.quizzes);
   return (
     <>
           {!isContest && topicMode && (
@@ -133,9 +135,16 @@ isContest,
                   width: 144,
                   align: "center",
                   render: (row) => {
-                    const status = row.kind === "quiz"
-                      ? quizMarketplaceStatus(row.quiz)
-                      : topicMarketplaceSyncStatus(row.summary);
+                    const value = marketplaceSyncPlanStatus(
+                      syncPlan,
+                      row.kind,
+                      row.kind === "quiz" ? `${row.quiz.contest}/${row.quiz.id}` : row.summary.id,
+                    );
+                    const status = value === "current"
+                      ? { kind: "current", label: "Up to date" }
+                      : value === "needs-review"
+                        ? { kind: "changed", label: "Needs review" }
+                        : { kind: "changed", label: "Needs sync" };
                     const tone: StatusBadgeTone =
                       status.kind === "current"
                         ? "success"

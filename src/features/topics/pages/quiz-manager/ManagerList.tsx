@@ -1,7 +1,8 @@
 import { ChevronRight } from "lucide-react";
 import type { ContestSummary, QuizSummary, RepositoryViewData } from "../../../../shared/domain/models";
 import { StatusBadge } from "../../../../shared/ui/StatusBadge";
-import { marketplaceStateLabel, quizMarketplaceStatus, topicMarketplaceSyncStatus } from "../../../../renderer/topic-status";
+import { marketplaceStateLabel } from "../../../../renderer/topic-status";
+import { marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
 import { contentV2QuizReviewStatus, quizReviewStatus } from "./shared";
 import { TopicQuizIcon as ManagerListIcon } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
@@ -34,6 +35,7 @@ export function renderManagerList(context: ManagerListContext) {
     visibleQuizzes,
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
+  const syncPlan = marketplaceSyncPlan(snapshot.contentV2.topics, snapshot.contentV2.quizzes);
   return (
     <>
       {(!isContest || contestTab === "quizzes") && (
@@ -151,8 +153,8 @@ export function renderManagerList(context: ManagerListContext) {
                               })()}
                             </td>
                             <td className="manager-status-cell">
-                              <StatusBadge tone={quizMarketplaceStatus(quiz).kind === "current" ? "success" : "warning"}>
-                                {quizMarketplaceStatus(quiz).label}
+                              <StatusBadge tone={marketplaceSyncPlanStatus(syncPlan, "quiz", `${quiz.contest}/${quiz.id}`) === "current" ? "success" : "warning"}>
+                                {marketplaceSyncPlanStatus(syncPlan, "quiz", `${quiz.contest}/${quiz.id}`) === "current" ? "Up to date" : marketplaceSyncPlanStatus(syncPlan, "quiz", `${quiz.contest}/${quiz.id}`) === "needs-review" ? "Needs review" : "Needs sync"}
                               </StatusBadge>
                             </td>
                           </tr>
@@ -336,18 +338,12 @@ export function renderManagerList(context: ManagerListContext) {
                                   </td>
                                   <td className="manager-status-cell">
                                     {(() => {
-                                      const status = topicMarketplaceSyncStatus(topicSummary);
+                                      const value = marketplaceSyncPlanStatus(syncPlan, "topic", topicSummary.id);
                                       return (
                                         <StatusBadge
-                                          tone={
-                                            status.kind === "current"
-                                              ? "success"
-                                              : status.kind === "changed"
-                                                ? "warning"
-                                                : "neutral"
-                                          }
+                                          tone={value === "current" ? "success" : "warning"}
                                         >
-                                          {status.label}
+                                          {value === "current" ? "Up to date" : value === "needs-review" ? "Needs review" : "Needs sync"}
                                         </StatusBadge>
                                       );
                                     })()}

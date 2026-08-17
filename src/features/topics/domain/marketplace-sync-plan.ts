@@ -9,6 +9,20 @@ export type MarketplaceSyncPlanItem =
   | { kind: "topic"; topic: ContentV2TopicSummary; action: SyncAction; ready: true }
   | { kind: "quiz"; topic: ContentV2TopicSummary; quiz: ContentV2QuizSummary; action: SyncAction; ready: boolean };
 
+export type MarketplaceSyncPlanStatus = "current" | "needs-sync" | "needs-review";
+
+export function marketplaceSyncPlanStatus(
+  plan: MarketplaceSyncPlanItem[],
+  kind: MarketplaceSyncPlanItem["kind"],
+  key: string,
+): MarketplaceSyncPlanStatus {
+  const item = plan.find((candidate) => candidate.kind === kind && (
+    candidate.kind === "topic" ? candidate.topic.id === key : candidate.quiz.key === key
+  ));
+  if (!item) return "current";
+  return item.ready ? "needs-sync" : "needs-review";
+}
+
 function changed(local: string | undefined, published: string | null | undefined) {
   return local !== published;
 }

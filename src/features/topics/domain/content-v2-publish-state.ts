@@ -25,6 +25,19 @@ export interface ContentV2QuizPublishState {
   targets: Record<string, ContentV2PublishTargetState>;
 }
 
+export interface ContentV2TopicPublishTargetState {
+  environment: string;
+  projectId: string;
+  contentHash: string | null;
+  marketplaceContentHash: string | null;
+  publishedAt: string;
+}
+
+export interface ContentV2TopicPublishState {
+  schemaVersion: 1;
+  targets: Record<string, ContentV2TopicPublishTargetState>;
+}
+
 export function publishedItemKey(item: Pick<ContentV2PublishedItem, "kind" | "path">): string {
   return `${item.kind}:${item.path}`;
 }

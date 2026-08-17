@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
 import { hashContentV2, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
-import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import { localizedAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
 import { syncAllMarketplaceTopics } from "./marketplace-sync-all.js";
@@ -132,21 +132,13 @@ ipcMain.handle("marketplace:topics:sync-all", async (_event, value: unknown) => 
   });
   return backgroundJobsSnapshot();
 });
-ipcMain.handle("marketplace:topics:sync-content", async () => {
-  const root = await repositoryRoot();
-  const target = await firebaseAuth.publishingTarget();
-  return (await loadContentV2WorkspaceFromFiles(root, {
-    lightweight: true,
-    includeQuestions: false,
-    projectId: target.projectId,
-  })).content;
-});
 ipcMain.handle("content-v2:route:load", async (_event, topicId: unknown) => {
   if (topicId !== undefined && typeof topicId !== "string") throw new Error("Invalid topic ID.");
   const root = await repositoryRoot();
+  const target = await firebaseAuth.publishingTarget();
   const loaded = typeof topicId === "string"
-    ? await loadContentV2TopicFolder(root, topicId)
-    : await loadContentV2TopicsOverview(root);
+    ? await loadContentV2TopicFolder(root, topicId, { lightweight: false, projectId: target.projectId })
+    : await loadContentV2WorkspaceFromFiles(root, { lightweight: false, projectId: target.projectId });
   return { repositoryPath: root, loadedAt: new Date().toISOString(), content: loaded.content };
 });
 ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {

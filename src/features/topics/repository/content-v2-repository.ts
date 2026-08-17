@@ -16,7 +16,7 @@ import {
   type ContentV2Topic,
 } from "../../../features/topics/domain/content-v2.js";
 import type { ContentV2QuestionSummary, ContentV2QuizSummary, ContentV2Snapshot, ContentV2TopicSummary, FileLoadIssue } from "../../../shared/domain/models.js";
-import type { ContentV2QuizPublishState } from "../../../features/topics/domain/content-v2-publish-state.js";
+import type { ContentV2QuizPublishState, ContentV2TopicPublishState } from "../../../features/topics/domain/content-v2-publish-state.js";
 import { parseAlphabetDictionary, parseKidLearningDictionary, reviewedKidLearningDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
@@ -303,8 +303,12 @@ export async function loadContentV2WorkspaceFromFiles(
         order: quiz.order,
         filePath: quizFile,
         localHash,
-        publishedHash: targetPublishState?.contentHash ?? quiz.publishedHash ?? null,
-        publishedAt: targetPublishState?.publishedAt ?? quiz.publishedAt ?? null,
+        publishedHash: options.projectId
+          ? targetPublishState?.contentHash ?? null
+          : quiz.publishedHash ?? null,
+        publishedAt: options.projectId
+          ? targetPublishState?.publishedAt ?? null
+          : quiz.publishedAt ?? null,
         marketplace: quiz.marketplace,
         questionCount: quizQuestions.length,
         reviewedQuestionCount: quizQuestions.filter(
@@ -336,6 +340,9 @@ export async function loadContentV2WorkspaceFromFiles(
       (left, right) =>
         left.order - right.order || left.id.localeCompare(right.id),
     );
+    const targetTopicPublishState = options.projectId
+      ? (await readContentV2TopicPublishState(topicFile)).targets[options.projectId]
+      : undefined;
     topics.push({
       id: topic.id,
       type: topic.type,
@@ -353,19 +360,21 @@ export async function loadContentV2WorkspaceFromFiles(
           order: quiz.order,
         })),
       }),
-      publishedHash: topic.publishedHash ?? null,
-      publishedAt: topic.publishedAt ?? null,
+      publishedHash: options.projectId
+        ? targetTopicPublishState?.contentHash ?? null
+        : topic.publishedHash ?? null,
+      publishedAt: options.projectId
+        ? targetTopicPublishState?.publishedAt ?? null
+        : topic.publishedAt ?? null,
       quizCount: topicQuizzes.length,
       marketplace: topic.marketplace,
       marketplaceLocalHash: hashContentV2(sanitizeMarketplaceTopic(topic)),
-      marketplacePublishedHash:
-        typeof topic.marketplace?.publishedHash === "string"
-          ? topic.marketplace.publishedHash
-          : null,
-      marketplacePublishedAt:
-        typeof topic.marketplace?.publishedAt === "string"
-          ? topic.marketplace.publishedAt
-          : null,
+      marketplacePublishedHash: options.projectId
+        ? targetTopicPublishState?.marketplaceContentHash ?? null
+        : typeof topic.marketplace?.publishedHash === "string" ? topic.marketplace.publishedHash : null,
+      marketplacePublishedAt: options.projectId
+        ? targetTopicPublishState?.publishedAt ?? null
+        : typeof topic.marketplace?.publishedAt === "string" ? topic.marketplace.publishedAt : null,
       ...(topic.type === "competition"
         ? {
             subject: topic.subject,
@@ -886,4 +895,30 @@ export async function writeContentV2QuizPublishState(
     path.join(path.dirname(quizFilePath), "publish-state.json"),
     state,
   );
+}
+
+export async function readContentV2TopicPublishState(
+  topicFilePath: string,
+): Promise<ContentV2TopicPublishState> {
+  const filePath = path.join(path.dirname(topicFilePath), "publish-state.json");
+  const value = await fs.readFile(filePath, "utf8")
+    .then((source) => JSON.parse(source) as unknown)
+    .catch((cause: NodeJS.ErrnoException) => {
+      if (cause.code === "ENOENT") return null;
+      throw cause;
+    });
+  if (value === null) return { schemaVersion: 1, targets: {} };
+  if (!value || typeof value !== "object" ||
+    (value as { schemaVersion?: unknown }).schemaVersion !== 1 ||
+    !(value as { targets?: unknown }).targets ||
+    typeof (value as { targets?: unknown }).targets !== "object")
+    throw new Error("Invalid topic publish-state.json.");
+  return value as ContentV2TopicPublishState;
+}
+
+export async function writeContentV2TopicPublishState(
+  topicFilePath: string,
+  state: ContentV2TopicPublishState,
+): Promise<void> {
+  await writeJson(path.join(path.dirname(topicFilePath), "publish-state.json"), state);
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { marketplaceSyncPlan } from "../src/features/topics/domain/marketplace-sync-plan";
+import { marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../src/features/topics/domain/marketplace-sync-plan";
 
 test("marketplace sync plan describes only changed remote documents", () => {
   const topic = (id: string, values: Record<string, unknown>) => ({
@@ -43,4 +43,17 @@ test("unreviewed quiz changes do not create an empty actionable topic row", () =
   assert.deepEqual(plan.map((item) => [item.kind, item.kind === "quiz" ? item.quiz.id : item.topic.id, item.ready]), [
     ["quiz", "pending", false],
   ]);
+});
+
+test("table sync status is derived from the same plan shown by the sync drawer", () => {
+  const topics = [{ id: "helix", title: "Helix", localHash: "topic", publishedHash: "topic", marketplaceLocalHash: "market", marketplacePublishedHash: "market", marketplace: { state: "listed" } }];
+  const quizzes = [
+    { key: "helix/changed", id: "changed", topicId: "helix", title: "Changed", localHash: "new", publishedHash: "old", questionCount: 2, reviewedQuestionCount: 2, marketplace: { state: "listed" } },
+    { key: "helix/current", id: "current", topicId: "helix", title: "Current", localHash: "same", publishedHash: "same", questionCount: 2, reviewedQuestionCount: 2, marketplace: { state: "listed" } },
+  ];
+  const plan = marketplaceSyncPlan(topics as never, quizzes as never);
+
+  assert.equal(marketplaceSyncPlanStatus(plan, "quiz", "helix/changed"), "needs-sync");
+  assert.equal(marketplaceSyncPlanStatus(plan, "quiz", "helix/current"), "current");
+  assert.ok(plan.some((item) => item.kind === "quiz" && item.quiz.key === "helix/changed" && item.ready));
 });

@@ -2,7 +2,7 @@ import { hashContentV2, marketplaceTopicState, sanitizeMarketplaceTopic } from "
 import type { MarketplaceSyncJobItem } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicFolder, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicFolder, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
@@ -57,7 +57,27 @@ export async function syncAllMarketplaceTopics(
         topics: next.topics.map((item) => item.id === topicId ? { ...item, publishedHash: null, publishedAt: null, marketplace: saved.marketplace, marketplacePublishedHash: null, marketplacePublishedAt: null } : item),
         quizzes: next.quizzes.map((item) => item.topicId === topicId ? { ...item, publishedHash: null, publishedAt: null } : item),
       };
+      const previousTopicState = await readContentV2TopicPublishState(topicSummary.filePath);
+      await writeContentV2TopicPublishState(topicSummary.filePath, {
+        schemaVersion: 1,
+        targets: {
+          ...previousTopicState.targets,
+          [target.projectId]: {
+            environment: target.environment,
+            projectId: target.projectId,
+            contentHash: null,
+            marketplaceContentHash: null,
+            publishedAt: new Date().toISOString(),
+          },
+        },
+      });
       await control.advance(`Removed topic data · ${topicSummary.title}`);
+      const verified = (await loadContentV2TopicFolder(root, topicId, {
+        lightweight: false,
+        projectId: target.projectId,
+      })).content;
+      if (marketplaceSyncPlan(verified.topics, verified.quizzes).some((item) => item.ready))
+        throw new Error(`Synchronization did not settle ${topicId}.`);
       continue;
     }
     const quizResults = new Map<string, { contentHash: string; publishedAt: string }>();
@@ -102,6 +122,20 @@ export async function syncAllMarketplaceTopics(
       publishedAt: topicResult.publishedAt,
       marketplace: syncedMarketplaceMetadata(topic.marketplace, state, marketResult),
     });
+    const previousTopicState = await readContentV2TopicPublishState(topicSummary.filePath);
+    await writeContentV2TopicPublishState(topicSummary.filePath, {
+      schemaVersion: 1,
+      targets: {
+        ...previousTopicState.targets,
+        [target.projectId]: {
+          environment: target.environment,
+          projectId: target.projectId,
+          contentHash: topicResult.contentHash,
+          marketplaceContentHash: marketResult.contentHash,
+          publishedAt: marketResult.publishedAt,
+        },
+      },
+    });
     next = { ...next,
       topics: next.topics.map((item) => item.id === topicId ? { ...item, publishedHash: topicResult.contentHash, publishedAt: topicResult.publishedAt, marketplace: saved.marketplace, marketplaceLocalHash: marketplaceHash, marketplacePublishedHash: marketResult.contentHash, marketplacePublishedAt: marketResult.publishedAt } : item),
       quizzes: next.quizzes.map((item) => { if (removedQuizKeys.has(item.key)) return { ...item, publishedHash: null, publishedAt: null }; const result = quizResults.get(item.key); return result ? { ...item, publishedHash: result.contentHash, publishedAt: result.publishedAt } : item; }),
@@ -112,5 +146,14 @@ export async function syncAllMarketplaceTopics(
     for (const item of requested)
       if (!processedKeys.has(item.kind === "quiz" ? `quiz:${item.quizId}` : "topic"))
         await control.advance(`Skipped item already synchronized · ${item.kind === "quiz" ? item.quizId : topicId}`);
+
+    const verified = (await loadContentV2TopicFolder(root, topicId, {
+      lightweight: false,
+      projectId: target.projectId,
+    })).content;
+    const remaining = marketplaceSyncPlan(verified.topics, verified.quizzes)
+      .filter((item) => item.ready);
+    if (remaining.length > 0)
+      throw new Error(`Synchronization did not settle ${topicId}: ${remaining.map((item) => item.kind === "quiz" ? item.quiz.id : item.topic.id).join(", ")}`);
   }
 }

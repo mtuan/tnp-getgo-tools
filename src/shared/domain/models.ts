@@ -620,7 +620,6 @@ export interface DesktopApi {
   chooseRepository(): Promise<string | null>;
   loadLegacyOverview(path?: string): Promise<RepositoryViewData>;
   publishMarketplaceTopic(topicId: string, state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>; syncContentV2Marketplace(items: MarketplaceSyncJobItem[]): Promise<BackgroundJobsSnapshot>;
-  loadMarketplaceSyncContent(): Promise<ContentV2Snapshot>;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;
