@@ -19,8 +19,11 @@ import {
   loadContentV2WorkspaceFromFiles,
   calculateContentV2QuizHash,
   readContentV2QuizPublishState,
+  readContentV2TopicPublishState,
   writeContentV2QuizPublishState,
+  writeContentV2TopicPublishState,
 } from "../src/features/topics/repository/content-v2-repository.js";
+import { marketplaceSyncPlan } from "../src/features/topics/domain/marketplace-sync-plan.js";
 
 test("marketplace topic states map to remote listing flags", () => {
   assert.deepEqual(withMarketplaceTopicState({}, "listed"), {
@@ -84,6 +87,57 @@ test("stores content-v2 publish state separately for each Firebase project", asy
   const state = await readContentV2QuizPublishState(quizFilePath);
   assert.equal(state.targets["project-dev"]?.environment, "development");
   assert.equal(state.targets["project-dev"]?.contentHash, "a".repeat(64));
+});
+
+test("a target-aware filesystem snapshot has an empty plan after every local hash is recorded", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-sync-idempotent-"));
+  const topic = { ...alphabetTopic, marketplace: { state: "listed" as const } };
+  const quiz = { ...alphabetQuiz, marketplace: { state: "listed" as const } };
+  await saveContentV2Topic(root, topic);
+  await saveContentV2Quiz(root, topic, quiz);
+  await saveContentV2Question(root, topic, quiz, {
+    schemaVersion: 2,
+    id: "letter-a",
+    type: "alphabet-letter",
+    order: 0,
+    status: "reviewed",
+    letter: "a",
+    uppercase: "A",
+    lowercase: "a",
+  });
+  const before = (await loadContentV2WorkspaceFromFiles(root, { lightweight: false })).content;
+  const topicSummary = before.topics[0]!;
+  const quizSummary = before.quizzes[0]!;
+  const target = { environment: "development", projectId: "project-dev" };
+  await writeContentV2TopicPublishState(topicSummary.filePath, {
+    schemaVersion: 1,
+    targets: {
+      [target.projectId]: {
+        ...target,
+        contentHash: topicSummary.localHash,
+        marketplaceContentHash: topicSummary.marketplaceLocalHash!,
+        publishedAt: "2026-08-17T00:00:00.000Z",
+      },
+    },
+  });
+  await writeContentV2QuizPublishState(quizSummary.filePath, {
+    schemaVersion: 1,
+    targets: {
+      [target.projectId]: {
+        ...target,
+        contentHash: quizSummary.localHash,
+        publishedAt: "2026-08-17T00:00:00.000Z",
+        items: {},
+      },
+    },
+  });
+
+  const after = (await loadContentV2WorkspaceFromFiles(root, {
+    lightweight: false,
+    projectId: target.projectId,
+  })).content;
+  assert.deepEqual(marketplaceSyncPlan(after.topics, after.quizzes), []);
+  assert.equal((await readContentV2TopicPublishState(topicSummary.filePath)).targets[target.projectId]?.contentHash, topicSummary.localHash);
 });
 
 test("v2 type registry rejects incompatible parent and child types", () => {

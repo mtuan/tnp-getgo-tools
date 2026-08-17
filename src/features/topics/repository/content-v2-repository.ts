@@ -435,10 +435,11 @@ export function loadContentV2TopicFolder(
 }
 
 /** Reads topic and quiz metadata directly from their folders without opening question files. */
-export function loadContentV2TopicsOverview(repositoryPath: string): Promise<LoadedContentV2> {
+export function loadContentV2TopicsOverview(repositoryPath: string, projectId?: string): Promise<LoadedContentV2> {
   return loadContentV2WorkspaceFromFiles(repositoryPath, {
     lightweight: true,
     includeQuestions: false,
+    projectId,
   });
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ListOrdered, Plus, RefreshCw, Search, Rows3 } from "lucide-react";
 import type { BackgroundJob, MarketplaceStateUpdateResult, MarketplaceSyncJobItem, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
@@ -30,10 +30,19 @@ function applyMarketplaceStateUpdate(snapshot: RepositoryViewData, result: Marke
   };
 }
 
-function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], onOpenJobs: () => void) {
+function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], onOpenJobs: () => void, onSettled: () => Promise<void>) {
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const [job, setJob] = useState<BackgroundJob | null>(null);
-  const load = useCallback(async () => setJob((await window.getgo.getBackgroundJobs()).jobs.find(isSyncJob) ?? null), []);
+  const activeJobId = useRef<string | null>(null);
+  const load = useCallback(async () => {
+    const next = (await window.getgo.getBackgroundJobs()).jobs.find(isSyncJob) ?? null;
+    if (next) activeJobId.current = next.id;
+    else if (activeJobId.current) {
+      activeJobId.current = null;
+      await onSettled();
+    }
+    setJob(next);
+  }, [onSettled]);
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(), job ? 500 : 2500);
@@ -42,6 +51,7 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
   const start = async (items: MarketplaceSyncJobItem[]) => {
     try {
       const nextJob = (await window.getgo.syncContentV2Marketplace(items)).jobs.find(isSyncJob) ?? null;
+      activeJobId.current = nextJob?.id ?? null;
       setJob(nextJob);
       toast.show({
         title: copy.syncStarted,
@@ -62,7 +72,11 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 export function ManagerHeaderControls(context: Context) {
   const { allLegacyQuizCount, buttonAction, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, query, runButtonAction, selectedContest, setContestDialog, setQuery, setQuizDialog, setTopicsView, snapshot, toast, topicMode, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
-  const sync = useMarketplaceSync(locale, toast, onOpenJobs);
+  const refreshAfterSync = useCallback(async () => {
+    const route = await window.getgo.loadContentV2Route();
+    onSnapshotChange({ ...snapshot, loadedAt: route.loadedAt, contentV2: route.content });
+  }, [onSnapshotChange, snapshot]);
+  const sync = useMarketplaceSync(locale, toast, onOpenJobs, refreshAfterSync);
   const [syncPreviewOpen, setSyncPreviewOpen] = useState(false);
   const [startingSync, setStartingSync] = useState(false);
   const batch = (state: MarketplaceTopicState) => runButtonAction(`batch-market-${state}`, async () => {

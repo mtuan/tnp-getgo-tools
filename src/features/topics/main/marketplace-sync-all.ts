@@ -28,7 +28,10 @@ export async function syncAllMarketplaceTopics(
     const requested = requestedPlan.filter((item) => item.topicId === topicId);
     const requestedKeys = new Set(requested.map((item) => item.kind === "quiz" ? `quiz:${item.quizId}` : "topic"));
     const plan = marketplaceSyncPlan(content.topics, content.quizzes).filter((item) => item.ready);
-    const topicPlan = plan.filter((item) => requestedKeys.has(item.kind === "quiz" ? `quiz:${item.quiz.id}` : "topic"));
+    // Once a topic is selected, synchronize its complete actionable plan. This
+    // prevents a stale renderer request from leaving newer filesystem changes
+    // behind and guarantees the next plan for this target is empty.
+    const topicPlan = plan;
     const topicSummary = next.topics.find((item) => item.id === topicId);
     if (!topicSummary) throw new Error(`Topic ${topicId} was not found.`);
     const topic = await loadContentV2Topic(root, topicId);
@@ -73,7 +76,7 @@ export async function syncAllMarketplaceTopics(
       });
       await control.advance(`Removed topic data · ${topicSummary.title}`);
       const verified = (await loadContentV2TopicFolder(root, topicId, {
-        lightweight: false,
+        lightweight: true,
         projectId: target.projectId,
       })).content;
       if (marketplaceSyncPlan(verified.topics, verified.quizzes).some((item) => item.ready))
@@ -148,7 +151,7 @@ export async function syncAllMarketplaceTopics(
         await control.advance(`Skipped item already synchronized · ${item.kind === "quiz" ? item.quizId : topicId}`);
 
     const verified = (await loadContentV2TopicFolder(root, topicId, {
-      lightweight: false,
+      lightweight: true,
       projectId: target.projectId,
     })).content;
     const remaining = marketplaceSyncPlan(verified.topics, verified.quizzes)
