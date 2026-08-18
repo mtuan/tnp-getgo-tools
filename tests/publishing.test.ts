@@ -129,6 +129,17 @@ test("publishes only allowlisted runtime question fields and dynamic fragments",
   assert.equal(JSON.stringify(question).includes("samples"), false);
 });
 
+test("publishing rejects answer types without a shared cross-mode contract", () => {
+  assert.throws(
+    () => sanitizePublishedQuestion({
+      question_no: 1,
+      text_en: "Unsupported",
+      answer: { type: "future-answer", correct: "1" },
+    }),
+    /not supported for publishing/,
+  );
+});
+
 test("AI and review changes do not affect hashes, but dynamic code changes do", () => {
   const base = {
     question_no: 1,

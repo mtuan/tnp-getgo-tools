@@ -12,12 +12,21 @@ export const answerTypeDefinitions: readonly AnswerTypeDefinition[] = [
   { id: "choice", label: "Choice" },
 ] as const
 
-const choiceAliases = new Set(["choice", "text_choice", "multiple_choice", "image_choice"])
+const answerTypePresentations = {
+  choice: "choice",
+  text_choice: "choice",
+  multiple_choice: "choice",
+  image_choice: "choice",
+  input: "input",
+  numeric: "input",
+  text: "input",
+  multiple_input: "multiple_input",
+} as const satisfies Record<IQuizAnswer["type"], StaticAnswerType>;
 
 export function staticAnswerType(type: unknown, hasChoices = false): StaticAnswerType {
   const id = String(type ?? "")
-  if (choiceAliases.has(id)) return "choice"
-  if (["input", "numeric", "text"].includes(id)) return "input"
-  if (id === "multiple_input") return "multiple_input"
+  if (id in answerTypePresentations)
+    return answerTypePresentations[id as IQuizAnswer["type"]];
   return hasChoices ? "choice" : "input"
 }
+import type { IQuizAnswer } from "@tnp/getgo-logics";

@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
+import { QUIZ_ANSWER_TYPES, type IQuizAnswer } from "@tnp/getgo-logics";
 import type { QuizQuestionRecord } from "../../../shared/domain/models.js";
+
+const quizAnswerTypes = new Set<string>(QUIZ_ANSWER_TYPES);
 
 export interface PublishedContestQuestion {
   question_no: number;
@@ -9,7 +12,7 @@ export interface PublishedContestQuestion {
   image_datas?: string[];
   explanation?: { en: string; vi?: string };
   answer: {
-    type: string;
+    type: IQuizAnswer["type"];
     correct: string | number | string[];
     choices?: Record<string, string | number | Record<string, unknown>>;
     inputs?: Array<{
@@ -100,6 +103,8 @@ export function sanitizePublishedQuestion(
   const answer = plainRecord(record.answer, `Question ${questionNo} answer`);
   if (typeof answer.type !== "string" || !answer.type)
     throw new Error(`Question ${questionNo} answer.type is required.`);
+  if (!quizAnswerTypes.has(answer.type))
+    throw new Error(`Question ${questionNo} answer.type ${answer.type} is not supported for publishing.`);
   const correct = answer.correct;
   if (!(
     typeof correct === "string" ||
@@ -112,7 +117,7 @@ export function sanitizePublishedQuestion(
   const result: PublishedQuestion = {
     question_no: questionNo,
     text_en: text(record.text_en, `Question ${questionNo} text_en`, true)!,
-    answer: { type: answer.type, correct },
+    answer: { type: answer.type as IQuizAnswer["type"], correct },
   };
   if (typeof record.category === "string") result.category = record.category;
   const textVn = text(record.text_vn, `Question ${questionNo} text_vn`);
