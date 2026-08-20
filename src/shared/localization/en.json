@@ -8,6 +8,20 @@
     "batchActions": "Marketplace actions",
     "listAll": "List all",
     "unlistAll": "Unlist all",
+    "filters": {
+      "grades": "Grades",
+      "subjects": "Subjects",
+      "allGrades": "All grades",
+      "allSubjects": "All subjects",
+      "kindergarten": "Kindergarten",
+      "grade": "Grade {grade}",
+      "subjectNames": {
+        "mathematics": "Mathematics",
+        "english": "English",
+        "vietnamese": "Vietnamese",
+        "science": "Science"
+      }
+    },
     "sync": "Sync",
     "syncing": "Syncing {completed}/{total}",
     "syncStarted": "Marketplace sync started",

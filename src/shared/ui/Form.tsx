@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
-import { createPortal } from "react-dom"
-import { Check, ChevronDown, FolderOpen, ImagePlus, Search, SmilePlus, X } from "lucide-react"
-import { Select, useSelectDropdown, type SelectOption } from "./Select"
+import { Check, FolderOpen, ImagePlus, Search, SmilePlus, X } from "lucide-react"
+import { Select, type SelectOption } from "./Select"
+import { MultiSelect } from "./MultiSelect"
 import { SegmentedControl } from "./SegmentedControl"
 import { Toggle } from "./Toggle"
 import { Button } from "./Button"
@@ -68,13 +68,8 @@ function SelectControl({ field, value, disabled, autoFocus, onChange }: { field:
 }
 
 function MultiSelectControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "multi-select" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string[]): void }) {
-  const dropdown = useSelectDropdown()
   const selected = Array.isArray(value) ? value.map(String) : []
-  const toggle = (option: string) => onChange(selected.includes(option) ? selected.filter(item => item !== option) : [...selected, option])
-  return <div className={`schema-select schema-multi ${dropdown.open ? "open" : ""} ${dropdown.openUp ? "open-up" : ""}`} ref={dropdown.ref}>
-    <button type="button" disabled={disabled} autoFocus={autoFocus} aria-haspopup="listbox" aria-expanded={dropdown.open} onClick={() => dropdown.setOpen(current => !current)}><span className={selected.length ? "schema-selected-values" : "placeholder"}>{selected.length ? selected.map(item => <i key={item}>{field.options.find(option => option.value === item)?.label ?? item}<X onClick={event => { event.stopPropagation(); toggle(item) }} /></i>) : field.placeholder ?? "Select options…"}</span><ChevronDown /></button>
-    {dropdown.open && createPortal(<div ref={dropdown.menuRef} className="schema-select-menu schema-select-portal multi" style={{ left: dropdown.position.left, width: dropdown.position.width, top: dropdown.openUp ? "auto" : dropdown.position.top, bottom: dropdown.openUp ? dropdown.position.bottom : "auto" }} role="listbox" aria-multiselectable="true">{field.options.map(option => { const checked = selected.includes(option.value); return <button type="button" role="option" aria-selected={checked} className={checked ? "selected" : ""} onClick={() => toggle(option.value)} key={option.value}><span className="option-check">{checked && <Check />}</span><span>{option.label}</span></button> })}</div>, document.body)}
-  </div>
+  return <MultiSelect value={selected} options={field.options} disabled={disabled} autoFocus={autoFocus} ariaLabel={String(field.label ?? field.name)} placeholder={field.placeholder} onValueChange={onChange} />
 }
 
 function ImageControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "image" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {

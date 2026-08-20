@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../src/features/topics/domain/marketplace-sync-plan";
+import { marketplaceSyncCandidateTopicIds, marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../src/features/topics/domain/marketplace-sync-plan";
 
 test("marketplace sync plan describes only changed remote documents", () => {
   const topic = (id: string, values: Record<string, unknown>) => ({
@@ -32,6 +32,19 @@ test("marketplace sync plan includes changed quizzes and review readiness", () =
     ["quiz", "ready", "update", true],
     ["quiz", "pending", "create", false],
   ]);
+});
+
+test("sync preview hydrates topics whose changed quiz readiness is not loaded", () => {
+  const topics = [
+    { id: "ikmc", title: "IKMC", localHash: "same", publishedHash: "same", marketplaceLocalHash: "same", marketplacePublishedHash: "same", marketplace: { state: "listed" } },
+  ];
+  const quizzes = [
+    { key: "ikmc/changed", id: "changed", topicId: "ikmc", title: "Changed", localHash: "", publishedHash: null, questionCount: 0, reviewedQuestionCount: 0, marketplace: { state: "listed" } },
+  ];
+  assert.deepEqual(
+    marketplaceSyncCandidateTopicIds(topics as never, quizzes as never),
+    ["ikmc"],
+  );
 });
 
 test("unreviewed quiz changes do not create an empty actionable topic row", () => {

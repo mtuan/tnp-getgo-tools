@@ -8,6 +8,20 @@
     "batchActions": "Thao tác kho nội dung",
     "listAll": "Hiển thị tất cả",
     "unlistAll": "Ẩn tất cả",
+    "filters": {
+      "grades": "Lớp",
+      "subjects": "Môn học",
+      "allGrades": "Tất cả lớp",
+      "allSubjects": "Tất cả môn học",
+      "kindergarten": "Mẫu giáo",
+      "grade": "Lớp {grade}",
+      "subjectNames": {
+        "mathematics": "Toán",
+        "english": "Tiếng Anh",
+        "vietnamese": "Tiếng Việt",
+        "science": "Khoa học"
+      }
+    },
     "sync": "Đồng bộ",
     "syncing": "Đang đồng bộ {completed}/{total}",
     "syncStarted": "Đã bắt đầu đồng bộ kho nội dung",

@@ -1,14 +1,14 @@
-import path from "node:path";
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { shell, type IpcMain } from "electron";
 import {
-  loadContentV2Question,
   loadContentV2Quiz,
   loadContentV2Topic,
   saveContentV2Question,
   saveContentV2Quiz,
   saveContentV2Topic,
 } from "../repository/content-v2-repository.js";
+import { reviewAllContentV2Questions } from "../repository/content-v2-question-review.js";
 import { parseMarketplaceTopicState } from "./marketplace-sync.js";
 import { setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
 
@@ -62,17 +62,8 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
       loadContentV2Topic(root, topicId),
       loadContentV2Quiz(root, topicId, quizId),
     ]);
-    const directory = path.join(root, "content-v2", "topics", topicId, "quizzes", quizId, "questions");
-    const files = (await fs.readdir(directory, { withFileTypes: true }).catch(() => []))
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"));
-    const saved = await Promise.all(files.map(async (entry) => {
-      const questionId = entry.name.slice(0, -5);
-      const question = await loadContentV2Question(root, topicId, quizId, questionId);
-      return question.status === "reviewed"
-        ? question
-        : saveContentV2Question(root, topic, quiz, { ...question, status: "reviewed" });
-    }));
-    return { topicId, quizId, reviewed: saved.length };
+    const result = await reviewAllContentV2Questions(root, topic, quiz);
+    return { topicId, quizId, ...result };
   });
 
   ipcMain.handle("content-v2:topic:delete", async (_event, topicIdValue: unknown) => {

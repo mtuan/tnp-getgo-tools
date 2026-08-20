@@ -28,10 +28,10 @@ import {
 import { renderQuizPage } from "./quiz-manager/QuizPage";
 import { renderManagerPage } from "./quiz-manager/ManagerPage";
 import { useQuizMigrationActions } from "./quiz-manager/useQuizMigrationActions";
+import { useTopicListFilters } from "./quiz-manager/useTopicListFilters";
+import { useTopicsView } from "./quiz-manager/useTopicsView";
 
 export type { QuizManagerApi } from "./quiz-manager/shared";
-
-
 export function QuizManager({
   locale,
   speechSettings,
@@ -68,15 +68,7 @@ export function QuizManager({
     });
   }, [api, page, routeMode]);
   const [query, setQuery] = useState("");
-  const [topicsView, setTopicsView] = useState<"list" | "tree">(() => {
-    try {
-      return localStorage.getItem("getgo-tools.topics-view") === "tree"
-        ? "tree"
-        : "list";
-    } catch {
-      return "list";
-    }
-  });
+  const [topicsView, setTopicsView] = useTopicsView();
   const [treeTopicQuizzes, setTreeTopicQuizzes] = useState<
     Record<string, QuizSummary[]>
   >({});
@@ -158,7 +150,6 @@ export function QuizManager({
     enabled: boolean;
     questionNo: string | null;
   } | null>(null);
-
   const storedQuestion =
     selectedQuestion === null
       ? null
@@ -175,7 +166,6 @@ export function QuizManager({
       JSON.stringify(comparableQuestion(storedQuestion)),
   );
   const saveButtonEnabled = saveButtonDirty && !saving && !savingVerification;
-
   const updateQuestionDraft = useCallback(
     (originQuestionNo: string, next: QuizQuestionRecord) => {
       setQuestionDraftRecord((current) => {
@@ -219,7 +209,6 @@ export function QuizManager({
     },
     [],
   );
-
   useEffect(() => {
     const questionNo = questionDraftRecord
       ? String(questionDraftRecord.question_no)
@@ -271,7 +260,6 @@ export function QuizManager({
     savingVerification,
     storedQuestion,
   ]);
-
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -313,18 +301,28 @@ export function QuizManager({
       quizzes: snapshot.quizzes.filter((quiz) => quiz.contest === contest.id),
     }));
   }, [snapshot]);
-
   const selectedContest =
     page.kind === "contest"
       ? contests.find((item) => item.id === page.contest)
       : null;
   const normalizedQuery = query.trim().toLowerCase();
+  const {
+    topicGradeOptions,
+    topicGrades,
+    topicMatches,
+    topicSubjectOptions,
+    topicSubjects,
+    setTopicGrades,
+    setTopicSubjects,
+  } = useTopicListFilters(snapshot.contentV2.topics, locale);
   const visibleContests = contests.filter(
     (contest) =>
-      !normalizedQuery ||
-      `${contest.id} ${contest.title} ${contest.description}`
-        .toLowerCase()
-        .includes(normalizedQuery),
+      (!normalizedQuery ||
+        `${contest.id} ${contest.title} ${contest.description}`
+          .toLowerCase()
+          .includes(normalizedQuery)) &&
+      (routeMode !== "topics" ||
+        topicMatches(contest.id)),
   );
   const visibleQuizzes = (selectedContest?.quizzes ?? []).filter(
     (quiz) =>
@@ -567,6 +565,10 @@ export function QuizManager({
     onSnapshotChange,
     page,
     query,
+    topicGradeOptions,
+    topicGrades,
+    topicSubjectOptions,
+    topicSubjects,
     quizDialog,
     rootRoute,
     routeMode,
@@ -577,6 +579,8 @@ export function QuizManager({
     setMigrationResults,
     setPage,
     setQuery,
+    setTopicGrades,
+    setTopicSubjects,
     setQuizDialog,
     setQuizTab,
     setTopicDictionary,

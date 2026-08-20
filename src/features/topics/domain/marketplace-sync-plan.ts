@@ -77,3 +77,16 @@ export function marketplaceSyncPlan(
   }
   return items;
 }
+
+export function marketplaceSyncCandidateTopicIds(
+  topics: ContentV2TopicSummary[],
+  quizzes: ContentV2QuizSummary[] = [],
+): string[] {
+  return [
+    ...new Set(
+      marketplaceSyncPlan(topics, quizzes)
+        .filter((item) => item.kind === "quiz" && !item.ready)
+        .map((item) => item.topic.id),
+    ),
+  ];
+}

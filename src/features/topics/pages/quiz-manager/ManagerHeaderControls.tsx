@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ListOrdered, Plus, RefreshCw, Search, Rows3 } from "lucide-react";
 import type { BackgroundJob, MarketplaceStateUpdateResult, MarketplaceSyncJobItem, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
-import { ActionMenu } from "../../../../shared/ui";
+import * as ui from "../../../../shared/ui";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { MarketplaceSyncDrawer } from "../../components/MarketplaceSyncDrawer";
+import { TopicFilterControls } from "./TopicFilterControls";
+import { marketplaceSyncCandidateTopicIds } from "../../domain/marketplace-sync-plan";
 
 type Context = Record<string, any> & { snapshot: RepositoryViewData };
 const activeStatuses = new Set(["queued", "running", "paused"]);
@@ -70,7 +72,7 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 }
 
 export function ManagerHeaderControls(context: Context) {
-  const { allLegacyQuizCount, buttonAction, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, query, runButtonAction, selectedContest, setContestDialog, setQuery, setQuizDialog, setTopicsView, snapshot, toast, topicMode, topicsView } = context;
+  const { allLegacyQuizCount, buttonAction, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, query, runButtonAction, selectedContest, setContestDialog, setQuery, setQuizDialog, setTopicGrades, setTopicSubjects, setTopicsView, snapshot, toast, topicGradeOptions, topicGrades, topicMode, topicSubjectOptions, topicSubjects, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const refreshAfterSync = useCallback(async () => {
     const route = await window.getgo.loadContentV2Route();
@@ -78,7 +80,40 @@ export function ManagerHeaderControls(context: Context) {
   }, [onSnapshotChange, snapshot]);
   const sync = useMarketplaceSync(locale, toast, onOpenJobs, refreshAfterSync);
   const [syncPreviewOpen, setSyncPreviewOpen] = useState(false);
+  const [loadingSyncPreview, setLoadingSyncPreview] = useState(false);
+  const [syncPreview, setSyncPreview] = useState<RepositoryViewData["contentV2"] | null>(null);
   const [startingSync, setStartingSync] = useState(false);
+  const openSyncPreview = async () => {
+    setLoadingSyncPreview(true);
+    try {
+      const topicIds = marketplaceSyncCandidateTopicIds(
+        snapshot.contentV2.topics,
+        snapshot.contentV2.quizzes,
+      );
+      const loaded = await Promise.all(
+        topicIds.map((topicId) => window.getgo.loadContentV2Route(topicId)),
+      );
+      const refreshedIds = new Set(topicIds);
+      setSyncPreview({
+        ...snapshot.contentV2,
+        topics: [
+          ...snapshot.contentV2.topics.filter((topic) => !refreshedIds.has(topic.id)),
+          ...loaded.flatMap((result) => result.content.topics),
+        ],
+        quizzes: [
+          ...snapshot.contentV2.quizzes.filter((quiz) => !refreshedIds.has(quiz.topicId)),
+          ...loaded.flatMap((result) => result.content.quizzes),
+        ],
+        questions: snapshot.contentV2.questions,
+        issues: [...snapshot.contentV2.issues, ...loaded.flatMap((result) => result.content.issues)],
+      });
+      setSyncPreviewOpen(true);
+    } catch (error) {
+      toast.show({ title: copy.publishFailed, description: String(error), variant: "error" });
+    } finally {
+      setLoadingSyncPreview(false);
+    }
+  };
   const batch = (state: MarketplaceTopicState) => runButtonAction(`batch-market-${state}`, async () => {
     const records = (isContest ? snapshot.contentV2.quizzes.filter((item) => item.topicId === selectedContest?.id) : snapshot.contentV2.topics)
       .filter((item) => state !== "listed" || marketplaceTopicState(item.marketplace) === "unlisted");
@@ -95,17 +130,31 @@ export function ManagerHeaderControls(context: Context) {
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     { id: "list-all", label: copy.listAll, onSelect: () => void batch("listed") },
     ...((isContest || topicsView === "list") ? [{ id: "unlist-all", label: copy.unlistAll, onSelect: () => void batch("unlisted") }] : []),
-    ...(!isContest ? [{ id: "sync", label: sync.label, icon: RefreshCw, disabled: Boolean(sync.job), onSelect: () => setSyncPreviewOpen(true) }, { id: "view", label: topicsView === "tree" ? "Show list view" : "Show tree view", icon: topicsView === "tree" ? Rows3 : ListOrdered, onSelect: () => { const next = topicsView === "tree" ? "list" : "tree"; setTopicsView(next); try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* optional */ } } }] : []),
+    ...(!isContest ? [{ id: "sync", label: sync.label, icon: RefreshCw, disabled: Boolean(sync.job) || loadingSyncPreview, onSelect: () => void openSyncPreview() }, { id: "view", label: topicsView === "tree" ? "Show list view" : "Show tree view", icon: topicsView === "tree" ? Rows3 : ListOrdered, onSelect: () => { const next = topicsView === "tree" ? "list" : "tree"; setTopicsView(next); try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* optional */ } } }] : []),
   ];
   return <>
-    <label className="manager-search ui-page-header-control"><Search size={17} /><input aria-label={isContest ? "Search quizzes" : "Search topics"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search topics…"} /></label>
-    <ActionMenu label="More" disabled={Boolean(buttonAction)} items={items} />
+    <ui.ControlGroup className="manager-topic-header-controls">
+      <label className="manager-search ui-page-header-control"><Search size={17} /><input aria-label={isContest ? "Search quizzes" : "Search topics"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search topics…"} /></label>
+      {!isContest && <TopicFilterControls
+        gradeOptions={topicGradeOptions}
+        subjectOptions={topicSubjectOptions}
+        grades={topicGrades}
+        subjects={topicSubjects}
+        gradeLabel={copy.filters.grades}
+        subjectLabel={copy.filters.subjects}
+        allGradesLabel={copy.filters.allGrades}
+        allSubjectsLabel={copy.filters.allSubjects}
+        onGradesChange={setTopicGrades}
+        onSubjectsChange={setTopicSubjects}
+      />}
+    </ui.ControlGroup>
+    <ui.ActionMenu label="More" disabled={Boolean(buttonAction)} items={items} />
     {syncPreviewOpen && <MarketplaceSyncDrawer
-      topics={snapshot.contentV2.topics}
-      quizzes={snapshot.contentV2.quizzes}
+      topics={syncPreview?.topics ?? snapshot.contentV2.topics}
+      quizzes={syncPreview?.quizzes ?? snapshot.contentV2.quizzes}
       locale={locale}
       busy={startingSync}
-      onClose={() => setSyncPreviewOpen(false)}
+      onClose={() => { setSyncPreviewOpen(false); setSyncPreview(null); }}
       onSync={async (items) => {
         setStartingSync(true);
         const started = await sync.start(items);

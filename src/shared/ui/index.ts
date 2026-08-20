@@ -5,6 +5,7 @@ export * from "./Button";
 export * from "./Checkbox";
 export * from "./ControlGroup";
 export * from "./Input";
+export * from "./MultiSelect";
 export * from "./Image";
 export * from "./DataTable";
 export * from "./DialogFrame";
