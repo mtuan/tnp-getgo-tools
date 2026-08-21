@@ -68,7 +68,6 @@ export function QuizManager({
       loadedTopicRef.current = null;
     });
   }, [api, page, routeMode]);
-  const [query, setQuery] = useState("");
   const [topicsView, setTopicsView] = useTopicsView();
   const [treeTopicQuizzes, setTreeTopicQuizzes] = useState<
     Record<string, QuizSummary[]>
@@ -302,7 +301,6 @@ export function QuizManager({
     page.kind === "contest"
       ? contests.find((item) => item.id === page.contest)
       : null;
-  const normalizedQuery = query.trim().toLowerCase();
   const {
     topicGradeOptions,
     topicGrades,
@@ -312,22 +310,11 @@ export function QuizManager({
     setTopicGrades,
     setTopicSubjects,
   } = useTopicListFilters(snapshot.contentV2.topics, locale);
-  const visibleContests = contests.filter(
-    (contest) =>
-      (!normalizedQuery ||
-        `${contest.id} ${contest.title} ${contest.description}`
-          .toLowerCase()
-          .includes(normalizedQuery)) &&
-      (routeMode !== "topics" ||
-        topicMatches(contest.id)),
+  const visibleContests = useMemo(
+    () => contests.filter((contest) => routeMode !== "topics" || topicMatches(contest.id)),
+    [contests, routeMode, topicMatches],
   );
-  const visibleQuizzes = (selectedContest?.quizzes ?? []).filter(
-    (quiz) =>
-      !normalizedQuery ||
-      `${quiz.id} ${quiz.legacyId} ${quiz.grade ?? ""} ${quiz.round ?? ""} ${quiz.year ?? ""}`
-        .toLowerCase()
-        .includes(normalizedQuery),
-  );
+  const visibleQuizzes = selectedContest?.quizzes ?? [];
   const migrationForQuiz = (quiz: QuizSummary): QuizAiMigrationJob | null =>
     migrationJobs.find(
       (job) => job.contestId === quiz.contest && job.quizId === quiz.id,
@@ -450,7 +437,6 @@ export function QuizManager({
   }, []);
 
   const goBack = useCallback(() => {
-    setQuery("");
     if (page.kind === "quiz") {
       setContestTab("quizzes");
       setPage({ kind: "contest", contest: page.quiz.contest });
@@ -561,7 +547,6 @@ export function QuizManager({
     onRouteChange,
     onSnapshotChange,
     page,
-    query,
     topicGradeOptions,
     topicGrades,
     topicSubjectOptions,
@@ -575,7 +560,6 @@ export function QuizManager({
     setContestTab,
     setMigrationResults,
     setPage,
-    setQuery,
     setTopicGrades,
     setTopicSubjects,
     setQuizDialog,

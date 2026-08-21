@@ -170,6 +170,9 @@ isContest,
                       ? `topic:${row.contest.id}`
                       : `quiz:${row.quiz.key}`
                   }
+                  rowSearchText={(row) => row.kind === "topic"
+                    ? `${row.contest.id} ${row.contest.title} ${row.contest.description}`
+                    : `${row.quiz.id} ${row.quiz.title} ${row.quiz.grade ?? ""} ${row.quiz.round ?? ""} ${row.quiz.year ?? ""}`}
                   ariaLabel="Topics and quizzes"
                   emptyText="No matching topics."
                   singleExpand

@@ -73,7 +73,7 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 }
 
 export function ManagerHeaderControls(context: Context) {
-  const { allLegacyQuizCount, buttonAction, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, query, runButtonAction, selectedContest, setContestDialog, setQuery, setQuizDialog, setTopicGrades, setTopicSubjects, setTopicsView, snapshot, toast, topicGradeOptions, topicGrades, topicMode, topicSubjectOptions, topicSubjects, topicsView } = context;
+  const { allLegacyQuizCount, buttonAction, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setTopicGrades, setTopicSubjects, setTopicsView, snapshot, toast, topicGradeOptions, topicGrades, topicMode, topicSubjectOptions, topicSubjects, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const refreshAfterSync = useCallback(async () => {
     const route = await window.getgo.loadContentV2Route();
@@ -136,10 +136,8 @@ export function ManagerHeaderControls(context: Context) {
   return <>
     <ui.ControlGroup className="manager-topic-header-controls">
       <ManagerSearchInput
-        value={query}
         label={isContest ? "Search quizzes" : "Search topics"}
         placeholder={isContest ? "Search quizzes…" : "Search topics…"}
-        onChange={setQuery}
       />
       {!isContest && <TopicFilterControls
         gradeOptions={topicGradeOptions}

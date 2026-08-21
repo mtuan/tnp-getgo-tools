@@ -40,11 +40,8 @@ export function renderManagerList(context: ManagerListContext) {
     <>
       {(!isContest || contestTab === "quizzes") && (
         <>
-          {renderTopicTree(context as any)}
-          <div
-            className="manager-table"
-            hidden={!isContest && topicMode && topicsView === "tree"}
-          >
+          {(!topicMode || isContest || topicsView === "tree") && renderTopicTree(context as any)}
+          {(isContest || !topicMode || topicsView === "list") && <div className="manager-table">
               <table>
                 {topicMode && (
                   <colgroup>
@@ -110,6 +107,8 @@ export function renderManagerList(context: ManagerListContext) {
                         return (
                           <tr
                             key={quiz.key}
+                            data-manager-search-row="true"
+                            data-manager-search-text={`${quiz.id} ${quiz.title} ${quiz.legacyId} ${quiz.grade ?? ""} ${quiz.round ?? ""} ${quiz.year ?? ""}`.toLocaleLowerCase()}
                             onClick={() => {
                               openQuiz(quiz);
                             }}
@@ -182,6 +181,8 @@ export function renderManagerList(context: ManagerListContext) {
                           return (
                             <tr
                               key={quiz.key}
+                              data-manager-search-row="true"
+                              data-manager-search-text={`${quiz.id} ${quiz.title} ${quiz.legacyId} ${quiz.grade ?? ""} ${quiz.round ?? ""} ${quiz.year ?? ""}`.toLocaleLowerCase()}
                               onClick={() => {
                                 openQuiz(quiz);
                               }}
@@ -278,6 +279,8 @@ export function renderManagerList(context: ManagerListContext) {
                           return (
                             <tr
                               key={contest.id}
+                              data-manager-search-row="true"
+                              data-manager-search-text={`${contest.id} ${contest.title} ${contest.description}`.toLocaleLowerCase()}
                               onClick={() => {
                                 setPage({ kind: "contest", contest: contest.id });
                                 setContestTab("quizzes");
@@ -367,7 +370,12 @@ export function renderManagerList(context: ManagerListContext) {
                   {isContest ? "quizzes" : topicMode ? "topics" : "contests"}.
                 </div>
               )}
-          </div>
+              {(isContest ? visibleQuizzes : visibleContests).length > 0 && (
+                <div className="no-results" data-manager-search-empty hidden>
+                  No matching {isContest ? "quizzes" : topicMode ? "topics" : "contests"}.
+                </div>
+              )}
+          </div>}
         </>
       )}
     </>
