@@ -3,7 +3,7 @@ import { TreeDataTable, type TreeDataRow } from "../../../../shared/ui/TreeDataT
 import type { DataColumn } from "../../../../shared/ui/DataTable";
 import { StatusBadge, type StatusBadgeTone } from "../../../../shared/ui/StatusBadge";
 import { marketplaceStateLabel } from "../../../../renderer/topic-status";
-import { marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
+import { marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
 import { contentV2QuizReviewStatus } from "./shared";
 import { TopicQuizTreeIdentity } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
@@ -27,6 +27,7 @@ isContest,
     setContestTab,
     setPage,
     snapshot,
+    syncPlan,
     topicMode,
     topicsView,
     toast,
@@ -34,7 +35,6 @@ isContest,
     visibleContests
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
-  const syncPlan = marketplaceSyncPlan(snapshot.contentV2.topics, snapshot.contentV2.quizzes);
   return (
     <>
           {!isContest && topicMode && (

@@ -2,7 +2,7 @@ import { ChevronRight } from "lucide-react";
 import type { ContestSummary, QuizSummary, RepositoryViewData } from "../../../../shared/domain/models";
 import { StatusBadge } from "../../../../shared/ui/StatusBadge";
 import { marketplaceStateLabel } from "../../../../renderer/topic-status";
-import { marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
+import { marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
 import { contentV2QuizReviewStatus, quizReviewStatus } from "./shared";
 import { TopicQuizIcon as ManagerListIcon } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
@@ -28,6 +28,7 @@ export function renderManagerList(context: ManagerListContext) {
     setContestTab,
     setPage,
     snapshot,
+    syncPlan,
     topicMode,
     toast,
     topicsView,
@@ -35,7 +36,6 @@ export function renderManagerList(context: ManagerListContext) {
     visibleQuizzes,
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
-  const syncPlan = marketplaceSyncPlan(snapshot.contentV2.topics, snapshot.contentV2.quizzes);
   return (
     <>
       {(!isContest || contestTab === "quizzes") && (

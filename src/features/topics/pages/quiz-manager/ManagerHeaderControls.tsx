@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ListOrdered, Plus, RefreshCw, Search, Rows3 } from "lucide-react";
+import { ListOrdered, Plus, RefreshCw, Rows3 } from "lucide-react";
 import type { BackgroundJob, MarketplaceStateUpdateResult, MarketplaceSyncJobItem, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import * as ui from "../../../../shared/ui";
@@ -8,6 +8,7 @@ import vi from "../../../../shared/localization/vi.json";
 import { MarketplaceSyncDrawer } from "../../components/MarketplaceSyncDrawer";
 import { TopicFilterControls } from "./TopicFilterControls";
 import { marketplaceSyncCandidateTopicIds } from "../../domain/marketplace-sync-plan";
+import { ManagerSearchInput } from "./ManagerSearchInput";
 
 type Context = Record<string, any> & { snapshot: RepositoryViewData };
 const activeStatuses = new Set(["queued", "running", "paused"]);
@@ -134,7 +135,12 @@ export function ManagerHeaderControls(context: Context) {
   ];
   return <>
     <ui.ControlGroup className="manager-topic-header-controls">
-      <label className="manager-search ui-page-header-control"><Search size={17} /><input aria-label={isContest ? "Search quizzes" : "Search topics"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isContest ? "Search quizzes…" : "Search topics…"} /></label>
+      <ManagerSearchInput
+        value={query}
+        label={isContest ? "Search quizzes" : "Search topics"}
+        placeholder={isContest ? "Search quizzes…" : "Search topics…"}
+        onChange={setQuery}
+      />
       {!isContest && <TopicFilterControls
         gradeOptions={topicGradeOptions}
         subjectOptions={topicSubjectOptions}

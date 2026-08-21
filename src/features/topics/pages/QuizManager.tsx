@@ -30,6 +30,7 @@ import { renderManagerPage } from "./quiz-manager/ManagerPage";
 import { useQuizMigrationActions } from "./quiz-manager/useQuizMigrationActions";
 import { useTopicListFilters } from "./quiz-manager/useTopicListFilters";
 import { useTopicsView } from "./quiz-manager/useTopicsView";
+import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan";
 
 export type { QuizManagerApi } from "./quiz-manager/shared";
 export function QuizManager({
@@ -118,14 +119,9 @@ export function QuizManager({
   const [questionRecords, setQuestionRecords] = useState<QuizQuestionRecord[]>(
     [],
   );
-  const [alphabetDictionary, setAlphabetDictionary] =
-    useState<AlphabetDictionary>({ schemaVersion: 1, words: [] });
-  const [topicDictionary, setTopicDictionary] = useState<KidLearningDictionary>(
-    { schemaVersion: 2, entries: [] },
-  );
-  const [topicResourceError, setTopicResourceError] = useState<string | null>(
-    null,
-  );
+  const [alphabetDictionary, setAlphabetDictionary] = useState<AlphabetDictionary>({ schemaVersion: 1, words: [] });
+  const [topicDictionary, setTopicDictionary] = useState<KidLearningDictionary>({ schemaVersion: 2, entries: [] });
+  const [topicResourceError, setTopicResourceError] = useState<string | null>(null);
   const [questionOrder, setQuestionOrder] = useState<string[] | null>(null);
   const [previewQuestion, setPreviewQuestion] =
     useState<ContestQuizQuestionRecord | null>(null);
@@ -301,6 +297,7 @@ export function QuizManager({
       quizzes: snapshot.quizzes.filter((quiz) => quiz.contest === contest.id),
     }));
   }, [snapshot]);
+  const syncPlan = useMemo(() => marketplaceSyncPlan(snapshot.contentV2.topics, snapshot.contentV2.quizzes), [snapshot.contentV2.quizzes, snapshot.contentV2.topics]);
   const selectedContest =
     page.kind === "contest"
       ? contests.find((item) => item.id === page.contest)
@@ -587,6 +584,7 @@ export function QuizManager({
     setTopicInfoDirty,
     setTopicsView,
     snapshot,
+    syncPlan,
     toast,
     topicDictionary,
     topicInfoDirty,
