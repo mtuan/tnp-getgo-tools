@@ -49,7 +49,11 @@ function answerExpression(value: unknown): string {
       : null;
   if (choices && Object.keys(choices).length)
     return `QB.answer.choice(${sourceLiteral(answer.correct)}, ${sourceLiteral(choices)})`;
-  return `QB.answer.input(${sourceLiteral(answer.correct ?? "")}${answer.unit ? `, ${sourceLiteral(answer.unit)}` : ""})`;
+  const inputType = ["text", "number", "date"].includes(String(answer.inputType))
+    ? String(answer.inputType)
+    : undefined;
+  const unitArgument = answer.unit ? sourceLiteral(answer.unit) : "undefined";
+  return `QB.answer.input(${sourceLiteral(answer.correct ?? "")}${answer.unit || inputType ? `, ${unitArgument}` : ""}${inputType ? `, ${sourceLiteral(inputType)}` : ""})`;
 }
 
 function questionGeneratorSource(question: Record<string, unknown>): string {

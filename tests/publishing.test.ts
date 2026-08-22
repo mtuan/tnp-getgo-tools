@@ -185,6 +185,19 @@ test("publishes fixed choice ordering as runtime answer metadata", () => {
   assert.equal(question.answer.fixed, true);
 });
 
+test("publishes the shared input control type for single-input answers", () => {
+  const question = sanitizePublishedQuestion({
+    question_no: 1,
+    text_en: "Enter a number",
+    answer: {
+      type: "input",
+      correct: "12",
+      inputType: "number",
+    },
+  });
+  assert.equal(question.answer.inputType, "number");
+});
+
 test("publishes alphabet questions with their independent runtime contract", () => {
   const question = sanitizePublishedQuestion({
     question_no: 1,

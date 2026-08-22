@@ -14,6 +14,7 @@ export interface PublishedContestQuestion {
   answer: {
     type: IQuizAnswer["type"];
     correct: string | number | string[];
+    inputType?: "text" | "number" | "date";
     choices?: Record<string, string | number | Record<string, unknown>>;
     inputs?: Array<{
       question_en: string;
@@ -155,6 +156,11 @@ export function sanitizePublishedQuestion(
     result.answer.choices = structuredClone(
       plainRecord(answer.choices, `Question ${questionNo} answer.choices`),
     ) as PublishedContestQuestion["answer"]["choices"];
+  if (answer.inputType !== undefined) {
+    if (!["text", "number", "date"].includes(String(answer.inputType)))
+      throw new Error(`Question ${questionNo} answer.inputType is invalid.`);
+    result.answer.inputType = answer.inputType as "text" | "number" | "date";
+  }
   if (answer.inputs !== undefined) {
     if (!Array.isArray(answer.inputs))
       throw new Error(`Question ${questionNo} answer.inputs must be an array.`);

@@ -19,6 +19,7 @@ export interface RuntimeQuestion extends Record<string, unknown> {
   answer: {
     type: string;
     correct: string | number | string[];
+    inputType?: "text" | "number" | "date";
     choices?: Record<string, unknown>;
     inputs?: Array<{
       question_en: string;
