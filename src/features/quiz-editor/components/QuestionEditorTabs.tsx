@@ -22,9 +22,24 @@ interface Props {
 }
 
 export function QuestionEditorTabs(props: Props) {
+  const editor = props.tab === "static" ? (
+    <StaticQuestionEditor
+      record={props.record}
+      manifestPath={props.manifestPath}
+      onChange={props.onChange}
+      onFeedbackSave={props.onFeedbackSave}
+    />
+  ) : props.record.advancedDynamic ? (
+    <AdvancedQuestionEditor {...props} />
+  ) : (
+    <div className="empty-feature">
+      <h2>No dynamic question</h2>
+      <p>This question does not contain a dynamic generator.</p>
+    </div>
+  );
   return (
     <>
-      <Tabs<QuestionEditorTab>
+      <div className="question-editor-tabs-row"><Tabs<QuestionEditorTab>
         className="question-editor-tabs"
         variant="underline"
         ariaLabel="Question editor"
@@ -34,22 +49,8 @@ export function QuestionEditorTabs(props: Props) {
           { id: "static", label: "Static" },
           { id: "dynamic", label: "Dynamic" },
         ]}
-      />
-      {props.tab === "static" ? (
-        <StaticQuestionEditor
-          record={props.record}
-          manifestPath={props.manifestPath}
-          onChange={props.onChange}
-          onFeedbackSave={props.onFeedbackSave}
-        />
-      ) : props.record.advancedDynamic ? (
-        <AdvancedQuestionEditor {...props} />
-      ) : (
-        <div className="empty-feature">
-          <h2>No dynamic question</h2>
-          <p>This question does not contain a dynamic generator.</p>
-        </div>
-      )}
+      /></div>
+      {editor}
     </>
   );
 }

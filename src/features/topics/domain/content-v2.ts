@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { marketplaceTopicStates } from "./marketplace-topic-state.js";
 
+// Increment when the published quiz payload or Storage layout changes so
+// existing target hashes schedule one corrective sync.
+export const contentV2QuizPublishContractVersion = 3;
+
 export {
   marketplaceTopicState,
   marketplaceTopicStates,

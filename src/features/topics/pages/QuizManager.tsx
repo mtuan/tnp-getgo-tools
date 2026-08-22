@@ -435,7 +435,6 @@ export function QuizManager({
     setQuizTab(quiz.type === "contest" ? "questions" : "alphabets");
     setPage({ kind: "quiz", quiz });
   }, []);
-
   const goBack = useCallback(() => {
     if (page.kind === "quiz") {
       setContestTab("quizzes");

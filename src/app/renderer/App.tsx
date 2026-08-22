@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Library,
   Images,
+  MessageSquareWarning,
   LogIn,
   PanelLeftClose,
   PanelLeftOpen,
@@ -65,6 +66,9 @@ const rendererStartupLog = (
 const JobsPage = lazy(() =>
   import("../../features/jobs/pages/JobsPage").then((module) => ({ default: module.JobsPage })),
 );
+const QuestionFeedbackPage = lazy(() =>
+  import("../../features/feedback/pages/QuestionFeedbackPage").then((module) => ({ default: module.QuestionFeedbackPage })),
+);
 const DeploymentPage = lazy(() =>
   import("../../features/deployment/pages/DeploymentPage").then((module) => ({
     default: module.DeploymentPage,
@@ -78,6 +82,7 @@ type View =
   | "dashboard"
   | "topics"
   | "quizzes"
+  | "feedback"
   | "jobs"
   | "deploy"
   | "image-pdf"
@@ -109,6 +114,7 @@ function viewFromRoute(route: string): View {
   }
   const staticView = [
     "dashboard",
+    "feedback",
     "jobs",
     "deploy",
     "image-pdf",
@@ -153,6 +159,7 @@ const normalizedRoute = (route: string) => {
 const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "topics", label: "Topics", icon: Library },
+  { id: "feedback", label: "Feedback", icon: MessageSquareWarning },
   { id: "quizzes", label: "Legacy quizzes", icon: Archive },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
@@ -775,6 +782,16 @@ export function App() {
                 onBackActionChange={updateQuizBackAction}
                 onSpeechSettingsChange={changeSpeechSettings}
               />
+            )}
+            {settings.repositoryPath && view === "feedback" && (
+              <Suspense fallback={null}>
+                <QuestionFeedbackPage
+                  onOpenQuestion={(topicId, quizId, questionId) => {
+                    const questionNo = questionId.replace(/^q/i, "");
+                    goToRoute(`/topics/${encodeURIComponent(topicId)}/quizzes/${encodeURIComponent(quizId)}/questions/${encodeURIComponent(questionNo)}?tab=static`);
+                  }}
+                />
+              </Suspense>
             )}
             {settings.repositoryPath && view === "jobs" && (
               <Suspense fallback={null}>

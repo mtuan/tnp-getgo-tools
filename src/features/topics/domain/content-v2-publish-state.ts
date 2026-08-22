@@ -1,9 +1,6 @@
 import type { ContentV2QuizPublishPreview } from "../../../shared/domain/models.js";
 import { hashContentV2 } from "./content-v2.js";
 
-// Increment when the serialized Firestore document contract changes. Including
-// this in item hashes forces one corrective rewrite even when an older publish
-// state incorrectly claimed that the current local payload reached Firestore.
 const FIRESTORE_PUBLISH_CONTRACT_VERSION = 2;
 
 export interface ContentV2PublishedItem {
@@ -13,6 +10,7 @@ export interface ContentV2PublishedItem {
 }
 
 export interface ContentV2PublishTargetState {
+  publishContractVersion?: number;
   environment: string;
   projectId: string;
   contentHash: string;

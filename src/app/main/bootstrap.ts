@@ -23,6 +23,8 @@ import { registerTopicResourcesIpc } from "../../features/topics/main/topic-reso
 import { registerContentV2CrudIpc } from "../../features/topics/main/content-v2-crud-ipc.js";
 import { registerContentV2PublishingIpc } from "../../features/topics/main/content-v2-publishing-ipc.js";
 import { FirestorePublishingService } from "../../features/topics/main/firestore-publishing.js";
+import { QuestionFeedbackSyncService } from "../../features/topics/main/question-feedback-sync.js";
+import { registerQuestionFeedbackIpc } from "../../features/topics/main/question-feedback-ipc.js";
 
 loadEnvironment({
   path: app.isPackaged
@@ -154,6 +156,7 @@ app.whenReady().then(async () => {
     async () => (await settings.read()).environment,
   );
   const publishing = new FirestorePublishingService(firebaseAuth);
+  const questionFeedbackSync = new QuestionFeedbackSyncService(firebaseAuth);
   const localAi = new LocalAiService({
     apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
     model: process.env.GETGO_AI_OPENAI_MODEL,
@@ -241,6 +244,7 @@ app.whenReady().then(async () => {
   registerTopicResourcesIpc(ipcMain, { mainWindow: mainWindow!, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth });
   registerContentV2CrudIpc(ipcMain, { repositoryRoot });
   registerContentV2PublishingIpc(ipcMain, { repositoryRoot, publishing, publishJobs, firebaseAuth });
+  registerQuestionFeedbackIpc(ipcMain, { repositoryRoot, sync: questionFeedbackSync });
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });
   startupLog("IPC handlers registered");

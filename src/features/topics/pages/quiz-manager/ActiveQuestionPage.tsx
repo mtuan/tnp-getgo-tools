@@ -4,6 +4,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { alphabetData } from "../../../../features/quiz-editor/domain/alphabet-question";
 import { questionIsVerified, questionStatus, withQuestionStatus } from "../../../../features/quiz-editor/domain/question-status";
 import { QuestionEditorTabs } from "../../../quiz-editor/components/QuestionEditorTabs";
+import { SyncedQuestionFeedback } from "../../../quiz-editor/components/SyncedQuestionFeedback";
 import { Button } from "../../../../shared/ui/Button";
 import { PageHeader } from "../../../../shared/ui/PageHeader";
 import { QuestionNavigator } from "../../../../shared/ui/QuestionNavigator";
@@ -372,7 +373,11 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
             onSave={() => void saveQuestion()}
             onNewQuestion={createNewQuestionFromDetail}
           />
-          <PageHeader
+          <SyncedQuestionFeedback
+            topicId={quiz.contest}
+            quizId={quiz.id}
+            questionId={`q${questionDraftRecord?.question_no ?? activeQuestion.number}`}
+            header={(feedbackToggle) => <PageHeader
             eyebrow={isAlphabetQuestion ? "Letter editor" : "Question editor"}
             breadcrumbs={[
               {
@@ -451,6 +456,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                 >
                   Save
                 </Button>
+                {feedbackToggle}
                 <ActionMenu
                   label="More"
                   iconOnly
@@ -523,7 +529,8 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                 />
               </>
             }
-          />
+          />}
+          >
           {sourceError && (
             <div className="error-banner">
               <strong>Editor error</strong>
@@ -575,6 +582,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                 onFeedbackSave={saveQuestionFeedback}
               />
             ))}
+          </SyncedQuestionFeedback>
         </section>
       );
     }

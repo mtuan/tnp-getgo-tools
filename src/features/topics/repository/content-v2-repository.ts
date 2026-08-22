@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   assertContentV2Relationship,
+  contentV2QuizPublishContractVersion,
   contentV2QuestionSchema,
   contentV2QuizSchema,
   contentV2TopicSchema,
@@ -281,9 +282,14 @@ export async function loadContentV2WorkspaceFromFiles(
       const targetPublishState = options.projectId
         ? (await readContentV2QuizPublishState(quizFile)).targets[options.projectId]
         : undefined;
+      const hasPublishedAssets = Object.values(targetPublishState?.items ?? {})
+        .some((item) => item.kind === "storage-object");
       const localHash = lightweight
-        ? targetPublishState?.contentHash ?? quiz.publishedHash ?? ""
+        ? targetPublishState && hasPublishedAssets && targetPublishState.publishContractVersion !== contentV2QuizPublishContractVersion
+          ? `asset-storage-contract-v${contentV2QuizPublishContractVersion}`
+          : targetPublishState?.contentHash ?? quiz.publishedHash ?? ""
         : hashContentV2({
+            ...(assetHashes.length ? { assetStorageContractVersion: contentV2QuizPublishContractVersion } : {}),
             quiz: sanitizeContentV2Quiz(quiz),
             questions: quizQuestions.map((item) =>
               sanitizeContentV2Question(item.record),
@@ -750,6 +756,7 @@ export async function calculateContentV2QuizHash(
     contentHash: asset.contentHash,
   }));
   return hashContentV2({
+    ...(assets.length ? { assetStorageContractVersion: contentV2QuizPublishContractVersion } : {}),
     quiz: sanitizeContentV2Quiz(quiz),
     questions: questions.map(sanitizeContentV2Question),
     resources,

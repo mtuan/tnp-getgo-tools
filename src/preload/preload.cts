@@ -28,6 +28,13 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:quiz:load", topicId, quizId),
   loadContentV2Question: (topicId, quizId, questionId) =>
     ipcRenderer.invoke("content-v2:question:load", topicId, quizId, questionId),
+  syncQuestionFeedback: () => ipcRenderer.invoke("question-feedback:sync"),
+  listAllQuestionFeedback: () => ipcRenderer.invoke("question-feedback:list-all"),
+  listQuestionFeedbackOverview: () => ipcRenderer.invoke("question-feedback:overview"),
+  loadQuestionFeedback: (topicId, quizId, questionId) =>
+    ipcRenderer.invoke("question-feedback:list", topicId, quizId, questionId),
+  updateQuestionFeedbackReview: (topicId, quizId, feedbackId, status, note) =>
+    ipcRenderer.invoke("question-feedback:review", topicId, quizId, feedbackId, status, note),
   loadContentV2QuizResources: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:quiz:resources", topicId, quizId),
   saveContentV2QuizDictionary: (topicId, quizId, dictionary) =>

@@ -349,6 +349,48 @@ export interface QuestionFeedback {
   updatedAt: string;
 }
 
+export type SyncedQuestionFeedbackStatus = "pending" | "fixed" | "ignored";
+
+export interface SyncedQuestionFeedback {
+  schemaVersion: 1;
+  id: string;
+  source: {
+    projectId: string;
+    topicId: string;
+    quizId: string;
+    questionId: string;
+    issueTypes: string[];
+    comment: string | null;
+    params: Record<string, unknown> | null;
+    reportedAt: string;
+    reportedBy: string;
+  };
+  review: {
+    status: SyncedQuestionFeedbackStatus;
+    note: string | null;
+    updatedAt: string | null;
+  };
+}
+
+export interface QuestionFeedbackOverview {
+  key: string;
+  topicId: string;
+  topicTitle: string;
+  quizId: string;
+  quizTitle: string;
+  questionId: string;
+  questionText: string;
+  reports: SyncedQuestionFeedback[];
+}
+
+export interface QuestionFeedbackSyncResult {
+  projectId: string;
+  fetched: number;
+  saved: number;
+  skipped: number;
+  cursor: { reportedAt: string; documentName: string } | null;
+}
+
 export const supportedQuizBuilderApiVersions = [1] as const;
 
 export type SpeechLanguage = "en" | "vi";
@@ -628,6 +670,11 @@ export interface DesktopApi {
     quizId: string,
     questionId: string,
   ): Promise<ContentV2Question>;
+  syncQuestionFeedback(): Promise<QuestionFeedbackSyncResult>;
+  listAllQuestionFeedback(): Promise<SyncedQuestionFeedback[]>;
+  listQuestionFeedbackOverview(): Promise<QuestionFeedbackOverview[]>;
+  loadQuestionFeedback(topicId: string, quizId: string, questionId: string): Promise<SyncedQuestionFeedback[]>;
+  updateQuestionFeedbackReview(topicId: string, quizId: string, feedbackId: string, status: SyncedQuestionFeedbackStatus, note?: string): Promise<SyncedQuestionFeedback>;
   loadContentV2QuizResources(
     topicId: string,
     quizId: string,

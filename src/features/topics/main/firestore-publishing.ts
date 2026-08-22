@@ -176,7 +176,7 @@ export function createContentV2QuizPublishPreview(
           operation: "upload",
           reference: asset.reference,
           localSourcePath: asset.sourcePath,
-          destinationPath: `getgo-content-v2/topics/${topicId}/assets/${reference.replaceAll("\\", "/")}`,
+          destinationPath: `getgo-content-v2/topics/${topicId}/quizzes/${quiz.id}/assets/${reference.replaceAll("\\", "/")}`,
           contentHash: asset.contentHash,
           mimeType: asset.mimeType,
         };

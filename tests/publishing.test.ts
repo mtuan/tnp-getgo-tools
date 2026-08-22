@@ -16,7 +16,7 @@ import {
   diffContentV2PublishedItems,
 } from "../src/features/topics/domain/content-v2-publish-state.js";
 
-test("content v2 assets publish to shared topic Storage paths", () => {
+test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
   const preview = createContentV2QuizPublishPreview(
     "kid-learning",
     {
@@ -46,7 +46,7 @@ test("content v2 assets publish to shared topic Storage paths", () => {
 
   assert.equal(
     preview.firebaseStorage.uploads[0]?.destinationPath,
-    "getgo-content-v2/topics/kid-learning/assets/book.png",
+    "getgo-content-v2/topics/kid-learning/quizzes/english-alphabet/assets/book.png",
   );
   assert.equal(
     preview.firebaseStorage.uploads[0]?.localSourcePath,
@@ -68,7 +68,7 @@ test("content v2 assets publish to shared topic Storage paths", () => {
   assert.deepEqual(removed, [
     {
       kind: "storage-object",
-      path: "getgo-content-v2/topics/kid-learning/assets/book.png",
+      path: "getgo-content-v2/topics/kid-learning/quizzes/english-alphabet/assets/book.png",
       hash: "a".repeat(64),
     },
   ]);

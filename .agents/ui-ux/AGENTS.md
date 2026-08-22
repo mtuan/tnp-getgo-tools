@@ -24,6 +24,7 @@ Read these instructions when changing pages, components, layouts, styling, respo
 
 - Define intentional default, hover, pressed, focus, disabled, loading, empty, error, and success states where applicable.
 - Catch failures where the UI can show localized, actionable feedback.
+- Gate every authenticated action with the shared `useAuth().requireAuth(action)` flow. A signed-out action must open the standard sign-in dialog and automatically continue after successful sign-in; a raw backend authentication error is not an acceptable sign-in experience. Do not duplicate authentication checks or build feature-specific sign-in UI.
 - Keep layout stable while content loads or changes state.
 - Respect `prefers-reduced-motion` and avoid transformed ancestors around fixed or portaled overlays.
 

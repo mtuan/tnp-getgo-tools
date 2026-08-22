@@ -13,6 +13,7 @@ This desktop repository follows the same engineering principles as `tnp-getgo-we
 - Localize every user-facing string and accessible name in English and Vietnamese. New shared locale infrastructure belongs under `src/shared/localization`.
 - Preserve accessibility, keyboard behavior, responsive layouts, loading states, reduced motion, and light/dark themes.
 - Reuse GetGo Web's visual language and interaction contracts so equivalent controls behave consistently across both applications.
+- Any renderer action that requires an authenticated Firebase session must run through `useAuth().requireAuth(action)` before invoking preload, IPC, or network operations. When signed out, open the shared sign-in flow and resume the pending action after successful authentication; never expose a backend "sign in required" failure as the normal authentication UX, and never create a page-specific sign-in dialog.
 - Keep security boundaries intact: context isolation on, Node integration off, sandbox on, validated IPC inputs, and allowlisted external URLs.
 - Run `npm run typecheck`, targeted tests, and `git diff --check` before reporting a change complete. Run the production build when build configuration or packaging is affected, or when the user requests it.
 - Remove unused imports, locals, and parameters in every changed file. TypeScript's `noUnusedLocals` and `noUnusedParameters` checks are mandatory and must not be disabled or bypassed to complete a refactor.
