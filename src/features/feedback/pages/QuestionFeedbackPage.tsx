@@ -8,7 +8,6 @@ import {
   ErrorFrame,
   PageHeader,
   SearchField,
-  Select,
   StatusBadge,
   SummaryCard,
   TableActionButton,
@@ -23,15 +22,23 @@ type FeedbackQuestion = QuestionFeedbackOverview & {
 };
 
 function withCounts(items: QuestionFeedbackOverview[]): FeedbackQuestion[] {
-  return items.map((item) => ({
-    ...item,
-    pending: item.reports.filter((report) => report.review.status === "pending").length,
-    latestAt: item.reports.reduce(
-      (latest, item) => item.source.reportedAt > latest ? item.source.reportedAt : latest,
-      "",
-    ),
-    issues: Array.from(new Set(item.reports.flatMap((report) => report.source.issueTypes))),
-  }));
+  return items
+    .map((item) => {
+      const pendingReports = item.reports.filter((report) => report.review.status === "pending");
+      return {
+        ...item,
+        pending: pendingReports.length,
+        latestAt: pendingReports.reduce(
+          (latest, report) => report.source.reportedAt > latest ? report.source.reportedAt : latest,
+          "",
+        ),
+        issues: Array.from(new Set(pendingReports.flatMap((report) => report.source.issueTypes))),
+      };
+    })
+    .filter((item) => item.pending > 0)
+    .sort((first, second) => second.pending - first.pending
+      || second.latestAt.localeCompare(first.latestAt)
+      || first.key.localeCompare(second.key));
 }
 
 export function QuestionFeedbackPage({
@@ -45,7 +52,6 @@ export function QuestionFeedbackPage({
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
 
   const load = useCallback(async () => {
     try {
@@ -87,16 +93,13 @@ export function QuestionFeedbackPage({
   const rows = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     return allRows.filter((row) => {
-      if (status === "pending" && row.pending === 0) return false;
-      if (status === "resolved" && row.pending > 0) return false;
       if (!normalized) return true;
       return [row.topicTitle, row.topicId, row.quizTitle, row.quizId, row.questionId, row.questionText, ...row.issues]
         .join(" ")
         .toLocaleLowerCase()
         .includes(normalized);
     });
-  }, [allRows, query, status]);
-  const reportCount = overviews?.reduce((total, item) => total + item.reports.length, 0) ?? 0;
+  }, [allRows, query]);
   const pendingReports = overviews?.reduce((total, item) => total + item.reports.filter((report) => report.review.status === "pending").length, 0) ?? 0;
 
   const columns = useMemo<DataColumn<FeedbackQuestion>[]>(() => [
@@ -148,27 +151,16 @@ export function QuestionFeedbackPage({
   return <section className="question-feedback-page">
     <PageHeader
       eyebrow="Content quality"
-      title="Question feedback"
+      title="Feedbacks"
       description="Review learner reports, prioritize repeated issues, and open the affected question directly."
-      actions={<Button variant="primary" icon={<Download />} loading={syncing || auth.loading} onClick={requestSync}>Sync feedback</Button>}
+      actions={<Button variant="primary" icon={<Download />} loading={syncing || auth.loading} onClick={requestSync}>Sync feedbacks</Button>}
     />
     <section className="metrics question-feedback-metrics">
-      <SummaryCard label="Reports" value={reportCount} detail="synchronized locally" />
-      <SummaryCard label="Questions" value={allRows.length} detail="with learner feedback" />
-      <SummaryCard label="Pending" value={pendingReports} detail="awaiting admin review" />
+      <SummaryCard label="Pending reports" value={pendingReports} detail="awaiting admin review" />
+      <SummaryCard label="Problem questions" value={allRows.length} detail="ordered by pending reports" />
     </section>
     <div className="question-feedback-filters">
-      <SearchField value={query} placeholder="Search topic, quiz, question, or issue" ariaLabel="Search question feedback" clearLabel="Clear feedback search" onValueChange={setQuery} />
-      <Select
-        value={status}
-        ariaLabel="Filter feedback status"
-        options={[
-          { value: "all", label: "All feedback" },
-          { value: "pending", label: "Pending review" },
-          { value: "resolved", label: "Resolved" },
-        ]}
-        onValueChange={setStatus}
-      />
+      <SearchField value={query} placeholder="Search topic, quiz, question, or issue" ariaLabel="Search feedbacks" clearLabel="Clear feedback search" onValueChange={setQuery} />
     </div>
     {error && <div className="question-feedback-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>Retry</Button></div>}
     {!error && overviews === null && <div className="question-feedback-loading">Loading question feedback…</div>}
@@ -176,9 +168,9 @@ export function QuestionFeedbackPage({
       rows={rows}
       columns={columns}
       rowKey={(row) => row.key}
-      ariaLabel="Question feedback"
-      emptyText={query || status !== "all" ? "No feedback matches these filters." : "No synchronized question feedback."}
-      defaultSort={{ key: "reports", direction: "desc" }}
+      ariaLabel="Pending question feedbacks"
+      emptyText={query ? "No feedbacks match this search." : "No pending feedbacks."}
+      defaultSort={{ key: "pending", direction: "desc" }}
       horizontalScroll
       onRowClick={(row) => onOpenQuestion(row.topicId, row.quizId, row.questionId)}
     />}

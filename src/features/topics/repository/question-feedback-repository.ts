@@ -176,7 +176,9 @@ export async function listQuestionFeedbackOverview(root: string): Promise<Questi
     grouped.set(key, [...(grouped.get(key) ?? []), report]);
   }
   const topicsRoot = path.join(path.resolve(root), "content-v2", "topics");
-  return Promise.all(Array.from(grouped, async ([key, items]) => {
+  const pendingGroups = Array.from(grouped).filter(([, items]) =>
+    items.some((item) => item.review.status === "pending"));
+  return Promise.all(pendingGroups.map(async ([key, items]) => {
     const { topicId, quizId, questionId } = items[0]!.source;
     const topicRoot = path.join(topicsRoot, validId(topicId, "topic ID"));
     const quizRoot = path.join(topicRoot, "quizzes", validId(quizId, "quiz ID"));

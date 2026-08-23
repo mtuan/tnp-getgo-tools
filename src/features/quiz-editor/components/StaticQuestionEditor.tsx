@@ -8,7 +8,7 @@ import type {
 import { answerDetailsComponents, type EditableAnswer } from "./answer-details";
 import { Form, type FormSchema } from "../../../shared/ui/Form";
 import { Button } from "../../../shared/ui/Button";
-import { Panel } from "../../../shared/ui/Panel";
+import { AccordionSection } from "../../../shared/ui/Accordion";
 import { QuestionPreview } from "../../../shared/ui/QuestionPreview";
 import { QuestionAssetInput } from "../../../shared/ui/QuestionAssetInput";
 import { questionService } from "./question-service";
@@ -35,6 +35,18 @@ export function StaticQuestionEditor({
   const [preview, setPreview] = useState(() =>
     questionService.loadStatic(record),
   );
+  const [expandedPanels, setExpandedPanels] = useState(
+    () => new Set(["detail", "images", "answer", "preview"]),
+  );
+  const panelExpanded = (id: string) => expandedPanels.has(id);
+  const setPanelExpanded = (id: string, expanded: boolean) => {
+    setExpandedPanels((current) => {
+      const next = new Set(current);
+      if (expanded) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
   const answer = answerOf(record);
   const explanation =
     record.explanation &&
@@ -175,10 +187,12 @@ export function StaticQuestionEditor({
   return (
     <div className="advanced-question-layout static-question-layout">
       <div className="advanced-question-editors">
-        <Panel
+        <AccordionSection
           className="static-question-form-panel"
           title="Question detail"
           description="Edit the stored question and explanation."
+          expanded={panelExpanded("detail")}
+          onExpandedChange={(expanded) => setPanelExpanded("detail", expanded)}
         >
           <div className="static-question-fields">
             <Form
@@ -189,11 +203,13 @@ export function StaticQuestionEditor({
               onChange={updateQuestion}
             />
           </div>
-        </Panel>
-        <Panel
+        </AccordionSection>
+        <AccordionSection
           className="static-question-form-panel"
           title="Question images"
           description="Browse, drop, or focus an image field and paste from the clipboard."
+          expanded={panelExpanded("images")}
+          onExpandedChange={(expanded) => setPanelExpanded("images", expanded)}
         >
           <div className="static-question-fields question-images-editor">
             {questionImages.map((image, index) => <QuestionAssetInput
@@ -212,11 +228,13 @@ export function StaticQuestionEditor({
               onChange={value => { if (value) onChange({ ...record, image_datas: [...questionImages, value] }) }}
             />
           </div>
-        </Panel>
-        <Panel
+        </AccordionSection>
+        <AccordionSection
           className="static-question-form-panel"
           title="Answer details"
-          meta={answerType === "multiple_input" ? (
+          expanded={panelExpanded("answer")}
+          onExpandedChange={(expanded) => setPanelExpanded("answer", expanded)}
+          actions={answerType === "multiple_input" ? (
             <Button variant="primary" icon={<Plus size={16} />} onClick={addMultipleInput}>
               Add input
             </Button>
@@ -256,13 +274,15 @@ export function StaticQuestionEditor({
               }
             />
           </div>
-        </Panel>
+        </AccordionSection>
       </div>
       <div className="advanced-question-sidebar">
-        <Panel
-          className="question-preview-panel"
+        <AccordionSection
+          className="question-preview-panel static-question-preview-accordion"
           title={`Question ${record.question_no}`}
-          meta={
+          expanded={panelExpanded("preview")}
+          onExpandedChange={(expanded) => setPanelExpanded("preview", expanded)}
+          actions={
             <span className="question-preview-actions">
               <QuestionFeedback
                 feedback={record.feedback}
@@ -287,7 +307,7 @@ export function StaticQuestionEditor({
             params={preview.params}
             manifestPath={manifestPath}
           />
-        </Panel>
+        </AccordionSection>
       </div>
     </div>
   );

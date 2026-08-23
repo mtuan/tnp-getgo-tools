@@ -82,7 +82,7 @@ type View =
   | "dashboard"
   | "topics"
   | "quizzes"
-  | "feedback"
+  | "feedbacks"
   | "jobs"
   | "deploy"
   | "image-pdf"
@@ -114,13 +114,14 @@ function viewFromRoute(route: string): View {
   }
   const staticView = [
     "dashboard",
-    "feedback",
+    "feedbacks",
     "jobs",
     "deploy",
     "image-pdf",
     "settings",
   ].find((value) => pathname === `/${value}`);
   if (staticView) return staticView as NavigableView;
+  if (pathname === "/feedback") return "feedbacks";
   const parts = pathname
     .split("/")
     .filter(Boolean)
@@ -159,7 +160,7 @@ const normalizedRoute = (route: string) => {
 const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "topics", label: "Topics", icon: Library },
-  { id: "feedback", label: "Feedback", icon: MessageSquareWarning },
+  { id: "feedbacks", label: "Feedbacks", icon: MessageSquareWarning },
   { id: "quizzes", label: "Legacy quizzes", icon: Archive },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
@@ -783,7 +784,7 @@ export function App() {
                 onSpeechSettingsChange={changeSpeechSettings}
               />
             )}
-            {settings.repositoryPath && view === "feedback" && (
+            {settings.repositoryPath && view === "feedbacks" && (
               <Suspense fallback={null}>
                 <QuestionFeedbackPage
                   onOpenQuestion={(topicId, quizId, questionId) => {
