@@ -7,6 +7,7 @@ import {
   QuizValueSerializer,
 } from "@tnp/getgo-logics/quiz-builder";
 import { staticAnswerType } from "../../../features/quiz-editor/domain/answer-types";
+import { DEFAULT_EXPLANATION_GENERATOR_TS } from "../../../features/quiz-editor/domain/question-dynamics";
 import type { ContestQuizQuestionRecord } from "../../../shared/domain/models";
 
 export interface RuntimeQuestion extends Record<string, unknown> {
@@ -65,6 +66,45 @@ function shuffle<T>(values: T[]): T[] {
 }
 
 class QuestionService {
+  createDynamicDraft(
+    record: ContestQuizQuestionRecord,
+  ): ContestQuizQuestionRecord {
+    if (record.advancedDynamic) return record;
+    const staticQuestion = this.loadStatic(record).question;
+    const {
+      text_en: staticTextEn,
+      text_vn: staticTextVn,
+      ...staticQuestionRest
+    } = staticQuestion;
+    const sourceQuestion = {
+      ...staticQuestionRest,
+      text_en: Array.isArray(staticTextEn)
+        ? staticTextEn.join("\n")
+        : String(staticTextEn ?? ""),
+      ...(staticTextVn !== undefined
+        ? {
+            text_vn: Array.isArray(staticTextVn)
+              ? staticTextVn.join("\n")
+              : String(staticTextVn),
+          }
+        : {}),
+    };
+    const fields = QuizTsService.extractTemplateSourceFields(
+      dynamicBuilder.createStarterSource(sourceQuestion),
+    );
+    return {
+      ...record,
+      authoringMode: "advanced-dynamic",
+      advancedDynamic: {
+        paramsGeneratorTs: fields.paramsGeneratorTs,
+        questionGeneratorTs: fields.questionGeneratorTs,
+        originParamsTs: fields.originParamsTs ?? "{}",
+        explanationGeneratorTs:
+          fields.explanationGeneratorTs ?? DEFAULT_EXPLANATION_GENERATOR_TS,
+      },
+    };
+  }
+
   loadStatic(
     record: ContestQuizQuestionRecord,
     shuffleChoices = false,
@@ -134,13 +174,14 @@ class QuestionService {
   async generateDynamic(
     record: ContestQuizQuestionRecord,
     original = false,
+    quizSharedCode = "",
   ): Promise<GeneratedQuestion> {
     if (!record.advancedDynamic)
       throw new Error("This question does not contain a dynamic generator.");
     const source = QuizTsService.composeTemplateSource(record.advancedDynamic);
     const generated = original
-      ? await dynamicBuilder.generateOriginal(source)
-      : await dynamicBuilder.generate(source);
+      ? await dynamicBuilder.generateOriginal(source, quizSharedCode)
+      : await dynamicBuilder.generate(source, quizSharedCode);
     if (!generated) throw new Error("Question generation returned no result.");
     return generated as GeneratedQuestion;
   }

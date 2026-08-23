@@ -7,7 +7,7 @@ const source = resolve(
   root,
   "node_modules/@tnp/getgo-logics/generated/quiz-builder.monaco.json",
 )
-const destination = resolve(root, "src/renderer/quiz-builder.monaco.json")
+const destination = resolve(root, "src/shared/ui/quiz-builder.monaco.json")
 
 await copyFile(source, destination)
 console.log(`Synchronized Monaco QuizBuilder declarations from ${source}`)

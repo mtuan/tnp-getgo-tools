@@ -5,6 +5,7 @@ import type {
 import { AdvancedQuestionEditor } from "./AdvancedQuestionEditor";
 import { StaticQuestionEditor } from "./StaticQuestionEditor";
 import { Tabs } from "../../../shared/ui/Tabs";
+import { questionService } from "./question-service";
 
 export type QuestionEditorTab = "static" | "dynamic";
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   path: string;
   manifestPath: string;
   context: Record<string, unknown>;
+  quizSharedCode?: string;
   onTabChange(tab: QuestionEditorTab): void;
   onChange(record: ContestQuizQuestionRecord): void;
   onSave(): void;
@@ -22,6 +24,9 @@ interface Props {
 }
 
 export function QuestionEditorTabs(props: Props) {
+  const dynamicRecord = props.record.advancedDynamic
+    ? props.record
+    : questionService.createDynamicDraft(props.record);
   const editor = props.tab === "static" ? (
     <StaticQuestionEditor
       record={props.record}
@@ -29,14 +34,7 @@ export function QuestionEditorTabs(props: Props) {
       onChange={props.onChange}
       onFeedbackSave={props.onFeedbackSave}
     />
-  ) : props.record.advancedDynamic ? (
-    <AdvancedQuestionEditor {...props} />
-  ) : (
-    <div className="empty-feature">
-      <h2>No dynamic question</h2>
-      <p>This question does not contain a dynamic generator.</p>
-    </div>
-  );
+  ) : <AdvancedQuestionEditor {...props} record={dynamicRecord} />;
   return (
     <>
       <div className="question-editor-tabs-row"><Tabs<QuestionEditorTab>

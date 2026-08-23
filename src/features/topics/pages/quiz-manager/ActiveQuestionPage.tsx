@@ -1,4 +1,4 @@
-import { Check, CircleCheck, CircleDashed, CircleX, FolderOpen, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Check, CircleCheck, CircleDashed, CircleX, Code2, FolderOpen, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import type { ContestQuizQuestionRecord, QuizQuestionRecord, RepositoryViewData } from "../../../../shared/domain/models";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { alphabetData } from "../../../../features/quiz-editor/domain/alphabet-question";
@@ -11,6 +11,7 @@ import { QuestionNavigator } from "../../../../shared/ui/QuestionNavigator";
 import { ActionMenu } from "../../../../shared/ui/ActionMenu";
 import { AlphabetLetterEditor } from "../../../quiz-editor/components/AlphabetLetterEditor";
 import { QuestionEditorKeyboardShortcuts, comparableQuestion, questionDiff, type QuestionListItem } from "./shared";
+import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 
 type ActiveQuestionContext = Record<string, any> & {
   questionRecords: QuizQuestionRecord[];
@@ -48,6 +49,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
     saving,
     savingVerification,
     selectedQuestion,
+    sharedCodeDrawerOpen,
     setAlphabetEditorTab,
     setPage,
     setPendingQuestionNo,
@@ -58,6 +60,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
     setSaving,
     setSavingVerification,
     setSelectedQuestion,
+    setSharedCodeDrawerOpen,
     setSourceError,
     snapshot,
     sourceError,
@@ -364,6 +367,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
         });
       };
       return (
+        <>
         <section className="manager editor-page question-detail-page">
           <QuestionEditorKeyboardShortcuts
             saveDisabled={!questionHasChanges || saving || savingVerification}
@@ -473,6 +477,12 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                     ...(!isAlphabetQuestion
                       ? [
                           {
+                            id: "shared-code",
+                            label: "Edit shared code",
+                            icon: Code2,
+                            onSelect: () => setSharedCodeDrawerOpen(true),
+                          },
+                          {
                             id: "reset-question",
                             label: "Reset question",
                             icon: RotateCcw,
@@ -564,6 +574,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                 record={questionDraftRecord as ContestQuizQuestionRecord}
                 path={`${quiz.relativePath}/questions/q${questionDraftRecord.question_no}`}
                 manifestPath={quiz.manifestPath}
+                quizSharedCode={quiz.sharedCode}
                 context={{
                   contestId: quiz.contest,
                   quizId: quiz.id,
@@ -584,6 +595,25 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
             ))}
           </SyncedQuestionFeedback>
         </section>
+        {sharedCodeDrawerOpen && (
+          <QuizSharedCodeTab
+            key={`${quiz.key}:${quiz.sharedCode ?? ""}:drawer`}
+            presentation="drawer"
+            quiz={quiz}
+            api={managerApi}
+            onClose={() => setSharedCodeDrawerOpen(false)}
+            onSnapshotChange={onSnapshotChange}
+            onQuizChange={(updated) => setPage({ kind: "quiz", quiz: updated })}
+            notify={(title, description, error) =>
+              toast.show({
+                title,
+                description,
+                ...(error ? { variant: "error" } : {}),
+              })
+            }
+          />
+        )}
+        </>
       );
     }
 

@@ -133,7 +133,7 @@ export type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
 export type QuizDetailTab =
-  "questions" | "alphabets" | "dictionary" | "info";
+  "questions" | "alphabets" | "dictionary" | "info" | "code";
 export type ContestDetailTab =
   "info" | "quizzes" | "dictionaries" | "assets";
 
@@ -293,7 +293,7 @@ export function restoredPage(
         : "info";
   const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
-    requestedQuizTab === "info"
+    requestedQuizTab === "info" || requestedQuizTab === "code"
       ? requestedQuizTab
       : "questions";
   const contest = snapshot.contests.find(
@@ -326,7 +326,7 @@ export function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (quizTab !== "info")
+  if (quizTab !== "info" && quizTab !== "code")
     quizTab = quiz.type === "contest" ? "questions" : "alphabets";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo

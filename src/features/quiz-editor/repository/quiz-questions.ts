@@ -12,6 +12,7 @@ import {
 } from "@tnp/getgo-logics/quiz-builder";
 import type { AlphabetLetterResource, QuizQuestionRecord } from "../../../shared/domain/models.js";
 import { questionIsVerified, withQuestionStatus } from "../../../features/quiz-editor/domain/question-status.js";
+import { DEFAULT_EXPLANATION_GENERATOR_TS } from "../../../features/quiz-editor/domain/question-dynamics.js";
 
 const inlineImagePattern =
   /^data:image\/([a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i;
@@ -23,57 +24,17 @@ const builder = createDynamicQuestionBuildService({
     createHash("sha256").update(source).digest("hex"),
 });
 
-function sourceLiteral(value: unknown): string {
-  return JSON.stringify(value, null, 2).replace(
-    /^(\s*)"([A-Za-z_$][\w$]*)":/gm,
-    "$1$2:",
+function dynamicStarterFields(question: Record<string, unknown>) {
+  const fields = QuizTsService.extractTemplateSourceFields(
+    builder.createStarterSource(question as never),
   );
-}
-
-function indent(source: string, spaces: number): string {
-  const prefix = " ".repeat(spaces);
-  return source
-    .split("\n")
-    .map((line: string) => `${prefix}${line}`)
-    .join("\n");
-}
-
-function answerExpression(value: unknown): string {
-  const answer =
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>)
-      : {};
-  const choices =
-    answer.choices && typeof answer.choices === "object"
-      ? (answer.choices as Record<string, unknown>)
-      : null;
-  if (choices && Object.keys(choices).length)
-    return `QB.answer.choice(${sourceLiteral(answer.correct)}, ${sourceLiteral(choices)})`;
-  const inputType = ["text", "number", "date"].includes(String(answer.inputType))
-    ? String(answer.inputType)
-    : undefined;
-  const unitArgument = answer.unit ? sourceLiteral(answer.unit) : "undefined";
-  return `QB.answer.input(${sourceLiteral(answer.correct ?? "")}${answer.unit || inputType ? `, ${unitArgument}` : ""}${inputType ? `, ${sourceLiteral(inputType)}` : ""})`;
-}
-
-function questionGeneratorSource(question: Record<string, unknown>): string {
-  const fields = Object.fromEntries(
-    Object.entries(question).filter(
-      ([key]) =>
-        ![
-          "answer",
-          "action",
-          "status",
-          "verified",
-          "schemaVersion",
-          "authoringMode",
-          "advancedDynamic",
-          "generatorBuild",
-        ].includes(key),
-    ),
-  );
-  const fieldSource = sourceLiteral(fields).slice(1, -1).trim();
-  return `({}) => {\n  return {\n${fieldSource ? `${indent(fieldSource, 4)},\n` : ""}    answer: ${answerExpression(question.answer)},\n  }\n}`;
+  return {
+    paramsGeneratorTs: fields.paramsGeneratorTs,
+    questionGeneratorTs: fields.questionGeneratorTs,
+    originParamsTs: fields.originParamsTs ?? "{}",
+    explanationGeneratorTs:
+      fields.explanationGeneratorTs ?? DEFAULT_EXPLANATION_GENERATOR_TS,
+  };
 }
 
 function imageExtension(subtype: string): string {
@@ -209,12 +170,7 @@ function normalizeQuestion(
       ? { verified: normalized.verified }
       : {}),
     authoringMode: "advanced-dynamic",
-    advancedDynamic: {
-      paramsGeneratorTs: "() => {\n  return {}\n}",
-      questionGeneratorTs: questionGeneratorSource(normalized),
-      originParamsTs: "{}",
-      explanationGeneratorTs: '({}) => {\n  return { en: "", vi: "" }\n}',
-    },
+    advancedDynamic: dynamicStarterFields(normalized),
   };
 }
 
@@ -376,8 +332,9 @@ async function questionsFromRawTs(
       paramsGeneratorTs: fields.paramsGeneratorTs,
       questionGeneratorTs: fields.questionGeneratorTs,
       originParamsTs: normalizeLegacyOriginParamsSource(fields.originParamsTs),
-      explanationGeneratorTs:
-        fields.explanationGeneratorTs ?? "({}) => ({ en: '', vi: '' })",
+      explanationGeneratorTs: fields.explanationGeneratorTs?.trim()
+        ? fields.explanationGeneratorTs
+        : DEFAULT_EXPLANATION_GENERATOR_TS,
     };
     const templateSource = QuizTsService.composeTemplateSource(advancedDynamic);
     let sourceQuestion: Record<string, unknown> | null = null;
@@ -792,16 +749,22 @@ export async function resetQuizQuestion(
     generatorBuild: _generatorBuild,
     ...sourceQuestion
   } = question;
-  const reset =
-    sourceDefault ??
-    normalizeQuestion(
-      {
-        ...sourceQuestion,
-        authoringMode: undefined,
-        status: undefined,
-        verified: undefined,
-      },
-      Math.max(0, Number(question.question_no) - 1),
-    );
+  const resetSource = sourceDefault ?? sourceQuestion;
+  const {
+    advancedDynamic: _resetDynamic,
+    aiResponse: _resetAiResponse,
+    aiFixHistory: _resetAiFixHistory,
+    generatorBuild: _resetGeneratorBuild,
+    ...resetStatic
+  } = resetSource;
+  const reset = normalizeQuestion(
+    {
+      ...resetStatic,
+      authoringMode: undefined,
+      status: undefined,
+      verified: undefined,
+    },
+    Math.max(0, Number(question.question_no) - 1),
+  );
   return saveQuizQuestion(manifestPath, reset);
 }

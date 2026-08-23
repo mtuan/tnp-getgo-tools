@@ -14,6 +14,7 @@ import { marketplaceTopicState } from "../../../../features/topics/domain/market
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
+import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 
 type QuizOverviewContext = Record<string, any> & {
   questions: QuestionListItem[];
@@ -251,6 +252,9 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                   }
                 : null,
             { id: "info" as const, label: "Info" },
+            quiz.relativePath.startsWith("content-v2/")
+              ? { id: "code" as const, label: "Code" }
+              : null,
           ].filter((item): item is Exclude<typeof item, null> => Boolean(item))}
         />
         {quizTab === "info" && quizContest && (
@@ -264,6 +268,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                 const next = await managerApi.updateQuiz(quiz.manifestPath, {
                   title: input.title,
                   icon: input.icon,
+                  sharedCode: input.sharedCode,
                   type: input.type,
                   language: input.language,
                   grade: input.grade,
@@ -300,6 +305,16 @@ export function renderQuizOverview(context: QuizOverviewContext) {
               />
             )}
           </AccordionGroup>
+        )}
+        {quizTab === "code" && quiz.relativePath.startsWith("content-v2/") && (
+          <QuizSharedCodeTab
+            key={`${quiz.key}:${quiz.sharedCode ?? ""}`}
+            quiz={quiz}
+            api={managerApi}
+            onSnapshotChange={onSnapshotChange}
+            onQuizChange={(updated) => setPage({ kind: "quiz", quiz: updated })}
+            notify={(title, description, error) => toast.show({ title, description, ...(error ? { variant: "error" } : {}) })}
+          />
         )}
         {quizTab === "questions" && (
           <>

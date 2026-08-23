@@ -112,6 +112,7 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     contest: quiz.topicId,
     title: quiz.title,
     icon: quiz.icon,
+    sharedCode: quiz.sharedCode,
     type: contentV2ManagerRegistry.quizzes[quiz.type].managerType(),
     language: quiz.type === "alphabet" || quiz.type === "spelling" ? quiz.language : undefined,
     grade: quiz.grade ?? null,
@@ -368,7 +369,10 @@ export function ContentV2QuizManager(props: Props) {
       updateQuiz: async (manifestPath, input) => {
         const summary = findQuiz(props.snapshot, manifestPath);
         const stored = await window.getgo.loadContentV2Quiz(summary.topicId, summary.id);
-        const common = { schemaVersion: 2 as const, id: stored.id, topicId: stored.topicId, title: input.title, icon: input.icon || undefined, description: stored.description, status: input.status === "reviewed" ? "reviewed" as const : stored.status, order: stored.order };
+        // An editor for one quiz concern must preserve every unrelated field,
+        // especially marketplace state. Reconstructing a partial quiz here used
+        // to drop marketplace and let its default resolve to "unlisted".
+        const common = { ...stored, title: input.title, icon: input.icon || undefined, sharedCode: input.sharedCode ?? stored.sharedCode, status: input.status === "reviewed" ? "reviewed" as const : stored.status };
         const next: ContentV2Quiz = input.type === "contest"
           ? { ...common, type: "competition-paper", grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
           : { ...common, type: "alphabet", language: input.language ?? "en", speech: stored.type === "alphabet" ? stored.speech : defaultAlphabetQuizSpeechSettings };
@@ -379,8 +383,8 @@ export function ContentV2QuizManager(props: Props) {
         const topic = await window.getgo.loadContentV2Topic(topicId);
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
-          ? { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
-          : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
+          ? { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
+          : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         await window.getgo.saveContentV2Quiz(topicId, quiz);
         return reloadFromFiles(topicId);
       },

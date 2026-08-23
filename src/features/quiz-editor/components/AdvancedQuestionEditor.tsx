@@ -15,14 +15,23 @@ import {
   questionText as text,
   type RuntimeQuestion,
 } from "../../../shared/ui/QuestionPreview";
+import {
+  DEFAULT_EXPLANATION_GENERATOR_TS,
+  formatDynamicCodeExpression,
+  originParamsEditorSource,
+  originParamsValueFromEditor,
+  quizSharedEditorContext,
+} from "../domain/question-dynamics";
 import { questionService } from "./question-service";
 import { QuestionFeedback } from "./QuestionFeedback";
+import * as ui from "../../../shared/ui";
 
 export function AdvancedQuestionEditor({
   record,
   path,
   manifestPath,
   context,
+  quizSharedCode = "",
   onChange,
   onSave,
   onFeedbackSave,
@@ -31,6 +40,7 @@ export function AdvancedQuestionEditor({
   path: string;
   manifestPath: string;
   context: Record<string, unknown>;
+  quizSharedCode?: string;
   onChange(record: ContestQuizQuestionRecord): void;
   onSave(): void;
   onFeedbackSave(value: Omit<Feedback, "updatedAt"> | null): Promise<void>;
@@ -44,13 +54,24 @@ export function AdvancedQuestionEditor({
     params: { __dynamic: true },
   }));
   const generatedQuestionRef = useRef<string | number | null>(null);
-  const signatureSourceRef = useRef({
-    questionNo: String(record.question_no),
-    paramsGeneratorTs: record.advancedDynamic?.paramsGeneratorTs ?? "",
-  });
   const latestRecordRef = useRef(record);
-  latestRecordRef.current = record;
+  const pendingDynamicChangeRef = useRef(false);
+  const latestRecord = latestRecordRef.current;
+  if (String(latestRecord.question_no) !== String(record.question_no)) {
+    latestRecordRef.current = record;
+    pendingDynamicChangeRef.current = false;
+  } else if (
+    !pendingDynamicChangeRef.current ||
+    JSON.stringify(latestRecord.advancedDynamic) ===
+      JSON.stringify(record.advancedDynamic)
+  ) {
+    latestRecordRef.current = record;
+    pendingDynamicChangeRef.current = false;
+  }
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false);
+  const [expandedCodePanels, setExpandedCodePanels] = useState<Set<string>>(
+    () => new Set(["params", "question", "explanation", "origin"]),
+  );
   useEffect(() => {
     console.info("[GetGo Tools][Question editor][bound draft]", {
       questionNo: String(record.question_no),
@@ -77,6 +98,7 @@ export function AdvancedQuestionEditor({
       advancedDynamic: { ...latest.advancedDynamic!, [key]: value },
     };
     latestRecordRef.current = next;
+    pendingDynamicChangeRef.current = true;
     onChange(next);
   };
   const synchronizeDependentSignatures = () => {
@@ -101,38 +123,27 @@ export function AdvancedQuestionEditor({
         explanationGeneratorTs === latest.advancedDynamic.explanationGeneratorTs
       )
         return;
-      onChange({
+      const next = {
         ...latest,
         advancedDynamic: {
           ...latest.advancedDynamic,
           questionGeneratorTs,
           explanationGeneratorTs,
         },
-      });
+      };
+      latestRecordRef.current = next;
+      pendingDynamicChangeRef.current = true;
+      onChange(next);
     } catch {
       /* Incomplete TypeScript is normal while typing; the next edit or blur retries. */
     }
   };
-  useEffect(() => {
-    const next = {
-      questionNo: String(record.question_no),
-      paramsGeneratorTs: record.advancedDynamic?.paramsGeneratorTs ?? "",
-    };
-    const previous = signatureSourceRef.current;
-    signatureSourceRef.current = next;
-    if (
-      previous.questionNo !== next.questionNo ||
-      previous.paramsGeneratorTs === next.paramsGeneratorTs
-    )
-      return;
-    const timeout = window.setTimeout(synchronizeDependentSignatures, 400);
-    return () => window.clearTimeout(timeout);
-  }, [record.advancedDynamic?.paramsGeneratorTs, record.question_no]);
   const generate = async (original = false) => {
     try {
       const generated = await questionService.generateDynamic(
         latestRecordRef.current,
         original,
+        quizSharedCode,
       );
       setPreview({
         question: generated.question,
@@ -168,6 +179,25 @@ export function AdvancedQuestionEditor({
         "Validate the template using the source question's original values.",
     },
   };
+  let editorDynamic = record.advancedDynamic;
+  if (editorDynamic) {
+    try {
+      const synchronized = QuizTsService.extractTemplateSourceFields(
+        QuizTsService.syncQuestionGeneratorSignature(
+          QuizTsService.composeTemplateSource(editorDynamic),
+        ),
+      );
+      editorDynamic = {
+        ...editorDynamic,
+        questionGeneratorTs: synchronized.questionGeneratorTs,
+        explanationGeneratorTs:
+          synchronized.explanationGeneratorTs ??
+          editorDynamic.explanationGeneratorTs,
+      };
+    } catch {
+      /* Keep syntax-invalid drafts exactly as entered until they become valid. */
+    }
+  }
   const editorFields = (
     [
       ["params", "paramsGeneratorTs"],
@@ -176,7 +206,14 @@ export function AdvancedQuestionEditor({
       ["origin", "originParamsTs"],
     ] as const
   ).map(([id, key]) => {
-    const value = record.advancedDynamic?.[key] ?? "";
+    const storedValue = editorDynamic?.[key] ?? "";
+    const normalizedValue =
+      key === "explanationGeneratorTs" && !storedValue.trim()
+        ? DEFAULT_EXPLANATION_GENERATOR_TS
+        : storedValue;
+    const value = key === "originParamsTs"
+      ? originParamsEditorSource(normalizedValue)
+      : normalizedValue;
     let section;
     try {
       const isolatedSource = QuizTsService.composeTemplateSource({
@@ -189,7 +226,7 @@ export function AdvancedQuestionEditor({
         explanationGeneratorTs:
           key === "explanationGeneratorTs"
             ? value
-            : "({}) => {\n  return { en: '', vi: '' }\n}",
+            : DEFAULT_EXPLANATION_GENERATOR_TS,
         originParamsTs: key === "originParamsTs" ? value : "{}",
       });
       section = QuizTsService.getTemplateEditorSections(isolatedSource).find(
@@ -199,7 +236,7 @@ export function AdvancedQuestionEditor({
       /* An invalid field must not affect any other editor. */
     }
     const lineCount = Math.max(1, value.split("\n").length);
-    const editableLineRange =
+    const sectionEditableLineRange =
       section?.editableStartLineNumber != null &&
       section.editableEndLineNumber != null
         ? {
@@ -209,11 +246,19 @@ export function AdvancedQuestionEditor({
               section.editableEndLineNumber - section.startLineNumber + 1,
           }
         : undefined;
-    const usesGeneratedParams = id === "question" || id === "explanation";
-    const modelContext = usesGeneratedParams
+    const editableLineRange = id === "origin" && lineCount > 2
+      ? { startLineNumber: 2, endLineNumber: lineCount - 1 }
+      : sectionEditableLineRange;
+    const sharedContext = quizSharedEditorContext(quizSharedCode);
+    const paramsGeneratorTs = editorDynamic?.paramsGeneratorTs.trim();
+    const parameterContext = paramsGeneratorTs
+      ? `${sharedContext ? "" : "export {};\n"}const __getgoParamsGeneratorForEditor = (${paramsGeneratorTs});\ndeclare global {\n  type __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;\n}\n`
+      : "";
+    const editorContext = `${sharedContext}${parameterContext}`;
+    const extraLib = editorContext
       ? {
-          prefix: `export {}\nconst __getgoParamsGenerator = ${record.advancedDynamic?.paramsGeneratorTs ?? "() => ({})"}\ntype __GetGoParams = ReturnType<typeof __getgoParamsGenerator>\nconst __getgoCallback: (params: __GetGoParams) => unknown =\n`,
-          suffix: "\n",
+          content: editorContext,
+          filePath: `file://${path.replaceAll("\\", "/")}.editor-context.ts`,
         }
       : undefined;
     return {
@@ -222,8 +267,7 @@ export function AdvancedQuestionEditor({
       value,
       lineCount,
       editableLineRange,
-      expressionContext: id === "origin",
-      modelContext,
+      extraLib,
       onBlur: id === "params" ? synchronizeDependentSignatures : undefined,
     };
   });
@@ -243,11 +287,20 @@ export function AdvancedQuestionEditor({
             onHistoryOpen={() => setAiHistoryOpen(true)}
           />
           {editorFields.map((field) => (
-            <Panel
+            <ui.AccordionSection
               className="advanced-question-editor-panel"
               title={panelCopy[field.id].title}
               description={panelCopy[field.id].description}
               key={field.id}
+              expanded={expandedCodePanels.has(field.id)}
+              onExpandedChange={(expanded) =>
+                setExpandedCodePanels((current) => {
+                  const next = new Set(current);
+                  if (expanded) next.add(field.id);
+                  else next.delete(field.id);
+                  return next;
+                })
+              }
             >
               <div className="question-code-workspace">
                 <QuizCodeEditor
@@ -261,10 +314,15 @@ export function AdvancedQuestionEditor({
                     endLineNumber: field.lineCount,
                   }}
                   editableLineRange={field.editableLineRange}
-                  expressionContext={field.expressionContext}
-                  modelContext={field.modelContext}
+                  extraLib={field.extraLib}
                   relativeLineNumbers
-                  onChange={(value) => updateField(field.key, value)}
+                  formatOnMount={formatDynamicCodeExpression}
+                  onChange={(value) => updateField(
+                    field.key,
+                    field.id === "origin"
+                      ? originParamsValueFromEditor(value)
+                      : value,
+                  )}
                   onBlur={field.onBlur}
                   onSave={onSave}
                   onValidate={
@@ -282,7 +340,7 @@ export function AdvancedQuestionEditor({
                   }
                 />
               </div>
-            </Panel>
+            </ui.AccordionSection>
           ))}
         </div>
         <div className="advanced-question-sidebar">

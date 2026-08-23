@@ -6,6 +6,7 @@ import { SegmentedControl } from "./SegmentedControl"
 import { Toggle } from "./Toggle"
 import { Button } from "./Button"
 import { Input } from "./Input"
+import { QuizCodeEditor } from "../../features/quiz-editor/components/QuizCodeEditor"
 
 export type { SelectOption } from "./Select"
 export interface FieldRules {
@@ -29,6 +30,7 @@ interface FieldBase {
 export type FormField =
   | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number; autoCompact?: boolean; maxLines?: number })
+  | (FieldBase & { type: "code"; path: string; language?: "typescript" | "json"; minHeight?: number })
   | (FieldBase & { type: "image"; accept?: string; maxBytes?: number; previewSrc?: string })
   | (FieldBase & { type: "icon"; accept?: string; maxBytes?: number; previewSrc?: string; symbols?: string[] })
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
@@ -241,6 +243,29 @@ function TextareaControl({ field, value, disabled, autoFocus, onChange }: {
   />
 }
 
+function CodeControl({ field, value, disabled, autoFocus, onChange }: {
+  field: Extract<FormField, { type: "code" }>
+  value: unknown
+  disabled: boolean
+  autoFocus: boolean
+  onChange(value: string): void
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  return <div ref={rootRef} className="schema-code-control" aria-disabled={disabled || undefined}>
+    <QuizCodeEditor
+      value={String(value ?? "")}
+      path={field.path}
+      language={field.language ?? "typescript"}
+      autoHeight
+      autoFocus={autoFocus}
+      minHeight={field.minHeight ?? 120}
+      readOnly={disabled || field.readOnly}
+      onChange={onChange}
+      onSave={() => rootRef.current?.closest("form")?.requestSubmit()}
+    />
+  </div>
+}
+
 export function validateSchema(schema: FormSchema[], values: FormValues): FormErrors {
   const errors: FormErrors = {}
   for (const field of flattenSchema(schema, values)) {
@@ -268,6 +293,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   if (field.type === "toggle") return <div className="schema-toggle-control"><Toggle name={field.name} ariaLabel={String(field.label ?? field.name)} checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onCheckedChange={checked => onChange(field.name, checked)} /></div>
   if (field.type === "checkbox") return <label className="schema-checkbox"><input name={field.name} type="checkbox" checked={Boolean(value)} disabled={disabled} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.checked)} /><span>{field.label}</span></label>
   if (field.type === "textarea") return <TextareaControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
+  if (field.type === "code") return <CodeControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "image") return <ImageControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "icon") return <IconControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />

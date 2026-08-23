@@ -4,7 +4,7 @@ import { marketplaceTopicStates } from "./marketplace-topic-state.js";
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 3;
+export const contentV2QuizPublishContractVersion = 4;
 
 export {
   marketplaceTopicState,
@@ -140,6 +140,7 @@ export type ContentV2TopicType = ContentV2Topic["type"];
 const baseQuiz = {
   ...baseRecord,
   topicId: idSchema,
+  sharedCode: z.string().default(""),
 };
 
 export const defaultQuizSpeechSettings = {

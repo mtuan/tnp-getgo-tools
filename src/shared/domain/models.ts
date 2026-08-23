@@ -45,6 +45,7 @@ export interface QuizSummary {
   contest: string;
   title: string;
   icon?: string;
+  sharedCode?: string;
   type: QuizType;
   language?: "en" | "vi";
   grade: string | null;
@@ -134,6 +135,7 @@ export interface ContentV2QuizSummary {
   title: string;
   description: string;
   icon?: string;
+  sharedCode: string;
   status: "draft" | "pending" | "reviewed" | "rejected";
   order: number;
   filePath: string;
@@ -216,6 +218,7 @@ export interface QuizCrudInput {
   id: string;
   title: string;
   icon?: string;
+  sharedCode?: string;
   type?: QuizType;
   language?: "en" | "vi";
   grade: string | null;

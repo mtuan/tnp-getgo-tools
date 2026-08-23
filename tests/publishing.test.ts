@@ -26,6 +26,7 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
       type: "alphabet",
       title: "English Alphabet",
       description: "",
+      sharedCode: "const sharedLetter = 'A';",
       status: "reviewed",
       order: 0,
       language: "en",
@@ -56,6 +57,10 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
   assert.equal("questionIds" in preview.firestore.quizDocument.data, false);
   assert.equal("resourceIds" in preview.firestore.quizDocument.data, false);
   assert.equal("assetDocuments" in preview.firestore, false);
+  assert.equal(
+    preview.firestore.quizDocument.data.sharedCode,
+    "const sharedLetter = 'A';",
+  );
 
   const first = contentV2PublishedItems(preview);
   assert.equal(diffContentV2PublishedItems(undefined, first).changed.size, 2);

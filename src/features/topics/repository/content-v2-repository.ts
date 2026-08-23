@@ -304,6 +304,7 @@ export async function loadContentV2WorkspaceFromFiles(
         type: quiz.type,
         title: quiz.title,
         icon: quiz.icon,
+        sharedCode: quiz.sharedCode,
         description: quiz.description,
         status: quiz.status,
         order: quiz.order,

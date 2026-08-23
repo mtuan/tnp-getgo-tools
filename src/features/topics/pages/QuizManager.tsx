@@ -92,6 +92,7 @@ export function QuizManager({
   >(null);
   const [buttonAction, setButtonAction] = useState<string | null>(null);
   const [quizInfoDirty, setQuizInfoDirty] = useState(false);
+  const [sharedCodeDrawerOpen, setSharedCodeDrawerOpen] = useState(false);
   const [topicInfoDirty, setTopicInfoDirty] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [contestDialog, setContestDialog] = useState<
@@ -186,18 +187,6 @@ export function QuizManager({
             },
           );
           return current;
-        }
-        if (
-          current &&
-          JSON.stringify(comparableQuestion(current)) !==
-            JSON.stringify(comparableQuestion(next))
-        ) {
-          console.info("[GetGo Tools][Question draft][editor change]", {
-            originQuestionNo,
-            currentQuestionNo,
-            nextQuestionNo,
-            differences: questionDiff(current, next),
-          });
         }
         return next;
       });
@@ -392,7 +381,11 @@ export function QuizManager({
     return () => {
       active = false;
     };
-  }, [page]);
+  }, [
+    page.kind,
+    page.kind === "quiz" ? page.quiz.manifestPath : null,
+    page.kind === "quiz" ? page.quiz.type : null,
+  ]);
 
   useEffect(() => {
     if (page.kind !== "contest" || contestTab !== "dictionaries") return;
@@ -419,12 +412,14 @@ export function QuizManager({
   }, [contestTab, page, snapshot.contentV2.topics]);
 
   const backToQuestions = useCallback(() => {
+    setSharedCodeDrawerOpen(false);
     setSelectedQuestion(null);
     setPendingQuestionNo(null);
     setQuestionDraftRecord(null);
   }, []);
 
   const openQuiz = useCallback((quiz: QuizSummary) => {
+    setSharedCodeDrawerOpen(false);
     setSelectedQuestion(null);
     setPendingQuestionNo(null);
     setQuestionDraftRecord(null);
@@ -436,6 +431,7 @@ export function QuizManager({
     setPage({ kind: "quiz", quiz });
   }, []);
   const goBack = useCallback(() => {
+    setSharedCodeDrawerOpen(false);
     if (page.kind === "quiz") {
       setContestTab("quizzes");
       setPage({ kind: "contest", contest: page.quiz.contest });
@@ -504,6 +500,7 @@ export function QuizManager({
       saving,
       savingVerification,
       selectedQuestion,
+      sharedCodeDrawerOpen,
       setAlphabetEditorTab,
       setPage,
       setPendingQuestionNo,
@@ -518,6 +515,7 @@ export function QuizManager({
       setSaving,
       setSavingVerification,
       setSelectedQuestion,
+      setSharedCodeDrawerOpen,
       setSourceError,
       snapshot,
       sourceError,
