@@ -386,7 +386,11 @@ export function AdvancedQuestionEditor({
     const extraLib = editorContext
       ? {
           content: editorContext,
+          // A fresh URI forces Monaco to recompute ReturnType inference. The
+          // replacement group removes the previous question's global alias so
+          // its __GetGoParams declaration cannot leak across navigation.
           filePath: `file://${path.replaceAll("\\", "/")}.editor-context.ts`,
+          replaceGroup: "active-question-context",
         }
       : undefined;
     return {

@@ -13,6 +13,7 @@ loader.config({ monaco })
 const editorExtraLibs = new Map<string, {
   content: string
   refs: number
+  replaceGroup?: string
   disposable: monaco.IDisposable
 }>()
 let qsProbeSequence = 0
@@ -44,12 +45,24 @@ async function probeQsExtraLib(editorPath: string, extraLib: EditorExtraLib): Pr
 }
 
 function retainEditorExtraLib(extraLib: EditorExtraLib): () => void {
+  if (extraLib.replaceGroup) {
+    for (const [filePath, candidate] of editorExtraLibs) {
+      if (
+        filePath !== extraLib.filePath
+        && candidate.replaceGroup === extraLib.replaceGroup
+      ) {
+        candidate.disposable.dispose()
+        editorExtraLibs.delete(filePath)
+      }
+    }
+  }
   let entry = editorExtraLibs.get(extraLib.filePath)
   if (!entry || entry.content !== extraLib.content) {
     entry?.disposable.dispose()
     entry = {
       content: extraLib.content,
       refs: 0,
+      replaceGroup: extraLib.replaceGroup,
       disposable: monacoTypeScript.typescriptDefaults.addExtraLib(
         extraLib.content,
         extraLib.filePath,
@@ -88,7 +101,11 @@ function configureMonaco() {
 }
 
 export interface EditorLineRange { startLineNumber: number; endLineNumber: number }
-export interface EditorExtraLib { content: string; filePath: string }
+export interface EditorExtraLib {
+  content: string
+  filePath: string
+  replaceGroup?: string
+}
 interface QuizCodeEditorProps {
   value: string; path: string; onChange(value: string): void; onSave(): void
   autoHeight?: boolean; minHeight?: number; visibleLineRange?: EditorLineRange

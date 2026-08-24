@@ -25,6 +25,7 @@ export interface PublishedContestQuestion {
     unit?: string;
     otherChoiceKey?: string;
     fixed?: boolean;
+    format?: { $type: "function"; source: string };
   };
   dynamic?: {
     paramsGeneratorTs: string;
@@ -156,6 +157,18 @@ export function sanitizePublishedQuestion(
     result.answer.choices = structuredClone(
       plainRecord(answer.choices, `Question ${questionNo} answer.choices`),
     ) as PublishedContestQuestion["answer"]["choices"];
+  if (answer.format !== undefined) {
+    const format = plainRecord(
+      answer.format,
+      `Question ${questionNo} answer.format`,
+    );
+    if (format.$type !== "function" || typeof format.source !== "string")
+      throw new Error(`Question ${questionNo} answer.format is invalid.`);
+    result.answer.format = structuredClone(format) as {
+      $type: "function";
+      source: string;
+    };
+  }
   if (answer.inputType !== undefined) {
     if (!["text", "number", "date"].includes(String(answer.inputType)))
       throw new Error(`Question ${questionNo} answer.inputType is invalid.`);

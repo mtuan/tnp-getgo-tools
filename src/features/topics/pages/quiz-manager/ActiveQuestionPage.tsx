@@ -4,6 +4,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { alphabetData } from "../../../../features/quiz-editor/domain/alphabet-question";
 import { questionIsVerified, questionStatus, withQuestionStatus } from "../../../../features/quiz-editor/domain/question-status";
 import { QuestionEditorTabs } from "../../../quiz-editor/components/QuestionEditorTabs";
+import { formatQuestionCode } from "../../../quiz-editor/domain/question-dynamics";
 import { SyncedQuestionFeedback } from "../../../quiz-editor/components/SyncedQuestionFeedback";
 import { Button } from "../../../../shared/ui/Button";
 import { PageHeader } from "../../../../shared/ui/PageHeader";
@@ -141,9 +142,14 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
             questionNo: questionDraftRecord.question_no,
             dirty: questionDiff(activeQuestion.record, questionDraftRecord),
           });
+          const formattedQuestion = await formatQuestionCode(questionDraftRecord);
+          // Commit formatting to the controlled editors before persisting. The
+          // storage adapter receives this exact record, so disk and Monaco can
+          // never disagree after Save.
+          setQuestionDraftRecord(formattedQuestion);
           const savedQuestion = await managerApi.saveQuizQuestion(
             quiz.manifestPath,
-            questionDraftRecord,
+            formattedQuestion,
           );
           console.info("[GetGo Tools][Question save][persisted]", {
             questionNo: savedQuestion.question_no,

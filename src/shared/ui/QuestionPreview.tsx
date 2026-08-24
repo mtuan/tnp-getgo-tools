@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 import { displayQuestionValue } from "../../features/quiz-editor/domain/question-value-display";
+import { QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder";
 
 export type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 
@@ -185,7 +186,7 @@ export function QuestionPreview({
                 <span>
                   <PreviewValue
                     manifestPath={manifestPath}
-                    value={value}
+                    value={QuizValueSerializer.formatChoice(question.answer, value)}
                     alt={`Choice ${label}`}
                   />
                   {question.answer.unit &&

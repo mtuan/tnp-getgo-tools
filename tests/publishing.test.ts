@@ -190,6 +190,29 @@ test("publishes fixed choice ordering as runtime answer metadata", () => {
   assert.equal(question.answer.fixed, true);
 });
 
+test("publishes rendering-only choice formatter source", () => {
+  const question = sanitizePublishedQuestion({
+    question_no: 1,
+    text_en: "Pick a time",
+    answer: {
+      type: "choice",
+      correct: "A",
+      choices: {
+        A: { $type: "maths-time", minutes: 1200 },
+        B: { $type: "maths-time", minutes: 1230 },
+      },
+      format: {
+        $type: "function",
+        source: "(value) => value.format('hh:mm')",
+      },
+    },
+  });
+  assert.deepEqual(question.answer.format, {
+    $type: "function",
+    source: "(value) => value.format('hh:mm')",
+  });
+});
+
 test("publishes the shared input control type for single-input answers", () => {
   const question = sanitizePublishedQuestion({
     question_no: 1,

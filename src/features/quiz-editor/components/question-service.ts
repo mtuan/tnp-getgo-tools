@@ -31,6 +31,7 @@ export interface RuntimeQuestion extends Record<string, unknown> {
     unit?: string;
     otherChoiceKey?: string;
     fixed?: boolean;
+    format?: unknown;
   };
 }
 
