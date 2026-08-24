@@ -144,6 +144,14 @@ export function AdvancedQuestionEditor({
       },
     });
   }, [path, record.question_no]);
+  useEffect(() => {
+    console.info("[GetGo Tools][Question preview][committed]", {
+      questionNo: String(preview.question.question_no),
+      textEn: preview.question.text_en,
+      answer: preview.question.answer,
+      params: preview.params,
+    });
+  }, [preview]);
   const updateField = (
     key:
       | "paramsGeneratorTs"
@@ -244,17 +252,37 @@ export function AdvancedQuestionEditor({
   };
   const generate = async (original = false) => {
     try {
+      console.info("[GetGo Tools][Question preview][generation requested]", {
+        mode: original ? "original" : "random",
+        questionNo: String(latestRecordRef.current.question_no),
+        currentPreview: {
+          textEn: preview.question.text_en,
+          answer: preview.question.answer,
+          params: preview.params,
+        },
+      });
       const generated = await questionService.generateDynamic(
         latestRecordRef.current,
         original,
         quizSharedCode,
       );
+      console.info("[GetGo Tools][Question preview][generation returned]", {
+        mode: original ? "original" : "random",
+        questionNo: String(generated.question.question_no),
+        generatedQuestion: generated.question,
+        generatedParams: generated.params ?? {},
+      });
       setPreview({
         question: generated.question,
         params: generated.params ?? {},
       });
       setErrors([]);
     } catch (cause) {
+      console.error("[GetGo Tools][Question preview][generation failed]", {
+        mode: original ? "original" : "random",
+        questionNo: String(latestRecordRef.current.question_no),
+        cause,
+      });
       setErrors([cause instanceof Error ? cause.message : String(cause)]);
     }
   };
