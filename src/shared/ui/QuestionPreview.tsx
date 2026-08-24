@@ -186,7 +186,9 @@ export function QuestionPreview({
                 <span>
                   <PreviewValue
                     manifestPath={manifestPath}
-                    value={QuizValueSerializer.formatChoice(question.answer, value)}
+                    value={label === question.answer.otherChoiceKey
+                      ? value
+                      : QuizValueSerializer.formatChoice(question.answer, value)}
                     alt={`Choice ${label}`}
                   />
                   {question.answer.unit &&
