@@ -61,6 +61,26 @@ test("question service converts ordered multiple inputs into an editable dynamic
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /unit: "items"/)
 })
 
+test("question service prefers the concise input map when metadata is inferred", () => {
+  const draft = questionService.createDynamicDraft({
+    question_no: 4,
+    text_en: "What comes next?",
+    answer: {
+      type: "multiple_input",
+      correct: ["16", "20"],
+      inputs: [
+        { question_en: "1, 4, 7, 10, 13, ____", inputType: "number" },
+        { question_en: "2, 5, 8, 11, 14, 17, ____", inputType: "number" },
+      ],
+    },
+  } as QuizQuestionRecord)
+
+  const source = draft.advancedDynamic?.questionGeneratorTs ?? ""
+  assert.match(source, /QB\.answer\.inputs\(\{/)
+  assert.match(source, /"1, 4, 7, 10, 13, ____": answer1/)
+  assert.doesNotMatch(source, /question_en:/)
+})
+
 test("dynamic callback formatting never exposes Prettier's ASI guard", async () => {
   const formatted = await formatDynamicCodeExpression("({ answer }) => { return { answer } }")
   assert.equal(formatted.startsWith(";"), false)

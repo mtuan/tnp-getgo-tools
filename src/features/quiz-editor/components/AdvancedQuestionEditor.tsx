@@ -26,6 +26,66 @@ import { questionService } from "./question-service";
 import { QuestionFeedback } from "./QuestionFeedback";
 import * as ui from "../../../shared/ui";
 
+type AdvancedDynamic = NonNullable<ContestQuizQuestionRecord["advancedDynamic"]>;
+
+const SIGNATURE_PROBE_QUESTION = "({}) => {\n  return {} as never\n}";
+
+function synchronizeGeneratorFields(dynamic: AdvancedDynamic): {
+  dynamic: AdvancedDynamic;
+  failures: Array<{ field: "question" | "explanation"; cause: unknown }>;
+} {
+  const failures: Array<{
+    field: "question" | "explanation";
+    cause: unknown;
+  }> = [];
+  let questionGeneratorTs = dynamic.questionGeneratorTs;
+  let explanationGeneratorTs = dynamic.explanationGeneratorTs;
+
+  try {
+    const synchronized = QuizTsService.extractTemplateSourceFields(
+      QuizTsService.syncQuestionGeneratorSignature(
+        QuizTsService.composeTemplateSource({
+          paramsGeneratorTs: dynamic.paramsGeneratorTs,
+          questionGeneratorTs: dynamic.questionGeneratorTs,
+          explanationGeneratorTs: DEFAULT_EXPLANATION_GENERATOR_TS,
+          // Origin code is edited independently and may temporarily be invalid.
+          originParamsTs: "{}",
+        }),
+      ),
+    );
+    questionGeneratorTs = synchronized.questionGeneratorTs;
+  } catch (cause) {
+    failures.push({ field: "question", cause });
+  }
+
+  try {
+    const synchronized = QuizTsService.extractTemplateSourceFields(
+      QuizTsService.syncQuestionGeneratorSignature(
+        QuizTsService.composeTemplateSource({
+          paramsGeneratorTs: dynamic.paramsGeneratorTs,
+          questionGeneratorTs: SIGNATURE_PROBE_QUESTION,
+          explanationGeneratorTs: dynamic.explanationGeneratorTs,
+          // Origin code is edited independently and may temporarily be invalid.
+          originParamsTs: "{}",
+        }),
+      ),
+    );
+    explanationGeneratorTs = synchronized.explanationGeneratorTs
+      ?? dynamic.explanationGeneratorTs;
+  } catch (cause) {
+    failures.push({ field: "explanation", cause });
+  }
+
+  return {
+    dynamic: {
+      ...dynamic,
+      questionGeneratorTs,
+      explanationGeneratorTs,
+    },
+    failures,
+  };
+}
+
 export function AdvancedQuestionEditor({
   record,
   path,
@@ -101,28 +161,61 @@ export function AdvancedQuestionEditor({
     pendingDynamicChangeRef.current = true;
     onChange(next);
   };
-  const synchronizeDependentSignatures = () => {
+  const synchronizeDependentSignatures = (trigger = "unknown") => {
     const latest = latestRecordRef.current;
-    if (String(latest.question_no) !== String(record.question_no)) return;
-    if (!latest.advancedDynamic) return;
+    if (String(latest.question_no) !== String(record.question_no)) {
+      console.info("[GetGo Tools][Question signatures][skipped]", {
+        trigger,
+        reason: "question-changed",
+        latestQuestionNo: String(latest.question_no),
+        renderedQuestionNo: String(record.question_no),
+      });
+      return;
+    }
+    if (!latest.advancedDynamic) {
+      console.info("[GetGo Tools][Question signatures][skipped]", {
+        trigger,
+        reason: "no-dynamic-code",
+        questionNo: String(latest.question_no),
+      });
+      return;
+    }
+    const beforeQuestionSignature = latest.advancedDynamic.questionGeneratorTs
+      .split("\n", 1)[0];
+    const beforeExplanationSignature = latest.advancedDynamic.explanationGeneratorTs
+      .split("\n", 1)[0];
+    console.info("[GetGo Tools][Question signatures][sync started]", {
+      trigger,
+      questionNo: String(latest.question_no),
+      paramsLength: latest.advancedDynamic.paramsGeneratorTs.length,
+      paramsPreview: latest.advancedDynamic.paramsGeneratorTs.slice(0, 240),
+      beforeQuestionSignature,
+      beforeExplanationSignature,
+    });
     try {
-      const currentSource = QuizTsService.composeTemplateSource(
-        latest.advancedDynamic,
-      );
-      const synchronizedSource =
-        QuizTsService.syncQuestionGeneratorSignature(currentSource);
-      if (synchronizedSource === currentSource) return;
-      const fields =
-        QuizTsService.extractTemplateSourceFields(synchronizedSource);
-      const questionGeneratorTs = fields.questionGeneratorTs;
-      const explanationGeneratorTs =
-        fields.explanationGeneratorTs ??
-        latest.advancedDynamic.explanationGeneratorTs;
+      const synchronized = synchronizeGeneratorFields(latest.advancedDynamic);
+      for (const failure of synchronized.failures) {
+        console.warn("[GetGo Tools][Question signatures][field failed]", {
+          trigger,
+          questionNo: String(latest.question_no),
+          field: failure.field,
+          cause: failure.cause,
+        });
+      }
+      const { questionGeneratorTs, explanationGeneratorTs } = synchronized.dynamic;
       if (
         questionGeneratorTs === latest.advancedDynamic.questionGeneratorTs &&
         explanationGeneratorTs === latest.advancedDynamic.explanationGeneratorTs
-      )
+      ) {
+        console.info("[GetGo Tools][Question signatures][unchanged]", {
+          trigger,
+          questionNo: String(latest.question_no),
+          beforeQuestionSignature,
+          beforeExplanationSignature,
+          failedFields: synchronized.failures.map((failure) => failure.field),
+        });
         return;
+      }
       const next = {
         ...latest,
         advancedDynamic: {
@@ -133,8 +226,19 @@ export function AdvancedQuestionEditor({
       };
       latestRecordRef.current = next;
       pendingDynamicChangeRef.current = true;
+      console.info("[GetGo Tools][Question signatures][updated]", {
+        trigger,
+        questionNo: String(latest.question_no),
+        afterQuestionSignature: questionGeneratorTs.split("\n", 1)[0],
+        afterExplanationSignature: explanationGeneratorTs.split("\n", 1)[0],
+      });
       onChange(next);
-    } catch {
+    } catch (cause) {
+      console.warn("[GetGo Tools][Question signatures][failed]", {
+        trigger,
+        questionNo: String(latest.question_no),
+        cause,
+      });
       /* Incomplete TypeScript is normal while typing; the next edit or blur retries. */
     }
   };
@@ -179,25 +283,10 @@ export function AdvancedQuestionEditor({
         "Validate the template using the source question's original values.",
     },
   };
-  let editorDynamic = record.advancedDynamic;
-  if (editorDynamic) {
-    try {
-      const synchronized = QuizTsService.extractTemplateSourceFields(
-        QuizTsService.syncQuestionGeneratorSignature(
-          QuizTsService.composeTemplateSource(editorDynamic),
-        ),
-      );
-      editorDynamic = {
-        ...editorDynamic,
-        questionGeneratorTs: synchronized.questionGeneratorTs,
-        explanationGeneratorTs:
-          synchronized.explanationGeneratorTs ??
-          editorDynamic.explanationGeneratorTs,
-      };
-    } catch {
-      /* Keep syntax-invalid drafts exactly as entered until they become valid. */
-    }
-  }
+  // Local Monaco edits reach the draft ref synchronously. Use that source while
+  // the parent draft update is rendering so focus transitions never rebuild the
+  // dependent editors from the previous parameter signature.
+  const editorDynamic = latestRecordRef.current.advancedDynamic;
   const editorFields = (
     [
       ["params", "paramsGeneratorTs"],
@@ -268,7 +357,12 @@ export function AdvancedQuestionEditor({
       lineCount,
       editableLineRange,
       extraLib,
-      onBlur: id === "params" ? synchronizeDependentSignatures : undefined,
+      onBlur: id === "params"
+        ? () => synchronizeDependentSignatures("params-blur")
+        : undefined,
+      onFocus: id === "params"
+        ? undefined
+        : () => synchronizeDependentSignatures(`${id}-monaco-focus`),
     };
   });
   return (
@@ -302,7 +396,12 @@ export function AdvancedQuestionEditor({
                 })
               }
             >
-              <div className="question-code-workspace">
+              <div
+                className="question-code-workspace"
+                onFocusCapture={field.id === "params"
+                  ? undefined
+                  : () => synchronizeDependentSignatures(`${field.id}-dom-focus`)}
+              >
                 <QuizCodeEditor
                   key={`${path}.${field.id}`}
                   value={field.value}
@@ -324,6 +423,7 @@ export function AdvancedQuestionEditor({
                       : value,
                   )}
                   onBlur={field.onBlur}
+                  onFocus={field.onFocus}
                   onSave={onSave}
                   onValidate={
                     field.id === "question"

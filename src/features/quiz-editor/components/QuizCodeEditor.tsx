@@ -92,7 +92,7 @@ export interface EditorExtraLib { content: string; filePath: string }
 interface QuizCodeEditorProps {
   value: string; path: string; onChange(value: string): void; onSave(): void
   autoHeight?: boolean; minHeight?: number; visibleLineRange?: EditorLineRange
-  editableLineRange?: EditorLineRange; relativeLineNumbers?: boolean; onValidate?: OnValidate; onBlur?: () => void
+  editableLineRange?: EditorLineRange; relativeLineNumbers?: boolean; onValidate?: OnValidate; onBlur?: () => void; onFocus?: () => void
   formatOnMount?: (value: string) => string | Promise<string>
   extraLib?: EditorExtraLib
   readOnly?: boolean
@@ -100,12 +100,13 @@ interface QuizCodeEditorProps {
   language?: "typescript" | "json"
 }
 
-export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = false, minHeight = 120, visibleLineRange, editableLineRange, relativeLineNumbers = false, onValidate, onBlur, formatOnMount, extraLib, readOnly = false, autoFocus = false, language = "typescript" }: QuizCodeEditorProps) {
+export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = false, minHeight = 120, visibleLineRange, editableLineRange, relativeLineNumbers = false, onValidate, onBlur, onFocus, formatOnMount, extraLib, readOnly = false, autoFocus = false, language = "typescript" }: QuizCodeEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const lockedRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null)
   const saveRef = useRef(onSave); saveRef.current = onSave
   const changeRef = useRef(onChange); changeRef.current = onChange
   const blurRef = useRef(onBlur); blurRef.current = onBlur
+  const focusRef = useRef(onFocus); focusRef.current = onFocus
   const liveValueRef = useRef(value)
   const pendingLocalValueRef = useRef<string | null>(null)
   const applyingExternalValueRef = useRef(false)
@@ -181,7 +182,23 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
     if (autoHeight) { const update = () => setHeight(Math.max(minHeight, editor.getContentHeight())); update(); editor.onDidContentSizeChange(update) }
     const updateReadOnly = () => { const range = editableRef.current; const selection = editor.getSelection(); editor.updateOptions({ readOnly: readOnly || (!!range && !(selection && selection.startLineNumber >= range.startLineNumber && selection.endLineNumber <= range.endLineNumber)) }) }
     if (editableRef.current) { const model = editor.getModel(); editor.setPosition({ lineNumber: Math.max(1, Math.min(model?.getLineCount() ?? 1, editableRef.current.startLineNumber)), column: 1 }); updateReadOnly(); editor.onDidChangeCursorSelection(updateReadOnly) }
-    editor.onDidBlurEditorWidget(() => blurRef.current?.())
+    // Text focus is the reliable boundary when moving directly between separate
+    // Monaco instances. Widget blur can remain false while Monaco transfers its
+    // global editor focus, leaving dependent code signatures stale.
+    editor.onDidBlurEditorText(() => {
+      console.info("[GetGo Tools][Monaco focus][blur]", {
+        path,
+        valueLength: editor.getModel()?.getValueLength() ?? 0,
+      })
+      blurRef.current?.()
+    })
+    editor.onDidFocusEditorText(() => {
+      console.info("[GetGo Tools][Monaco focus][focus]", {
+        path,
+        valueLength: editor.getModel()?.getValueLength() ?? 0,
+      })
+      focusRef.current?.()
+    })
     if (formatOnMount) {
       const valueAtFormatStart = value
       void Promise.resolve(formatOnMount(valueAtFormatStart)).then(formatted => {

@@ -24,9 +24,63 @@ const builder = createDynamicQuestionBuildService({
     createHash("sha256").update(source).digest("hex"),
 });
 
+function sourceLiteral(value: unknown): string {
+  return JSON.stringify(value, null, 2).replace(
+    /^(\s*)"([A-Za-z_$][\w$]*)":/gm,
+    "$1$2:",
+  );
+}
+
+function indent(source: string, spaces: number): string {
+  const prefix = " ".repeat(spaces);
+  return source.split("\n").map((line) => `${prefix}${line}`).join("\n");
+}
+
+function answerExpression(value: unknown): string {
+  const answer = value && typeof value === "object"
+    ? value as Record<string, unknown>
+    : {};
+  const choices = answer.choices && typeof answer.choices === "object"
+    ? answer.choices as Record<string, unknown>
+    : null;
+  if (choices && Object.keys(choices).length)
+    return `QB.answer.choice(${sourceLiteral(answer.correct)}, ${sourceLiteral(choices)})`;
+  const inputType = ["text", "number", "date"].includes(String(answer.inputType))
+    ? String(answer.inputType)
+    : undefined;
+  const options = {
+    ...(answer.unit ? { unit: answer.unit } : {}),
+    ...(inputType ? { inputType } : {}),
+  };
+  const optionsArgument = Object.keys(options).length ? `, ${sourceLiteral(options)}` : "";
+  return `QB.answer.input(${sourceLiteral(answer.correct ?? "")}${optionsArgument})`;
+}
+
+function questionGeneratorSource(question: Record<string, unknown>): string {
+  const fields = Object.fromEntries(Object.entries(question).filter(([key]) => ![
+    "answer", "action", "status", "verified", "schemaVersion",
+    "authoringMode", "advancedDynamic", "generatorBuild",
+  ].includes(key)));
+  const fieldSource = sourceLiteral(fields).slice(1, -1).trim();
+  return `({}) => {\n  return {\n${fieldSource ? `${indent(fieldSource, 4)},\n` : ""}    answer: ${answerExpression(question.answer)},\n  }\n}`;
+}
+
 function dynamicStarterFields(question: Record<string, unknown>) {
+  const starterQuestion = {
+    ...question,
+    text_en: Array.isArray(question.text_en)
+      ? question.text_en.join("\n")
+      : String(question.text_en ?? ""),
+    ...(question.text_vn !== undefined
+      ? {
+          text_vn: Array.isArray(question.text_vn)
+            ? question.text_vn.join("\n")
+            : String(question.text_vn),
+        }
+      : {}),
+  };
   const fields = QuizTsService.extractTemplateSourceFields(
-    builder.createStarterSource(question as never),
+    builder.createStarterSource(starterQuestion as never),
   );
   return {
     paramsGeneratorTs: fields.paramsGeneratorTs,
@@ -170,7 +224,12 @@ function normalizeQuestion(
       ? { verified: normalized.verified }
       : {}),
     authoringMode: "advanced-dynamic",
-    advancedDynamic: dynamicStarterFields(normalized),
+    advancedDynamic: {
+      paramsGeneratorTs: "() => {\n  return {}\n}",
+      questionGeneratorTs: questionGeneratorSource(normalized),
+      originParamsTs: "{}",
+      explanationGeneratorTs: DEFAULT_EXPLANATION_GENERATOR_TS,
+    },
   };
 }
 
@@ -757,7 +816,7 @@ export async function resetQuizQuestion(
     generatorBuild: _resetGeneratorBuild,
     ...resetStatic
   } = resetSource;
-  const reset = normalizeQuestion(
+  const normalizedStatic = normalizeQuestion(
     {
       ...resetStatic,
       authoringMode: undefined,
@@ -766,5 +825,10 @@ export async function resetQuizQuestion(
     },
     Math.max(0, Number(question.question_no) - 1),
   );
+  const reset: QuizQuestionRecord = {
+    ...normalizedStatic,
+    authoringMode: "advanced-dynamic" as const,
+    advancedDynamic: dynamicStarterFields(resetStatic),
+  } as QuizQuestionRecord;
   return saveQuizQuestion(manifestPath, reset);
 }
