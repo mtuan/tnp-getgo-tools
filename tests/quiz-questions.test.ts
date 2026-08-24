@@ -14,6 +14,30 @@ import {
   saveQuizQuestion,
 } from "../src/features/quiz-editor/repository/quiz-questions.js";
 
+test("saving formats every dynamic code section including callback origin params", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-format-all-"));
+  const manifestPath = path.join(directory, "quiz.json");
+  await fs.writeFile(manifestPath, "{}");
+
+  const saved = await saveQuizQuestion(manifestPath, {
+    question_no: 1,
+    text_en: "Question",
+    answer: { type: "input", correct: "1" },
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "()=>{const value=1;return {value}}",
+      questionGeneratorTs: "({value})=>{return {question_no:1,text_en:`${value}`,answer:QB.answer.input(value)}}",
+      originParamsTs: "()=>{const value=1;return {value}}",
+      explanationGeneratorTs: "({value})=>{return {en:`${value}`,vi:''}}",
+    },
+  } as never);
+
+  assert.equal(saved.advancedDynamic?.paramsGeneratorTs, "() => {\n  const value = 1\n  return { value }\n}");
+  assert.match(saved.advancedDynamic?.questionGeneratorTs ?? "", /^\(\{ value \}\) => \{\n/);
+  assert.equal(saved.advancedDynamic?.originParamsTs, "() => {\n  const value = 1\n  return { value }\n}");
+  assert.match(saved.advancedDynamic?.explanationGeneratorTs ?? "", /^\(\{ value \}\) => \{\n/);
+});
+
 test("marks all split questions reviewed in one bulk operation", async () => {
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), "getgo-review-all-"),

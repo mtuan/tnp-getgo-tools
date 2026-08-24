@@ -243,14 +243,16 @@ async function formatQuestionCode(
   ): Promise<string> => {
     if (!value?.trim()) return "";
     try {
+      const callbackExpression = /^\s*(?:(?:async\s+)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>|(?:async\s+)?function\b)/.test(value);
+      const wrapObjectExpression = objectExpression && !callbackExpression;
       const formatted = (
         await QuizTsService.formatSnippet(
-          objectExpression ? `(${value})` : value,
+          wrapObjectExpression ? `(${value})` : value,
         )
       )
         .trim()
         .replace(/^;\s*/, "");
-      return objectExpression
+      return wrapObjectExpression
         ? formatted.replace(/^\(\s*/, "").replace(/\s*\)$/, "")
         : formatted;
     } catch {
