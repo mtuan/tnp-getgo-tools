@@ -302,11 +302,10 @@ test("converts raw questions, extracts inline images, and then prefers q files",
   assert.equal(reset.verified, undefined);
   assert.equal(reset.status, undefined);
   assert.equal(reset.authoringMode, "advanced-dynamic");
-  assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /const answer =/);
-  assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /const options =/);
+  assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/);
   assert.match(
     reset.advancedDynamic?.questionGeneratorTs ?? "",
-    /QB\.answer\.select/,
+    /QB\.answer\.choice/,
   );
 
   const reloadedReset = await loadQuizQuestions(manifestPath);
@@ -393,7 +392,8 @@ export default { questions: [
   });
   assert.equal(reset.category, "TypeScript source");
   assert.equal(reset.aiResponse, undefined);
-  assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /const answer = ['"]4['"]/);
+  assert.match(reset.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/);
+  assert.match(reset.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.input\(['"]4['"]\)/);
 });
 
 test("recovers incomplete raw.ts origin fixtures from the matching raw.json question", async () => {

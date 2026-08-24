@@ -33,9 +33,22 @@ test("question service regenerates non-fixed choices and remaps the correct labe
 test("question service opens a static question as an editable dynamic draft", () => {
   const draft = questionService.createDynamicDraft(question(true))
   assert.equal(draft.authoringMode, "advanced-dynamic")
-  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /answer/)
-  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.select/)
+  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /\(\{\}\) =>/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.choice\("correct", \[/)
   assert.match(draft.advancedDynamic?.explanationGeneratorTs ?? "", /return \{ en: "", vi: "" \}/)
+})
+
+test("question service keeps a static input answer inside the question generator", () => {
+  const draft = questionService.createDynamicDraft({
+    question_no: 12,
+    text_en: "Find the missing number",
+    answer: { type: "input", correct: 18, inputType: "number" },
+  } as QuizQuestionRecord)
+
+  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /\(\{\}\) =>/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /answer: QB\.answer\.input\(18\)/)
 })
 
 test("question service converts ordered multiple inputs into an editable dynamic draft", () => {
@@ -52,12 +65,11 @@ test("question service converts ordered multiple inputs into an editable dynamic
     },
   } as QuizQuestionRecord)
 
-  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /const answer1 = 16/)
-  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /const answer2 = 91/)
+  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.inputs\(\[/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_en: "Next term"/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_vn: "Số hạng thứ 31"/)
-  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /correct: answer2/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /correct: 91/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /unit: "items"/)
 })
 
@@ -77,7 +89,7 @@ test("question service prefers the concise input map when metadata is inferred",
 
   const source = draft.advancedDynamic?.questionGeneratorTs ?? ""
   assert.match(source, /QB\.answer\.inputs\(\{/)
-  assert.match(source, /"1, 4, 7, 10, 13, ____": answer1/)
+  assert.match(source, /"1, 4, 7, 10, 13, ____": 16/)
   assert.doesNotMatch(source, /question_en:/)
 })
 

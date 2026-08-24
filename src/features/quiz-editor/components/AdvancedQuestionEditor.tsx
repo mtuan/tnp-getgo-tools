@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { History, Zap } from "lucide-react";
+import { Check, Copy, History, Zap } from "lucide-react";
 import { QuizTsService } from "@tnp/getgo-logics/authoring";
 import type {
   ContestQuizQuestionRecord,
@@ -129,6 +129,8 @@ export function AdvancedQuestionEditor({
     pendingDynamicChangeRef.current = false;
   }
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false);
+  const [copiedPanel, setCopiedPanel] = useState<string | null>(null);
+  const toast = ui.useToast();
   const [expandedCodePanels, setExpandedCodePanels] = useState<Set<string>>(
     () => new Set(["params", "question", "explanation", "origin"]),
   );
@@ -317,10 +319,10 @@ export function AdvancedQuestionEditor({
   const editorDynamic = latestRecordRef.current.advancedDynamic;
   const editorFields = (
     [
+      ["origin", "originParamsTs"],
       ["params", "paramsGeneratorTs"],
       ["question", "questionGeneratorTs"],
       ["explanation", "explanationGeneratorTs"],
-      ["origin", "originParamsTs"],
     ] as const
   ).map(([id, key]) => {
     const storedValue = editorDynamic?.[key] ?? "";
@@ -366,6 +368,15 @@ export function AdvancedQuestionEditor({
     const editableLineRange = id === "origin" && lineCount > 2
       ? { startLineNumber: 2, endLineNumber: lineCount - 1 }
       : sectionEditableLineRange;
+    const editableCode = editableLineRange
+      ? value
+          .split("\n")
+          .slice(
+            editableLineRange.startLineNumber - 1,
+            editableLineRange.endLineNumber,
+          )
+          .join("\n")
+      : value;
     const sharedContext = quizSharedEditorContext(quizSharedCode);
     const paramsGeneratorTs = editorDynamic?.paramsGeneratorTs.trim();
     const parameterContext = paramsGeneratorTs
@@ -384,6 +395,7 @@ export function AdvancedQuestionEditor({
       value,
       lineCount,
       editableLineRange,
+      editableCode,
       extraLib,
       onBlur: id === "params"
         ? () => synchronizeDependentSignatures("params-blur")
@@ -414,6 +426,30 @@ export function AdvancedQuestionEditor({
               title={panelCopy[field.id].title}
               description={panelCopy[field.id].description}
               key={field.id}
+              actionsAlwaysVisible
+              actions={
+                <Button
+                  variant="icon"
+                  title={copiedPanel === field.id ? "Copied" : "Copy editable code"}
+                  aria-label={copiedPanel === field.id ? "Editable code copied" : `Copy ${panelCopy[field.id].title} editable code`}
+                  icon={copiedPanel === field.id ? <Check size={16} /> : <Copy size={16} />}
+                  onClick={() => {
+                    void window.getgo.copyText(field.editableCode).then(() => {
+                      setCopiedPanel(field.id);
+                      window.setTimeout(
+                        () => setCopiedPanel((current) => current === field.id ? null : current),
+                        1400,
+                      );
+                    }).catch((cause: unknown) => {
+                      toast.show({
+                        title: "Could not copy code",
+                        description: cause instanceof Error ? cause.message : String(cause),
+                        variant: "error",
+                      });
+                    });
+                  }}
+                />
+              }
               expanded={expandedCodePanels.has(field.id)}
               onExpandedChange={(expanded) =>
                 setExpandedCodePanels((current) => {

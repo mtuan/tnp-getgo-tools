@@ -19,6 +19,7 @@ export interface AccordionSectionProps {
   expanded: boolean
   onExpandedChange(expanded: boolean): void
   actions?: ReactNode
+  actionsAlwaysVisible?: boolean
   children: ReactNode
   className?: string
   variant?: "panel" | "inline"
@@ -27,7 +28,7 @@ export interface AccordionSectionProps {
 }
 
 /** Controlled, accessible disclosure section with an optional action area. */
-export function AccordionSection({ title, description, expanded, onExpandedChange, actions, children, className = "", variant = "panel", collapsible = true, groupId }: AccordionSectionProps) {
+export function AccordionSection({ title, description, expanded, onExpandedChange, actions, actionsAlwaysVisible = false, children, className = "", variant = "panel", collapsible = true, groupId }: AccordionSectionProps) {
   const contentId = useId()
   const group = useContext(AccordionGroupContext)
   const grouped = Boolean(group && groupId)
@@ -42,7 +43,7 @@ export function AccordionSection({ title, description, expanded, onExpandedChang
         <ChevronDown aria-hidden="true" />
         <span><strong>{title}</strong>{description && <small>{description}</small>}</span>
       </button> : <div className="ui-accordion-toggle ui-accordion-static-heading"><span><strong>{title}</strong>{description && <small>{description}</small>}</span></div>}
-      {isExpanded && actions && <div className="ui-accordion-actions">{actions}</div>}
+      {(isExpanded || actionsAlwaysVisible) && actions && <div className="ui-accordion-actions">{actions}</div>}
     </div>
     <div className="ui-accordion-region" aria-hidden={!isExpanded} inert={!isExpanded}>
       <div className="ui-accordion-region-inner"><div className="ui-accordion-content" id={contentId}>{children}</div></div>
