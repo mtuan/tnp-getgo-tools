@@ -192,6 +192,24 @@ test("v2 publishing excludes editor feedback", () => {
   assert.equal("feedback" in runtime, false);
 });
 
+test("v2 publishing preserves a parameterless question reference", () => {
+  const runtime = sanitizeContentV2Question({
+    schemaVersion: 2,
+    id: "q18",
+    type: "competition-question",
+    order: 17,
+    status: "reviewed",
+    text: { en: "Referenced question placeholder" },
+    assets: [],
+    answer: { type: "input", correct: "" },
+    authoringMode: "reference",
+    reference: { questionNo: 3 },
+  });
+  assert.equal(runtime.authoringMode, "reference");
+  assert.deepEqual(runtime.reference, { questionNo: 3 });
+  assert.equal("dynamic" in runtime, false);
+});
+
 test("v2 repository persists and loads typed topic content", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-v2-"));
   await saveContentV2Topic(root, alphabetTopic);

@@ -59,7 +59,7 @@ function answerExpression(value: unknown): string {
 function questionGeneratorSource(question: Record<string, unknown>): string {
   const fields = Object.fromEntries(Object.entries(question).filter(([key]) => ![
     "answer", "action", "status", "verified", "schemaVersion",
-    "authoringMode", "advancedDynamic", "generatorBuild",
+    "authoringMode", "advancedDynamic", "reference", "generatorBuild",
   ].includes(key)));
   const fieldSource = sourceLiteral(fields).slice(1, -1).trim();
   return `({}) => {\n  return {\n${fieldSource ? `${indent(fieldSource, 4)},\n` : ""}    answer: ${answerExpression(question.answer)},\n  }\n}`;
@@ -215,6 +215,12 @@ function normalizeQuestion(
   if (
     normalized.authoringMode === "advanced-dynamic" &&
     normalized.advancedDynamic
+  )
+    return normalized as QuizQuestionRecord;
+  if (
+    normalized.authoringMode === "reference" &&
+    normalized.reference &&
+    typeof normalized.reference === "object"
   )
     return normalized as QuizQuestionRecord;
   return {

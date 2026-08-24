@@ -6,8 +6,9 @@ import { AdvancedQuestionEditor } from "./AdvancedQuestionEditor";
 import { StaticQuestionEditor } from "./StaticQuestionEditor";
 import { Tabs } from "../../../shared/ui/Tabs";
 import { questionService } from "./question-service";
+import { ReferenceQuestionEditor } from "./ReferenceQuestionEditor";
 
-export type QuestionEditorTab = "static" | "dynamic";
+export type QuestionEditorTab = "static" | "dynamic" | "reference";
 interface Props {
   tab: QuestionEditorTab;
   record: ContestQuizQuestionRecord;
@@ -15,6 +16,7 @@ interface Props {
   manifestPath: string;
   context: Record<string, unknown>;
   quizSharedCode?: string;
+  questions: ContestQuizQuestionRecord[];
   onTabChange(tab: QuestionEditorTab): void;
   onChange(record: ContestQuizQuestionRecord): void;
   onSave(): void;
@@ -34,6 +36,14 @@ export function QuestionEditorTabs(props: Props) {
       onChange={props.onChange}
       onFeedbackSave={props.onFeedbackSave}
     />
+  ) : props.tab === "reference" ? (
+    <ReferenceQuestionEditor
+      record={props.record}
+      questions={props.questions}
+      manifestPath={props.manifestPath}
+      quizSharedCode={props.quizSharedCode}
+      onChange={props.onChange}
+    />
   ) : <AdvancedQuestionEditor {...props} record={dynamicRecord} />;
   return (
     <>
@@ -46,6 +56,7 @@ export function QuestionEditorTabs(props: Props) {
         items={[
           { id: "static", label: "Static" },
           { id: "dynamic", label: "Dynamic" },
+          { id: "reference", label: "Reference" },
         ]}
       /></div>
       {editor}

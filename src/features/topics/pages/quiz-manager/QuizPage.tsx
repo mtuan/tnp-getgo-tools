@@ -84,8 +84,11 @@ export function renderQuizPage(context: QuizPageContext) {
     const questions: QuestionListItem[] = questionRecords.map((record) => ({
       number: String(record.question_no),
       category: typeof record.category === "string" ? record.category : "—",
-      prompt: questionPrompt(record.text_en ?? record.text_vn),
-      dynamic: questionHasDynamicParams(record.advancedDynamic),
+      prompt: record.authoringMode === "reference" && record.reference
+        ? `References question ${record.reference.questionNo}`
+        : questionPrompt(record.text_en ?? record.text_vn),
+      dynamic: record.authoringMode === "reference"
+        || questionHasDynamicParams(record.advancedDynamic),
       hasImages: questionContainsImages(record),
       reviewed: questionIsVerified(record),
       status: questionStatus(record),

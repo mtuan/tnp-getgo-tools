@@ -67,6 +67,14 @@ function shuffle<T>(values: T[]): T[] {
 }
 
 class QuestionService {
+  async buildDynamic(record: ContestQuizQuestionRecord) {
+    if (!record.advancedDynamic)
+      throw new Error("This question does not contain a dynamic generator.");
+    return dynamicBuilder.build(
+      QuizTsService.composeTemplateSource(record.advancedDynamic),
+    );
+  }
+
   createDynamicDraft(
     record: ContestQuizQuestionRecord,
   ): ContestQuizQuestionRecord {
@@ -185,6 +193,40 @@ class QuestionService {
       : await dynamicBuilder.generate(source, quizSharedCode);
     if (!generated) throw new Error("Question generation returned no result.");
     return generated as GeneratedQuestion;
+  }
+
+  async generateReference(
+    record: ContestQuizQuestionRecord,
+    questions: ContestQuizQuestionRecord[],
+    quizSharedCode = "",
+  ): Promise<GeneratedQuestion> {
+    if (record.authoringMode !== "reference" || !record.reference)
+      throw new Error("Select a referenced question first.");
+    const byNumber = new Map(
+      questions.map((question) => [Number(question.question_no), question]),
+    );
+    const visited = new Set<number>([Number(record.question_no)]);
+    let target = byNumber.get(record.reference.questionNo);
+    while (target?.authoringMode === "reference") {
+      const number = Number(target.question_no);
+      if (visited.has(number)) throw new Error("Question references cannot contain a cycle.");
+      visited.add(number);
+      target = target.reference
+        ? byNumber.get(target.reference.questionNo)
+        : undefined;
+    }
+    if (!target)
+      throw new Error(`Referenced question ${record.reference.questionNo} was not found.`);
+    const generated = target.advancedDynamic
+      ? await this.generateDynamic(target, false, quizSharedCode)
+      : this.loadStatic(target, true);
+    return {
+      ...generated,
+      question: {
+        ...generated.question,
+        question_no: Number(record.question_no),
+      },
+    };
   }
 }
 

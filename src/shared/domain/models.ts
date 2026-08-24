@@ -244,6 +244,9 @@ export interface ContestQuizQuestionRecord extends QuestionRecordBase {
   action?: "generated";
   migrationError?: { stage: "origin-render"; message: string };
   authoringMode?: string;
+  reference?: {
+    questionNo: number;
+  };
   advancedDynamic?: {
     paramsGeneratorTs: string;
     questionGeneratorTs: string;

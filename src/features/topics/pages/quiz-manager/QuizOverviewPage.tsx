@@ -1,5 +1,5 @@
 import { CheckCheck, FolderOpen, ListOrdered, Plus, Trash2, Zap } from "lucide-react";
-import type { QuizSummary } from "../../../../shared/domain/models";
+import type { ContestQuizQuestionRecord, QuizSummary } from "../../../../shared/domain/models";
 import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { QuestionListPreviewDrawer } from "../../../quiz-editor/components/QuestionListPreviewDrawer";
 import { Button } from "../../../../shared/ui/Button";
@@ -385,6 +385,10 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           <QuestionListPreviewDrawer
             record={previewQuestion}
             manifestPath={quiz.manifestPath}
+            questions={questions
+              .map((question) => question.record)
+              .filter((record): record is ContestQuizQuestionRecord => record.type !== "alphabet")}
+            quizSharedCode={quiz.sharedCode}
             onClose={() => setPreviewQuestion(null)}
             onDelete={async () => {
               const result = await managerApi.deleteQuizQuestion(

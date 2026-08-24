@@ -283,8 +283,11 @@ export function restoredPage(
   const questionIndex = contestIndex + 4;
   const isQuestionRoute =
     parts[questionMarkerIndex] === "questions" && Boolean(parts[questionIndex]);
-  const questionTab =
-    url.searchParams.get("tab") === "dynamic" ? "dynamic" : "static";
+  const requestedQuestionTab = url.searchParams.get("tab");
+  const questionTab: QuestionEditorTab = requestedQuestionTab === "dynamic"
+    || requestedQuestionTab === "reference"
+    ? requestedQuestionTab
+    : "static";
   const alphabetTab: AlphabetEditorTab =
     url.searchParams.get("tab") === "related-words"
       ? "related-words"

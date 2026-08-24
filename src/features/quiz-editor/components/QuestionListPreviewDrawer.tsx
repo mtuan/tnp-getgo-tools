@@ -10,11 +10,15 @@ import { QuestionPreview } from "../../../shared/ui/QuestionPreview";
 export function QuestionListPreviewDrawer({
   record,
   manifestPath,
+  questions,
+  quizSharedCode,
   onClose,
   onDelete,
 }: {
   record: ContestQuizQuestionRecord;
   manifestPath: string;
+  questions: ContestQuizQuestionRecord[];
+  quizSharedCode?: string;
   onClose(): void;
   onDelete(): Promise<void>;
 }) {
@@ -30,8 +34,10 @@ export function QuestionListPreviewDrawer({
     setError(null);
     try {
       setPreview(
-        record.advancedDynamic
-          ? await questionService.generateDynamic(record)
+        record.authoringMode === "reference"
+          ? await questionService.generateReference(record, questions, quizSharedCode)
+          : record.advancedDynamic
+          ? await questionService.generateDynamic(record, false, quizSharedCode)
           : questionService.loadStatic(record, true, preview.question),
       );
     } catch (cause) {
@@ -42,7 +48,7 @@ export function QuestionListPreviewDrawer({
   };
 
   useEffect(() => {
-    if (record.advancedDynamic) void generate();
+    if (record.advancedDynamic || record.authoringMode === "reference") void generate();
   }, [record.question_no]);
 
   const remove = async () => {

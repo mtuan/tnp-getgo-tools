@@ -13,6 +13,7 @@ import type {
   SpeechLanguageSettings,
 } from "../../../shared/domain/models";
 import { QuizManager, type QuizManagerApi } from "./QuizManager";
+import { questionService } from "../../quiz-editor/components/question-service";
 
 const defaultAlphabetQuizSpeechSettings = {
   letterRate: 0.75,
@@ -165,7 +166,11 @@ function toManagerQuestion(question: ContentV2Question): QuizQuestionRecord {
     answer: question.answer,
     explanation: question.explanation,
     feedback: question.feedback,
-    ...(question.dynamic ? { authoringMode: "advanced-dynamic", advancedDynamic: question.dynamic } : {}),
+    ...(question.authoringMode === "reference" && question.reference
+      ? { authoringMode: "reference", reference: question.reference }
+      : question.dynamic
+        ? { authoringMode: "advanced-dynamic", advancedDynamic: question.dynamic }
+        : {}),
     ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}),
   };
 }
@@ -174,7 +179,11 @@ function reviewStatus(question: QuizQuestionRecord): "pending" | "reviewed" | "r
   return question.status === "verified" ? "reviewed" : question.status === "rejected" ? "rejected" : "pending";
 }
 
-function fromManagerQuestion(stored: ContentV2Question, question: QuizQuestionRecord): ContentV2Question {
+function fromManagerQuestion(
+  stored: ContentV2Question,
+  question: QuizQuestionRecord,
+  compiledJs?: string,
+): ContentV2Question {
   if (stored.type === "alphabet-letter" && question.type === "alphabet")
     return { ...stored, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined, resources: Array.isArray(question.resources) ? question.resources : [] };
   if (stored.type !== "competition-question" || question.type === "alphabet")
@@ -189,7 +198,15 @@ function fromManagerQuestion(stored: ContentV2Question, question: QuizQuestionRe
     answer: (question.answer ?? {}) as Record<string, unknown>,
     explanation: question.explanation as { en: string; vi?: string } | undefined,
     feedback: question.feedback,
-    dynamic: dynamic ? { paramsGeneratorTs: dynamic.paramsGeneratorTs, questionGeneratorTs: dynamic.questionGeneratorTs, originParamsTs: dynamic.originParamsTs, explanationGeneratorTs: dynamic.explanationGeneratorTs } : undefined,
+    authoringMode: question.authoringMode === "reference"
+      ? "reference"
+      : dynamic
+        ? "advanced-dynamic"
+        : undefined,
+    reference: question.authoringMode === "reference" ? question.reference : undefined,
+    dynamic: question.authoringMode !== "reference" && dynamic
+      ? { paramsGeneratorTs: dynamic.paramsGeneratorTs, questionGeneratorTs: dynamic.questionGeneratorTs, originParamsTs: dynamic.originParamsTs, explanationGeneratorTs: dynamic.explanationGeneratorTs, ...(compiledJs ? { compiledJs } : {}) }
+      : undefined,
   };
 }
 
@@ -285,7 +302,10 @@ export function ContentV2QuizManager(props: Props) {
         const quiz = findQuiz(props.snapshot, manifestPath);
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, question.question_no);
         const stored = await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, summary.id);
-        const next = fromManagerQuestion(stored, question);
+        const compiledJs = question.authoringMode !== "reference" && question.advancedDynamic
+          ? (await questionService.buildDynamic(question)).compiledJs
+          : undefined;
+        const next = fromManagerQuestion(stored, question, compiledJs);
         await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next);
         await reloadFromFiles(quiz.topicId);
         return toManagerQuestion(next);
@@ -319,6 +339,14 @@ export function ContentV2QuizManager(props: Props) {
       deleteQuizQuestion: async (manifestPath, number) => {
         const quiz = findQuiz(props.snapshot, manifestPath);
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, number);
+        const records = await loadQuestions(manifestPath);
+        const dependents = records.filter((record) =>
+          record.authoringMode === "reference"
+          && record.reference?.questionNo === Number(number));
+        if (dependents.length)
+          throw new Error(
+            `Question ${number} is referenced by question${dependents.length === 1 ? "" : "s"} ${dependents.map((record) => record.question_no).join(", ")}. Update those references before deleting it.`,
+          );
         await window.getgo.deleteContentV2Question(quiz.topicId, quiz.id, summary.id);
         const adapted = await reloadFromFiles(quiz.topicId);
         const questions = await Promise.all(adapted.contentV2.questions.filter((item) => item.topicId === quiz.topicId && item.quizId === quiz.id).sort((a, b) => a.order - b.order).map(async (item) => toManagerQuestion(await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, item.id))));

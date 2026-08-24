@@ -223,8 +223,11 @@ export const competitionQuestionV2Schema = z.object({
       questionGeneratorTs: z.string(),
       originParamsTs: z.string(),
       explanationGeneratorTs: z.string(),
+      compiledJs: z.string().optional(),
     })
     .optional(),
+  authoringMode: z.enum(["advanced-dynamic", "reference"]).optional(),
+  reference: z.object({ questionNo: z.number().int().positive() }).optional(),
 });
 
 export const alphabetLetterV2Schema = z.object({
