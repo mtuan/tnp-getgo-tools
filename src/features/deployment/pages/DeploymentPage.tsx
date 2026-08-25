@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BriefcaseBusiness, ExternalLink, Globe2, MonitorCog, Power, Rocket, RotateCw, ShieldCheck } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent, DeploymentOperation, DeploymentStateSnapshot, LocalWebRuntimeSnapshot } from "../../../shared/domain/models";
-import { Button, ErrorFrame, PageHeader, Panel } from "../../../shared/ui";
+import { Button, ErrorFrame, PageHeader, Pagination, Panel, usePagination } from "../../../shared/ui";
 import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -97,6 +97,7 @@ export function DeploymentPage({
   };
 
   const deployments = snapshot?.jobs.filter((job) => job.kind === "deploy") ?? [];
+  const deploymentPagination = usePagination(deployments);
   const activeJobs = deployments.filter((job) => ["queued", "running", "paused"].includes(job.status));
   const componentIsActive = (component: DeploymentComponent) =>
     activeJobs.some((job) => job.component === component);
@@ -166,7 +167,8 @@ export function DeploymentPage({
     </div>
     <section className="deployment-jobs">
       <div><h2>{copy.recentDeployments}</h2><Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openAllJobs}</Button></div>
-      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentDeployments} rows={deployments} busyJob={busyJob} emptyText={copy.noDeployments} onAction={(job, action) => void control(job, action)} />
+      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentDeployments} rows={deploymentPagination.pageItems} busyJob={busyJob} emptyText={copy.noDeployments} onAction={(job, action) => void control(job, action)} />
+      <Pagination locale={locale} page={deploymentPagination.page} pageCount={deploymentPagination.pageCount} onPageChange={deploymentPagination.setPage} />
     </section>
   </section>;
 }

@@ -6968,6 +6968,26 @@ button.danger svg {
   color: var(--text);
   font-size: 15px;
 }
+.ui-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 38px;
+}
+.ui-pagination .ui-button.icon-button {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+}
+.ui-pagination-status {
+  min-width: 58px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
 @media (max-width: 900px) {
   .deployment-grid {
     grid-template-columns: 1fr;

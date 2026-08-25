@@ -14,6 +14,7 @@ export * from "./ErrorFrame";
 export * from "./ProcessingOverlay";
 export * from "./Form";
 export * from "./PageHeader";
+export * from "./Pagination";
 export * from "./QuestionNavigator";
 export * from "./QuestionPreview";
 export * from "./SearchField";

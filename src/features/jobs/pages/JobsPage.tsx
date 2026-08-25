@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot } from "../../../shared/domain/models";
-import { Button, ErrorFrame, PageHeader, SegmentedControl } from "../../../shared/ui";
+import { Button, ErrorFrame, PageHeader, Pagination, SegmentedControl, usePagination } from "../../../shared/ui";
 import { BackgroundJobsTable, type BackgroundJobAction } from "../components/BackgroundJobsTable";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -21,6 +21,8 @@ export function JobsPage({
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [savingConcurrency, setSavingConcurrency] = useState(false);
   const hasActiveJobs = snapshot?.jobs.some((job) => activeStatuses.has(job.status)) ?? false;
+  const jobs = snapshot?.jobs ?? [];
+  const pagination = usePagination(jobs);
 
   const load = useCallback(async () => {
     try {
@@ -89,8 +91,9 @@ export function JobsPage({
   return <section className="jobs-page">
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<><Button icon={<ExternalLink />} onClick={() => void window.getgo.openExternal("https://platform.openai.com/usage")}>{copy.openAiUsage}</Button>{snapshot && <div className="jobs-concurrency"><span>{copy.concurrentAiJobs}</span><SegmentedControl value={String(snapshot.aiConcurrency)} options={[1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} disabled={savingConcurrency} ariaLabel={copy.concurrentAiJobs} onValueChange={(value) => void setConcurrency(value)} /></div>}</>} />
     {error && <div className="jobs-load-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>{copy.retry}</Button></div>}
-    {!error && snapshot &&
-      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentJobs} rows={snapshot.jobs} busyJob={busyJob} emptyText={copy.empty} onAction={jobAction} onOpenRoute={onOpenQuiz} />
-    }
+    {!error && snapshot && <>
+      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentJobs} rows={pagination.pageItems} busyJob={busyJob} emptyText={copy.empty} onAction={jobAction} onOpenRoute={onOpenQuiz} />
+      <Pagination locale={locale} page={pagination.page} pageCount={pagination.pageCount} onPageChange={pagination.setPage} />
+    </>}
   </section>;
 }
