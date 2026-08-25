@@ -148,7 +148,7 @@ export function renderManagerList(context: ManagerListContext) {
                             <td className="manager-status-cell manager-market-state-table-cell">
                               {(() => {
                                 const state = marketplaceStateLabel(quiz.marketplace).state;
-                                return <MarketplaceStateCell locale={locale} value={state} target="quizzes" id={quiz.id} topicId={quiz.contest} api={managerApi} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
+                                return <MarketplaceStateCell locale={locale} value={state} target="quizzes" id={quiz.id} topicId={quiz.contest} api={managerApi} quizReview={{ manifestPath: quiz.manifestPath, reviewed: review.reviewed, total: review.total }} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                               })()}
                             </td>
                             <td className="manager-status-cell">

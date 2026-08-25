@@ -121,7 +121,7 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     year: quiz.year ?? null,
     contentStatus: quiz.status === "reviewed" ? "reviewed" : "generated",
     deploymentStatus: !quiz.publishedHash ? "not-uploaded" : quiz.publishedHash === quiz.localHash ? "uploaded" : "outdated",
-    hasSourcePdf: false,
+    hasSourcePdf: quiz.hasSourcePdf,
     hasRawJson: false,
     hasQuizTs: false,
     questionStorageVersion: "questions-v1",

@@ -4,6 +4,7 @@ import { shell, type IpcMain } from "electron";
 import {
   loadContentV2Quiz,
   loadContentV2Topic,
+  resolveContentV2QuizSourcePdf,
   saveContentV2Question,
   saveContentV2Quiz,
   saveContentV2Topic,
@@ -21,6 +22,30 @@ function validId(value: unknown, label: string): string {
 }
 
 export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: Dependencies): void {
+  ipcMain.handle("content-v2:quiz:source-pdf:open", async (_event, manifestPathValue: unknown) => {
+    if (typeof manifestPathValue !== "string" || !path.isAbsolute(manifestPathValue) || !["manifest.json", "quiz.json"].includes(path.basename(manifestPathValue)))
+      throw new Error("Invalid quiz path.");
+    const root = await repositoryRoot();
+    const repositoryRelative = path.relative(root, manifestPathValue);
+    if (repositoryRelative.startsWith("..") || path.isAbsolute(repositoryRelative))
+      throw new Error("Quiz is outside the selected repository.");
+    if (path.basename(manifestPathValue) === "manifest.json") {
+      const sourcePdf = path.join(path.dirname(manifestPathValue), "source.pdf");
+      await fs.access(sourcePdf).catch(() => { throw new Error("This quiz does not have a source PDF."); });
+      const error = await shell.openPath(sourcePdf);
+      if (error) throw new Error(error);
+      return;
+    }
+    const relative = path.relative(path.join(root, "content-v2", "topics"), manifestPathValue);
+    const parts = relative.split(path.sep);
+    if (relative.startsWith("..") || path.isAbsolute(relative) || parts.length !== 4 || parts[1] !== "quizzes" || parts[3] !== "quiz.json")
+      throw new Error("Quiz is outside the selected repository.");
+    const sourcePdf = await resolveContentV2QuizSourcePdf(root, validId(parts[0], "topic ID"), validId(parts[2], "quiz ID"));
+    if (!sourcePdf) throw new Error("This quiz does not have a source PDF.");
+    const error = await shell.openPath(sourcePdf);
+    if (error) throw new Error(error);
+  });
+
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) =>
     saveContentV2Topic(await repositoryRoot(), value));
 

@@ -7,6 +7,7 @@
     "stateUpdatedDescription": "This topic will be synced as {state}.",
     "batchActions": "Marketplace actions",
     "listAll": "List all",
+    "listAndReviewAll": "List all and review all",
     "unlistAll": "Unlist all",
     "filters": {
       "grades": "Grades",
@@ -51,6 +52,8 @@
     "syncStart": "Start sync",
     "batchUpdated": "Marketplace states updated",
     "batchUpdatedDescription": "Updated {count} items to {state}.",
+    "listAndReviewAllDone": "Quizzes reviewed and listed",
+    "listAndReviewAllDescription": "Reviewed {reviewed} quizzes and listed {listed} quizzes.",
     "states": {
       "listed": "Listed",
       "featured": "Featured",
@@ -126,6 +129,14 @@
       "amount": "Amount",
       "currency": "Currency",
       "listHelp": "Enter one item per line or separate items with commas."
+    },
+    "reviewBeforeListing": {
+      "title": "Unreviewed questions",
+      "countOne": "{count} question is not reviewed",
+      "countMany": "{count} questions are not reviewed",
+      "description": "Do you want to mark all remaining questions as reviewed before listing this quiz?",
+      "listWithoutReviewing": "List without reviewing",
+      "markAndList": "Mark reviewed and list"
     }
   },
   "imagePdf": {

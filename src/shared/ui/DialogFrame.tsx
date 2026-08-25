@@ -248,7 +248,12 @@ export function DialogFrame({
   return createPortal(
     <div
       className={`crud-backdrop presentation-${presentation}`}
+      // Dialogs can be opened from clickable rows. React events from portals
+      // still bubble through their component owner, so stop them here to avoid
+      // accidentally opening or navigating the row behind the dialog.
+      onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => {
+        event.stopPropagation();
         if (event.target === event.currentTarget && !busy) onClose();
       }}
     >

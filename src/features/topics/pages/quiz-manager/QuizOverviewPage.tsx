@@ -110,6 +110,11 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                     id={quiz.id}
                     topicId={quiz.contest}
                     api={managerApi}
+                    quizReview={{
+                      manifestPath: quiz.manifestPath,
+                      reviewed: quiz.reviewedQuestionCount,
+                      total: quiz.questionCount ?? questions.length,
+                    }}
                     compact={false}
                     onSaved={(value) => toast.show({
                           title: marketplaceCopy.stateUpdated,

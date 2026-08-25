@@ -20,6 +20,7 @@ import {
   calculateContentV2QuizHash,
   readContentV2QuizPublishState,
   readContentV2TopicPublishState,
+  resolveContentV2QuizSourcePdf,
   writeContentV2QuizPublishState,
   writeContentV2TopicPublishState,
 } from "../src/features/topics/repository/content-v2-repository.js";
@@ -235,6 +236,18 @@ test("v2 repository persists and loads typed topic content", async () => {
   assert.equal(lightweight.content.quizzes[0]?.questionCount, 1);
   assert.equal(lightweight.content.quizzes[0]?.reviewedQuestionCount, 1);
   assert.equal(lightweight.content.questions[0]?.status, "reviewed");
+});
+
+test("resolves a migrated quiz source PDF without scanning the repository", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-v2-source-pdf-"));
+  const sourcePdf = path.join(root, "quizzes", "seamo", "seamo_paper_b_2016_123", "source.pdf");
+  await fs.mkdir(path.dirname(sourcePdf), { recursive: true });
+  await fs.writeFile(sourcePdf, "%PDF-1.4");
+
+  assert.equal(
+    await resolveContentV2QuizSourcePdf(root, "seamo-paper-b", "seamo-paper-b-2016-123"),
+    sourcePdf,
+  );
 });
 
 test("calculates the canonical quiz hash directly from current files", async () => {

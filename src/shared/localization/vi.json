@@ -7,6 +7,7 @@
     "stateUpdatedDescription": "Chủ đề này sẽ được đồng bộ ở trạng thái {state}.",
     "batchActions": "Thao tác kho nội dung",
     "listAll": "Hiển thị tất cả",
+    "listAndReviewAll": "Hiển thị và duyệt tất cả",
     "unlistAll": "Ẩn tất cả",
     "filters": {
       "grades": "Lớp",
@@ -51,6 +52,8 @@
     "syncStart": "Bắt đầu đồng bộ",
     "batchUpdated": "Đã cập nhật trạng thái kho nội dung",
     "batchUpdatedDescription": "Đã cập nhật {count} mục thành {state}.",
+    "listAndReviewAllDone": "Đã duyệt và hiển thị các bài học",
+    "listAndReviewAllDescription": "Đã duyệt {reviewed} bài học và hiển thị {listed} bài học.",
     "states": {
       "listed": "Đang hiển thị",
       "featured": "Nổi bật",
@@ -126,6 +129,14 @@
       "amount": "Số tiền",
       "currency": "Tiền tệ",
       "listHelp": "Nhập mỗi mục trên một dòng hoặc phân cách bằng dấu phẩy."
+    },
+    "reviewBeforeListing": {
+      "title": "Câu hỏi chưa được duyệt",
+      "countOne": "Còn {count} câu hỏi chưa được duyệt",
+      "countMany": "Còn {count} câu hỏi chưa được duyệt",
+      "description": "Bạn có muốn đánh dấu tất cả câu hỏi còn lại là đã duyệt trước khi hiển thị bài học này không?",
+      "listWithoutReviewing": "Vẫn hiển thị",
+      "markAndList": "Duyệt tất cả và hiển thị"
     }
   },
   "imagePdf": {

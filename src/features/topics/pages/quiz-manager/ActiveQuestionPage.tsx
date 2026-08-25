@@ -1,4 +1,4 @@
-import { Check, CircleCheck, CircleDashed, CircleX, Code2, FolderOpen, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Check, CircleCheck, CircleDashed, CircleX, Code2, FileText, FolderOpen, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import type { ContestQuizQuestionRecord, QuizQuestionRecord, RepositoryViewData } from "../../../../shared/domain/models";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { alphabetData } from "../../../../features/quiz-editor/domain/alphabet-question";
@@ -488,6 +488,17 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                             icon: Code2,
                             onSelect: () => setSharedCodeDrawerOpen(true),
                           },
+                          ...(quiz.hasSourcePdf
+                            ? [{
+                                id: "open-source-pdf",
+                                label: "Open source PDF",
+                                icon: FileText,
+                                onSelect: () =>
+                                  void runButtonAction("open-source-pdf", () =>
+                                    window.getgo.openQuizSourcePdf(quiz.manifestPath),
+                                  ),
+                              }]
+                            : []),
                           {
                             id: "reset-question",
                             label: "Reset question",

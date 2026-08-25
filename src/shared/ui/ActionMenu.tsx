@@ -1,4 +1,4 @@
-import { ChevronDown, MoreHorizontal, type LucideIcon } from "lucide-react";
+import { ChevronDown, Dot, MoreHorizontal, type LucideIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import type { MouseEvent } from "react";
 import { Button, type ButtonColor, type ButtonVariant } from "./Button";
@@ -15,6 +15,11 @@ export interface ActionMenuItem {
   color?: "normal" | "danger";
   onSelect(): void;
 }
+
+// ActionMenu owns the icon-slot convention: callers should provide a
+// meaningful icon when one exists, while the neutral fallback keeps every
+// actionable row aligned when they do not.
+const DefaultActionMenuIcon = Dot;
 
 export function ActionMenu({
   label = "Actions",
@@ -81,7 +86,7 @@ export function ActionMenu({
                     {item.label}
                   </div>
                 );
-              const Icon = item.icon;
+              const Icon = item.icon ?? DefaultActionMenuIcon;
               const TrailingIcon = item.trailingIcon;
               return (
                 <button
@@ -95,7 +100,7 @@ export function ActionMenu({
                     item.onSelect();
                   }}
                 >
-                  {Icon && <Icon />}
+                  <Icon />
                   <span>{item.label}</span>
                   {TrailingIcon && (
                     <TrailingIcon className="ui-action-menu-trailing-icon" />

@@ -56,6 +56,24 @@ export function renderManagerPage(context: ManagerPageContext) {
   const selectedTopic = isContest
     ? snapshot.contentV2.topics.find((topic) => topic.id === page.contest)
     : undefined;
+  const topicStateControl = topicMode && selectedTopic ? (
+    <MarketplaceStateCell
+      locale={locale}
+      value={marketplaceTopicState(selectedTopic.marketplace)}
+      target="topics"
+      id={selectedTopic.id}
+      api={managerApi}
+      compact={false}
+      onSaved={(value) => toast.show({
+        title: marketplaceCopy.stateUpdated,
+        description: marketplaceCopy.stateUpdatedDescription.replace(
+          "{state}",
+          marketplaceCopy.states[value],
+        ),
+      })}
+      onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })}
+    />
+  ) : null;
   return (
     <section className="manager">
       <PageHeader
@@ -101,27 +119,10 @@ export function renderManagerPage(context: ManagerPageContext) {
         }
         actions={
           <>
-            {(!isContest || contestTab === "quizzes") && <ManagerHeaderControls {...context} isContest={isContest} topicMode={topicMode} />}
+            {(!isContest || contestTab === "quizzes") && <ManagerHeaderControls {...context} isContest={isContest} topicMode={topicMode} headerStateControl={isContest ? topicStateControl : null} />}
             {isContest && selectedContest && (
               <>
-                {topicMode && selectedTopic && (
-                  <MarketplaceStateCell
-                    locale={locale}
-                    value={marketplaceTopicState(selectedTopic.marketplace)}
-                    target="topics"
-                    id={selectedTopic.id}
-                    api={managerApi}
-                    compact={false}
-                    onSaved={(value) => toast.show({
-                          title: marketplaceCopy.stateUpdated,
-                          description: marketplaceCopy.stateUpdatedDescription.replace(
-                            "{state}",
-                            marketplaceCopy.states[value],
-                          ),
-                        })}
-                    onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })}
-                  />
-                )}
+                {contestTab !== "quizzes" && topicStateControl}
                 {contestTab === "info" && <Button
                   icon={<Trash2 size={15} />}
                   loading={buttonAction === "delete-contest"}

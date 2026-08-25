@@ -26,6 +26,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:route:load", topicId),
   loadContentV2Quiz: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:quiz:load", topicId, quizId),
+  openQuizSourcePdf: (manifestPath) =>
+    ipcRenderer.invoke("content-v2:quiz:source-pdf:open", manifestPath) as Promise<void>,
   loadContentV2Question: (topicId, quizId, questionId) =>
     ipcRenderer.invoke("content-v2:question:load", topicId, quizId, questionId),
   syncQuestionFeedback: () => ipcRenderer.invoke("question-feedback:sync"),

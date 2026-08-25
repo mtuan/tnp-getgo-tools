@@ -139,6 +139,7 @@ export interface ContentV2QuizSummary {
   status: "draft" | "pending" | "reviewed" | "rejected";
   order: number;
   filePath: string;
+  hasSourcePdf: boolean;
   localHash: string;
   publishedHash: string | null;
   publishedAt: string | null; marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
@@ -744,6 +745,7 @@ export interface DesktopApi {
     manifestPath: string,
     questionNo: number | string,
   ): Promise<void>;
+  openQuizSourcePdf(manifestPath: string): Promise<void>;
   readQuizAsset(manifestPath: string, assetReference: string): Promise<string>;
   saveQuizAsset(manifestPath: string, suggestedName: string, dataUrl: string): Promise<{ reference: string; preview: string }>;
   readQuizSource(manifestPath: string): Promise<string>;

@@ -105,6 +105,30 @@ export interface LoadedContentV2 {
   content: ContentV2Snapshot;
 }
 
+/**
+ * Resolves a quiz source PDF through exact, deterministic paths only.
+ * Never replace this with a repository walk: Content V2 quizzes may retain the
+ * ID of their legacy quiz, whose folder name used underscores instead of dashes.
+ */
+export async function resolveContentV2QuizSourcePdf(
+  repositoryPath: string,
+  topicId: string,
+  quizId: string,
+): Promise<string | null> {
+  const safeTopicId = validateId(topicId, "Topic ID");
+  const safeQuizId = validateId(quizId, "Quiz ID");
+  const legacyContestId = validateId(safeQuizId.split("-")[0], "legacy contest ID");
+  const candidates = [
+    path.join(contentRoot(repositoryPath), safeTopicId, "quizzes", safeQuizId, "source.pdf"),
+    path.join(repositoryPath, "quizzes", legacyContestId, safeQuizId, "source.pdf"),
+    path.join(repositoryPath, "quizzes", legacyContestId, safeQuizId.replaceAll("-", "_"), "source.pdf"),
+  ];
+  for (const candidate of candidates) {
+    if (await fs.access(candidate).then(() => true).catch(() => false)) return candidate;
+  }
+  return null;
+}
+
 export interface ContentV2Asset {
   reference: string;
   sourcePath: string;
@@ -309,6 +333,9 @@ export async function loadContentV2WorkspaceFromFiles(
         status: quiz.status,
         order: quiz.order,
         filePath: quizFile,
+        hasSourcePdf: options.topicId
+          ? Boolean(await resolveContentV2QuizSourcePdf(repositoryPath, topic.id, quiz.id))
+          : false,
         localHash,
         publishedHash: options.projectId
           ? targetPublishState?.contentHash ?? null

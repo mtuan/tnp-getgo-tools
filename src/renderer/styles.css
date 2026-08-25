@@ -591,6 +591,17 @@ main {
   gap: 8px;
   margin-top: 16px;
 }
+.crud-dialog.presentation-modal.quiz-review-confirmation-dialog {
+  width: min(560px, calc(100vw - 48px));
+}
+.quiz-review-confirmation-dialog .logout-confirmation {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+.quiz-review-confirmation-dialog .logout-confirmation > i {
+  color: #4f46e5;
+  background: #e0e7ff;
+}
 .auth-intro {
   display: flex;
   gap: 12px;
