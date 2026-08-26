@@ -197,6 +197,16 @@ async function responseError(response: Response): Promise<Error> {
 export class FirestorePublishingService {
   constructor(private readonly auth: FirebaseAuthService) {}
 
+  async publishPaymentPackages(packages: Array<Record<string, unknown>>): Promise<void> {
+    await this.commit(packages.map((paymentPackage) => ({
+      update: {
+        name: "",
+        relativeName: `/getgo-payment-packages/${encodeURIComponent(String(paymentPackage.id))}`,
+        fields: fields(paymentPackage),
+      },
+    })));
+  }
+
   private async getRemoteQuiz(
     contestId: string,
     quizId: string,

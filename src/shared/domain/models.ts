@@ -630,6 +630,10 @@ export interface MarketplaceSyncJobItem {
   topicId: string;
   quizId?: string;
 }
+export interface PaymentPackage {
+  id: string; name: { en: string; vi: string }; type: "monthly" | "annual" | "one-time";
+  info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
+}
 export interface ImagePdfInput {
   path: string;
   directory: string;
@@ -669,6 +673,9 @@ export interface DesktopApi {
   chooseRepository(): Promise<string | null>;
   loadLegacyOverview(path?: string): Promise<RepositoryViewData>;
   publishMarketplaceTopic(topicId: string, state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState): Promise<MarketplaceTopicPublishResult>; syncContentV2Marketplace(items: MarketplaceSyncJobItem[]): Promise<BackgroundJobsSnapshot>;
+  listPaymentPackages(): Promise<PaymentPackage[]>;
+  savePaymentPackages(items: PaymentPackage[]): Promise<PaymentPackage[]>;
+  syncPaymentPackages(): Promise<{ count: number; syncedAt: string }>;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;

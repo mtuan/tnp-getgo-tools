@@ -98,8 +98,10 @@
     "unlisted": "Đã ẩn",
     "competition": "Kỳ thi",
     "kidLearning": "Học tập trẻ em",
-    "free": "Miễn phí",
-    "paid": "Trả phí",
+  "free": "Miễn phí",
+  "subscription": "Yêu cầu thành viên",
+  "inherit": "Theo chủ đề",
+  "paid": "Trả phí",
     "columns": {
       "topic": "Chủ đề",
       "type": "Loại",

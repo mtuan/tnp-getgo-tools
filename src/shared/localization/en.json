@@ -98,8 +98,10 @@
     "unlisted": "Not listed",
     "competition": "Competition",
     "kidLearning": "Kids learning",
-    "free": "Free",
-    "paid": "Paid",
+  "free": "Free",
+  "subscription": "Subscription required",
+  "inherit": "Inherit from topic",
+  "paid": "Paid",
     "columns": {
       "topic": "Topic",
       "type": "Type",

@@ -61,10 +61,9 @@ function metadata(record: MarketplaceRecord): MarketplaceTopicMetadata {
     ageRange:
       record.marketplace?.ageRange ??
       (topic.type === "kid-learning" ? topic.recommendedAgeRange : undefined),
-    pricing: record.marketplace?.pricing ?? {
-      type: "free",
-      currency: "VND",
-    },
+    ...(record.marketplace?.pricing
+      ? { pricing: record.marketplace.pricing }
+      : { pricing: { type: "free", currency: "VND" } }),
     ...(record.marketplace?.publishedHash
       ? { publishedHash: record.marketplace.publishedHash }
       : {}),
@@ -156,7 +155,9 @@ export function MarketplaceMetadataSection({
         learningObjectives: toLines(current.learningObjectives),
         minimumAge: current.ageRange?.minimum,
         maximumAge: current.ageRange?.maximum,
-        pricingType: current.pricing.type,
+        pricingType: !isTopic && !draft?.marketplace?.pricing
+          ? "inherit"
+          : current.pricing.type,
         amount: current.pricing.amount,
         currency: current.pricing.currency,
       }
@@ -233,7 +234,9 @@ export function MarketplaceMetadataSection({
           name: "pricingType",
           label: copy.fields.pricingType,
           options: [
+            ...(!isTopic ? [{ value: "inherit", label: copy.inherit }] : []),
             { value: "free", label: copy.free },
+            { value: "subscription", label: copy.subscription },
             { value: "paid", label: copy.paid },
           ],
         },
@@ -274,9 +277,11 @@ export function MarketplaceMetadataSection({
             | number
             | undefined,
         };
+      else if (name === "pricingType" && value === "inherit")
+        delete (next as Partial<MarketplaceTopicMetadata>).pricing;
       else if (["pricingType", "amount", "currency"].includes(name))
         next.pricing = {
-          ...next.pricing,
+          ...(next.pricing ?? { type: "free", currency: "VND" }),
           [name === "pricingType" ? "type" : name]: value,
         } as MarketplaceTopicMetadata["pricing"];
       else next[name] = value;

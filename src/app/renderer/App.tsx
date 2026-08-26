@@ -13,6 +13,7 @@ import {
   BriefcaseBusiness,
   Check,
   Copy,
+  CreditCard,
   FolderOpen,
   LayoutDashboard,
   Library,
@@ -77,6 +78,7 @@ const DeploymentPage = lazy(() =>
 const ImagePdfPage = lazy(() =>
   import("../../features/image-pdf/pages/ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
+const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
 
 type View =
   | "dashboard"
@@ -86,6 +88,7 @@ type View =
   | "jobs"
   | "deploy"
   | "image-pdf"
+  | "payment-packages"
   | "settings"
   | "not-found";
 type NavigableView = Exclude<View, "not-found">;
@@ -118,6 +121,7 @@ function viewFromRoute(route: string): View {
     "jobs",
     "deploy",
     "image-pdf",
+    "payment-packages",
     "settings",
   ].find((value) => pathname === `/${value}`);
   if (staticView) return staticView as NavigableView;
@@ -165,6 +169,7 @@ const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "image-pdf", label: "Image to PDF", icon: Images },
+  { id: "payment-packages", label: "Payment packages", icon: CreditCard },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 const environmentOptions: SelectOption[] = [
@@ -815,6 +820,9 @@ export function App() {
               <Suspense fallback={null}>
                 <ImagePdfPage locale={settings.locale} />
               </Suspense>
+            )}
+            {settings.repositoryPath && view === "payment-packages" && (
+              <Suspense fallback={null}><PaymentPackagesPage locale={settings.locale} /></Suspense>
             )}
             {settings.repositoryPath && view === "settings" && (
               <section className="settings-page">

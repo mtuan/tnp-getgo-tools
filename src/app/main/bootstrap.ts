@@ -25,6 +25,7 @@ import { registerContentV2PublishingIpc } from "../../features/topics/main/conte
 import { FirestorePublishingService } from "../../features/topics/main/firestore-publishing.js";
 import { QuestionFeedbackSyncService } from "../../features/topics/main/question-feedback-sync.js";
 import { registerQuestionFeedbackIpc } from "../../features/topics/main/question-feedback-ipc.js";
+import { registerPaymentPackagesIpc } from "../../features/payment-packages/main/payment-packages-ipc.js";
 
 loadEnvironment({
   path: app.isPackaged
@@ -245,6 +246,7 @@ app.whenReady().then(async () => {
   registerContentV2CrudIpc(ipcMain, { repositoryRoot });
   registerContentV2PublishingIpc(ipcMain, { repositoryRoot, publishing, publishJobs, firebaseAuth });
   registerQuestionFeedbackIpc(ipcMain, { repositoryRoot, sync: questionFeedbackSync });
+  registerPaymentPackagesIpc(ipcMain, { repositoryRoot, publishing });
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });
   startupLog("IPC handlers registered");

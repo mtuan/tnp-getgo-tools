@@ -48,7 +48,7 @@ export const marketplaceTopicMetadataSchema = z.object({
     maximum: z.number().int().min(1).optional(),
   }).optional(),
   pricing: z.object({
-    type: z.enum(["free", "paid"]).default("free"),
+    type: z.enum(["free", "subscription", "paid"]).default("free"),
     amount: z.number().nonnegative().optional(),
     currency: z.string().default("VND"),
   }).default({ type: "free", currency: "VND" }),

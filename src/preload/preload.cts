@@ -20,6 +20,9 @@ const api: DesktopApi = {
     ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
   syncContentV2Marketplace: (items) =>
     ipcRenderer.invoke("marketplace:topics:sync-all", items),
+  listPaymentPackages: () => ipcRenderer.invoke("payment-packages:list"),
+  savePaymentPackages: (items) => ipcRenderer.invoke("payment-packages:save", items),
+  syncPaymentPackages: () => ipcRenderer.invoke("payment-packages:sync"),
   loadContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:load", topicId),
   loadContentV2Route: (topicId) =>
