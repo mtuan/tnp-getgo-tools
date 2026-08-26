@@ -631,8 +631,12 @@ export interface MarketplaceSyncJobItem {
   quizId?: string;
 }
 export interface PaymentPackage {
-  id: string; name: { en: string; vi: string }; type: "monthly" | "annual" | "one-time";
+  id: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
   info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
+}
+export interface PaymentSale {
+  id: string; name: { en: string; vi: string }; info: { en: string; vi: string };
+  recurrence: "one-time" | "yearly"; startsOn: string; endsOn: string; discountPercent: number; packageIds: string[]; enabled: boolean;
 }
 export interface ImagePdfInput {
   path: string;
@@ -676,6 +680,9 @@ export interface DesktopApi {
   listPaymentPackages(): Promise<PaymentPackage[]>;
   savePaymentPackages(items: PaymentPackage[]): Promise<PaymentPackage[]>;
   syncPaymentPackages(): Promise<{ count: number; syncedAt: string }>;
+  listPaymentSales(): Promise<PaymentSale[]>;
+  savePaymentSales(items: PaymentSale[]): Promise<PaymentSale[]>;
+  syncPaymentSales(): Promise<{ count: number; syncedAt: string }>;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;

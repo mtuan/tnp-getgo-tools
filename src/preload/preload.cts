@@ -23,6 +23,9 @@ const api: DesktopApi = {
   listPaymentPackages: () => ipcRenderer.invoke("payment-packages:list"),
   savePaymentPackages: (items) => ipcRenderer.invoke("payment-packages:save", items),
   syncPaymentPackages: () => ipcRenderer.invoke("payment-packages:sync"),
+  listPaymentSales: () => ipcRenderer.invoke("payment-sales:list"),
+  savePaymentSales: (items) => ipcRenderer.invoke("payment-sales:save", items),
+  syncPaymentSales: () => ipcRenderer.invoke("payment-sales:sync"),
   loadContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:load", topicId),
   loadContentV2Route: (topicId) =>

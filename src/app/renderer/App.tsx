@@ -88,7 +88,7 @@ type View =
   | "jobs"
   | "deploy"
   | "image-pdf"
-  | "payment-packages"
+  | "payments"
   | "settings"
   | "not-found";
 type NavigableView = Exclude<View, "not-found">;
@@ -121,10 +121,11 @@ function viewFromRoute(route: string): View {
     "jobs",
     "deploy",
     "image-pdf",
-    "payment-packages",
+    "payments",
     "settings",
   ].find((value) => pathname === `/${value}`);
   if (staticView) return staticView as NavigableView;
+  if (pathname === "/payment-packages") return "payments";
   if (pathname === "/feedback") return "feedbacks";
   const parts = pathname
     .split("/")
@@ -169,7 +170,7 @@ const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "image-pdf", label: "Image to PDF", icon: Images },
-  { id: "payment-packages", label: "Payment packages", icon: CreditCard },
+  { id: "payments", label: "Payments", icon: CreditCard },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 const environmentOptions: SelectOption[] = [
@@ -821,8 +822,8 @@ export function App() {
                 <ImagePdfPage locale={settings.locale} />
               </Suspense>
             )}
-            {settings.repositoryPath && view === "payment-packages" && (
-              <Suspense fallback={null}><PaymentPackagesPage locale={settings.locale} /></Suspense>
+            {settings.repositoryPath && view === "payments" && (
+              <Suspense fallback={null}><PaymentPackagesPage locale={settings.locale} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
             )}
             {settings.repositoryPath && view === "settings" && (
               <section className="settings-page">
