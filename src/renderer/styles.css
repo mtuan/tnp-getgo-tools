@@ -5401,11 +5401,6 @@ tbody tr:hover {
   gap: 7px;
   margin-right: auto;
   color: #be123c;
-  font-size: 10px;
-}
-.delete-action button {
-  padding: 8px 10px;
-  border-radius: 8px;
 }
 button.danger {
   display: flex;

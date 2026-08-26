@@ -187,25 +187,26 @@ export function DialogFrame({
                         <Button
                           icon={<Trash2 />}
                           loading={deleting}
-                          variant="danger"
-                        disabled={deleteDisabled || (busy && !deleting)}
+                          variant="solid"
+                          color="danger"
+                          disabled={deleteDisabled || (busy && !deleting)}
                           onClick={() => void remove()}
                         >
                           {deleteConfirmLabel}
                         </Button>
-                        <button
-                          type="button"
-                          className="text-button"
+                        <Button
+                          variant="text"
                           disabled={busy}
                           onClick={() => setConfirmingDelete(false)}
                         >
                           {cancelLabel}
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <Button
                         icon={<Trash2 />}
-                        variant="danger"
+                        variant="solid"
+                        color="danger"
                         disabled={busy || deleteDisabled}
                         onClick={() => setConfirmingDelete(true)}
                       >
@@ -218,14 +219,13 @@ export function DialogFrame({
                   <div className="delete-action">{leadingAction}</div>
                 )}
                 {presentation !== "embedded" && (
-                  <button
-                    type="button"
-                    className="secondary"
+                  <Button
+                    variant="outline"
                     disabled={busy}
                     onClick={onClose}
                   >
                     {cancelLabel}
-                  </button>
+                  </Button>
                 )}
                 <Button
                   icon={<Save />}
