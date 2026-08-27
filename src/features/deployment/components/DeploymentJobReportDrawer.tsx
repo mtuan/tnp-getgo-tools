@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AppSettings, BackgroundJob, BackgroundJobLog, DeploymentItemState, DeploymentJobReportStep } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
@@ -16,6 +16,8 @@ function duration(value?: number) {
 export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: AppSettings["locale"]; job: BackgroundJob; onClose(): void }) {
   const copy = (locale === "vi" ? vi : en).jobs.report;
   const report = job.report;
+  const [now, setNow] = useState(Date.now());
+  const isActive = ["queued", "running", "paused"].includes(job.status);
   const outputRef = useRef<HTMLDivElement>(null);
   const logs = useMemo<BackgroundJobLog[]>(() => job.logs?.length ? job.logs : report?.steps.flatMap(step =>
     step.details.map(message => ({ timestamp: step.finishedAt ?? step.startedAt, stream: step.status === "failed" ? "stderr" : "stdout", message })),
@@ -24,6 +26,19 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
     const output = outputRef.current;
     if (output) output.scrollTop = output.scrollHeight;
   }, [logs.length]);
+  useEffect(() => {
+    if (!isActive) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isActive]);
+  const startedAt = job.startedAt ?? report?.startedAt;
+  const finishedAt = job.finishedAt ?? report?.finishedAt;
+  const elapsedMs = startedAt
+    ? Math.max(0, (finishedAt ? Date.parse(finishedAt) : now) - Date.parse(startedAt))
+    : undefined;
+  const version = job.version
+    ? `${job.version}${job.buildNumber ? ` (${job.buildNumber})` : ""}`
+    : report?.version;
   const errorDebugText = [
     job.name,
     `Status: ${job.status}`,
@@ -32,6 +47,7 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
     `Environment: ${job.target ?? report?.target ?? "—"}`,
     `Started: ${job.startedAt ?? report?.startedAt ?? "—"}`,
     `Finished: ${job.finishedAt ?? report?.finishedAt ?? "—"}`,
+    `Version: ${version ?? "—"}`,
     `Error: ${job.error ?? "—"}`,
     "",
     "Job output:",
@@ -55,8 +71,8 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
       <div><small>{copy.component}</small><strong>{job.component ?? report?.component ?? "—"}</strong></div>
       <div><small>{copy.environment}</small><strong>{job.target ?? report?.target ?? "—"}</strong></div>
       <div><small>{copy.result}</small><strong>{job.status}</strong></div>
-      <div><small>{copy.version}</small><code>{report?.version ?? "—"}</code></div>
-      <div><small>{copy.totalTime}</small><strong>{duration(report?.durationMs)}</strong></div>
+      <div><small>{copy.version}</small><code>{version ?? "—"}</code></div>
+      <div><small>{copy.totalTime}</small><strong>{duration(report?.durationMs ?? elapsedMs)}</strong></div>
       <div><small>{copy.started}</small><span>{job.startedAt ? new Date(job.startedAt).toLocaleString(locale) : "—"}</span></div>
       <div><small>{copy.finished}</small><span>{job.finishedAt ? new Date(job.finishedAt).toLocaleString(locale) : "—"}</span></div>
     </div>

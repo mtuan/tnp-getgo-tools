@@ -5689,6 +5689,7 @@ tbody tr:hover {
   height: 20px;
 }
 .ui-error-frame > span {
+  white-space: pre-wrap;
   min-width: 0;
   overflow-wrap: anywhere;
 }

@@ -10,7 +10,24 @@ type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
 interface Runtime { child: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> }
 
 function cleanOutput(value: string) {
-  return value.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "").trimEnd();
+  return value.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "").trimEnd().slice(-4000);
+}
+
+function failureSummary(job: NativeJob, fallback: string) {
+  const patterns = [
+    /\[error\]/i, /(^|\s)error:/i, /enoent/i, /exception:/i,
+    /build failed/i, /archive failed/i, /what went wrong/i,
+    /no profiles? for/i, /provisioning profile/i, /signing for .* requires/i,
+    /exited with code/i,
+  ];
+  const ignored = [/^\s*at\s/, /^\s*\^/, /^node\.js\s/i, /^file:\/\//i];
+  const errors = (job.logs ?? [])
+    .filter(log => log.stream === "stderr" || patterns.some(pattern => pattern.test(log.message)))
+    .map(log => log.message.replace(/^\[error\]\s*/i, "").trim())
+    .filter(message => message && !ignored.some(pattern => pattern.test(message)))
+    .filter((message, index, values) => values.indexOf(message) === index)
+    .slice(-12);
+  return errors.length ? errors.join("\n") : fallback;
 }
 
 export class NativeDeploymentJobManager {
@@ -69,8 +86,8 @@ export class NativeDeploymentJobManager {
   async start(operation: DeploymentOperation, platform: NativePlatform, target: WebDeploymentTarget) {
     await this.ensureLoaded();
     const component = `mobile-${platform}` as NativeJob["component"];
-    if (this.jobs.some(job => job.component === component && ["queued", "running", "paused"].includes(job.status))) {
-      throw new Error(`Another ${platform} job is already active.`);
+    if (this.jobs.some(job => ["queued", "running", "paused"].includes(job.status))) {
+      throw new Error("Another native job is already active. iOS and Android builds share the Web bundle and cannot run concurrently.");
     }
     const job: NativeJob = {
       id: randomUUID(), kind: "deploy", component, operation, target,
@@ -105,7 +122,16 @@ export class NativeDeploymentJobManager {
       const parts = value.split(/\r?\n/);
       runtime.buffers[stream] = parts.pop() ?? "";
       const lines = parts.map(cleanOutput).filter(Boolean);
-      for (const message of lines) job.logs?.push({ timestamp: new Date().toISOString(), stream, message });
+      for (const message of lines) {
+        job.logs?.push({ timestamp: new Date().toISOString(), stream, message });
+        if (message.startsWith("GETGO_NATIVE_METADATA ")) {
+          try {
+            const metadata = JSON.parse(message.slice("GETGO_NATIVE_METADATA ".length)) as { version?: string; buildNumber?: string };
+            job.version = metadata.version;
+            job.buildNumber = metadata.buildNumber;
+          } catch { /* Keep the output line; invalid metadata must not stop the build. */ }
+        }
+      }
       if ((job.logs?.length ?? 0) > 1500) job.logs = job.logs!.slice(-1500);
       if (lines.at(-1)) job.progressLabel = lines.at(-1)!.slice(-500);
       job.completed = Math.min(job.total - 1, job.completed + 1);
@@ -126,7 +152,8 @@ export class NativeDeploymentJobManager {
     this.runtimes.delete(job.id);
     if (!runtime.cancelled) {
       job.status = !cause && code === 0 ? "completed" : "failed";
-      job.error = job.status === "failed" ? cause?.message ?? `Native workflow exited with code ${code ?? "unknown"}.` : undefined;
+      const fallback = cause?.message ?? `Native workflow exited with code ${code ?? "unknown"}.`;
+      job.error = job.status === "failed" ? failureSummary(job, fallback) : undefined;
       job.progressLabel = job.status === "completed" ? (job.operation === "build" ? "Built" : "Uploaded") : "Failed";
       job.completed = job.status === "completed" ? job.total : job.completed;
       job.retryable = job.status === "failed";

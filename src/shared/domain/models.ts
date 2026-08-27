@@ -652,6 +652,8 @@ export interface BackgroundJob {
   component?: DeploymentComponent;
   operation?: DeploymentOperation;
   target?: WebDeploymentTarget;
+  version?: string;
+  buildNumber?: string;
   cancellable: boolean;
   retryable?: boolean;
   error?: string;
