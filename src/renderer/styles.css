@@ -1164,8 +1164,8 @@ main {
   overflow: hidden;
 }
 
-.pronunciation-question-editor {
-  grid-template-columns: minmax(340px, 0.72fr) minmax(680px, 1.28fr);
+.advanced-question-layout.pronunciation-question-editor {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .pronunciation-sound-button.ui-button {
@@ -1223,10 +1223,21 @@ main {
 }
 
 .pronunciation-links-preview {
+  --pronunciation-link-card-width: 6.25rem;
+  --pronunciation-link-arrow-track: 5rem;
+  --pronunciation-link-column-gap: 1rem;
   position: relative;
   display: grid;
-  grid-template-columns: minmax(5rem, 0.55fr) minmax(0, 2fr);
-  gap: 2.75rem;
+  grid-template-columns:
+    var(--pronunciation-link-card-width)
+    var(--pronunciation-link-arrow-track)
+    calc(
+      var(--pronunciation-link-card-width) + var(--pronunciation-link-card-width) +
+        var(--pronunciation-link-arrow-track) + var(--pronunciation-link-column-gap) +
+        var(--pronunciation-link-column-gap)
+    );
+  justify-content: center;
+  gap: var(--pronunciation-link-column-gap);
   align-items: center;
   min-height: 24rem;
   padding: 1rem 1.5rem;
@@ -1235,6 +1246,10 @@ main {
 .pronunciation-links-source {
   position: relative;
   z-index: 1;
+}
+
+.pronunciation-links-source-track {
+  min-width: 0;
 }
 
 .pronunciation-links-connectors {
@@ -1247,10 +1262,12 @@ main {
   overflow: visible;
 }
 
-.pronunciation-links-connectors line {
+.pronunciation-connector-path {
+  fill: none;
   stroke: #f59e0b;
   stroke-width: 4;
   stroke-linecap: round;
+  stroke-linejoin: round;
   marker-end: url("#pronunciation-arrowhead");
   vector-effect: non-scaling-stroke;
 }
@@ -1285,9 +1302,12 @@ main {
 .pronunciation-link-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(4rem, 0.7fr) auto minmax(5rem, 1fr);
+  grid-template-columns:
+    var(--pronunciation-link-card-width)
+    var(--pronunciation-link-arrow-track)
+    var(--pronunciation-link-card-width);
   align-items: center;
-  gap: 1rem;
+  gap: var(--pronunciation-link-column-gap);
 }
 
 .pronunciation-link-target {
@@ -1297,6 +1317,7 @@ main {
 .pronunciation-link-arrow {
   width: 4rem;
   height: 1.5rem;
+  justify-self: center;
   overflow: visible;
 }
 
@@ -1309,7 +1330,7 @@ main {
 }
 
 @media (max-width: 1280px) {
-  .pronunciation-question-editor {
+  .advanced-question-layout.pronunciation-question-editor {
     grid-template-columns: 1fr;
   }
 }

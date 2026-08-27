@@ -10,8 +10,26 @@ type PreviewPresentation = "table" | "links";
 interface ConnectorLayout {
   width: number;
   height: number;
-  lines: Array<{ x1: number; y1: number; x2: number; y2: number }>;
+  paths: string[];
 }
+const connectorBetween = (container: DOMRect, source: DOMRect, target: DOMRect) => {
+  const targetCenter = {
+    x: target.left - container.left + target.width / 2,
+    y: target.top - container.top + target.height / 2,
+  };
+  const gap = 16;
+  const x1 = source.right - container.left + gap;
+  const y1 = source.top - container.top + source.height / 2;
+  const x2 = target.left - container.left - gap;
+  const y2 = targetCenter.y;
+  const verticalDistance = y2 - y1;
+  if (Math.abs(verticalDistance) < 1) return `M ${x1 + 8} ${y1} H ${x2 - 8}`;
+  const radius = Math.min(16, Math.abs(verticalDistance) / 2);
+  const trunkX = x1 + 16;
+  const direction = Math.sign(verticalDistance);
+  const cornerApproachY = y2 - direction * radius;
+  return `M ${x1} ${y1} H ${trunkX} V ${cornerApproachY} Q ${trunkX} ${y2}, ${trunkX + radius} ${y2} H ${x2}`;
+};
 const cell = (text: string): PronunciationCell => ({ text: text.trim() });
 const lines = (value: unknown) => String(value ?? "").split("\n").map(item => item.trim()).filter(Boolean);
 const toneValues = (value: unknown) => String(value ?? "").split(/\r?\n|\||,/).map(item => item.trim()).filter(Boolean);
@@ -56,7 +74,7 @@ export function PronunciationQuestionEditor({ record, onChange }: { record: Pron
   const linksPreviewRef = useRef<HTMLDivElement>(null);
   const linksSourceRef = useRef<HTMLDivElement>(null);
   const linksTargetRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const [connectorLayout, setConnectorLayout] = useState<ConnectorLayout>({ width: 1, height: 1, lines: [] });
+  const [connectorLayout, setConnectorLayout] = useState<ConnectorLayout>({ width: 1, height: 1, paths: [] });
   const pendingRef = useRef<PronunciationSoundQuestionRecord | null>(null);
   const timerRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
@@ -79,20 +97,11 @@ export function PronunciationQuestionEditor({ record, onChange }: { record: Pron
     const update = () => {
       const containerRect = container.getBoundingClientRect();
       const sourceRect = source.getBoundingClientRect();
-      const sourceTop = sourceRect.top - containerRect.top;
-      const sourceBottom = sourceRect.bottom - containerRect.top;
-      const lines = linksTargetRefs.current.slice(0, draft.sounds.length).flatMap(target => {
+      const paths = linksTargetRefs.current.slice(0, draft.sounds.length).flatMap(target => {
         if (!target) return [];
-        const targetRect = target.getBoundingClientRect();
-        const targetY = targetRect.top - containerRect.top + targetRect.height / 2;
-        return [{
-          x1: sourceRect.right - containerRect.left + 8,
-          y1: Math.min(sourceBottom - 12, Math.max(sourceTop + 12, targetY)),
-          x2: targetRect.left - containerRect.left - 10,
-          y2: targetY,
-        }];
+        return [connectorBetween(containerRect, sourceRect, target.getBoundingClientRect())];
       });
-      setConnectorLayout({ width: containerRect.width, height: containerRect.height, lines });
+      setConnectorLayout({ width: containerRect.width, height: containerRect.height, paths });
     };
     const frame = window.requestAnimationFrame(update);
     const observer = new ResizeObserver(update);
@@ -168,8 +177,9 @@ export function PronunciationQuestionEditor({ record, onChange }: { record: Pron
                 <div className="pronunciation-links-source" ref={linksSourceRef}><SoundCell value={draft.letter} /></div>
                 <svg className="pronunciation-links-connectors" aria-hidden="true" viewBox={`0 0 ${connectorLayout.width} ${connectorLayout.height}`}>
                   <defs><marker id="pronunciation-arrowhead" viewBox="0 0 4 4" refX="3.4" refY="2" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L4,2 L0,4" /></marker></defs>
-                  {connectorLayout.lines.map((line, index) => <line key={index} {...line} />)}
+                  {connectorLayout.paths.map((path, index) => <path className="pronunciation-connector-path" key={index} d={path} />)}
                 </svg>
+                <div className="pronunciation-links-source-track" aria-hidden="true" />
                 <div className="pronunciation-links-branches">{draft.sounds.map((item, index) => <div className="pronunciation-link-row" key={index}>
                   <div className="pronunciation-link-target" ref={(element) => { linksTargetRefs.current[index] = element; }}><SoundCell value={item.sound} /></div>
                   <svg className="pronunciation-link-arrow" aria-hidden="true" viewBox="0 0 64 24"><path d="M2 12 H56" /><path d="M47 3 L56 12 L47 21" /></svg>
