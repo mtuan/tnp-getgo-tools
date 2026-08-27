@@ -57,11 +57,15 @@ export const contentV2ManagerRegistry = {
     spelling: {
       managerType: () => "alphabet",
     },
+    pronunciation: {
+      managerType: () => "pronunciation",
+    },
   } satisfies Record<ContentV2Quiz["type"], QuizDefinition>,
   questions: {
     "competition-question": { managerType: "question" },
     "alphabet-letter": { managerType: "alphabet" },
-  } satisfies Record<ContentV2Question["type"], { managerType: "question" | "alphabet" }>,
+    "pronunciation-sound": { managerType: "pronunciation" },
+  } satisfies Record<ContentV2Question["type"], { managerType: "question" | "alphabet" | "pronunciation" }>,
 };
 
 function managerSettings(topic: RepositoryViewData["contentV2"]["topics"][number]): ContestSettings {
@@ -115,7 +119,7 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     icon: quiz.icon,
     sharedCode: quiz.sharedCode,
     type: contentV2ManagerRegistry.quizzes[quiz.type].managerType(),
-    language: quiz.type === "alphabet" || quiz.type === "spelling" ? quiz.language : undefined,
+    language: quiz.type === "alphabet" || quiz.type === "spelling" || quiz.type === "pronunciation" ? quiz.language : undefined,
     grade: quiz.grade ?? null,
     round: quiz.round ?? null,
     year: quiz.year ?? null,
@@ -157,6 +161,8 @@ function toManagerQuestion(question: ContentV2Question): QuizQuestionRecord {
       resources: Array.isArray(question.resources) ? question.resources : [],
       ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}),
     };
+  if (question.type === "pronunciation-sound")
+    return { type: "pronunciation-sound", question_no: questionNumber(question.id, question.order), title: question.title, letter: question.letter, tones: question.tones, sounds: question.sounds, ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}) };
   return {
     question_no: questionNumber(question.id, question.order),
     category: question.category,
@@ -186,6 +192,8 @@ function fromManagerQuestion(
 ): ContentV2Question {
   if (stored.type === "alphabet-letter" && question.type === "alphabet")
     return { ...stored, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined, resources: Array.isArray(question.resources) ? question.resources : [] };
+  if (stored.type === "pronunciation-sound" && question.type === "pronunciation-sound")
+    return { ...stored, status: reviewStatus(question), title: question.title || undefined, letter: question.letter ?? stored.letter, tones: question.tones ?? stored.tones, sounds: question.sounds ?? stored.sounds };
   if (stored.type !== "competition-question" || question.type === "alphabet")
     throw new Error("Question type does not match its stored v2 contract.");
   const dynamic = question.advancedDynamic;
@@ -332,6 +340,8 @@ export function ContentV2QuizManager(props: Props) {
         const id = `q${order + 1}`;
         const record: ContentV2Question = quiz.type === "alphabet"
           ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?", resources: [] }
+          : quiz.type === "pronunciation"
+            ? { schemaVersion: 2, id, type: "pronunciation-sound", order, status: "pending", title: "Bảng phát âm", letter: { text: "b", speech: "bờ" }, tones: [{ text: "—", speech: "thanh ngang" }], sounds: [{ sound: { text: "a" }, forms: [{ text: "ba" }] }] }
           : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "New question" }, assets: [], answer: { type: "input", correct: "" } };
         await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
         return { question: toManagerQuestion(record), snapshot: await reloadFromFiles(quiz.topicId) };
@@ -403,7 +413,9 @@ export function ContentV2QuizManager(props: Props) {
         const common = { ...stored, title: input.title, icon: input.icon || undefined, sharedCode: input.sharedCode ?? stored.sharedCode, status: input.status === "reviewed" ? "reviewed" as const : stored.status };
         const next: ContentV2Quiz = input.type === "contest"
           ? { ...common, type: "competition-paper", grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
-          : { ...common, type: "alphabet", language: input.language ?? "en", speech: stored.type === "alphabet" ? stored.speech : defaultAlphabetQuizSpeechSettings };
+          : input.type === "pronunciation"
+            ? { ...common, type: "pronunciation", language: "vi", speech: stored.type === "pronunciation" ? stored.speech : defaultAlphabetQuizSpeechSettings }
+            : { ...common, type: "alphabet", language: input.language ?? "en", speech: stored.type === "alphabet" ? stored.speech : defaultAlphabetQuizSpeechSettings };
         await window.getgo.saveContentV2Quiz(summary.topicId, next);
         return reloadFromFiles(summary.topicId);
       },
@@ -411,7 +423,9 @@ export function ContentV2QuizManager(props: Props) {
         const topic = await window.getgo.loadContentV2Topic(topicId);
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
-          ? { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
+          ? input.type === "pronunciation"
+            ? { schemaVersion: 2, id: input.id, topicId, type: "pronunciation", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: "vi", speech: defaultAlphabetQuizSpeechSettings }
+            : { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
           : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         await window.getgo.saveContentV2Quiz(topicId, quiz);
         return reloadFromFiles(topicId);

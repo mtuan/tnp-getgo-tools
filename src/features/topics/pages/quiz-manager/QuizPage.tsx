@@ -86,6 +86,8 @@ export function renderQuizPage(context: QuizPageContext) {
       category: typeof record.category === "string" ? record.category : "—",
       prompt: record.authoringMode === "reference" && record.reference
         ? `References question ${record.reference.questionNo}`
+        : record.type === "pronunciation-sound"
+          ? record.title ?? `Pronunciation ${record.letter?.text ?? record.question_no}`
         : questionPrompt(record.text_en ?? record.text_vn),
       dynamic: record.authoringMode === "reference"
         || questionHasDynamicParams(record.advancedDynamic),

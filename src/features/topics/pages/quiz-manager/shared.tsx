@@ -330,7 +330,7 @@ export function restoredPage(
       quizTab,
     };
   if (quizTab !== "info" && quizTab !== "code")
-    quizTab = quiz.type === "contest" ? "questions" : "alphabets";
+    quizTab = quiz.type === "alphabet" ? "alphabets" : "questions";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo
     ? snapshot.contentV2.questions.find(

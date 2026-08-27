@@ -13,6 +13,7 @@ export type QuestionStorageVersion = "legacy" | "questions-v1";
 export const quizTypes = [
   "contest",
   "alphabet",
+  "pronunciation",
 ] as const;
 export type QuizType = (typeof quizTypes)[number];
 
@@ -131,7 +132,7 @@ export interface ContentV2QuizSummary {
   key: string;
   topicId: string;
   id: string;
-  type: "competition-paper" | "alphabet" | "spelling";
+  type: "competition-paper" | "alphabet" | "spelling" | "pronunciation";
   title: string;
   description: string;
   icon?: string;
@@ -156,7 +157,7 @@ export interface ContentV2QuestionSummary {
   topicId: string;
   quizId: string;
   id: string;
-  type: "competition-question" | "alphabet-letter";
+  type: "competition-question" | "alphabet-letter" | "pronunciation-sound";
   order: number;
   status: "draft" | "pending" | "reviewed" | "rejected";
   filePath: string;
@@ -266,7 +267,6 @@ export interface ContestQuizQuestionRecord extends QuestionRecordBase {
       proposal: DynamicQuestionProposal;
     }
   >;
-  letter?: never;
   uppercase?: never;
   lowercase?: never;
   pronunciation?: never;
@@ -346,8 +346,34 @@ export interface AlphabetQuestionRecord
   samples?: never;
 }
 
+export interface PronunciationCell {
+  text: string;
+  speech?: string;
+  audio?: string;
+}
+
+export interface PronunciationSoundQuestionRecord extends QuestionRecordBase {
+  type: "pronunciation-sound";
+  title?: string;
+  letter: PronunciationCell;
+  tones: PronunciationCell[];
+  sounds: Array<{ sound: PronunciationCell; forms: PronunciationCell[] }>;
+  category?: never;
+  text_en?: never;
+  text_vn?: never;
+  answer?: never;
+  image_datas?: never;
+  explanation?: never;
+  authoringMode?: never;
+  reference?: never;
+  advancedDynamic?: never;
+  aiResponse?: never;
+  aiFixHistory?: never;
+  samples?: never;
+}
+
 export type QuizQuestionRecord =
-  ContestQuizQuestionRecord | AlphabetQuestionRecord;
+  ContestQuizQuestionRecord | AlphabetQuestionRecord | PronunciationSoundQuestionRecord;
 
 export type QuestionIssue = "missing-image" | "wrong-question" | "wrong-answer";
 export interface QuestionFeedback {

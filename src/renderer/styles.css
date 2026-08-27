@@ -845,6 +845,11 @@ main {
 .ui-page-header-actions .ui-page-header-control input {
   height: var(--ui-page-header-control-height);
   min-height: var(--ui-page-header-control-height);
+  font-size: 13px;
+  line-height: 1.2;
+}
+.ui-page-header-actions .ui-page-header-control input {
+  font-family: inherit;
 }
 .ui-page-header-actions .ui-action-menu-trigger {
   display: flex;
@@ -1133,6 +1138,180 @@ main {
 .alphabet-letter-pronunciation strong {
   color: var(--text);
   font-size: 1.15rem;
+}
+
+.pronunciation-table-preview {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pronunciation-question-workspace {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.pronunciation-panel-body {
+  min-width: 0;
+  padding: 20px 22px 22px;
+}
+
+.pronunciation-preview-body {
+  overflow: hidden;
+}
+
+.pronunciation-question-editor {
+  grid-template-columns: minmax(340px, 0.72fr) minmax(680px, 1.28fr);
+}
+
+.pronunciation-sound-button.ui-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 3.75rem;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: transparent;
+  font-size: clamp(1.25rem, 1.75vw, 1.75rem);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.pronunciation-sound-button.ui-button:hover {
+  color: var(--primary);
+  background: var(--soft);
+}
+
+.pronunciation-sound-button.ui-button:active {
+  background: var(--primary-soft);
+  transform: scale(0.97);
+}
+
+.pronunciation-table-cell {
+  display: grid;
+  min-width: 0;
+  min-height: 4.75rem;
+  padding: 0.25rem;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  place-items: center;
+}
+
+.pronunciation-table-cell:nth-child(7n) {
+  border-right: 0;
+}
+
+.pronunciation-table-header,
+.pronunciation-table-row-header,
+.pronunciation-table-corner {
+  background: var(--soft);
+}
+
+.pronunciation-table-header .pronunciation-sound-button,
+.pronunciation-table-row-header .pronunciation-sound-button {
+  color: var(--primary);
+}
+
+.pronunciation-table-corner .pronunciation-sound-button {
+  color: var(--danger);
+  font-size: clamp(2rem, 3vw, 3.25rem);
+}
+
+.pronunciation-links-preview {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.55fr) minmax(0, 2fr);
+  gap: 2.75rem;
+  align-items: center;
+  min-height: 24rem;
+  padding: 1rem 1.5rem;
+}
+
+.pronunciation-links-source {
+  position: relative;
+  z-index: 1;
+}
+
+.pronunciation-links-connectors {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.pronunciation-links-connectors line {
+  stroke: #f59e0b;
+  stroke-width: 4;
+  stroke-linecap: round;
+  marker-end: url("#pronunciation-arrowhead");
+  vector-effect: non-scaling-stroke;
+}
+
+.pronunciation-links-connectors marker path {
+  fill: #f59e0b;
+}
+
+.pronunciation-links-source .pronunciation-sound-button {
+  color: var(--danger);
+  font-size: clamp(3rem, 6vw, 5rem);
+}
+
+.pronunciation-links-preview .pronunciation-sound-button.ui-button {
+  border: 2px solid var(--line);
+  background: var(--soft);
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
+}
+
+.pronunciation-links-preview .pronunciation-sound-button.ui-button:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.pronunciation-links-branches {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pronunciation-link-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(4rem, 0.7fr) auto minmax(5rem, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.pronunciation-link-target {
+  min-width: 0;
+}
+
+.pronunciation-link-arrow {
+  width: 4rem;
+  height: 1.5rem;
+  overflow: visible;
+}
+
+.pronunciation-link-arrow path {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 1280px) {
+  .pronunciation-question-editor {
+    grid-template-columns: 1fr;
+  }
 }
 .alphabet-word-preview {
   display: flex;

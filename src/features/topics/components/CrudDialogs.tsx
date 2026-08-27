@@ -73,7 +73,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
     { type: "text", name: "id", label: "Quiz ID", required: true, readOnly: Boolean(quiz), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
     { type: "text", name: "title", label: "Title", required: true },
     { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image or a predefined Unicode symbol." },
-    { type: "select", name: "type", label: "Quiz type", required: true, presentation: "segmented", options: [{ value: "contest", label: "Contest" }, { value: "alphabet", label: "Alphabet" }] },
+    { type: "select", name: "type", label: "Quiz type", required: true, presentation: "segmented", options: [{ value: "contest", label: "Contest" }, { value: "alphabet", label: "Alphabet" }, { value: "pronunciation", label: "Vietnamese pronunciation" }] },
     ...(input.type === "alphabet" ? [{ type: "select", name: "language", label: "Language", required: true, presentation: "segmented", options: [{ value: "en", label: "English" }, { value: "vi", label: "Vietnamese" }] } as FormSchema] : []),
     ...(input.type === "contest" ? [
       { type: "select", name: "grade", label: "Grade", required: true, options: gradeMappings.map(item => ({ value: item.name, label: `${item.name} · ${item.grades.map(grade => grade === 0 ? "K" : grade).join(", ")}` })) } as FormSchema,
@@ -88,7 +88,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
         const type = value as QuizCrudInput["type"]
         return type === "contest"
           ? { ...current, type, grade: current.grade || initialGrade, round: current.round || String(contest.settings.rounds[0]?.roundCode ?? ""), year: current.year || "" }
-          : { ...current, type, language: current.language ?? "en", grade: null, round: null, year: null }
+          : { ...current, type, language: type === "pronunciation" ? "vi" : current.language ?? "en", grade: null, round: null, year: null }
       }
       if (name === "language") return { ...current, language: value === "vi" ? "vi" : "en" }
       if (name === "grade") return { ...current, grade: String(value) }
@@ -97,7 +97,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
       return { ...current, [name]: value } as QuizCrudInput
     })
   }
-  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized = { ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), icon: input.icon?.trim() || undefined, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : undefined, grade: input.type === "contest" ? input.grade?.trim() || null : null, round: input.type === "contest" ? input.round?.trim() || null : null, year: input.type === "contest" ? input.year?.trim() || null : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
+  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized = { ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), icon: input.icon?.trim() || undefined, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : input.type === "pronunciation" ? "vi" : undefined, grade: input.type === "contest" ? input.grade?.trim() || null : null, round: input.type === "contest" ? input.round?.trim() || null : null, year: input.type === "contest" ? input.year?.trim() || null : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
   const editor = <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "quiz-info-form" : undefined} hideFooter={embedded} onReset={() => { setInput(structuredClone(savedInput)); setFieldErrors({}); setError(null) }} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}

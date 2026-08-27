@@ -9,6 +9,7 @@ import { TopicQuizTreeIdentity } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
+import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type TopicTreeContext = Record<string, any> & {
@@ -87,7 +88,16 @@ isContest,
                   title: "Type",
                   width: 100,
                   align: "center",
-                  render: (row) => (row.kind === "topic" ? "Topic" : "Quiz"),
+                  render: (row) => {
+                    if (row.kind === "topic")
+                      return topicTypeLabel(row.summary.type);
+                    const summary = snapshot.contentV2.quizzes.find(
+                      (quiz) =>
+                        quiz.topicId === row.quiz.contest &&
+                        quiz.id === row.quiz.id,
+                    );
+                    return summary ? quizTypeLabel(summary.type) : row.quiz.type;
+                  },
                 },
                 {
                   key: "publish",

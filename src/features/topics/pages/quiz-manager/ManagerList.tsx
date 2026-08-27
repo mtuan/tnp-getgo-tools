@@ -9,6 +9,7 @@ import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import { renderTopicTree } from "./TopicTree";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
+import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type ManagerListContext = Record<string, any> & {
@@ -102,8 +103,12 @@ export function renderManagerList(context: ManagerListContext) {
                 </thead>
                 <tbody>
                   {topicMode && isContest
-                    ? visibleQuizzes.map((quiz) => {
+                      ? visibleQuizzes.map((quiz) => {
                         const review = contentV2QuizReviewStatus(snapshot, quiz);
+                        const contentQuiz = snapshot.contentV2.quizzes.find(
+                          (item) =>
+                            item.topicId === quiz.contest && item.id === quiz.id,
+                        );
                         return (
                           <tr
                             key={quiz.key}
@@ -127,7 +132,9 @@ export function renderManagerList(context: ManagerListContext) {
                                 </div>
                               </div>
                             </td>
-                            <td className="manager-column-centered">Quiz</td>
+                            <td className="manager-column-centered">
+                              {contentQuiz ? quizTypeLabel(contentQuiz.type) : quiz.type}
+                            </td>
                             <td className="manager-status-cell">
                               <StatusBadge
                                 tone={
@@ -310,7 +317,9 @@ export function renderManagerList(context: ManagerListContext) {
                                     : undefined
                                 }
                               >
-                                {topicMode ? "Topic" : contest.quizzes.length}
+                                {topicMode && topicSummary
+                                  ? topicTypeLabel(topicSummary.type)
+                                  : contest.quizzes.length}
                               </td>
                               {topicMode && topicSummary ? (
                                 <>

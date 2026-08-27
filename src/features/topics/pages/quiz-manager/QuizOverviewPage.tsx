@@ -174,7 +174,11 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                     void runButtonAction("create-question", createQuestion)
                   }
                 >
-                  {quiz.type === "contest" ? "Add question" : "Add letter"}
+                  {quiz.type === "contest"
+                    ? "Add question"
+                    : quiz.type === "pronunciation"
+                      ? "Add pronunciation"
+                      : "Add letter"}
                 </Button>
                 <ActionMenu
                   label={quizPublishCopy.more}
@@ -245,7 +249,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           value={quizTab}
           onChange={setQuizTab}
           items={[
-            quiz.type === "contest"
+            quiz.type === "contest" || quiz.type === "pronunciation"
               ? {
                   id: "questions" as const,
                   label: "Questions",
@@ -257,7 +261,8 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                   }
                 : null,
             { id: "info" as const, label: "Info" },
-            quiz.relativePath.startsWith("content-v2/")
+            quiz.relativePath.startsWith("content-v2/") &&
+            quiz.type === "contest"
               ? { id: "code" as const, label: "Code" }
               : null,
           ].filter((item): item is Exclude<typeof item, null> => Boolean(item))}

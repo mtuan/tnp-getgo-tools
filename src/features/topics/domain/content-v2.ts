@@ -210,10 +210,18 @@ export const spellingQuizSchema = z.object({
   language: z.enum(["en", "vi"]),
 });
 
+export const pronunciationQuizSchema = z.object({
+  ...baseQuiz,
+  type: z.literal("pronunciation"),
+  language: z.literal("vi"),
+  speech: quizSpeechSettingsSchema.default(defaultQuizSpeechSettings),
+});
+
 export const contentV2QuizSchema = z.discriminatedUnion("type", [
   competitionPaperQuizSchema,
   alphabetQuizSchema,
   spellingQuizSchema,
+  pronunciationQuizSchema,
 ]);
 export type ContentV2Quiz = z.infer<typeof contentV2QuizSchema>;
 export type ContentV2QuizType = ContentV2Quiz["type"];
@@ -280,9 +288,28 @@ export const alphabetLetterV2Schema = z.object({
     .default([]),
 });
 
+const pronunciationCellSchema = z.object({
+  text: z.string().min(1),
+  speech: z.string().optional(),
+  audio: z.string().optional(),
+});
+
+export const pronunciationSoundV2Schema = z.object({
+  ...questionBase,
+  type: z.literal("pronunciation-sound"),
+  title: z.string().optional(),
+  letter: pronunciationCellSchema,
+  tones: z.array(pronunciationCellSchema),
+  sounds: z.array(z.object({
+    sound: pronunciationCellSchema,
+    forms: z.array(pronunciationCellSchema),
+  })).min(1),
+});
+
 export const contentV2QuestionSchema = z.discriminatedUnion("type", [
   competitionQuestionV2Schema,
   alphabetLetterV2Schema,
+  pronunciationSoundV2Schema,
 ]);
 export type ContentV2Question = z.infer<typeof contentV2QuestionSchema>;
 export type ContentV2QuestionType = ContentV2Question["type"];
@@ -314,6 +341,11 @@ export const contentV2Registry = {
       schemaVersion: 2,
       allowedParentTypes: ["kid-learning"],
     },
+    pronunciation: {
+      type: "pronunciation",
+      schemaVersion: 2,
+      allowedParentTypes: ["kid-learning"],
+    },
   },
   questions: {
     "competition-question": {
@@ -325,6 +357,11 @@ export const contentV2Registry = {
       type: "alphabet-letter",
       schemaVersion: 2,
       allowedParentTypes: ["alphabet"],
+    },
+    "pronunciation-sound": {
+      type: "pronunciation-sound",
+      schemaVersion: 2,
+      allowedParentTypes: ["pronunciation"],
     },
   },
 } as const satisfies Record<string, Record<string, ContentTypeDefinition>>;

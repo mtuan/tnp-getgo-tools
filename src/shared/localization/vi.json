@@ -230,8 +230,10 @@
       "competition-paper": "Đề thi",
       "alphabet": "Bảng chữ cái",
       "spelling": "Đánh vần",
+      "pronunciation": "Phát âm tiếng Việt",
       "competition-question": "Câu hỏi cuộc thi",
-      "alphabet-letter": "Chữ cái"
+      "alphabet-letter": "Chữ cái",
+      "pronunciation-sound": "Âm phát âm"
     },
     "fields": {
       "id": "ID",

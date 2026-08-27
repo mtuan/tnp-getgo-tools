@@ -44,8 +44,15 @@ export interface PublishedAlphabetQuestion {
   pronunciation?: string;
 }
 
+export interface PublishedPronunciationQuestion {
+  question_no: number;
+  type: "pronunciation-sound";
+  title?: string;
+  [key: string]: unknown;
+}
+
 export type PublishedQuestion =
-  PublishedContestQuestion | PublishedAlphabetQuestion;
+  PublishedContestQuestion | PublishedAlphabetQuestion | PublishedPronunciationQuestion;
 
 export function hashPublishedQuiz(
   metadata: { title: string; icon?: string; grade: string | null; round: string | null; year: string | null },
@@ -102,6 +109,8 @@ export function sanitizePublishedQuestion(
         : {}),
     };
   }
+  if (record.type === "pronunciation-sound")
+    return { question_no: questionNo, type: record.type, title: record.title, letter: record.letter, tones: record.tones, sounds: record.sounds };
   const answer = plainRecord(record.answer, `Question ${questionNo} answer`);
   if (typeof answer.type !== "string" || !answer.type)
     throw new Error(`Question ${questionNo} answer.type is required.`);

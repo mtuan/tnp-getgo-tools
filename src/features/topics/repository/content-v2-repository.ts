@@ -232,9 +232,11 @@ export async function loadContentV2WorkspaceFromFiles(
               label:
                 question.type === "alphabet-letter"
                   ? `${question.uppercase} ${question.lowercase}`
-                  : Array.isArray(question.text.en)
-                    ? question.text.en.join(" ")
-                    : question.text.en,
+                  : question.type === "competition-question"
+                    ? Array.isArray(question.text.en)
+                      ? question.text.en.join(" ")
+                      : question.text.en
+                    : question.title ?? `Pronunciation ${question.letter.text}`,
               ...(question.type === "competition-question"
                 ? {
                     category: question.category,

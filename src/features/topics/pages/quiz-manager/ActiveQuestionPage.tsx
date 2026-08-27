@@ -11,6 +11,7 @@ import { PageHeader } from "../../../../shared/ui/PageHeader";
 import { QuestionNavigator } from "../../../../shared/ui/QuestionNavigator";
 import { ActionMenu } from "../../../../shared/ui/ActionMenu";
 import { AlphabetLetterEditor } from "../../../quiz-editor/components/AlphabetLetterEditor";
+import { PronunciationQuestionEditor } from "../../../quiz-editor/components/PronunciationQuestionEditor";
 import { QuestionEditorKeyboardShortcuts, comparableQuestion, questionDiff, type QuestionListItem } from "./shared";
 import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 
@@ -327,6 +328,8 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
         });
       };
       const isAlphabetQuestion = questionDraftRecord?.type === "alphabet";
+      const isPronunciationQuestion =
+        questionDraftRecord?.type === "pronunciation-sound";
       const letter = questionDraftRecord
         ? alphabetData(questionDraftRecord).letter
         : "";
@@ -348,7 +351,11 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
         });
       };
       const deleteQuestionFromDetail = () => {
-        const kind = isAlphabetQuestion ? "letter" : "question";
+        const kind = isAlphabetQuestion
+          ? "letter"
+          : isPronunciationQuestion
+            ? "pronunciation item"
+            : "question";
         if (
           !window.confirm(
             `Delete ${kind} ${activeQuestion.number}? This removes its file and renumbers the remaining questions.`,
@@ -388,7 +395,13 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
             quizId={quiz.id}
             questionId={`q${questionDraftRecord?.question_no ?? activeQuestion.number}`}
             header={(feedbackToggle) => <PageHeader
-            eyebrow={isAlphabetQuestion ? "Letter editor" : "Question editor"}
+            eyebrow={
+              isAlphabetQuestion
+                ? "Letter editor"
+                : isPronunciationQuestion
+                  ? "Pronunciation editor"
+                  : "Question editor"
+            }
             breadcrumbs={[
               {
                 label: routeMode === "topics" ? "Topics" : "Contests",
@@ -403,11 +416,15 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
             title={
               isAlphabetQuestion
                 ? `Letter ${letter || activeQuestion.number}`
+                : isPronunciationQuestion
+                  ? `Pronunciation ${activeQuestion.number}`
                 : `Question ${activeQuestion.number}`
             }
             description={
               isAlphabetQuestion
                 ? `${quiz.language === "vi" ? "Vietnamese" : "English"} alphabet · questions/`
+                : isPronunciationQuestion
+                  ? "Vietnamese pronunciation · questions/"
                 : `${activeQuestion.category} · questions/`
             }
             titleAction={
@@ -480,7 +497,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                       icon: Plus,
                       onSelect: createNewQuestionFromDetail,
                     },
-                    ...(!isAlphabetQuestion
+                    ...(!isAlphabetQuestion && !isPronunciationQuestion
                       ? [
                           {
                             id: "shared-code",
@@ -512,6 +529,8 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                       id: "delete-question",
                       label: isAlphabetQuestion
                         ? "Delete letter"
+                        : isPronunciationQuestion
+                          ? "Delete pronunciation item"
                         : "Delete question",
                       icon: Trash2,
                       onSelect: deleteQuestionFromDetail,
@@ -565,7 +584,12 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
             </div>
           )}
           {questionDraftRecord &&
-            (isAlphabetQuestion ? (
+            (isPronunciationQuestion ? (
+              <PronunciationQuestionEditor
+                record={questionDraftRecord}
+                onChange={(next) => updateQuestionDraft(String(questionDraftRecord.question_no), next)}
+              />
+            ) : isAlphabetQuestion ? (
               <AlphabetLetterEditor
                 locale={locale}
                 speechSettings={speechSettings}

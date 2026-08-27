@@ -148,6 +148,16 @@ test("v2 type registry rejects incompatible parent and child types", () => {
   assert.doesNotThrow(() =>
     assertContentV2Relationship("kid-learning", "spelling", "quiz"),
   );
+  assert.doesNotThrow(() =>
+    assertContentV2Relationship("kid-learning", "pronunciation", "quiz"),
+  );
+  assert.doesNotThrow(() =>
+    assertContentV2Relationship(
+      "pronunciation",
+      "pronunciation-sound",
+      "question",
+    ),
+  );
   assert.throws(() =>
     assertContentV2Relationship("competition", "alphabet", "quiz"),
   );

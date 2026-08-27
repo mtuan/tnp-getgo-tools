@@ -230,8 +230,10 @@
       "competition-paper": "Competition paper",
       "alphabet": "Alphabet",
       "spelling": "Spelling",
+      "pronunciation": "Vietnamese pronunciation",
       "competition-question": "Competition question",
-      "alphabet-letter": "Alphabet letter"
+      "alphabet-letter": "Alphabet letter",
+      "pronunciation-sound": "Pronunciation sound"
     },
     "fields": {
       "id": "ID",

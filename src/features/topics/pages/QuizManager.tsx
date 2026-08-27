@@ -331,7 +331,7 @@ export function QuizManager({
     }
     if (page.kind === "quiz")
       onRouteChange(
-        `${quizRoute(page.quiz.contest, page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}?tab=${page.quiz.type === "contest" ? questionEditorTab : alphabetEditorTab}` : `?tab=${quizTab}`}`,
+        `${quizRoute(page.quiz.contest, page.quiz.id)}${pendingQuestionNo ? `/questions/${encodeURIComponent(pendingQuestionNo)}?tab=${page.quiz.type === "alphabet" ? alphabetEditorTab : questionEditorTab}` : `?tab=${quizTab}`}`,
       );
   }, [
     alphabetEditorTab,
@@ -350,7 +350,7 @@ export function QuizManager({
     setSourceError(null);
     Promise.all([
       managerApi.loadQuizQuestions(page.quiz.manifestPath),
-      page.quiz.type !== "contest"
+      page.quiz.type === "alphabet"
         ? managerApi.loadAlphabetDictionary(page.quiz.manifestPath)
         : Promise.resolve<AlphabetDictionary>({ schemaVersion: 1, words: [] }),
     ])
@@ -427,7 +427,7 @@ export function QuizManager({
     setQuestionOrder(null);
     setQuestionRecords([]);
     setSourceError(null);
-    setQuizTab(quiz.type === "contest" ? "questions" : "alphabets");
+    setQuizTab(quiz.type === "alphabet" ? "alphabets" : "questions");
     setPage({ kind: "quiz", quiz });
   }, []);
   const goBack = useCallback(() => {

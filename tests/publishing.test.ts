@@ -254,6 +254,28 @@ test("publishes alphabet questions with their independent runtime contract", () 
   assert.equal("samples" in question, false);
 });
 
+test("publishes pronunciation sounds without presentation or answer data", () => {
+  const question = sanitizePublishedQuestion({
+    question_no: 1,
+    type: "pronunciation-sound",
+    title: "Bảng phát âm b",
+    letter: { text: "b", speech: "bờ" },
+    tones: [{ text: "sắc", speech: "dấu sắc" }],
+    sounds: [{ sound: { text: "i" }, forms: [{ text: "bi" }, { text: "bí" }] }],
+  });
+
+  assert.deepEqual(question, {
+    question_no: 1,
+    type: "pronunciation-sound",
+    title: "Bảng phát âm b",
+    letter: { text: "b", speech: "bờ" },
+    tones: [{ text: "sắc", speech: "dấu sắc" }],
+    sounds: [{ sound: { text: "i" }, forms: [{ text: "bi" }, { text: "bí" }] }],
+  });
+  assert.equal("presentation" in question, false);
+  assert.equal("answer" in question, false);
+});
+
 test("canonical hashing ignores question and object-key ordering", () => {
   const one = sanitizePublishedQuestion({
     question_no: 1,
