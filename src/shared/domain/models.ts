@@ -576,7 +576,7 @@ export interface AiMigrationJobsSnapshot {
 
 export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy";
 export type WebDeploymentTarget = "development" | "staging" | "production";
-export type DeploymentComponent = "firebase" | "web";
+export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
 export type DeploymentOperation = "build" | "deploy";
 export interface DeploymentItemState {
   id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "functions" | "web";
@@ -631,6 +631,11 @@ export interface DeploymentJobReport {
   items: DeploymentItemState[];
   steps: DeploymentJobReportStep[];
 }
+export interface BackgroundJobLog {
+  timestamp: string;
+  stream: "system" | "stdout" | "stderr";
+  message: string;
+}
 export interface BackgroundJob {
   id: string;
   kind: BackgroundJobKind;
@@ -650,6 +655,7 @@ export interface BackgroundJob {
   cancellable: boolean;
   retryable?: boolean;
   error?: string;
+  logs?: BackgroundJobLog[];
   report?: DeploymentJobReport;
 }
 export interface BackgroundJobsSnapshot {
@@ -903,6 +909,7 @@ export interface DesktopApi {
     target: WebDeploymentTarget,
   ): Promise<BackgroundJobsSnapshot>;
   getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
+  openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget): Promise<void>;
   getLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
   startLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
   restartLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;

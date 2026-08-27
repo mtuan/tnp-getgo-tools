@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Eye, Pause as PauseIcon, Play, RotateCcw, Trash2, X } from "lucide-react";
 import type { AppSettings, BackgroundJob } from "../../../shared/domain/models";
-import { DataTable, TableActionButton, type DataColumn } from "../../../shared/ui";
+import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import { DeploymentJobReportDrawer } from "../../deployment/components/DeploymentJobReportDrawer";
@@ -40,7 +40,8 @@ export function BackgroundJobsTable({
 }) {
   const copy = (locale === "vi" ? vi : en).jobs;
   const [now, setNow] = useState(Date.now());
-  const [reportJob, setReportJob] = useState<BackgroundJob | null>(null);
+  const [reportJobId, setReportJobId] = useState<string | null>(null);
+  const reportJob = reportJobId ? rows.find(job => job.id === reportJobId) ?? null : null;
   const hasActive = rows.some((job) => ["queued", "running", "paused"].includes(job.status));
   useEffect(() => {
     if (!hasActive) return;
@@ -48,13 +49,13 @@ export function BackgroundJobsTable({
     return () => window.clearInterval(timer);
   }, [hasActive]);
   const jobKind = (job: BackgroundJob) => job.kind === "ai-migrate" ? copy.aiMigration : job.kind === "publish" ? copy.publishing : copy.webDeployment;
-  const columns: DataColumn<BackgroundJob>[] = [
+  const columns: ui.DataColumn<BackgroundJob>[] = [
     { key: "name", title: copy.name, width: "22%", render: (job) => <div className="job-table-name"><strong>{job.name}</strong><small>{jobKind(job)}</small></div> },
     { key: "description", title: copy.description, render: (job) => <div className="job-table-description"><span>{job.description}</span>{job.progressLabel && <small className="job-table-current-step">{job.progressLabel}</small>}{job.error && <small className="job-table-error">{job.error}</small>}</div> },
     { key: "status", title: copy.status, width: 120, render: (job) => <span className={`badge job-status job-status-${job.status}`}>{job.status}</span> },
     { key: "progress", title: copy.progress, width: 190, render: (job) => { const percent = job.total ? Math.min(100, Math.round(job.completed / job.total * 100)) : 0; return <div className="job-table-progress"><div><progress max={100} value={percent} /><strong>{percent}%</strong></div><small>{job.completed}/{job.total}</small></div>; } },
     { key: "time", title: copy.time, width: 90, align: "right", render: (job) => <span className="job-table-time">{durationLabel(job, now)}</span> },
-    { key: "actions", title: copy.action, width: 230, align: "right", render: (job) => job.cancellable ? <div className="job-table-actions"><TableActionButton color="neutral" icon={job.status === "paused" ? <Play /> : <PauseIcon />} disabled={busyJob === job.id} aria-label={job.status === "paused" ? copy.resume : copy.pause} title={job.status === "paused" ? copy.resume : copy.pause} onClick={() => onAction(job, job.status === "paused" ? "resume" : "pause")} /><TableActionButton color="danger" icon={<X />} loading={busyJob === job.id} aria-label={copy.cancel} title={copy.cancel} onClick={() => onAction(job, "cancel")} /></div> : <div className="job-table-actions">{job.kind === "deploy" && job.report && <TableActionButton color="neutral" icon={<Eye />} aria-label={copy.viewReport} title={copy.viewReport} onClick={() => setReportJob(job)} />}{job.retryable && <TableActionButton color="primary" icon={<RotateCcw />} loading={busyJob === job.id} aria-label={copy.retry} title={copy.retry} onClick={() => onAction(job, "retry")} />}{job.route && onOpenRoute && <TableActionButton color="neutral" icon={<ExternalLink />} aria-label={copy.open} title={copy.open} onClick={() => onOpenRoute(job.route!)} />}<TableActionButton color="danger" icon={<Trash2 />} aria-label={copy.delete} title={copy.delete} loading={busyJob === job.id} onClick={() => onAction(job, "delete")} /></div> },
+    { key: "actions", title: copy.action, width: 230, align: "right", render: (job) => <div className="job-table-actions"><ui.TableActionButton color="neutral" icon={<Eye />} aria-label={copy.viewReport} title={copy.viewReport} onClick={() => setReportJobId(job.id)} />{job.cancellable ? <><ui.TableActionButton color="neutral" icon={job.status === "paused" ? <Play /> : <PauseIcon />} disabled={busyJob === job.id} aria-label={job.status === "paused" ? copy.resume : copy.pause} title={job.status === "paused" ? copy.resume : copy.pause} onClick={() => onAction(job, job.status === "paused" ? "resume" : "pause")} /><ui.TableActionButton color="danger" icon={<X />} loading={busyJob === job.id} aria-label={copy.cancel} title={copy.cancel} onClick={() => onAction(job, "cancel")} /></> : <>{job.retryable && <ui.TableActionButton color="primary" icon={<RotateCcw />} loading={busyJob === job.id} aria-label={copy.retry} title={copy.retry} onClick={() => onAction(job, "retry")} />}{job.route && onOpenRoute && <ui.TableActionButton color="neutral" icon={<ExternalLink />} aria-label={copy.open} title={copy.open} onClick={() => onOpenRoute(job.route!)} />}<ui.TableActionButton color="danger" icon={<Trash2 />} aria-label={copy.delete} title={copy.delete} loading={busyJob === job.id} onClick={() => onAction(job, "delete")} /></>}</div> },
   ];
-  return <><DataTable horizontalScroll ariaLabel={ariaLabel} rows={rows} columns={columns} rowKey={(job) => job.id} emptyText={emptyText} />{reportJob && <DeploymentJobReportDrawer locale={locale} job={reportJob} onClose={() => setReportJob(null)} />}</>;
+  return <><ui.DataTable horizontalScroll ariaLabel={ariaLabel} rows={rows} columns={columns} rowKey={(job) => job.id} emptyText={emptyText} />{reportJob && <DeploymentJobReportDrawer locale={locale} job={reportJob} onClose={() => setReportJobId(null)} />}</>;
 }

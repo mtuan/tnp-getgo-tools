@@ -232,6 +232,7 @@ const api: DesktopApi = {
   startDeployment: (operation, component, target) =>
     ipcRenderer.invoke("deployment:start", operation, component, target),
   getDeploymentState: (target) => ipcRenderer.invoke("deployment:state", target),
+  openNativeProject: (platform, target) => ipcRenderer.invoke("native-project:open", platform, target),
   getLocalWebRuntime: () => ipcRenderer.invoke("local-web:state"),
   startLocalWebRuntime: () => ipcRenderer.invoke("local-web:start"),
   restartLocalWebRuntime: () => ipcRenderer.invoke("local-web:restart"),

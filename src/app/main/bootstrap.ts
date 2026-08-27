@@ -14,6 +14,7 @@ import { AiMigrationJobManager } from "../../features/ai/main/ai-migration-jobs.
 import { PublishJobManager } from "../../features/jobs/main/publish-jobs.js";
 import { WebDeploymentJobManager } from "../../features/deployment/main/web-deployment-jobs.js";
 import { LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
+import { NativeDeploymentJobManager } from "../../features/deployment/main/native-deployment-jobs.js";
 import { registerBackgroundJobsIpc } from "../../features/jobs/main/background-jobs-ipc.js";
 import { registerAiIpc } from "../../features/ai/main/ai-ipc.js";
 import { registerImagePdfIpc } from "../../features/image-pdf/main/image-pdf-ipc.js";
@@ -179,6 +180,10 @@ app.whenReady().then(async () => {
     app.getAppPath(),
     app.getPath("userData"),
   );
+  const nativeDeploymentJobs = new NativeDeploymentJobManager(
+    app.getPath("userData"),
+    app.getAppPath(),
+  );
   startupLog("Background services initialized");
   ipcMain.handle("app:restart", () => {
     if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
@@ -192,7 +197,7 @@ app.whenReady().then(async () => {
   registerAuthIpc(ipcMain, firebaseAuth);
   registerAiIpc(ipcMain, localAi, aiMigrationJobs, repositoryRoot);
   const backgroundJobsSnapshot = registerBackgroundJobsIpc(
-    ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, localWebRuntime,
+    ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, nativeDeploymentJobs, localWebRuntime,
   );
   ipcMain.handle(
     "publishing:quiz",

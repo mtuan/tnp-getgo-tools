@@ -3,6 +3,8 @@ import { BriefcaseBusiness, ExternalLink, Globe2, MonitorCog, Power, Rocket, Rot
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent, DeploymentOperation, DeploymentStateSnapshot, LocalWebRuntimeSnapshot } from "../../../shared/domain/models";
 import { Button, ErrorFrame, PageHeader, Pagination, Panel, usePagination } from "../../../shared/ui";
 import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
+import { NativeDeploymentCards } from "../components/NativeDeploymentCards";
+import { useAuth } from "../../authentication/components/AuthContext";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
@@ -16,6 +18,7 @@ export function DeploymentPage({
   onOpenJobs(): void;
 }) {
   const copy = (locale === "vi" ? vi : en).deployment;
+  const { requireAuth } = useAuth();
   const [busy, setBusy] = useState<DeploymentComponent | null>(null);
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
@@ -69,8 +72,9 @@ export function DeploymentPage({
     return () => window.clearInterval(timer);
   }, [loadLocalWeb]);
 
-  const run = async (operation: DeploymentOperation, component: DeploymentComponent) => {
-    if (operation === "deploy" && environment === "production" && !window.confirm(copy.productionConfirm.replace("{component}", component === "web" ? copy.webTitle : copy.rulesTitle))) return;
+  const executeRun = async (operation: DeploymentOperation, component: DeploymentComponent) => {
+    const componentName = component === "web" ? copy.webTitle : component === "firebase" ? copy.rulesTitle : component === "mobile-ios" ? copy.iosTitle : copy.androidTitle;
+    if (operation === "deploy" && environment === "production" && !window.confirm(copy.productionConfirm.replace("{component}", componentName))) return;
     setBusy(component);
     setError(null);
     try {
@@ -80,6 +84,10 @@ export function DeploymentPage({
     } finally {
       setBusy(null);
     }
+  };
+  const run = (operation: DeploymentOperation, component: DeploymentComponent) => {
+    if (operation === "deploy") requireAuth(() => executeRun(operation, component));
+    else void executeRun(operation, component);
   };
 
   const controlLocalWeb = async (action: "start" | "restart") => {
@@ -146,6 +154,14 @@ export function DeploymentPage({
         <div className="deployment-card-copy"><div className="deployment-card-title"><h2>{copy.webTitle}</h2><span className={`badge deployment-state-${deploymentState?.web.status ?? "build-required"}`}>{stateCopy(deploymentState?.web.status)}</span></div><p>{copy.webDescription}</p><ul>{deploymentState?.web.items.map((item) => <li key={item.id}><span>{copy.firebaseHosting}</span><code>{shortHash(item.localHash)} / {shortHash(item.deployedHash)}</code><strong>{item.changed ? copy.changed : copy.unchanged}</strong></li>) ?? <li>{copy.buildRequired}</li>}<li><span>{copy.localVersion}</span><code>{deploymentState?.web.buildVersion ?? "—"}</code><strong>{deploymentState?.web.builtAt ? new Date(deploymentState.web.builtAt).toLocaleString(locale) : "—"}</strong></li><li><span>{copy.deployedVersion}</span><code>{deploymentState?.web.deployedVersion ?? "—"}</code><strong>{deploymentState?.web.deployedAt ? new Date(deploymentState.web.deployedAt).toLocaleString(locale) : "—"}</strong></li></ul></div>
         <div className="deployment-card-actions"><Button icon={<ExternalLink />} disabled={!deploymentState?.webUrl} onClick={() => deploymentState && void window.getgo.openExternal(deploymentState.webUrl)}>{copy.openWeb}</Button><Button icon={<Rocket />} loading={busy === "web" || operationIsRunning("web", "build")} disabled={componentControlsLocked("web")} onClick={() => void run("build", "web")}>{copy.buildLocal}</Button><Button variant="solid" icon={<Rocket />} loading={operationIsRunning("web", "deploy")} disabled={componentControlsLocked("web") || deploymentIsActive || !deploymentState?.web.builtAt || deploymentState.web.status === "up-to-date"} onClick={() => void run("deploy", "web")}>{copy.deployWeb}</Button></div>
       </Panel>
+      <NativeDeploymentCards
+        locale={locale}
+        environment={environment}
+        activeJobs={activeJobs}
+        busy={busy}
+        onRun={run}
+        onOpen={platform => void window.getgo.openNativeProject(platform, environment)}
+      />
       <Panel className="deployment-card deployment-card-localhost">
         <div className="deployment-card-icon"><MonitorCog /></div>
         <div className="deployment-card-copy">

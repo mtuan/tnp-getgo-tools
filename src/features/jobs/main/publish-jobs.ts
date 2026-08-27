@@ -98,6 +98,7 @@ export class PublishJobManager {
       cancellable: true,
       retryable: false,
       createdAt: new Date().toISOString(),
+      logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Publish job queued." }],
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -112,6 +113,7 @@ export class PublishJobManager {
     runtime.paused = true;
     job.status = "paused";
     job.progressLabel = "Paused";
+    job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: "Publish job paused." });
     await this.persist();
   }
 
@@ -123,6 +125,7 @@ export class PublishJobManager {
     runtime.paused = false;
     job.status = "running";
     job.progressLabel = "Publishing";
+    job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: "Publish job resumed." });
     runtime.resume?.();
     await this.persist();
   }
@@ -137,6 +140,7 @@ export class PublishJobManager {
     runtime.resume?.();
     job.status = "cancelled";
     job.progressLabel = "Cancelled";
+    job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: "Publish job cancelled." });
     job.retryable = this.retryTasks.has(id);
     job.finishedAt = new Date().toISOString();
     await this.persist();
@@ -170,16 +174,19 @@ export class PublishJobManager {
     const setTotal = async (total: number, label: string) => {
       job.total = Math.max(job.completed, Math.floor(total), 1);
       job.progressLabel = label;
+      job.logs?.push({ timestamp: new Date().toISOString(), stream: "stdout", message: label });
       await this.persist();
     };
     const advance = async (label: string, amount = 1) => {
       job.completed = Math.min(job.total, job.completed + Math.max(0, Math.floor(amount)));
       job.progressLabel = label;
+      job.logs?.push({ timestamp: new Date().toISOString(), stream: "stdout", message: label });
       await this.persist();
       await checkpoint();
     };
     job.status = "running";
     job.startedAt = new Date().toISOString();
+    job.logs?.push({ timestamp: job.startedAt, stream: "system", message: "Publish job started." });
     if (job.progressLabel === "Waiting") job.progressLabel = "Publishing";
     await this.persist();
     try {
@@ -188,6 +195,7 @@ export class PublishJobManager {
       job.status = "completed";
       job.completed = job.total;
       job.progressLabel = "Published";
+      job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: "Publish job completed." });
       return result;
     } catch (cause) {
       if (!runtime.cancelled) {
@@ -195,6 +203,7 @@ export class PublishJobManager {
         job.error = cause instanceof Error ? cause.message : String(cause);
         job.progressLabel = "Failed";
         job.retryable = true;
+        job.logs?.push({ timestamp: new Date().toISOString(), stream: "stderr", message: job.error });
       }
       throw cause;
     } finally {

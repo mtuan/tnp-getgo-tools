@@ -7238,6 +7238,41 @@ button.danger svg {
 .deployment-report-section h3 {
   margin: 0;
 }
+.job-live-output {
+  display: grid;
+  max-height: min(46vh, 520px);
+  min-height: 160px;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+  color: var(--text);
+  font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  align-content: start;
+  gap: 2px;
+}
+.job-live-output > p {
+  margin: 0;
+  color: var(--muted);
+}
+.job-log-line {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.job-log-line time {
+  color: var(--muted);
+}
+.job-log-stderr span {
+  color: #b91c1c;
+}
+.job-log-system span {
+  color: var(--muted);
+  font-style: italic;
+}
 .deployment-report-step {
   display: grid;
   min-width: 0;
@@ -7256,6 +7291,9 @@ button.danger svg {
   .deployment-report-summary small,
   .deployment-report-step small {
     color: #94a3b8;
+  }
+  .job-log-stderr span {
+    color: #fca5a5;
   }
 }
 .jobs-load-error {
@@ -7278,6 +7316,7 @@ button.danger svg {
 .deployment-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   align-items: start;
   gap: 16px;
   padding: 20px;
@@ -7343,6 +7382,15 @@ button.danger svg {
 }
 .deployment-card-localhost {
   grid-column: 1 / -1;
+}
+.native-deployment-card .ui-panel-body {
+  display: grid;
+  height: 100%;
+  box-sizing: border-box;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
 }
 .local-web-state-online {
   color: #047857;
