@@ -26,6 +26,7 @@ import {
   Rocket,
   RotateCcw,
   Settings,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -79,6 +80,7 @@ const ImagePdfPage = lazy(() =>
   import("../../features/image-pdf/pages/ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
+const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
 
 type View =
   | "dashboard"
@@ -89,6 +91,7 @@ type View =
   | "deploy"
   | "image-pdf"
   | "payments"
+  | "safe-words"
   | "settings"
   | "not-found";
 type NavigableView = Exclude<View, "not-found">;
@@ -122,6 +125,7 @@ function viewFromRoute(route: string): View {
     "deploy",
     "image-pdf",
     "payments",
+    "safe-words",
     "settings",
   ].find((value) => pathname === `/${value}`);
   if (staticView) return staticView as NavigableView;
@@ -171,6 +175,7 @@ const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
   { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "image-pdf", label: "Image to PDF", icon: Images },
   { id: "payments", label: "Payments", icon: CreditCard },
+  { id: "safe-words", label: "Safe words", icon: ShieldCheck },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 const environmentOptions: SelectOption[] = [
@@ -223,6 +228,14 @@ export function App() {
   const [canNavigateBack, setCanNavigateBack] = useState(false);
   const environmentCheckId = useRef(0);
   const quizBackAction = useRef<(() => void) | null>(null);
+  useEffect(() => window.getgo.onContentSafetyWarning((warning) => {
+    const matches = warning.findings.slice(0, 4).map(item => `“${item.term}” at ${item.path}`).join("; ");
+    toast.show({
+      title: settings.locale === "vi" ? "Cảnh báo nội dung không phù hợp" : "Unsafe content warning",
+      description: `${warning.label}: ${matches}${warning.findings.length > 4 ? `; +${warning.findings.length - 4}` : ""}`,
+      variant: "error",
+    });
+  }), [settings.locale, toast]);
 
   async function choose() {
     setChoosingRepository(true);
@@ -824,6 +837,9 @@ export function App() {
             )}
             {settings.repositoryPath && view === "payments" && (
               <Suspense fallback={null}><PaymentPackagesPage locale={settings.locale} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
+            )}
+            {settings.repositoryPath && view === "safe-words" && (
+              <Suspense fallback={null}><ContentSafetyPage locale={settings.locale} /></Suspense>
             )}
             {settings.repositoryPath && view === "settings" && (
               <section className="settings-page">

@@ -26,6 +26,47 @@ import {
   writeContentV2TopicPublishState,
 } from "../src/features/topics/repository/content-v2-repository.js";
 import { marketplaceSyncPlan } from "../src/features/topics/domain/marketplace-sync-plan.js";
+import { sanitizeVietnamesePronunciationQuestion } from "../src/features/quiz-editor/domain/pronunciation-safety.js";
+import { defaultSafeWordDictionary, findUnsafeContent } from "../src/features/content-safety/domain/content-safety.js";
+import { assertRepositoryContentSafe, saveSafeWordDictionary } from "../src/features/content-safety/repository/content-safety-repository.js";
+
+test("content safety finds bilingual whole words and reports their data paths", () => {
+  const findings = findUnsafeContent({ text: { en: "This is shit", vi: "Không dùng từ đĩ" }, safe: "classic lesson" }, defaultSafeWordDictionary);
+  assert.deepEqual(findings.map(item => [item.language, item.term, item.path]), [
+    ["en", "shit", "$.text.en"],
+    ["vi", "đĩ", "$.text.vi"],
+  ]);
+});
+
+test("content safety catches Vietnamese slang and alternate spellings", () => {
+  const variants = ["zú", "dú", "dzú", "vếu", "vãi", "cứt", "kứt", "đái"];
+  for (const term of variants) {
+    const findings = findUnsafeContent({ text: `Nội dung ${term} không phù hợp` }, defaultSafeWordDictionary);
+    assert.ok(findings.some(item => item.language === "vi" && item.term === term), `Expected “${term}” to be blocked`);
+  }
+});
+
+test("content safety publishing guard reads the repository dictionary directly", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-safety-"));
+  await saveSafeWordDictionary(root, { schemaVersion: 1, words: { en: ["custom blocked phrase"], vi: [] } });
+  await assert.rejects(
+    assertRepositoryContentSafe(root, "Quiz", { text: "A custom blocked phrase appears here" }),
+    /Quiz contains blocked content.*custom blocked phrase/u,
+  );
+  await assert.doesNotReject(assertRepositoryContentSafe(root, "Quiz", { text: "A safe lesson" }));
+});
+
+test("pronunciation safety blanks unsafe forms without shifting tone columns", () => {
+  const question = sanitizeVietnamesePronunciationQuestion({
+    type: "pronunciation-sound",
+    sounds: [{
+      sound: { text: "i" },
+      forms: [{ text: "đi" }, { text: "đí" }, { text: "đì" }, { text: "đỉ" }, { text: "đĩ", speech: "đĩ" }, { text: "đị" }],
+    }],
+  });
+  assert.deepEqual(question.sounds?.[0]?.forms.map(form => form.text), ["đi", "đí", "đì", "đỉ", "", "đị"]);
+  assert.deepEqual(question.sounds?.[0]?.forms[4], { text: "" });
+});
 
 test("marketplace topic states map to remote listing flags", () => {
   assert.deepEqual(withMarketplaceTopicState({}, "listed"), {

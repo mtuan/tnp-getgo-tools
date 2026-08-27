@@ -19,6 +19,8 @@ import {
 import type { ContentV2QuestionSummary, ContentV2QuizSummary, ContentV2Snapshot, ContentV2TopicSummary, FileLoadIssue } from "../../../shared/domain/models.js";
 import type { ContentV2QuizPublishState, ContentV2TopicPublishState } from "../../../features/topics/domain/content-v2-publish-state.js";
 import { parseAlphabetDictionary, parseKidLearningDictionary, reviewedKidLearningDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
+import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
+import { warnForContentV2File, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 
 const topicIdPattern = /^[a-z][a-z0-9-]*$/;
 
@@ -47,7 +49,8 @@ async function readJson(filePath: string): Promise<unknown> {
   return JSON.parse(await fs.readFile(filePath, "utf8"));
 }
 
-async function writeJson(filePath: string, value: unknown): Promise<void> {
+async function writeJson(filePath: string, value: unknown, safetyChecked = false): Promise<void> {
+  if (!safetyChecked) await warnForContentV2File(filePath, value);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const temporary = `${filePath}.tmp`;
   await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
@@ -842,7 +845,9 @@ export async function saveContentV2Question(
   quiz: ContentV2Quiz,
   value: unknown,
 ): Promise<ContentV2Question> {
-  const question = contentV2QuestionSchema.parse(value);
+  const parsedQuestion = contentV2QuestionSchema.parse(value);
+  await warnForRepositoryContent(repositoryPath, `Question ${quiz.id}/${parsedQuestion.id}`, parsedQuestion);
+  const question = contentV2QuestionSchema.parse(sanitizeVietnamesePronunciationQuestion(parsedQuestion));
   if (quiz.topicId !== topic.id)
     throw new Error("Quiz does not belong to the selected topic.");
   assertContentV2Relationship(quiz.type, question.type, "question");
@@ -860,7 +865,7 @@ export async function saveContentV2Question(
     .catch(() => null)) as { type?: unknown } | null;
   if (existing?.type && existing.type !== question.type)
     throw new Error("A question type cannot be changed after creation.");
-  await writeJson(filePath, question);
+  await writeJson(filePath, question, true);
   await invalidateQuizPublished(path.join(path.dirname(path.dirname(filePath)), "quiz.json"));
   return question;
 }

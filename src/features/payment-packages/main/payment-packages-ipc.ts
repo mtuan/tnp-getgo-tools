@@ -4,6 +4,7 @@ import type { IpcMain } from "electron";
 import { paymentPackagesSchema } from "../domain/payment-package.js";
 import { paymentSalesSchema } from "../domain/payment-sale.js";
 import type { FirestorePublishingService } from "../../topics/main/firestore-publishing.js";
+import { assertRepositoryContentSafe, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 
 const filePath = (root: string) => path.join(root, "content-v2", "payment-packages.json");
 const salesFilePath = (root: string) => path.join(root, "content-v2", "payment-sales.json");
@@ -13,6 +14,7 @@ async function load(root: string) {
 }
 async function save(root: string, value: unknown) {
   const packages = paymentPackagesSchema.parse(value);
+  await warnForRepositoryContent(root, "content-v2/payment-packages.json", packages);
   await fs.mkdir(path.dirname(filePath(root)), { recursive: true });
   await fs.writeFile(filePath(root), `${JSON.stringify(packages, null, 2)}\n`, "utf8");
   return packages;
@@ -22,6 +24,7 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
   ipcMain.handle("payment-packages:save", async (_event, value: unknown) => save(await dependencies.repositoryRoot(), value));
   ipcMain.handle("payment-packages:sync", async () => {
     const packages = await load(await dependencies.repositoryRoot());
+    await assertRepositoryContentSafe(await dependencies.repositoryRoot(), "Payment packages", packages);
     await dependencies.publishing.publishPaymentPackages(packages);
     return { count: packages.length, syncedAt: new Date().toISOString() };
   });
@@ -32,13 +35,17 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
   ipcMain.handle("payment-sales:list", async () => loadSales(await dependencies.repositoryRoot()));
   ipcMain.handle("payment-sales:save", async (_event, value: unknown) => {
     const sales = paymentSalesSchema.parse(value);
-    const target = salesFilePath(await dependencies.repositoryRoot());
+    const root = await dependencies.repositoryRoot();
+    await warnForRepositoryContent(root, "content-v2/payment-sales.json", sales);
+    const target = salesFilePath(root);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, `${JSON.stringify(sales, null, 2)}\n`, "utf8");
     return sales;
   });
   ipcMain.handle("payment-sales:sync", async () => {
-    const sales = await loadSales(await dependencies.repositoryRoot());
+    const root = await dependencies.repositoryRoot();
+    const sales = await loadSales(root);
+    await assertRepositoryContentSafe(root, "Payment sales", sales);
     await dependencies.publishing.publishPaymentSales(sales);
     return { count: sales.length, syncedAt: new Date().toISOString() };
   });

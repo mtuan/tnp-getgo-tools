@@ -26,6 +26,13 @@ const api: DesktopApi = {
   listPaymentSales: () => ipcRenderer.invoke("payment-sales:list"),
   savePaymentSales: (items) => ipcRenderer.invoke("payment-sales:save", items),
   syncPaymentSales: () => ipcRenderer.invoke("payment-sales:sync"),
+  loadSafeWordDictionary: () => ipcRenderer.invoke("content-safety:dictionary:load"),
+  saveSafeWordDictionary: (dictionary) => ipcRenderer.invoke("content-safety:dictionary:save", dictionary),
+  onContentSafetyWarning: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, warning: Parameters<typeof listener>[0]) => listener(warning);
+    ipcRenderer.on("content-safety:warning", handler);
+    return () => ipcRenderer.removeListener("content-safety:warning", handler);
+  },
   loadContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:load", topicId),
   loadContentV2Route: (topicId) =>

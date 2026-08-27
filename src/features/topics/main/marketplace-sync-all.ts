@@ -7,6 +7,7 @@ import type { FirebaseAuthService } from "../../authentication/main/firebase-aut
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
+import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
 
 export async function syncAllMarketplaceTopics(
   root: string,
@@ -35,6 +36,7 @@ export async function syncAllMarketplaceTopics(
     const topicSummary = next.topics.find((item) => item.id === topicId);
     if (!topicSummary) throw new Error(`Topic ${topicId} was not found.`);
     const topic = await loadContentV2Topic(root, topicId);
+    await assertRepositoryContentSafe(root, `Topic “${topic.title}”`, topic);
     const state = marketplaceTopicState(topic.marketplace);
     if (state === "unlisted") {
       const topicQuizzes = next.quizzes.filter((item) => item.topicId === topicId);
@@ -105,6 +107,7 @@ export async function syncAllMarketplaceTopics(
         loadContentV2QuizResources(root, topicId, quiz),
       ]);
       const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources });
+      await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
       const previous = await readContentV2QuizPublishState(summary.filePath);
       const result = await publishing.publishContentV2Quiz(topicId, quiz, marketplaceContentAccess(topic.marketplace), questions, resources, assets, summary.localHash, previous.targets[target.projectId]);
       await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);

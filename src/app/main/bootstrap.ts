@@ -26,6 +26,8 @@ import { FirestorePublishingService } from "../../features/topics/main/firestore
 import { QuestionFeedbackSyncService } from "../../features/topics/main/question-feedback-sync.js";
 import { registerQuestionFeedbackIpc } from "../../features/topics/main/question-feedback-ipc.js";
 import { registerPaymentPackagesIpc } from "../../features/payment-packages/main/payment-packages-ipc.js";
+import { registerContentSafetyIpc } from "../../features/content-safety/main/content-safety-ipc.js";
+import { assertRepositoryContentSafe, setContentSafetyWarningHandler } from "../../features/content-safety/repository/content-safety-repository.js";
 
 loadEnvironment({
   path: app.isPackaged
@@ -167,7 +169,7 @@ app.whenReady().then(async () => {
     apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
     model: process.env.GETGO_AI_OPENAI_MODEL,
     profile: initialSettings.aiProfile,
-  });
+  }, async (label, value) => assertRepositoryContentSafe(await repositoryRoot(), label, value));
   const publishJobs = new PublishJobManager(app.getPath("userData"));
   const webDeploymentJobs = new WebDeploymentJobManager(
     app.getPath("userData"),
@@ -188,7 +190,7 @@ app.whenReady().then(async () => {
   });
   registerImagePdfIpc(ipcMain);
   registerAuthIpc(ipcMain, firebaseAuth);
-  registerAiIpc(ipcMain, localAi, aiMigrationJobs);
+  registerAiIpc(ipcMain, localAi, aiMigrationJobs, repositoryRoot);
   const backgroundJobsSnapshot = registerBackgroundJobsIpc(
     ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, localWebRuntime,
   );
@@ -215,6 +217,7 @@ app.whenReady().then(async () => {
         throw new Error("This quiz has no question data to publish.");
       const contest = snapshot.contests.find((item) => item.id === contestId);
       const payload = createPublishPayloadFromQuestions(quiz, records, contest);
+      await assertRepositoryContentSafe(current.repositoryPath, `Quiz “${quiz.title}”`, payload);
       return publishJobs.track(
         {
           name: `Publish · ${quiz.title}`,
@@ -247,6 +250,8 @@ app.whenReady().then(async () => {
   registerContentV2PublishingIpc(ipcMain, { repositoryRoot, publishing, publishJobs, firebaseAuth });
   registerQuestionFeedbackIpc(ipcMain, { repositoryRoot, sync: questionFeedbackSync });
   registerPaymentPackagesIpc(ipcMain, { repositoryRoot, publishing });
+  registerContentSafetyIpc(ipcMain, repositoryRoot);
+  setContentSafetyWarningHandler((warning) => mainWindow?.webContents.send("content-safety:warning", warning));
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });
   startupLog("IPC handlers registered");

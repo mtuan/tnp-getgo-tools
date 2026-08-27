@@ -2,9 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PronunciationCell, PronunciationSoundQuestionRecord, QuizQuestionRecord } from "../../../shared/domain/models";
 import { Button } from "../../../shared/ui/Button";
 import { Form, type FormSchema, type FormValues } from "../../../shared/ui/Form";
-import { Panel } from "../../../shared/ui/Panel";
+import { Panel, PanelBody } from "../../../shared/ui/Panel";
 import { Tabs } from "../../../shared/ui/Tabs";
 import { logSpokenContent } from "../../speech/components/speech-log";
+import { sanitizeVietnamesePronunciationQuestion } from "../domain/pronunciation-safety";
 
 type PreviewPresentation = "table" | "links";
 interface ConnectorLayout {
@@ -73,6 +74,7 @@ const fields: FormSchema[] = [
 export function PronunciationQuestionEditor({ record, onChange }: { record: PronunciationSoundQuestionRecord; onChange(record: QuizQuestionRecord): void }) {
   const [preview, setPreview] = useState<PreviewPresentation>("table");
   const [draft, setDraft] = useState(record);
+  const safePreview = sanitizeVietnamesePronunciationQuestion(draft);
   const [tonesInput, setTonesInput] = useState(() => toneText(record));
   const editingTonesRef = useRef(false);
   const questionNoRef = useRef(record.question_no);
@@ -149,7 +151,9 @@ export function PronunciationQuestionEditor({ record, onChange }: { record: Pron
     }
     if (name === "sounds") next.sounds = lines(value).map(line => {
       const [sound = "", ...forms] = line.split(/\s*(?:\||,)\s*/).map(item => item.trim());
-      return { sound: cell(sound), forms: forms.filter(Boolean).map(cell) };
+      // Keep empty form cells: they preserve the tone-column position of a
+      // syllable intentionally removed by pronunciation content safety.
+      return { sound: cell(sound), forms: forms.map(cell) };
     }).filter(item => item.sound.text && item.forms.length > 0);
     setDraft(next);
     scheduleCommit(next);
@@ -166,32 +170,32 @@ export function PronunciationQuestionEditor({ record, onChange }: { record: Pron
     }}
   >
     <div className="advanced-question-layout pronunciation-question-editor">
-      <Panel title="Pronunciation content"><div className="pronunciation-panel-body"><Form fields={fields} values={values} errors={{}} autoFocus={false} onChange={change} /></div></Panel>
+      <Panel title="Pronunciation content"><PanelBody><Form fields={fields} values={values} errors={{}} autoFocus={false} onChange={change} /></PanelBody></Panel>
       <Panel title="Interactive preview" meta={<Tabs ariaLabel="Preview presentation" value={preview} items={[{ id: "table", label: "Table" }, { id: "links", label: "Links" }]} onChange={(value) => setPreview(value as PreviewPresentation)} />}>
-        <div className="pronunciation-panel-body pronunciation-preview-body">
+        <PanelBody className="pronunciation-preview-body">
           {preview === "table"
             ? <div className="pronunciation-table-preview" style={{ gridTemplateColumns: `repeat(${Math.max(1, draft.tones.length + 1)}, minmax(0, 1fr))` }}>
-                <div className="pronunciation-table-cell pronunciation-table-corner"><SoundCell value={draft.letter} /></div>
-                {draft.tones.map((value, index) => <div className="pronunciation-table-cell pronunciation-table-header" key={`tone-${index}`}><SoundCell value={value} /></div>)}
-                {draft.sounds.flatMap((item, rowIndex) => [
+                <div className="pronunciation-table-cell pronunciation-table-corner"><SoundCell value={safePreview.letter} /></div>
+                {safePreview.tones.map((value, index) => <div className="pronunciation-table-cell pronunciation-table-header" key={`tone-${index}`}><SoundCell value={value} /></div>)}
+                {safePreview.sounds.flatMap((item, rowIndex) => [
                   <div className="pronunciation-table-cell pronunciation-table-row-header" key={`sound-${rowIndex}`}><SoundCell value={item.sound} /></div>,
-                  ...draft.tones.map((_tone, formIndex) => <div className="pronunciation-table-cell" key={`form-${rowIndex}-${formIndex}`}>{item.forms[formIndex] ? <SoundCell value={item.forms[formIndex]} /> : null}</div>),
+                  ...draft.tones.map((_tone, formIndex) => <div className="pronunciation-table-cell" key={`form-${rowIndex}-${formIndex}`}>{item.forms[formIndex]?.text ? <SoundCell value={item.forms[formIndex]} /> : null}</div>),
                 ])}
               </div>
             : <div className="pronunciation-links-preview" ref={linksPreviewRef}>
-                <div className="pronunciation-links-source" ref={linksSourceRef}><SoundCell value={draft.letter} /></div>
+                <div className="pronunciation-links-source" ref={linksSourceRef}><SoundCell value={safePreview.letter} /></div>
                 <svg className="pronunciation-links-connectors" aria-hidden="true" viewBox={`0 0 ${connectorLayout.width} ${connectorLayout.height}`}>
                   <defs><marker id="pronunciation-arrowhead" viewBox="0 0 4 4" refX="3.4" refY="2" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L4,2 L0,4" /></marker></defs>
                   {connectorLayout.paths.map((path, index) => <path className="pronunciation-connector-path" key={index} d={path} />)}
                 </svg>
                 <div className="pronunciation-links-source-track" aria-hidden="true" />
-                <div className="pronunciation-links-branches">{draft.sounds.map((item, index) => <div className="pronunciation-link-row" key={index}>
+                <div className="pronunciation-links-branches">{safePreview.sounds.map((item, index) => <div className="pronunciation-link-row" key={index}>
                   <div className="pronunciation-link-target" ref={(element) => { linksTargetRefs.current[index] = element; }}><SoundCell value={item.sound} /></div>
                   <svg className="pronunciation-link-arrow" aria-hidden="true" viewBox="0 0 64 24"><path d="M2 12 H56" /><path d="M47 3 L56 12 L47 21" /></svg>
                   <SoundCell value={item.forms[0] ?? item.sound} />
                 </div>)}</div>
               </div>}
-        </div>
+        </PanelBody>
       </Panel>
     </div>
   </div>;

@@ -2,6 +2,7 @@ import type { IpcMain } from "electron";
 import type { QuizQuestionRecord } from "../../../shared/domain/models.js";
 import type { AiMigrationJobManager } from "./ai-migration-jobs.js";
 import type { LocalAiService } from "./local-ai.js";
+import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
 
 async function run<T>(operation: "generate" | "fix", action: () => Promise<T>): Promise<T> {
   try { return await action(); }
@@ -13,14 +14,18 @@ async function run<T>(operation: "generate" | "fix", action: () => Promise<T>): 
   }
 }
 
-export function registerAiIpc(ipcMain: IpcMain, localAi: LocalAiService, jobs: AiMigrationJobManager) {
+export function registerAiIpc(ipcMain: IpcMain, localAi: LocalAiService, jobs: AiMigrationJobManager, repositoryRoot: () => Promise<string>) {
   ipcMain.handle("ai:dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI request.");
     const value = input as Record<string, unknown>;
     if (!value.question || typeof value.question !== "object" || Array.isArray(value.question)) throw new Error("A local question record is required.");
     if (value.context !== undefined && (!value.context || typeof value.context !== "object" || Array.isArray(value.context))) throw new Error("AI context must be an object.");
     if (value.instructions !== undefined && typeof value.instructions !== "string") throw new Error("AI instructions must be text.");
-    return run("generate", () => localAi.createDynamicQuestionProposal(value as { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }));
+    return run("generate", async () => {
+      const result = await localAi.createDynamicQuestionProposal(value as { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string });
+      await assertRepositoryContentSafe(await repositoryRoot(), "AI-generated question", result);
+      return result;
+    });
   });
   ipcMain.handle("ai:fix-dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI fix request.");
@@ -29,7 +34,11 @@ export function registerAiIpc(ipcMain: IpcMain, localAi: LocalAiService, jobs: A
     if (!value.currentCode || typeof value.currentCode !== "object" || Array.isArray(value.currentCode)) throw new Error("Current question code is required.");
     if (!value.currentSummary || typeof value.currentSummary !== "object" || Array.isArray(value.currentSummary)) throw new Error("Current AI summary is required.");
     if (typeof value.instructions !== "string" || !value.instructions.trim()) throw new Error("Fix instructions are required.");
-    return run("fix", () => localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0]));
+    return run("fix", async () => {
+      const result = await localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0]);
+      await assertRepositoryContentSafe(await repositoryRoot(), "AI-generated question fix", result);
+      return result;
+    });
   });
   ipcMain.handle("ai:cancel-dynamic-question", () => localAi.cancelDynamicQuestionAi());
   ipcMain.handle("ai-migration:start", (_event, input: unknown) => {

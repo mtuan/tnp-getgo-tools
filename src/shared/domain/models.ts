@@ -697,6 +697,16 @@ export type DynamicQuestionProposal = GetGoDynamicQuestionProposal;
 export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult;
 export type DynamicQuestionFixResult = GetGoDynamicQuestionFixResult;
 
+export interface SafeWordDictionary {
+  schemaVersion: 1;
+  words: { en: string[]; vi: string[] };
+}
+
+export interface ContentSafetyWarning {
+  label: string;
+  findings: Array<{ language: "en" | "vi"; term: string; path: string; excerpt: string }>;
+}
+
 export interface DesktopApi {
   restartApp(): Promise<void>;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
@@ -714,6 +724,9 @@ export interface DesktopApi {
   listPaymentSales(): Promise<PaymentSale[]>;
   savePaymentSales(items: PaymentSale[]): Promise<PaymentSale[]>;
   syncPaymentSales(): Promise<{ count: number; syncedAt: string }>;
+  loadSafeWordDictionary(): Promise<SafeWordDictionary>;
+  saveSafeWordDictionary(dictionary: SafeWordDictionary): Promise<SafeWordDictionary>;
+  onContentSafetyWarning(listener: (warning: ContentSafetyWarning) => void): () => void;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;

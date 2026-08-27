@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
 import { z } from "zod";
 import { marketplaceTopicStates } from "./marketplace-topic-state.js";
 
@@ -299,6 +300,11 @@ const pronunciationToneCellSchema = pronunciationCellSchema.extend({
   text: z.string(),
 });
 
+const pronunciationFormCellSchema = pronunciationCellSchema.extend({
+  // Unsafe generated syllables are blanked without shifting their tone column.
+  text: z.string(),
+});
+
 export const pronunciationSoundV2Schema = z.object({
   ...questionBase,
   type: z.literal("pronunciation-sound"),
@@ -307,7 +313,7 @@ export const pronunciationSoundV2Schema = z.object({
   tones: z.array(pronunciationToneCellSchema),
   sounds: z.array(z.object({
     sound: pronunciationCellSchema,
-    forms: z.array(pronunciationCellSchema),
+    forms: z.array(pronunciationFormCellSchema),
   })).min(1),
 });
 
@@ -439,7 +445,7 @@ export function sanitizeContentV2Question(
   } = contentV2QuestionSchema.parse(record) as ContentV2Question & {
     feedback?: unknown;
   };
-  return runtime;
+  return sanitizeVietnamesePronunciationQuestion(runtime);
 }
 
 export function hashContentV2(value: unknown): string {

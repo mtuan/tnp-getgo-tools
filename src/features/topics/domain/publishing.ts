@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { QUIZ_ANSWER_TYPES, type IQuizAnswer } from "@tnp/getgo-logics";
 import type { QuizQuestionRecord } from "../../../shared/domain/models.js";
+import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
 
 const quizAnswerTypes = new Set<string>(QUIZ_ANSWER_TYPES);
 
@@ -109,8 +110,10 @@ export function sanitizePublishedQuestion(
         : {}),
     };
   }
-  if (record.type === "pronunciation-sound")
-    return { question_no: questionNo, type: record.type, title: record.title, letter: record.letter, tones: record.tones, sounds: record.sounds };
+  if (record.type === "pronunciation-sound") {
+    const safe = sanitizeVietnamesePronunciationQuestion(record);
+    return { question_no: questionNo, type: safe.type, title: safe.title, letter: safe.letter, tones: safe.tones, sounds: safe.sounds };
+  }
   const answer = plainRecord(record.answer, `Question ${questionNo} answer`);
   if (typeof answer.type !== "string" || !answer.type)
     throw new Error(`Question ${questionNo} answer.type is required.`);

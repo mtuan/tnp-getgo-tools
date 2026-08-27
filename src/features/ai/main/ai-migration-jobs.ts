@@ -16,7 +16,11 @@ export class AiMigrationJobManager {
   private runtimes = new Map<string, RuntimeJob>()
   private loadPromise: Promise<void> | null = null
   private persistChain: Promise<void> = Promise.resolve()
-  constructor(private readonly userDataPath: string, private readonly aiConfiguration: LocalAiConfiguration) {}
+  constructor(
+    private readonly userDataPath: string,
+    private readonly aiConfiguration: LocalAiConfiguration,
+    private readonly validateGeneratedContent?: (label: string, value: unknown) => Promise<void>,
+  ) {}
   setProfile(profile: "thorough" | "fast") { this.aiConfiguration.profile = profile }
   private get filePath() { return path.join(this.userDataPath, "ai-migration-jobs.json") }
 
@@ -157,6 +161,7 @@ export class AiMigrationJobManager {
         const startedAt = Date.now()
         try {
           const result = await service.createDynamicQuestionProposal({ question: latest, context })
+          await this.validateGeneratedContent?.(`AI migration question ${latest.question_no}`, result)
           if (runtime.cancelled) break
           const current = (await loadQuizQuestions(job.manifestPath)).find(record => String(record.question_no) === String(latest.question_no))
           if (!current || questionIsVerified(current)) { job.processed += 1; job.skippedVerified += current && questionIsVerified(current) ? 1 : 0; await this.persistJob(job); continue }
