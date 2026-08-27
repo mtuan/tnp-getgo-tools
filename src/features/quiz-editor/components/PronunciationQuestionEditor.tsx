@@ -32,7 +32,12 @@ const connectorBetween = (container: DOMRect, source: DOMRect, target: DOMRect) 
 };
 const cell = (text: string): PronunciationCell => ({ text: text.trim() });
 const lines = (value: unknown) => String(value ?? "").split("\n").map(item => item.trim()).filter(Boolean);
-const toneValues = (value: unknown) => String(value ?? "").split(/\r?\n|\||,/).map(item => item.trim()).filter(Boolean);
+const toneValues = (value: unknown) => {
+  const values = String(value ?? "").split(/\r?\n|\||,/).map(item => item.trim());
+  if (values.length === 1 && !values[0]) return [];
+  // A leading empty CSV entry is the Vietnamese ngang tone: no written mark.
+  return values.filter((item, index) => index === 0 || Boolean(item));
+};
 const toneText = (record: PronunciationSoundQuestionRecord) => record.tones.map(item => item.text).join(", ");
 
 function speak(value: PronunciationCell) {
@@ -53,7 +58,7 @@ const fields: FormSchema[] = [
   { type: "text", name: "title", label: "Title" },
   { type: "text", name: "letter", label: "Letter", required: true },
   { type: "text", name: "letterSpeech", label: "Letter sound", required: true, helper: "Spoken value, for example “bờ”." },
-  { type: "text", name: "tones", label: "Tone columns", helper: "Separate tone labels with | or commas, for example —, ´, `, ˀ, ˜, •." },
+  { type: "text", name: "tones", label: "Tone columns", helper: "Separate tone labels with commas. Start with an empty value for no tone, for example , ´, `, ˀ, ˜, •." },
   {
     type: "textarea",
     name: "sounds",

@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   assertContentV2Relationship,
+  contentV2QuestionSchema,
   hashContentV2,
   sanitizeContentV2Topic,
   sanitizeContentV2Question,
@@ -168,6 +169,28 @@ test("v2 type registry rejects incompatible parent and child types", () => {
       "question",
     ),
   );
+});
+
+test("pronunciation questions support an empty label for the unmarked tone", () => {
+  const question = contentV2QuestionSchema.parse({
+    schemaVersion: 2,
+    id: "q1",
+    order: 0,
+    status: "pending",
+    type: "pronunciation-sound",
+    letter: { text: "b", speech: "bờ" },
+    tones: [{ text: "" }, { text: "´" }],
+    sounds: [{
+      sound: { text: "a" },
+      forms: [{ text: "ba" }, { text: "bá" }],
+    }],
+  });
+
+  assert.equal(question.tones[0].text, "");
+  assert.throws(() => contentV2QuestionSchema.parse({
+    ...question,
+    sounds: [{ sound: { text: "" }, forms: [{ text: "ba" }] }],
+  }));
 });
 
 test("v2 hashes ignore authoring and publishing metadata", () => {

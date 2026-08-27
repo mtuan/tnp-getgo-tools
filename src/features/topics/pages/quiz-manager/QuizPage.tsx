@@ -287,34 +287,6 @@ export function renderQuizPage(context: QuizPageContext) {
             },
           ]
         : []),
-      ...(!questionOrder
-        ? [
-            {
-              key: "edit",
-              title: "",
-              width: 56,
-              align: "center" as const,
-              role: "actions" as const,
-              render: (item: QuestionListItem) => (
-                <TableActionButton
-                  icon={<Pencil size={16} strokeWidth={2.25} />}
-                  color="primary"
-                  aria-label={`Edit question ${item.number}`}
-                  title="Edit question"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    const index = questions.findIndex(
-                      (question) => question.number === item.number,
-                    );
-                    setSelectedQuestion(index);
-                    setQuestionDraftRecord(structuredClone(item.record));
-                    setPendingQuestionNo(item.number);
-                  }}
-                />
-              ),
-            },
-          ]
-        : []),
     ];
     const alphabetColumns: DataColumn<QuestionListItem>[] = [
       {

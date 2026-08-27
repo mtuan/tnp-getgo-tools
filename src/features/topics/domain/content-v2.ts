@@ -294,12 +294,17 @@ const pronunciationCellSchema = z.object({
   audio: z.string().optional(),
 });
 
+const pronunciationToneCellSchema = pronunciationCellSchema.extend({
+  // An empty label is the unmarked Vietnamese ngang tone.
+  text: z.string(),
+});
+
 export const pronunciationSoundV2Schema = z.object({
   ...questionBase,
   type: z.literal("pronunciation-sound"),
   title: z.string().optional(),
   letter: pronunciationCellSchema,
-  tones: z.array(pronunciationCellSchema),
+  tones: z.array(pronunciationToneCellSchema),
   sounds: z.array(z.object({
     sound: pronunciationCellSchema,
     forms: z.array(pronunciationCellSchema),

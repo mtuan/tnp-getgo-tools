@@ -341,7 +341,7 @@ export function ContentV2QuizManager(props: Props) {
         const record: ContentV2Question = quiz.type === "alphabet"
           ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?", resources: [] }
           : quiz.type === "pronunciation"
-            ? { schemaVersion: 2, id, type: "pronunciation-sound", order, status: "pending", title: "Bảng phát âm", letter: { text: "b", speech: "bờ" }, tones: [{ text: "—", speech: "thanh ngang" }], sounds: [{ sound: { text: "a" }, forms: [{ text: "ba" }] }] }
+            ? { schemaVersion: 2, id, type: "pronunciation-sound", order, status: "pending", title: "Bảng phát âm", letter: { text: "b", speech: "bờ" }, tones: [{ text: "", speech: "thanh ngang" }], sounds: [{ sound: { text: "a" }, forms: [{ text: "ba" }] }] }
           : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "New question" }, assets: [], answer: { type: "input", correct: "" } };
         await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
         return { question: toManagerQuestion(record), snapshot: await reloadFromFiles(quiz.topicId) };

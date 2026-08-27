@@ -1,7 +1,6 @@
 import { CheckCheck, FolderOpen, ListOrdered, Plus, Trash2, Zap } from "lucide-react";
-import type { ContestQuizQuestionRecord, QuizSummary } from "../../../../shared/domain/models";
+import type { QuizSummary } from "../../../../shared/domain/models";
 import { QuizCrudDialog } from "../../components/CrudDialogs";
-import { QuestionListPreviewDrawer } from "../../../quiz-editor/components/QuestionListPreviewDrawer";
 import { Button } from "../../../../shared/ui/Button";
 import { PageHeader } from "../../../../shared/ui/PageHeader";
 import { Tabs } from "../../../../shared/ui/Tabs";
@@ -37,7 +36,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     moveOrderedQuestionTo,
     onRouteChange,
     onSnapshotChange,
-    previewQuestion,
     questionColumns,
     questionOrder,
     questionOrderDirty,
@@ -52,10 +50,8 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     setPage,
     setContestTab,
     setPendingQuestionNo,
-    setPreviewQuestion,
     setQuestionDraftRecord,
     setQuestionOrder,
-    setQuestionRecords,
     setQuizTab,
     setSelectedQuestion,
     sourceError,
@@ -351,8 +347,12 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                 questionOrder
                   ? undefined
                   : (item) => {
-                      if (item.record.type !== "alphabet")
-                        setPreviewQuestion(item.record);
+                      const index = questions.findIndex(
+                        (question) => question.number === item.number,
+                      );
+                      setSelectedQuestion(index);
+                      setQuestionDraftRecord(structuredClone(item.record));
+                      setPendingQuestionNo(item.number);
                     }
               }
               onRowMove={questionOrder ? moveOrderedQuestionTo : undefined}
@@ -390,31 +390,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
               }}
             />
           </>
-        )}
-        {quiz.type === "contest" && previewQuestion && (
-          <QuestionListPreviewDrawer
-            record={previewQuestion}
-            manifestPath={quiz.manifestPath}
-            questions={questions
-              .map((question) => question.record)
-              .filter((record): record is ContestQuizQuestionRecord => record.type !== "alphabet")}
-            quizSharedCode={quiz.sharedCode}
-            onClose={() => setPreviewQuestion(null)}
-            onDelete={async () => {
-              const result = await managerApi.deleteQuizQuestion(
-                quiz.manifestPath,
-                String(previewQuestion.question_no),
-              );
-              setQuestionRecords(result.questions);
-              onSnapshotChange(result.snapshot);
-              setPreviewQuestion(null);
-              toast.show({
-                title: "Question deleted",
-                description:
-                  "The question was removed from questions/ and remaining question numbers were updated.",
-              });
-            }}
-          />
         )}
       </section>
     );
