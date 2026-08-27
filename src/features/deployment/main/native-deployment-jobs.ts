@@ -18,11 +18,16 @@ function failureSummary(job: NativeJob, fallback: string) {
     /\[error\]/i, /(^|\s)error:/i, /enoent/i, /exception:/i,
     /build failed/i, /archive failed/i, /what went wrong/i,
     /no profiles? for/i, /provisioning profile/i, /signing for .* requires/i,
-    /exited with code/i,
+    /exited with code/i, /unable to locate a java runtime/i,
+    /android builds require jdk/i,
   ];
-  const ignored = [/^\s*at\s/, /^\s*\^/, /^node\.js\s/i, /^file:\/\//i];
+  const ignored = [
+    /^\s*at\s/, /^\s*\^/, /^node\.js\s/i, /^file:\/\//i,
+    /^\s*: reject\(new Error/i, /^\[plugin vite:reporter\]/i,
+    /^\(!\)/, /dynamic import will not move module/i,
+  ];
   const errors = (job.logs ?? [])
-    .filter(log => log.stream === "stderr" || patterns.some(pattern => pattern.test(log.message)))
+    .filter(log => patterns.some(pattern => pattern.test(log.message)))
     .map(log => log.message.replace(/^\[error\]\s*/i, "").trim())
     .filter(message => message && !ignored.some(pattern => pattern.test(message)))
     .filter((message, index, values) => values.indexOf(message) === index)
