@@ -707,6 +707,12 @@ export interface ContentSafetyWarning {
   findings: Array<{ language: "en" | "vi"; term: string; path: string; excerpt: string }>;
 }
 
+export interface SafeWordSyncStatus {
+  status: "up-to-date" | "needs-sync";
+  sourcePath: string;
+  sharedPath: string;
+}
+
 export interface DesktopApi {
   restartApp(): Promise<void>;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
@@ -726,6 +732,8 @@ export interface DesktopApi {
   syncPaymentSales(): Promise<{ count: number; syncedAt: string }>;
   loadSafeWordDictionary(): Promise<SafeWordDictionary>;
   saveSafeWordDictionary(dictionary: SafeWordDictionary): Promise<SafeWordDictionary>;
+  getSafeWordSyncStatus(): Promise<SafeWordSyncStatus>;
+  syncSafeWordDictionary(): Promise<SafeWordSyncStatus>;
   onContentSafetyWarning(listener: (warning: ContentSafetyWarning) => void): () => void;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;

@@ -28,6 +28,8 @@ const api: DesktopApi = {
   syncPaymentSales: () => ipcRenderer.invoke("payment-sales:sync"),
   loadSafeWordDictionary: () => ipcRenderer.invoke("content-safety:dictionary:load"),
   saveSafeWordDictionary: (dictionary) => ipcRenderer.invoke("content-safety:dictionary:save", dictionary),
+  getSafeWordSyncStatus: () => ipcRenderer.invoke("content-safety:dictionary:sync-status"),
+  syncSafeWordDictionary: () => ipcRenderer.invoke("content-safety:dictionary:sync"),
   onContentSafetyWarning: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, warning: Parameters<typeof listener>[0]) => listener(warning);
     ipcRenderer.on("content-safety:warning", handler);
