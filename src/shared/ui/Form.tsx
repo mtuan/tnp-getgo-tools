@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Check, FolderOpen, ImagePlus, Search, SmilePlus, X } from "lucide-react"
 import { Select, type SelectOption } from "./Select"
 import { MultiSelect } from "./MultiSelect"
+import { MultiTagEditor } from "./MultiTagEditor"
 import { SegmentedControl } from "./SegmentedControl"
 import { Toggle } from "./Toggle"
 import { Button } from "./Button"
@@ -36,6 +37,7 @@ export type FormField =
   | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
   | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
+  | (FieldBase & { type: "multi-tag"; placeholder?: string })
   | (FieldBase & { type: "checkbox" })
   | (FieldBase & { type: "toggle"; presentation?: "default" | "row" })
   | (FieldBase & { type: "custom"; render: (context: { value: unknown; values: FormValues; disabled: boolean; onChange(value: unknown): void }) => ReactNode })
@@ -72,6 +74,10 @@ function SelectControl({ field, value, disabled, autoFocus, onChange }: { field:
 function MultiSelectControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "multi-select" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string[]): void }) {
   const selected = Array.isArray(value) ? value.map(String) : []
   return <MultiSelect value={selected} options={field.options} disabled={disabled} autoFocus={autoFocus} ariaLabel={String(field.label ?? field.name)} placeholder={field.placeholder} onValueChange={onChange} />
+}
+
+function MultiTagControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "multi-tag" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string[]): void }) {
+  return <MultiTagEditor value={Array.isArray(value) ? value.map(String) : []} disabled={disabled} autoFocus={autoFocus} ariaLabel={String(field.label ?? field.name)} placeholder={field.placeholder} onValueChange={onChange} />
 }
 
 function ImageControl({ field, value, disabled, autoFocus, onChange }: { field: Extract<FormField, { type: "image" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
@@ -298,6 +304,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
   if (field.type === "icon") return <IconControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "select") return <SelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "multi-select") return <MultiSelectControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
+  if (field.type === "multi-tag") return <MultiTagControl field={field} value={value} disabled={disabled} autoFocus={autoFocus} onChange={next => onChange(field.name, next)} />
   if (field.type === "number") {
     const numericValue = typeof value === "number" ? value : Number(value)
     return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null || value === "" || !Number.isFinite(numericValue) ? "" : numericValue} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />

@@ -3,8 +3,6 @@ import { RotateCcw, Save } from "lucide-react";
 import type { AppSettings, SafeWordDictionary } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 
-const lines = (value: unknown) => String(value ?? "").split(/\r?\n|,/u).map(item => item.trim()).filter(Boolean);
-
 export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] }) {
   const isVi = locale === "vi";
   const toast = ui.useToast();
@@ -13,22 +11,29 @@ export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] })
   const [saving, setSaving] = useState(false);
   const copy = isVi ? {
     eyebrow: "An toàn nội dung", title: "Từ an toàn", description: "Quản lý từ bị chặn dùng chung cho AI, lưu dữ liệu và xuất bản.",
-    english: "Từ bị chặn · Tiếng Anh", vietnamese: "Từ bị chặn · Tiếng Việt", helper: "Mỗi từ hoặc cụm từ một dòng.",
+    english: "Từ bị chặn · Tiếng Anh", vietnamese: "Từ bị chặn · Tiếng Việt", helper: "Nhấn Enter hoặc dấu phẩy để thêm. Chọn một thẻ để sửa.", add: "Thêm từ hoặc cụm từ…",
     save: "Lưu từ điển", discard: "Hủy thay đổi", saved: "Đã lưu từ điển an toàn", failed: "Không thể lưu từ điển",
   } : {
     eyebrow: "Content safety", title: "Safe words", description: "Manage the shared blocked-word dictionary used by AI, local saves, and publishing.",
-    english: "Blocked words · English", vietnamese: "Blocked words · Vietnamese", helper: "Enter one word or phrase per line.",
+    english: "Blocked words · English", vietnamese: "Blocked words · Vietnamese", helper: "Press Enter or comma to add. Select a tag to edit it.", add: "Add a word or phrase…",
     save: "Save dictionary", discard: "Discard changes", saved: "Safety dictionary saved", failed: "Could not save dictionary",
   };
+  const sorted = (value: SafeWordDictionary): SafeWordDictionary => ({
+    ...value,
+    words: {
+      en: [...value.words.en].sort((left, right) => left.localeCompare(right, "en")),
+      vi: [...value.words.vi].sort((left, right) => left.localeCompare(right, "vi")),
+    },
+  });
   useEffect(() => {
-    void window.getgo.loadSafeWordDictionary().then(value => { setPersisted(value); setDraft(structuredClone(value)); })
+    void window.getgo.loadSafeWordDictionary().then(value => { const ordered = sorted(value); setPersisted(ordered); setDraft(structuredClone(ordered)); })
       .catch(cause => toast.show({ title: copy.failed, description: cause instanceof Error ? cause.message : String(cause), variant: "error" }));
   }, []);
   const dirty = Boolean(draft && persisted && JSON.stringify(draft) !== JSON.stringify(persisted));
   const fields = useMemo<ui.FormSchema[]>(() => [[
-    { type: "textarea", name: "en", label: copy.english, helper: copy.helper, autoCompact: true, maxLines: 20 },
-    { type: "textarea", name: "vi", label: copy.vietnamese, helper: copy.helper, autoCompact: true, maxLines: 20 },
-  ]], [copy.english, copy.helper, copy.vietnamese]);
+    { type: "multi-tag", name: "en", label: copy.english, helper: copy.helper, placeholder: copy.add },
+    { type: "multi-tag", name: "vi", label: copy.vietnamese, helper: copy.helper, placeholder: copy.add },
+  ]], [copy.add, copy.english, copy.helper, copy.vietnamese]);
   const save = async () => {
     if (!draft || !dirty || saving) return;
     setSaving(true);
@@ -48,7 +53,7 @@ export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] })
     </ui.ControlGroup>} />
     <ui.Panel title={copy.title}>
       <ui.PanelBody>
-        {draft ? <ui.Form fields={fields} values={{ en: draft.words.en.join("\n"), vi: draft.words.vi.join("\n") }} errors={{}} onChange={(name, value) => setDraft(current => current ? { ...current, words: { ...current.words, [name]: lines(value) } } : current)} /> : <div className="ui-panel-loading"><span className="mini-spinner" /></div>}
+        {draft ? <ui.Form fields={fields} values={draft.words} errors={{}} onChange={(name, value) => setDraft(current => current ? { ...current, words: { ...current.words, [name]: Array.isArray(value) ? value.map(String) : [] } } : current)} /> : <div className="ui-panel-loading"><span className="mini-spinner" /></div>}
       </ui.PanelBody>
     </ui.Panel>
   </section>;
