@@ -8,7 +8,6 @@ import {
 } from "react";
 import {
   AlertTriangle,
-  Archive,
   ArrowLeft,
   BriefcaseBusiness,
   Check,
@@ -166,18 +165,20 @@ const normalizedRoute = (route: string) => {
   if (!value) return "/dashboard";
   return value.startsWith("/") ? value : `/${value}`;
 };
-const nav: { id: NavigableView; label: string; icon: LucideIcon }[] = [
+type NavigationItem = { id: NavigableView; label: string; icon: LucideIcon };
+const primaryNavigation: NavigationItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
+];
+const featureNavigation: NavigationItem[] = [
   { id: "topics", label: "Topics", icon: Library },
   { id: "feedbacks", label: "Feedbacks", icon: MessageSquareWarning },
-  { id: "quizzes", label: "Legacy quizzes", icon: Archive },
-  { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "image-pdf", label: "Image to PDF", icon: Images },
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "safe-words", label: "Safe words", icon: ShieldCheck },
-  { id: "settings", label: "Settings", icon: Settings },
 ];
+const utilityNavigation: NavigationItem[] = [{ id: "settings", label: "Settings", icon: Settings }];
 const environmentOptions: SelectOption[] = [
   { value: "development", label: "Development" },
   { value: "staging", label: "Staging" },
@@ -583,8 +584,12 @@ export function App() {
             <span>TOOLS</span>
           </div>
         </div>
-        <nav>
-          {nav.map((item) => {
+        <nav className="sidebar-navigation">
+          {[primaryNavigation, featureNavigation, utilityNavigation].map((group, groupIndex) => <div
+            className={`sidebar-navigation-group sidebar-navigation-group-${groupIndex}`}
+            key={groupIndex}
+          >
+          {group.map((item) => {
             const Icon = item.icon;
             const label =
               item.id === "topics"
@@ -609,6 +614,7 @@ export function App() {
               </button>
             );
           })}
+          </div>)}
         </nav>
         <div className="sidebar-footer">
           <span className="sidebar-workspace">

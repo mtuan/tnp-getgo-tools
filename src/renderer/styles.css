@@ -248,8 +248,26 @@ nav i {
   font-size: 18px;
   text-align: center;
 }
+.sidebar-navigation {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sidebar-navigation-group {
+  display: grid;
+  gap: 5px;
+}
+.sidebar-navigation-group + .sidebar-navigation-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #294036;
+}
+.sidebar-navigation-group-2 {
+  margin-top: auto !important;
+}
 .sidebar-footer {
-  margin-top: auto;
+  margin-top: 12px;
   padding: 16px 12px 0;
   border-top: 1px solid #294036;
   color: #789084;
@@ -2613,6 +2631,9 @@ nav i {
 .sidebar-footer {
   border-color: #ffffff14;
   color: #64748b;
+}
+.sidebar-navigation-group + .sidebar-navigation-group {
+  border-color: #ffffff14;
 }
 .status-dot {
   background: #34d399;
