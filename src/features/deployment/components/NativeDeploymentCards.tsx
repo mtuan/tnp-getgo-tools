@@ -1,4 +1,4 @@
-import { Apple, ExternalLink, PackageCheck, Smartphone } from "lucide-react";
+import { Apple, ExternalLink, PackageCheck, Play, Smartphone } from "lucide-react";
 import type { AppSettings, BackgroundJob, DeploymentComponent, DeploymentOperation } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
@@ -38,7 +38,8 @@ export function NativeDeploymentCards({ locale, environment, activeJobs, busy, o
           </div>
           <div className="deployment-card-actions">
             <ui.Button icon={<ExternalLink />} disabled={Boolean(active)} onClick={() => onOpen(platform)}>{copy.openNativeProject}</ui.Button>
-            <ui.Button icon={<PackageCheck />} loading={active?.operation === "build" || busy === component} disabled={Boolean(active)} onClick={() => onRun("build", component)}>{copy.buildNative}</ui.Button>
+            <ui.Button icon={<Play />} loading={active?.operation === "run"} disabled={Boolean(active)} onClick={() => onRun("run", component)}>{isIos ? copy.runIosSimulator : copy.runAndroidSimulator}</ui.Button>
+            <ui.Button icon={<PackageCheck />} loading={active?.operation === "build"} disabled={Boolean(active) || busy === component} onClick={() => onRun("build", component)}>{copy.buildNative}</ui.Button>
             <ui.Button variant="solid" icon={<PackageCheck />} loading={active?.operation === "deploy"} disabled={Boolean(active)} onClick={() => onRun("deploy", component)}>{isIos ? copy.deployTestFlight : copy.deployPlay}</ui.Button>
           </div>
         </ui.PanelBody>

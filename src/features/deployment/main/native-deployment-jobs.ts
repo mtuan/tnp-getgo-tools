@@ -96,8 +96,10 @@ export class NativeDeploymentJobManager {
     }
     const job: NativeJob = {
       id: randomUUID(), kind: "deploy", component, operation, target,
-      name: `${operation === "build" ? "Build" : "Deploy"} Capacitor ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
-      description: operation === "build"
+      name: `${operation === "run" ? "Run" : operation === "build" ? "Build" : "Deploy"} Capacitor ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
+      description: operation === "run"
+        ? `Build, install, and launch the ${target} Capacitor app in a local ${platform} simulator`
+        : operation === "build"
         ? `Compile and sign the ${target} Capacitor ${platform} artifact`
         : `Build if required and upload the ${target} Capacitor ${platform} artifact`,
       status: "queued", completed: 0, total: 4, progressLabel: "Starting native workflow",
@@ -159,7 +161,7 @@ export class NativeDeploymentJobManager {
       job.status = !cause && code === 0 ? "completed" : "failed";
       const fallback = cause?.message ?? `Native workflow exited with code ${code ?? "unknown"}.`;
       job.error = job.status === "failed" ? failureSummary(job, fallback) : undefined;
-      job.progressLabel = job.status === "completed" ? (job.operation === "build" ? "Built" : "Uploaded") : "Failed";
+      job.progressLabel = job.status === "completed" ? (job.operation === "run" ? "Simulator launched" : job.operation === "build" ? "Built" : "Uploaded") : "Failed";
       job.completed = job.status === "completed" ? job.total : job.completed;
       job.retryable = job.status === "failed";
     }

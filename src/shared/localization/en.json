@@ -403,6 +403,8 @@
     "nativeReady": "Ready",
     "nativeRunning": "Running",
     "openNativeProject": "Open",
+    "runIosSimulator": "Run iPhone",
+    "runAndroidSimulator": "Run Android",
     "buildNative": "Build",
     "deployTestFlight": "Upload to TestFlight",
     "deployPlay": "Upload to Google Play",

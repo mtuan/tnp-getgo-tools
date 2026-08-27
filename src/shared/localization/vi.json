@@ -403,6 +403,8 @@
     "nativeReady": "Sẵn sàng",
     "nativeRunning": "Đang chạy",
     "openNativeProject": "Mở",
+    "runIosSimulator": "Chạy iPhone",
+    "runAndroidSimulator": "Chạy Android",
     "buildNative": "Build",
     "deployTestFlight": "Tải lên TestFlight",
     "deployPlay": "Tải lên Google Play",

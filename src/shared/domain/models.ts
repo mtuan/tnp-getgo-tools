@@ -577,7 +577,7 @@ export interface AiMigrationJobsSnapshot {
 export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy";
 export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
-export type DeploymentOperation = "build" | "deploy";
+export type DeploymentOperation = "run" | "build" | "deploy";
 export interface DeploymentItemState {
   id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "functions" | "web";
   localHash: string | null;

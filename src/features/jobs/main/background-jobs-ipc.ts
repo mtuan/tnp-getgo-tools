@@ -55,11 +55,13 @@ export function registerBackgroundJobsIpc(
   };
   ipcMain.handle("jobs:list", snapshot);
   ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown) => {
-    if (!(operation === "build" || operation === "deploy")) throw new Error("Invalid deployment operation.");
+    if (!(operation === "run" || operation === "build" || operation === "deploy")) throw new Error("Invalid deployment operation.");
     if (!(component === "firebase" || component === "web" || component === "mobile-ios" || component === "mobile-android")) throw new Error("Invalid deployment component.");
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     if (component === "mobile-ios" || component === "mobile-android") {
       await nativeDeploymentJobs.start(operation, component === "mobile-ios" ? "ios" : "android", target);
+    } else if (operation === "run") {
+      throw new Error("Simulator runs are only available for native apps.");
     } else {
       await webDeploymentJobs.start(operation, component, target);
     }
