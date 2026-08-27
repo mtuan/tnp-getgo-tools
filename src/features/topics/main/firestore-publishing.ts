@@ -1,8 +1,10 @@
 import type { PublishResult, QuizSummary } from "../../../shared/domain/models.js";
 import type { LocalPublishPayload } from "../repository/quiz-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
-import type { ContentV2Question, ContentV2Quiz, ContentV2Topic } from "../../../features/topics/domain/content-v2.js";
+import type { ContentV2Question, ContentV2Quiz, ContentV2Topic, MarketplaceContentAccess } from "../../../features/topics/domain/content-v2.js";
 import {
+  marketplaceContentAccess,
+  sanitizeMarketplaceQuiz,
   sanitizeContentV2Question,
   sanitizeContentV2Quiz,
   sanitizeContentV2Topic,
@@ -79,6 +81,10 @@ function marketplaceTopicPath(topicId: string): string {
   return `/getgo-marketplace-topics/${encodeURIComponent(topicId)}`;
 }
 
+function marketplaceQuizPath(topicId: string, quizId: string): string {
+  return `${marketplaceTopicPath(topicId)}/quizzes/${encodeURIComponent(quizId)}`;
+}
+
 function firestoreReferenceValue(projectId: string, relativePath: string): FirestoreValue {
   return {
     referenceValue: `projects/${projectId}/databases/(default)/documents${relativePath}`,
@@ -131,19 +137,29 @@ export function createContentV2TopicPublishPreview(
 export function createContentV2QuizPublishPreview(
   topicId: string,
   quiz: ContentV2Quiz,
+  topicAccess: MarketplaceContentAccess,
   questions: ContentV2Question[],
   resources: Record<string, unknown>,
   assets: ContentV2Asset[],
   contentHash: string,
 ): ContentV2QuizPublishPreview {
   const quizPath = contentV2QuizPath(topicId, quiz.id);
+  const access = marketplaceContentAccess(quiz.marketplace, topicAccess);
+  const { sharedCode, ...quizMetadata } = sanitizeContentV2Quiz(quiz);
   return {
     firestore: {
+      marketplaceQuizDocument: {
+        operation: "upsert",
+        path: marketplaceQuizPath(topicId, quiz.id),
+        data: sanitizeMarketplaceQuiz(quiz, topicAccess, questions.length),
+      },
       quizDocument: {
         operation: "upsert",
         path: quizPath,
         data: {
-          ...sanitizeContentV2Quiz(quiz),
+          ...quizMetadata,
+          sharedCode,
+          access,
           questionsCodeFormat: "getgo.questions.v1",
           questionsCode: buildContentV2QuestionsCode(questions),
           contentHash,
@@ -157,7 +173,9 @@ export function createContentV2QuizPublishPreview(
       })),
       resourceDocuments: Object.entries(resources).map(([id, data]) => ({
         operation: "upsert",
-        path: `${contentV2TopicPath(topicId)}/resources/${encodeURIComponent(id)}`,
+        // Quiz resources must remain inside the quiz security boundary. Topic
+        // resources are a separate contract and may have different access.
+        path: `${quizPath}/resources/${encodeURIComponent(id)}`,
         data: {
           id,
           data,
@@ -329,6 +347,7 @@ export class FirestorePublishingService {
     const target = await this.auth.publishingTarget();
     const topicFields = fields({
       ...sanitizeContentV2Topic(topic),
+      access: marketplaceContentAccess(topic.marketplace),
       quizIds,
       contentHash,
       publishedAt,
@@ -459,6 +478,7 @@ export class FirestorePublishingService {
       const writes: Array<Record<string, unknown>> = [
         ...childNames.map((name) => ({ delete: name })),
         { delete: quizPath },
+        { delete: marketplaceQuizPath(topicId, quizId) },
       ];
       for (let offset = 0; offset < writes.length; offset += 450) {
         await control?.checkpoint();
@@ -473,6 +493,7 @@ export class FirestorePublishingService {
   async publishContentV2Quiz(
     topicId: string,
     quiz: ContentV2Quiz,
+    topicAccess: MarketplaceContentAccess,
     questions: ContentV2Question[],
     resources: Record<string, unknown>,
     assets: ContentV2Asset[],
@@ -501,6 +522,7 @@ export class FirestorePublishingService {
     const preview = createContentV2QuizPublishPreview(
       topicId,
       quiz,
+      topicAccess,
       questions,
       resources,
       assets,
@@ -555,9 +577,11 @@ export class FirestorePublishingService {
         },
       }));
     const quizChanged = diff.changed.has(publishedItemKey({ kind: "firestore-document", path: quizPath }));
+    const marketplaceQuiz = preview.firestore.marketplaceQuizDocument;
+    const marketplaceQuizChanged = diff.changed.has(publishedItemKey({ kind: "firestore-document", path: marketplaceQuiz.path }));
     const publishOperationCount = questionWrites.length + resourceWrites.length
       + changedAssets.length + removedStorage.length + cleanupWrites.length
-      + (quizChanged ? 1 : 0) + 1 + followingOperationCount;
+      + (quizChanged ? 1 : 0) + (marketplaceQuizChanged ? 1 : 0) + 1 + followingOperationCount;
     await control?.setTotal(
       questions.length + publishOperationCount,
       `Publishing ${questionWrites.length}/${questions.length} changed questions · ${changedAssets.length} assets · ${resourceWrites.length} resources`,
@@ -616,6 +640,17 @@ export class FirestorePublishingService {
       ]);
       await control?.advance("Published quiz document");
       }
+    if (marketplaceQuizChanged) {
+      await control?.checkpoint();
+      await this.commit([{
+        update: {
+          name: "",
+          relativeName: marketplaceQuiz.path,
+          fields: fields(marketplaceQuiz.data),
+        },
+      }]);
+      await control?.advance("Published marketplace quiz summary");
+    }
     await control?.checkpoint();
     const verified = await this.getDocument(quizPath);
     if (stringField(verified.document, "contentHash") !== contentHash)

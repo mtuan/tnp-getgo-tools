@@ -1,5 +1,5 @@
 import type { IpcMain } from "electron";
-import { contentV2QuizPublishContractVersion, hashContentV2, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
+import { contentV2QuizPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { reviewedTopicQuizzes, shouldPublishContainingTopic } from "../domain/content-v2-publish-policy.js";
 import { createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, type FirestorePublishingService } from "./firestore-publishing.js";
 import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
@@ -130,6 +130,7 @@ ipcMain.handle(
           const quizResult = await publishing.publishContentV2Quiz(
             topicId,
             quiz,
+            marketplaceContentAccess(topic.marketplace),
             questions,
             resources,
             assets,
@@ -259,6 +260,7 @@ ipcMain.handle(
     return createContentV2QuizPublishPreview(
       topicId,
       quiz,
+      marketplaceContentAccess((await loadContentV2Topic(root, topicId)).marketplace),
       questions,
       resources,
       assets,
@@ -345,6 +347,7 @@ ipcMain.handle(
         const result = await publishing.publishContentV2Quiz(
           topicId,
           quiz,
+          marketplaceContentAccess(topic.marketplace),
           questions,
           resources,
           assets,

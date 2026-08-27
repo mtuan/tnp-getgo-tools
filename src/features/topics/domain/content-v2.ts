@@ -4,7 +4,7 @@ import { marketplaceTopicStates } from "./marketplace-topic-state.js";
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 4;
+export const contentV2QuizPublishContractVersion = 5;
 
 export {
   marketplaceTopicState,
@@ -55,6 +55,36 @@ export const marketplaceTopicMetadataSchema = z.object({
 }).passthrough();
 export type MarketplaceTopicMetadata = z.infer<typeof marketplaceTopicMetadataSchema>;
 export type MarketplaceTopicMetadataInput = Partial<MarketplaceTopicMetadata>;
+export type MarketplaceContentAccess = "free" | "subscription" | "paid";
+
+export function marketplaceContentAccess(
+  metadata: MarketplaceTopicMetadataInput | undefined,
+  inherited: MarketplaceContentAccess = "free",
+): MarketplaceContentAccess {
+  const type = metadata?.pricing?.type;
+  return type === "free" || type === "subscription" || type === "paid"
+    ? type
+    : inherited;
+}
+
+export function sanitizeMarketplaceQuiz(
+  record: ContentV2Quiz,
+  inheritedAccess: MarketplaceContentAccess,
+  questionCount?: number,
+): Record<string, unknown> {
+  const {
+    sharedCode: _sharedCode,
+    publishedHash: _publishedHash,
+    publishedAt: _publishedAt,
+    status: _status,
+    ...summary
+  } = contentV2QuizSchema.parse(record);
+  return {
+    ...summary,
+    access: marketplaceContentAccess(record.marketplace, inheritedAccess),
+    ...(questionCount === undefined ? {} : { questionCount }),
+  };
+}
 
 export function sanitizeMarketplaceTopic(
   record: ContentV2Topic,
@@ -340,12 +370,15 @@ export function sanitizeContentV2Topic(
   record: ContentV2Topic,
 ): Record<string, unknown> {
   const {
-    marketplace: _marketplace,
+    marketplace,
     publisher: _publisher,
     publisherId: _publisherId,
     ...runtime
   } = withoutAuthoringMetadata(contentV2TopicSchema.parse(record));
-  return runtime;
+  return {
+    ...runtime,
+    access: marketplaceContentAccess(marketplace),
+  };
 }
 
 export function sanitizeContentV2Quiz(

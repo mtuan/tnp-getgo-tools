@@ -44,6 +44,7 @@ export function contentV2PublishedItems(
   preview: ContentV2QuizPublishPreview,
 ): Record<string, ContentV2PublishedItem> {
   const firestore = [
+    preview.firestore.marketplaceQuizDocument,
     preview.firestore.quizDocument,
     ...preview.firestore.questionDocuments,
     ...preview.firestore.resourceDocuments,

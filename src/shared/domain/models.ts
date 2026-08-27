@@ -471,6 +471,11 @@ export interface ContentV2PublishResult {
 
 export interface ContentV2QuizPublishPreview {
   firestore: {
+    marketplaceQuizDocument: {
+      operation: "upsert";
+      path: string;
+      data: Record<string, unknown>;
+    };
     quizDocument: {
       operation: "upsert";
       path: string;

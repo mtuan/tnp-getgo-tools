@@ -1,4 +1,4 @@
-import { contentV2QuizPublishContractVersion, hashContentV2, marketplaceTopicState, sanitizeMarketplaceTopic } from "../../../features/topics/domain/content-v2.js";
+import { contentV2QuizPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic } from "../../../features/topics/domain/content-v2.js";
 import type { MarketplaceSyncJobItem } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan.js";
@@ -106,7 +106,7 @@ export async function syncAllMarketplaceTopics(
       ]);
       const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources });
       const previous = await readContentV2QuizPublishState(summary.filePath);
-      const result = await publishing.publishContentV2Quiz(topicId, quiz, questions, resources, assets, summary.localHash, previous.targets[target.projectId]);
+      const result = await publishing.publishContentV2Quiz(topicId, quiz, marketplaceContentAccess(topic.marketplace), questions, resources, assets, summary.localHash, previous.targets[target.projectId]);
       await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);
       await writeContentV2QuizPublishState(summary.filePath, { schemaVersion: 1, targets: { ...previous.targets, [result.projectId]: { publishContractVersion: contentV2QuizPublishContractVersion, environment: result.environment, projectId: result.projectId, contentHash: result.contentHash, publishedAt: result.publishedAt, items: result.items } } });
       quizResults.set(summary.key, result);

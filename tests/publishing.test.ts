@@ -31,6 +31,7 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
       order: 0,
       language: "en",
     },
+    "free",
     [],
     {},
     [
@@ -61,9 +62,14 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
     preview.firestore.quizDocument.data.sharedCode,
     "const sharedLetter = 'A';",
   );
+  assert.equal(preview.firestore.quizDocument.data.access, "free");
+  assert.equal(preview.firestore.marketplaceQuizDocument.data.access, "free");
+  assert.equal(preview.firestore.marketplaceQuizDocument.data.questionCount, 0);
+  assert.equal("sharedCode" in preview.firestore.marketplaceQuizDocument.data, false);
+  assert.equal("questionsCode" in preview.firestore.marketplaceQuizDocument.data, false);
 
   const first = contentV2PublishedItems(preview);
-  assert.equal(diffContentV2PublishedItems(undefined, first).changed.size, 2);
+  assert.equal(diffContentV2PublishedItems(undefined, first).changed.size, 3);
   assert.equal(diffContentV2PublishedItems(first, first).changed.size, 0);
   const withoutAsset = contentV2PublishedItems({
     ...preview,
