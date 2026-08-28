@@ -610,6 +610,7 @@ export interface LocalWebRuntimeSnapshot {
   pid?: number;
   startedAt?: string;
   error?: string;
+  lastJob?: BackgroundJob;
 }
 export interface DeploymentJobReportStep {
   id: string;

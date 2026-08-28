@@ -7311,16 +7311,25 @@ button.danger svg {
 }
 .deployment-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
+.deployment-grid-web {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.deployment-grid-native {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .deployment-card {
+  height: 100%;
+}
+.deployment-card .ui-panel-body {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   align-items: start;
   gap: 16px;
-  padding: 20px;
+  height: 100%;
+  box-sizing: border-box;
 }
 .deployment-card-icon {
   width: 42px;
@@ -7348,50 +7357,73 @@ button.danger svg {
   justify-content: space-between;
   gap: 10px;
 }
-.deployment-card-copy p {
-  margin: 5px 0 12px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
+.deployment-card-facts {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
 }
-.deployment-card-copy ul {
+.deployment-card-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.deployment-card-facts dt,
+.deployment-card-facts dd {
   margin: 0;
-  padding-left: 17px;
   color: var(--muted);
   font-size: 11px;
-  line-height: 1.8;
 }
-.deployment-card-copy li {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(150px, auto) auto;
-  align-items: center;
-  gap: 8px;
-}
-.deployment-card-copy li code {
-  color: var(--muted);
-  font-size: 9px;
-}
-.deployment-card-copy li strong {
-  color: var(--muted);
-  font-size: 9px;
+.deployment-card-facts dd {
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 700;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .deployment-card-actions {
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
-.deployment-card-localhost {
-  grid-column: 1 / -1;
+.deployment-active-progress {
+  overflow: hidden;
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.native-deployment-card .ui-panel-body {
-  display: grid;
-  height: 100%;
-  box-sizing: border-box;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 16px;
+.deployment-target-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+.deployment-target-summary span,
+.deployment-target-summary small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.deployment-target-summary strong {
+  text-transform: capitalize;
+}
+.deployment-target-summary code {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.deployment-target-summary small {
+  margin-left: auto;
 }
 .local-web-state-online {
   color: #047857;
@@ -7461,9 +7493,17 @@ button.danger svg {
   text-align: center;
   white-space: nowrap;
 }
-@media (max-width: 900px) {
-  .deployment-grid {
+@media (max-width: 1100px) {
+  .deployment-grid-web {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 900px) {
+  .deployment-grid-native {
+    grid-template-columns: 1fr;
+  }
+  .deployment-target-summary small {
+    display: none;
   }
 }
 @media (prefers-color-scheme: dark) {
