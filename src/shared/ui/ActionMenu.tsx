@@ -1,6 +1,6 @@
 import { ChevronDown, Dot, MoreHorizontal, type LucideIcon } from "lucide-react";
 import { createPortal } from "react-dom";
-import type { MouseEvent } from "react";
+import { useId, type MouseEvent } from "react";
 import { Button, type ButtonColor, type ButtonVariant } from "./Button";
 import { TableActionButton } from "./TableActionButton";
 import { useSelectDropdown } from "./Select";
@@ -39,6 +39,7 @@ export function ActionMenu({
   buttonClassName?: string;
 }) {
   const dropdown = useSelectDropdown();
+  const menuId = useId();
   const triggerProps = {
     className: buttonClassName,
     color,
@@ -46,10 +47,15 @@ export function ActionMenu({
     "aria-label": iconOnly ? label : undefined,
     title: iconOnly ? label : undefined,
     "aria-haspopup": "menu" as const,
+    "aria-controls": menuId,
     "aria-expanded": dropdown.open,
+    onKeyDown: dropdown.onTriggerKeyDown,
     onClick: (event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      dropdown.setOpen((open) => !open);
+      dropdown.setOpen((open) => {
+        if (!open) dropdown.focusItem("first");
+        return !open;
+      });
     },
   };
   return (
@@ -65,9 +71,11 @@ export function ActionMenu({
       {dropdown.open &&
         createPortal(
           <div
+            id={menuId}
             ref={dropdown.menuRef}
             className="ui-action-menu"
             role="menu"
+            onKeyDown={dropdown.onMenuKeyDown}
             style={{
               right: Math.max(
                 8,
@@ -92,11 +100,12 @@ export function ActionMenu({
                 <button
                   type="button"
                   role="menuitem"
+                  tabIndex={-1}
                   className={item.color === "danger" ? "danger" : ""}
                   disabled={item.disabled}
                   key={item.id}
                   onClick={() => {
-                    dropdown.setOpen(false);
+                    dropdown.close(true);
                     item.onSelect();
                   }}
                 >

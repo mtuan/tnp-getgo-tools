@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { useId } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { useSelectDropdown, type SelectOption } from "./Select";
 
@@ -26,6 +27,7 @@ export function MultiSelect({
   onValueChange,
 }: MultiSelectProps) {
   const dropdown = useSelectDropdown();
+  const menuId = useId();
   const toggle = (option: string) =>
     onValueChange(
       value.includes(option)
@@ -41,36 +43,49 @@ export function MultiSelect({
       ref={dropdown.ref}
     >
       <button
+        ref={dropdown.triggerRef}
         type="button"
+        role="combobox"
         disabled={disabled}
         autoFocus={autoFocus}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
+        aria-controls={menuId}
         aria-expanded={dropdown.open}
+        onKeyDown={dropdown.onTriggerKeyDown}
         onClick={() => dropdown.setOpen((current) => !current)}
       >
-        <span className={value.length ? "schema-selected-values" : "placeholder"}>
+        <span className={value.length ? (presentation === "badges" ? "schema-selected-values schema-selected-values-underlay" : "schema-selected-values") : "placeholder"}>
           {value.length
             ? presentation === "text"
               ? selectedLabels.join(", ")
-              : value.map((item, index) => (
-                  <i key={item}>
-                    {selectedLabels[index]}
-                    <X
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggle(item);
-                      }}
-                    />
-                  </i>
-                ))
+              : selectedLabels.join(", ")
             : placeholder}
         </span>
         <ChevronDown />
       </button>
+      {presentation === "badges" && value.length > 0 && (
+        <span className="schema-multi-chip-layer">
+          {value.map((item, index) => (
+            <span className="schema-multi-chip" key={item}>
+              <span>{selectedLabels[index]}</span>
+              <button
+                type="button"
+                aria-label={`${ariaLabel}: ${String(selectedLabels[index])}`}
+                title={`${ariaLabel}: ${String(selectedLabels[index])}`}
+                disabled={disabled}
+                onClick={() => toggle(item)}
+              >
+                <X aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </span>
+      )}
       {dropdown.open &&
         createPortal(
           <div
+            id={menuId}
             ref={dropdown.menuRef}
             className="schema-select-menu schema-select-portal multi"
             style={{
@@ -82,6 +97,7 @@ export function MultiSelect({
             role="listbox"
             aria-label={ariaLabel}
             aria-multiselectable="true"
+            onKeyDown={dropdown.onMenuKeyDown}
           >
             {options.map((option) => {
               const checked = value.includes(option.value);
@@ -90,6 +106,7 @@ export function MultiSelect({
                   type="button"
                   role="option"
                   aria-selected={checked}
+                  tabIndex={-1}
                   className={checked ? "selected" : ""}
                   onClick={() => toggle(option.value)}
                   key={option.value}

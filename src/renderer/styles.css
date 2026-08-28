@@ -442,6 +442,9 @@ main {
 .account-button {
   max-width: 240px;
 }
+.account-menu-trigger {
+  display: inline-flex;
+}
 .account-button span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -511,9 +514,11 @@ main {
   font-weight: 600;
   text-align: left;
 }
-.account-menu > button:hover {
+.account-menu > button:hover,
+.account-menu > button:focus-visible {
   color: #4338ca;
   background: #eef2ff;
+  outline: none;
 }
 .account-menu > button svg {
   width: 15px;
@@ -1620,9 +1625,11 @@ main {
 .ui-action-menu > button > .ui-action-menu-trailing-icon {
   margin-left: auto;
 }
-.ui-action-menu > button:hover:not(:disabled) {
+.ui-action-menu > button:hover:not(:disabled),
+.ui-action-menu > button:focus-visible:not(:disabled) {
   color: #3730a3;
   background: #eef2ff;
+  outline: none;
 }
 .ui-action-menu > button:disabled {
   opacity: 0.45;
@@ -5460,9 +5467,11 @@ tbody tr:hover {
   font-size: 11px;
   text-align: left;
 }
-.schema-select-menu > button:hover {
+.schema-select-menu > button:hover,
+.schema-select-menu > button:focus-visible {
   color: #3730a3;
   background: #eef2ff;
+  outline: none;
 }
 .schema-select-menu > button.selected {
   color: #4338ca;
@@ -5528,6 +5537,61 @@ tbody tr:hover {
   width: 11px;
   height: 11px;
   cursor: pointer;
+}
+.schema-selected-values-underlay {
+  visibility: hidden;
+}
+.schema-multi-chip-layer {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: 34px;
+  left: 11px;
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.schema-multi-chip {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 4px 3px 6px;
+  border-radius: 6px;
+  color: #4338ca;
+  background: #eef2ff;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.schema-multi-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.schema-multi-chip > button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  place-items: center;
+}
+.schema-multi-chip > button:hover,
+.schema-multi-chip > button:focus-visible {
+  color: white;
+  background: #4f46e5;
+  outline: none;
+}
+.schema-multi-chip > button svg {
+  width: 11px;
+  height: 11px;
 }
 @keyframes menu-in {
   from {
