@@ -96,6 +96,7 @@ export function DeploymentPage({
   };
 
   const controlLocalWeb = async (action: "start" | "restart") => {
+    if (localWebActionRef.current) return;
     localWebActionRef.current = action;
     setLocalWebAction(action);
     setLocalWeb(current => current ? { ...current, status: "starting", error: undefined } : current);
@@ -173,8 +174,8 @@ export function DeploymentPage({
             <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!localWeb?.lastJob} onClick={() => setLogSelection("localhost")} />
             <ui.Button icon={<ExternalLink />} aria-label={copy.openLocalhost} title={copy.openLocalhost} disabled={localWeb?.status !== "online"} onClick={() => localWeb && void window.getgo.openExternal(localWeb.url)} />
             {localWeb?.status === "online" || localWeb?.managed
-              ? <ui.Button variant="solid" icon={<RotateCw />} loading={localWebAction === "restart"} onClick={() => void controlLocalWeb("restart")}>{copy.restartLocalhost}</ui.Button>
-              : <ui.Button variant="solid" icon={<Power />} loading={localWebAction === "start"} onClick={() => void controlLocalWeb("start")}>{copy.runLocalhost}</ui.Button>}
+              ? <ui.Button variant="solid" icon={<RotateCw />} loading={localWebAction === "restart"} disabled={localWebAction !== null} onClick={() => void controlLocalWeb("restart")}>{copy.restartLocalhost}</ui.Button>
+              : <ui.Button variant="solid" icon={<Power />} loading={localWebAction === "start"} disabled={localWebAction !== null} onClick={() => void controlLocalWeb("start")}>{copy.runLocalhost}</ui.Button>}
           </div>
         </ui.PanelBody>
       </ui.Panel>
