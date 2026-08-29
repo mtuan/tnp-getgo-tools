@@ -234,7 +234,15 @@ export class LocalWebRuntimeManager {
     const persisted = await this.persistedRuntime();
     if (await this.isOnline()) {
       if (persisted) return this.state();
-      throw new Error(`Port 5173 is already in use by a process not started by GetGo Tools.`);
+      const pid = await this.listenerPid();
+      if (!pid) throw new Error("The process using port 5173 could not be identified for startup cleanup.");
+      await this.signalRuntime(pid, "SIGTERM");
+      if (!await this.waitUntilOffline(4_000)) {
+        const remainingPid = await this.listenerPid();
+        if (remainingPid) await this.signalRuntime(remainingPid, "SIGKILL");
+        if (!await this.waitUntilOffline(2_000))
+          throw new Error("Port 5173 remained occupied after startup cleanup.");
+      }
     }
     const webRoot = await this.webRoot();
     const operationStartedAt = new Date().toISOString();

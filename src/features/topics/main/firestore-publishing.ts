@@ -20,6 +20,7 @@ import {
 import type { ContentV2Asset } from "../repository/content-v2-repository.js";
 import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 import { stalePublishedQuizIds } from "../../../features/topics/domain/content-v2-publish-policy.js";
+import { compileQuizSharedCode } from "@tnp/getgo-logics/authoring";
 
 type FirestoreValue = Record<string, unknown>;
 type FirestoreDocument = {
@@ -146,6 +147,19 @@ export function createContentV2QuizPublishPreview(
   const quizPath = contentV2QuizPath(topicId, quiz.id);
   const access = marketplaceContentAccess(quiz.marketplace, topicAccess);
   const { sharedCode, ...quizMetadata } = sanitizeContentV2Quiz(quiz);
+  const compiledSharedJs = compileQuizSharedCode(
+    typeof sharedCode === "string" ? sharedCode : undefined,
+  );
+  const missingCompiledQuestion = questions.find((question) => (
+    question.type === "competition-question"
+    && question.authoringMode === "advanced-dynamic"
+    && !question.dynamic?.compiledJs?.trim()
+  ));
+  if (missingCompiledQuestion) {
+    throw new Error(
+      `Question ${missingCompiledQuestion.id} has not been compiled. Save it successfully before publishing.`,
+    );
+  }
   return {
     firestore: {
       marketplaceQuizDocument: {
@@ -158,7 +172,7 @@ export function createContentV2QuizPublishPreview(
         path: quizPath,
         data: {
           ...quizMetadata,
-          sharedCode,
+          compiledSharedJs,
           access,
           questionsCodeFormat: "getgo.questions.v1",
           questionsCode: buildContentV2QuestionsCode(questions),

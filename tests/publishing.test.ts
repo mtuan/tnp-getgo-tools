@@ -58,9 +58,10 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
   assert.equal("questionIds" in preview.firestore.quizDocument.data, false);
   assert.equal("resourceIds" in preview.firestore.quizDocument.data, false);
   assert.equal("assetDocuments" in preview.firestore, false);
-  assert.equal(
-    preview.firestore.quizDocument.data.sharedCode,
-    "const sharedLetter = 'A';",
+  assert.equal("sharedCode" in preview.firestore.quizDocument.data, false);
+  assert.match(
+    String(preview.firestore.quizDocument.data.compiledSharedJs),
+    /const QS = .*sharedLetter/s,
   );
   assert.equal(preview.firestore.quizDocument.data.access, "free");
   assert.equal(preview.firestore.marketplaceQuizDocument.data.access, "free");
@@ -104,6 +105,45 @@ const dynamic = {
   explanationGeneratorTs: "({ value }) => ({ en: `${value}`, vi: `${value}` })",
   draftSourceTs: "must not be published",
 };
+
+test("publishing rejects advanced dynamic questions without compiled JavaScript", () => {
+  assert.throws(
+    () => createContentV2QuizPublishPreview(
+      "competition",
+      {
+        schemaVersion: 2,
+        id: "quiz-1",
+        topicId: "competition",
+        type: "competition-paper",
+        title: "Quiz 1",
+        description: "",
+        sharedCode: "",
+        status: "reviewed",
+        order: 0,
+        grade: "1",
+        round: "main",
+        year: "2026",
+      },
+      "free",
+      [{
+        schemaVersion: 2,
+        id: "q1",
+        order: 0,
+        status: "reviewed",
+        type: "competition-question",
+        text: { en: "Value?" },
+        assets: [],
+        answer: { type: "input", correct: "4" },
+        authoringMode: "advanced-dynamic",
+        dynamic,
+      }],
+      {},
+      [],
+      "b".repeat(64),
+    ),
+    /Question q1 has not been compiled/,
+  );
+});
 
 test("publishes only allowlisted runtime question fields and dynamic fragments", () => {
   const question = sanitizePublishedQuestion({
