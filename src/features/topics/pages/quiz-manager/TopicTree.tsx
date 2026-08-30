@@ -7,6 +7,7 @@ import { marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
 import { contentV2QuizReviewStatus } from "./shared";
 import { TopicQuizTreeIdentity } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
+import { MarketplacePreviewCell } from "../../components/MarketplacePreviewCell";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
@@ -80,7 +81,7 @@ isContest,
                 {
                   key: "identity",
                   title: "Topic / quiz",
-                  width: "calc(100% - 492px)",
+                  width: "calc(100% - 584px)",
                   render: () => null,
                 },
                 {
@@ -138,6 +139,19 @@ isContest,
                     const state = marketplaceStateLabel(metadata).state;
                     const quizReview = row.kind === "quiz" ? contentV2QuizReviewStatus(snapshot, row.quiz) : undefined;
                     return <MarketplaceStateCell locale={locale} value={state} target={row.kind === "topic" ? "topics" : "quizzes"} id={row.kind === "topic" ? row.summary.id : row.quiz.id} topicId={row.kind === "quiz" ? row.quiz.contest : undefined} api={managerApi} quizReview={row.kind === "quiz" && quizReview ? { manifestPath: row.quiz.manifestPath, reviewed: quizReview.reviewed, total: quizReview.total } : undefined} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
+                  },
+                },
+                {
+                  key: "preview",
+                  title: marketplaceCopy.columns.preview,
+                  width: 92,
+                  align: "center",
+                  className: "manager-status-cell",
+                  render: (row) => {
+                    const preview = row.kind === "topic"
+                      ? row.summary.marketplace?.preview === true
+                      : row.quiz.marketplace?.preview === true;
+                    return <MarketplacePreviewCell locale={locale} value={preview} target={row.kind === "topic" ? "topics" : "quizzes"} id={row.kind === "topic" ? row.summary.id : row.quiz.id} topicId={row.kind === "quiz" ? row.quiz.contest : undefined} api={managerApi} onSaved={(enabled) => toast.show({ title: marketplaceCopy.previewUpdated, description: enabled ? marketplaceCopy.previewEnabled : marketplaceCopy.previewDisabled, variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                   },
                 },
                 {

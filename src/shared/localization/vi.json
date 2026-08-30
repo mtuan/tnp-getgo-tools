@@ -5,6 +5,10 @@
     "stateLabel": "Trạng thái kho nội dung",
     "stateUpdated": "Đã cập nhật trạng thái kho nội dung",
     "stateUpdatedDescription": "Chủ đề này sẽ được đồng bộ ở trạng thái {state}.",
+    "previewUpdated": "Đã cập nhật quyền thi thử",
+    "previewEnabled": "Mục này hiện có thể dùng để thi thử.",
+    "previewDisabled": "Mục này không còn được dùng để thi thử.",
+    "previewMissingTopic": "Không xác định được chủ đề của bài thi.",
     "batchActions": "Thao tác kho nội dung",
     "listAll": "Hiển thị tất cả",
     "listAndReviewAll": "Hiển thị và duyệt tất cả",
@@ -105,6 +109,7 @@
     "columns": {
       "topic": "Chủ đề",
       "type": "Loại",
+      "preview": "Thi thử",
       "published": "Lần xuất bản cuối",
       "listing": "Kho nội dung"
     },
@@ -121,6 +126,8 @@
       "shortDescription": "Mô tả ngắn",
       "fullDescription": "Mô tả đầy đủ",
       "featured": "Chủ đề nổi bật",
+      "preview": "Cho phép khách thi thử",
+      "previewHelp": "Hiển thị chủ đề này trên trang thi thử, hoặc cho phép chọn bài thi này cho khách thi thử.",
       "subjects": "Môn học",
       "languages": "Ngôn ngữ",
       "tags": "Thẻ",

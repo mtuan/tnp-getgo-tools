@@ -50,6 +50,7 @@ function metadata(record: MarketplaceRecord): MarketplaceTopicMetadata {
     fullDescription:
       record.marketplace?.fullDescription ?? record.description,
     featured: record.marketplace?.featured === true,
+    preview: record.marketplace?.preview === true,
     subjects:
       record.marketplace?.subjects ??
       (topic.type === "competition" ? [topic.subject] : []),
@@ -153,6 +154,7 @@ export function MarketplaceMetadataSection({
         languages: current.languages,
         tags: toLines(current.tags),
         learningObjectives: toLines(current.learningObjectives),
+        preview: current.preview,
         minimumAge: current.ageRange?.minimum,
         maximumAge: current.ageRange?.maximum,
         pricingType: !isTopic && !draft?.marketplace?.pricing
@@ -164,6 +166,13 @@ export function MarketplaceMetadataSection({
     : {};
   const fields = useMemo<FormSchema[]>(
     () => [
+      {
+        type: "toggle",
+        name: "preview",
+        label: copy.fields.preview,
+        helper: copy.fields.previewHelp,
+        presentation: "row",
+      },
       {
         type: "textarea",
         name: "shortDescription",

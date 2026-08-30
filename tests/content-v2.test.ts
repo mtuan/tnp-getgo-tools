@@ -10,6 +10,7 @@ import {
   sanitizeContentV2Topic,
   sanitizeContentV2Question,
   marketplaceTopicState,
+  sanitizeMarketplaceTopic,
   withMarketplaceTopicState,
 } from "../src/features/topics/domain/content-v2.js";
 import { buildContentV2QuestionsCode } from "../src/features/topics/main/firestore-publishing.js";
@@ -85,6 +86,14 @@ test("marketplace topic states map to remote listing flags", () => {
   assert.equal(marketplaceTopicState({ featured: true }), "featured");
   assert.equal(marketplaceTopicState(), "unlisted");
   assert.equal(marketplaceTopicState({ state: "removed" }), "unlisted");
+});
+
+test("marketplace topic publishing preserves the guest preview flag", () => {
+  const published = sanitizeMarketplaceTopic({
+    ...alphabetTopic,
+    marketplace: { listed: true, preview: true },
+  });
+  assert.equal(published.preview, true);
 });
 
 const alphabetTopic = {

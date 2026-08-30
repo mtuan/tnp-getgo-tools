@@ -5,6 +5,10 @@
     "stateLabel": "Marketplace state",
     "stateUpdated": "Marketplace state updated",
     "stateUpdatedDescription": "This topic will be synced as {state}.",
+    "previewUpdated": "Preview availability updated",
+    "previewEnabled": "This item is available for guest preview.",
+    "previewDisabled": "This item is no longer available for guest preview.",
+    "previewMissingTopic": "The quiz topic could not be resolved.",
     "batchActions": "Marketplace actions",
     "listAll": "List all",
     "listAndReviewAll": "List all and review all",
@@ -105,6 +109,7 @@
     "columns": {
       "topic": "Topic",
       "type": "Type",
+      "preview": "Preview",
       "published": "Last published",
       "listing": "Marketplace"
     },
@@ -121,6 +126,8 @@
       "shortDescription": "Short description",
       "fullDescription": "Full description",
       "featured": "Featured topic",
+      "preview": "Available for guest preview",
+      "previewHelp": "Show this topic on the guest preview page, or allow this quiz to be selected for a guest preview exam.",
       "subjects": "Subjects",
       "languages": "Languages",
       "tags": "Tags",

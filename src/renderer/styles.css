@@ -4617,6 +4617,13 @@ tbody tr:hover {
   height: 34px;
   line-height: 0;
 }
+.manager-preview-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  vertical-align: middle;
+}
 .settings-section-actions {
   display: flex;
   align-items: center;

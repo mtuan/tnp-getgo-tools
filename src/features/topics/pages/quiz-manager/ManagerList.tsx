@@ -6,6 +6,7 @@ import { marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
 import { contentV2QuizReviewStatus, quizReviewStatus } from "./shared";
 import { TopicQuizIcon as ManagerListIcon } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
+import { MarketplacePreviewCell } from "../../components/MarketplacePreviewCell";
 import { renderTopicTree } from "./TopicTree";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
@@ -50,6 +51,7 @@ export function renderManagerList(context: ManagerListContext) {
                     <col style={{ width: 100 }} />
                     <col style={{ width: 136 }} />
                     <col style={{ width: 112 }} />
+                    <col style={{ width: 92 }} />
                     <col style={{ width: 144 }} />
                   </colgroup>
                 )}
@@ -61,6 +63,7 @@ export function renderManagerList(context: ManagerListContext) {
                         <th className="manager-column-centered">Type</th>
                         <th className="manager-column-centered">Review</th>
                         <th className="manager-column-centered">State</th>
+                        <th className="manager-column-centered">{marketplaceCopy.columns.preview}</th>
                         <th className="manager-column-centered">Sync status</th>
                       </>
                     ) : isContest ? (
@@ -88,6 +91,7 @@ export function renderManagerList(context: ManagerListContext) {
                           <>
                             <th className="manager-column-centered">Review</th>
                             <th className="manager-column-centered">State</th>
+                            <th className="manager-column-centered">{marketplaceCopy.columns.preview}</th>
                             <th className="manager-column-centered">Sync status</th>
                           </>
                         ) : (
@@ -157,6 +161,9 @@ export function renderManagerList(context: ManagerListContext) {
                                 const state = marketplaceStateLabel(quiz.marketplace).state;
                                 return <MarketplaceStateCell locale={locale} value={state} target="quizzes" id={quiz.id} topicId={quiz.contest} api={managerApi} quizReview={{ manifestPath: quiz.manifestPath, reviewed: review.reviewed, total: review.total }} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                               })()}
+                            </td>
+                            <td className="manager-status-cell">
+                              <MarketplacePreviewCell locale={locale} value={quiz.marketplace?.preview === true} target="quizzes" id={quiz.id} topicId={quiz.contest} api={managerApi} onSaved={(enabled) => toast.show({ title: marketplaceCopy.previewUpdated, description: enabled ? marketplaceCopy.previewEnabled : marketplaceCopy.previewDisabled, variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />
                             </td>
                             <td className="manager-status-cell">
                               <StatusBadge tone={marketplaceSyncPlanStatus(syncPlan, "quiz", `${quiz.contest}/${quiz.id}`) === "current" ? "success" : "warning"}>
@@ -347,6 +354,9 @@ export function renderManagerList(context: ManagerListContext) {
                                       const state = marketplaceStateLabel(topicSummary.marketplace).state;
                                       return <MarketplaceStateCell locale={locale} value={state} target="topics" id={topicSummary.id} api={managerApi} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                                     })()}
+                                  </td>
+                                  <td className="manager-status-cell">
+                                    <MarketplacePreviewCell locale={locale} value={topicSummary.marketplace?.preview === true} target="topics" id={topicSummary.id} api={managerApi} onSaved={(enabled) => toast.show({ title: marketplaceCopy.previewUpdated, description: enabled ? marketplaceCopy.previewEnabled : marketplaceCopy.previewDisabled, variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />
                                   </td>
                                   <td className="manager-status-cell">
                                     {(() => {
