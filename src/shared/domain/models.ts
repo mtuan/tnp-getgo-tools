@@ -707,8 +707,9 @@ export type DynamicQuestionProposalResult = GetGoDynamicQuestionProposalResult;
 export type DynamicQuestionFixResult = GetGoDynamicQuestionFixResult;
 
 export interface SafeWordDictionary {
-  schemaVersion: 1;
+  schemaVersion: 2;
   words: { en: string[]; vi: string[] };
+  allowedPhrases: { en: string[]; vi: string[] };
 }
 
 export interface ContentSafetyWarning {

@@ -17,6 +17,7 @@ test("safe words use one canonical file and report generated shared-code status"
   assert.equal(synchronized.status, "up-to-date");
   assert.equal((await getSafeWordSyncStatus(quizzes)).status, "up-to-date");
   assert.match(await readFile(synchronized.sharedPath, "utf8"), /"xấu"/u);
+  assert.match(await readFile(synchronized.sharedPath, "utf8"), /"allowedPhrases"/u);
 
   await writeFile(source, JSON.stringify({ schemaVersion: 1, words: { en: ["bad", "worse"], vi: ["xấu"] } }), "utf8");
   assert.equal((await getSafeWordSyncStatus(quizzes)).status, "needs-sync");

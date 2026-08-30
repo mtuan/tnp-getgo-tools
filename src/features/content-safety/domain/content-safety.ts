@@ -3,8 +3,9 @@ import { createContentSafetyEditor, defaultContentSafetyDictionary, normalizeCon
 export type SafeWordLanguage = "en" | "vi";
 
 export interface SafeWordDictionary {
-  schemaVersion: 1;
+  schemaVersion: 2;
   words: Record<SafeWordLanguage, string[]>;
+  allowedPhrases: Record<SafeWordLanguage, string[]>;
 }
 
 export interface UnsafeContentFinding {
@@ -15,10 +16,14 @@ export interface UnsafeContentFinding {
 }
 
 export const defaultSafeWordDictionary: SafeWordDictionary = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   words: {
     en: [...defaultContentSafetyDictionary.words.en],
     vi: [...defaultContentSafetyDictionary.words.vi],
+  },
+  allowedPhrases: {
+    en: [...(defaultContentSafetyDictionary.allowedPhrases?.en ?? [])],
+    vi: [...(defaultContentSafetyDictionary.allowedPhrases?.vi ?? [])],
   },
 };
 
@@ -31,7 +36,14 @@ export function normalizeSafeWordDictionary(value: unknown): SafeWordDictionary 
     .filter((item): item is string => typeof item === "string")
     .map(item => normalizeContentSafetyText(item))
     .filter(Boolean))).sort((left, right) => left.localeCompare(right, language));
-  return { schemaVersion: 1, words: { en: list("en"), vi: list("vi") } };
+  const allowedPhrases = record.allowedPhrases && typeof record.allowedPhrases === "object" && !Array.isArray(record.allowedPhrases)
+    ? record.allowedPhrases as Record<string, unknown>
+    : {};
+  const allowedList = (language: SafeWordLanguage) => Array.from(new Set((Array.isArray(allowedPhrases[language]) ? allowedPhrases[language] : [])
+    .filter((item): item is string => typeof item === "string")
+    .map(item => normalizeContentSafetyText(item))
+    .filter(Boolean))).sort((left, right) => left.localeCompare(right, language));
+  return { schemaVersion: 2, words: { en: list("en"), vi: list("vi") }, allowedPhrases: { en: allowedList("en"), vi: allowedList("vi") } };
 }
 
 export function findUnsafeContent(value: unknown, dictionary: SafeWordDictionary, path = "$", _seen = new WeakSet<object>()): UnsafeContentFinding[] {

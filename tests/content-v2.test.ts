@@ -57,6 +57,17 @@ test("content safety publishing guard reads the repository dictionary directly",
   await assert.doesNotReject(assertRepositoryContentSafe(root, "Quiz", { text: "A safe lesson" }));
 });
 
+test("content safety permits approved phrases but still blocks other occurrences", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-content-safety-allowed-"));
+  await saveSafeWordDictionary(root, {
+    schemaVersion: 2,
+    words: { en: [], vi: ["vú"] },
+    allowedPhrases: { en: [], vi: ["động vật có vú"] },
+  });
+  await assert.doesNotReject(assertRepositoryContentSafe(root, "Quiz", { text: "Động vật có vú" }));
+  await assert.rejects(assertRepositoryContentSafe(root, "Quiz", { text: "Động vật có vú và một từ vú khác" }), /blocked content/u);
+});
+
 test("pronunciation safety blanks unsafe forms without shifting tone columns", () => {
   const question = sanitizeVietnamesePronunciationQuestion({
     type: "pronunciation-sound",

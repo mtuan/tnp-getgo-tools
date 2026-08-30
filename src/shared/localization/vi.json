@@ -1,4 +1,25 @@
 {
+  "contentSafety": {
+    "eyebrow": "An toàn nội dung",
+    "title": "Từ an toàn",
+    "description": "Quản lý từ bị chặn và cụm từ được phép dùng cho AI, lưu dữ liệu và xuất bản.",
+    "blockedEnglish": "Từ bị chặn · Tiếng Anh",
+    "blockedVietnamese": "Từ bị chặn · Tiếng Việt",
+    "allowedEnglish": "Cụm từ được phép · Tiếng Anh",
+    "allowedVietnamese": "Cụm từ được phép · Tiếng Việt",
+    "blockedHelper": "Nhấn Enter hoặc dấu phẩy để thêm. Từ bị chặn vẫn được phép khi nằm trong một cụm từ đã duyệt.",
+    "allowedHelper": "Thêm cụm từ đầy đủ đã được duyệt. Chỉ từ bị chặn nằm trong các cụm từ này được bỏ qua.",
+    "addBlocked": "Thêm từ hoặc cụm từ bị chặn…",
+    "addAllowed": "Thêm cụm từ được phép…",
+    "save": "Lưu",
+    "discard": "Hủy",
+    "saved": "Đã lưu từ điển an toàn",
+    "failed": "Không thể lưu từ điển",
+    "resync": "Đồng bộ lại",
+    "synced": "Đã đồng bộ mã dùng chung",
+    "syncFailed": "Không thể đồng bộ mã dùng chung",
+    "current": "Đã cập nhật"
+  },
   "marketplaceManager": {
     "tab": "Kho nội dung",
     "topicDescription": "Quản lý khả năng hiển thị, nội dung giới thiệu, khám phá và giá trên kho nội dung, độc lập với dữ liệu học tập.",

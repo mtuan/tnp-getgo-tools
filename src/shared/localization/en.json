@@ -1,4 +1,25 @@
 {
+  "contentSafety": {
+    "eyebrow": "Content safety",
+    "title": "Safe words",
+    "description": "Manage blocked words and approved phrases used by AI, local saves, and publishing.",
+    "blockedEnglish": "Blocked words · English",
+    "blockedVietnamese": "Blocked words · Vietnamese",
+    "allowedEnglish": "Allowed phrases · English",
+    "allowedVietnamese": "Allowed phrases · Vietnamese",
+    "blockedHelper": "Press Enter or comma to add. A blocked word is still allowed when it appears inside an approved phrase.",
+    "allowedHelper": "Add complete, reviewed phrases. Only blocked-word occurrences inside these phrases are ignored.",
+    "addBlocked": "Add a blocked word or phrase…",
+    "addAllowed": "Add an approved phrase…",
+    "save": "Save",
+    "discard": "Discard",
+    "saved": "Safety dictionary saved",
+    "failed": "Could not save dictionary",
+    "resync": "Resync",
+    "synced": "Shared code synchronized",
+    "syncFailed": "Could not sync shared code",
+    "current": "Up to date"
+  },
   "marketplaceManager": {
     "tab": "Marketplace",
     "topicDescription": "Manage marketplace visibility, presentation, discovery, and pricing independently from learning content.",

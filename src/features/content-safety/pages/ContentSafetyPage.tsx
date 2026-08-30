@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, RotateCcw, Save } from "lucide-react";
 import type { AppSettings, SafeWordDictionary, SafeWordSyncStatus } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
+import en from "../../../shared/localization/en.json";
+import vi from "../../../shared/localization/vi.json";
 
 export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] }) {
   const isVi = locale === "vi";
@@ -11,22 +13,16 @@ export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] })
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SafeWordSyncStatus | null>(null);
-  const copy = isVi ? {
-    eyebrow: "An toàn nội dung", title: "Từ an toàn", description: "Quản lý từ bị chặn dùng chung cho AI, lưu dữ liệu và xuất bản.",
-    english: "Từ bị chặn · Tiếng Anh", vietnamese: "Từ bị chặn · Tiếng Việt", helper: "Nhấn Enter hoặc dấu phẩy để thêm. Chọn một thẻ để sửa.", add: "Thêm từ hoặc cụm từ…",
-    save: "Lưu", discard: "Hủy", saved: "Đã lưu từ điển an toàn", failed: "Không thể lưu từ điển",
-    resync: "Đồng bộ lại", synced: "Đã đồng bộ mã dùng chung", syncFailed: "Không thể đồng bộ mã dùng chung", current: "Đã cập nhật",
-  } : {
-    eyebrow: "Content safety", title: "Safe words", description: "Manage the shared blocked-word dictionary used by AI, local saves, and publishing.",
-    english: "Blocked words · English", vietnamese: "Blocked words · Vietnamese", helper: "Press Enter or comma to add. Select a tag to edit it.", add: "Add a word or phrase…",
-    save: "Save", discard: "Discard", saved: "Safety dictionary saved", failed: "Could not save dictionary",
-    resync: "Resync", synced: "Shared code synchronized", syncFailed: "Could not sync shared code", current: "Up to date",
-  };
+  const copy = (isVi ? vi : en).contentSafety;
   const sorted = (value: SafeWordDictionary): SafeWordDictionary => ({
     ...value,
     words: {
       en: [...value.words.en].sort((left, right) => left.localeCompare(right, "en")),
       vi: [...value.words.vi].sort((left, right) => left.localeCompare(right, "vi")),
+    },
+    allowedPhrases: {
+      en: [...(value.allowedPhrases?.en ?? [])].sort((left, right) => left.localeCompare(right, "en")),
+      vi: [...(value.allowedPhrases?.vi ?? [])].sort((left, right) => left.localeCompare(right, "vi")),
     },
   });
   useEffect(() => {
@@ -37,9 +33,27 @@ export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] })
   }, []);
   const dirty = Boolean(draft && persisted && JSON.stringify(draft) !== JSON.stringify(persisted));
   const fields = useMemo<ui.FormSchema[]>(() => [[
-    { type: "multi-tag", name: "en", label: copy.english, helper: copy.helper, placeholder: copy.add },
-    { type: "multi-tag", name: "vi", label: copy.vietnamese, helper: copy.helper, placeholder: copy.add },
-  ]], [copy.add, copy.english, copy.helper, copy.vietnamese]);
+    { type: "multi-tag", name: "blockedEn", label: copy.blockedEnglish, helper: copy.blockedHelper, placeholder: copy.addBlocked },
+    { type: "multi-tag", name: "blockedVi", label: copy.blockedVietnamese, helper: copy.blockedHelper, placeholder: copy.addBlocked },
+    { type: "multi-tag", name: "allowedEn", label: copy.allowedEnglish, helper: copy.allowedHelper, placeholder: copy.addAllowed },
+    { type: "multi-tag", name: "allowedVi", label: copy.allowedVietnamese, helper: copy.allowedHelper, placeholder: copy.addAllowed },
+  ]], [copy.addAllowed, copy.addBlocked, copy.allowedEnglish, copy.allowedHelper, copy.allowedVietnamese, copy.blockedEnglish, copy.blockedHelper, copy.blockedVietnamese]);
+  const values = draft ? {
+    blockedEn: draft.words.en,
+    blockedVi: draft.words.vi,
+    allowedEn: draft.allowedPhrases.en,
+    allowedVi: draft.allowedPhrases.vi,
+  } : {};
+  const updateList = (name: string, value: unknown) => setDraft(current => {
+    if (!current) return current;
+    const items = Array.isArray(value) ? value.map(String) : [];
+    if (name === "blockedEn" || name === "blockedVi") {
+      const language = name === "blockedEn" ? "en" : "vi";
+      return { ...current, words: { ...current.words, [language]: items } };
+    }
+    const language = name === "allowedEn" ? "en" : "vi";
+    return { ...current, allowedPhrases: { ...current.allowedPhrases, [language]: items } };
+  });
   const save = async () => {
     if (!draft || !dirty || saving) return;
     setSaving(true);
@@ -71,7 +85,7 @@ export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] })
     </ui.ControlGroup>} />
     <ui.Panel title={copy.title}>
       <ui.PanelBody>
-        {draft ? <ui.Form fields={fields} values={draft.words} errors={{}} onChange={(name, value) => setDraft(current => current ? { ...current, words: { ...current.words, [name]: Array.isArray(value) ? value.map(String) : [] } } : current)} /> : <div className="ui-panel-loading"><span className="mini-spinner" /></div>}
+        {draft ? <ui.Form fields={fields} values={values} errors={{}} onChange={updateList} /> : <div className="ui-panel-loading"><span className="mini-spinner" /></div>}
       </ui.PanelBody>
     </ui.Panel>
   </section>;
