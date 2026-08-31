@@ -43,13 +43,12 @@ const iconSchema = z.union([
   z.object({
     type: z.literal("text"),
     text: z.string().regex(/^(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u),
-    backgroundColor: z.string().regex(/^#[0-9a-f]{6}$/i),
-    textColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+    theme: z.enum(textContentIconThemes),
   }),
   z.object({ type: z.literal("text"), text: z.string(), color: z.string().regex(/^#[0-9a-f]{6}$/i) })
-    .transform(({ type, text, color }) => ({ type, text, backgroundColor: color, textColor: "#ffffff" })),
-  z.object({ type: z.literal("text"), text: z.string().regex(/^(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u), theme: z.enum(textContentIconThemes) })
-    .transform(({ type, text, theme }) => ({ type, text, backgroundColor: textContentIconColors[theme], textColor: "#ffffff" })),
+    .transform(({ type, text, color }) => ({ type, text, theme: textContentIconThemes.find(theme => textContentIconColors[theme] === color.toLowerCase()) ?? "violet" as const })),
+  z.object({ type: z.literal("text"), text: z.string(), backgroundColor: z.string().regex(/^#[0-9a-f]{6}$/i), textColor: z.string().optional() })
+    .transform(({ type, text, backgroundColor }) => ({ type, text, theme: textContentIconThemes.find(theme => textContentIconColors[theme] === backgroundColor.toLowerCase()) ?? "violet" as const })),
 ]).optional();
 export const marketplaceTopicMetadataSchema = z.object({
   state: z.preprocess(

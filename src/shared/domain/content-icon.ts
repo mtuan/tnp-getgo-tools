@@ -9,8 +9,7 @@ export const textContentIconColors: Record<TextContentIconTheme, string> = {
 export interface TextContentIcon {
   type: "text";
   text: string;
-  backgroundColor: string;
-  textColor: string;
+  theme: TextContentIconTheme;
 }
 
 export type ContentIcon = string | TextContentIcon;
@@ -24,11 +23,13 @@ export function parseTextContentIcon(value: unknown): TextContentIcon | null {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const icon = value as Partial<TextContentIcon> & { theme?: TextContentIconTheme };
     const text = typeof icon.text === "string" ? icon.text.toLocaleUpperCase() : "";
-    const legacy = icon as Partial<TextContentIcon> & { color?: unknown; theme?: TextContentIconTheme };
-    const backgroundColor = normalizeColor(icon.backgroundColor) ?? normalizeColor(legacy.color) ?? (legacy.theme && textContentIconColors[legacy.theme]);
-    const textColor = normalizeColor(icon.textColor) ?? "#ffffff";
-    return icon.type === "text" && backgroundColor && isTextContentIconText(text)
-      ? { type: "text", text, backgroundColor, textColor }
+    const legacy = icon as Partial<TextContentIcon> & { color?: unknown; backgroundColor?: unknown };
+    const color = normalizeColor(legacy.backgroundColor) ?? normalizeColor(legacy.color);
+    const theme = textContentIconThemes.includes(icon.theme as TextContentIconTheme)
+      ? icon.theme as TextContentIconTheme
+      : textContentIconThemes.find(candidate => textContentIconColors[candidate] === color);
+    return icon.type === "text" && theme && isTextContentIconText(text)
+      ? { type: "text", text, theme }
       : null;
   }
   if (typeof value !== "string" || !value.startsWith("text:")) return null;
@@ -36,15 +37,16 @@ export function parseTextContentIcon(value: unknown): TextContentIcon | null {
   const explicitColor = normalizeColor(parts[0]);
   const theme = textContentIconThemes.includes(parts[0] as TextContentIconTheme) ? parts[0] as TextContentIconTheme : null;
   const color = explicitColor ?? (theme ? textContentIconColors[theme] : textContentIconColors.violet);
-  const explicitTextColor = normalizeColor(parts[1]);
-  const text = (explicitColor || theme ? parts.slice(explicitTextColor ? 2 : 1) : parts).join(":").toLocaleUpperCase();
-  return isTextContentIconText(text) ? { type: "text", text, backgroundColor: color, textColor: explicitTextColor ?? "#ffffff" } : null;
+  const legacyTextColor = normalizeColor(parts[1]);
+  const text = (explicitColor || theme ? parts.slice(legacyTextColor ? 2 : 1) : parts).join(":").toLocaleUpperCase();
+  const resolvedTheme = theme ?? textContentIconThemes.find(candidate => textContentIconColors[candidate] === color) ?? "violet";
+  return isTextContentIconText(text) ? { type: "text", text, theme: resolvedTheme } : null;
 }
 
-export function createTextContentIcon(text: string, backgroundColor: string, textColor = "#ffffff"): TextContentIcon {
-  return { type: "text", text: text.toLocaleUpperCase(), backgroundColor: normalizeColor(backgroundColor) ?? textContentIconColors.violet, textColor: normalizeColor(textColor) ?? "#ffffff" };
+export function createTextContentIcon(text: string, theme: TextContentIconTheme): TextContentIcon {
+  return { type: "text", text: text.toLocaleUpperCase(), theme };
 }
 
 export function legacyContentIcon(icon: ContentIcon | undefined): string | undefined {
-  return typeof icon === "string" ? icon : icon ? `text:${icon.backgroundColor}:${icon.textColor}:${icon.text}` : undefined;
+  return typeof icon === "string" ? icon : icon ? `text:${icon.theme}:${icon.text}` : undefined;
 }

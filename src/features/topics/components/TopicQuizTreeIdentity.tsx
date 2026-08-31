@@ -33,7 +33,7 @@ function TopicQuizIcon({
   }, [reference, topicId]);
   if (source) return <span className="manager-list-icon"><img src={source} alt={`${label} icon`} /></span>;
   const textIcon = parseFourLetterIcon(reference);
-  if (textIcon) return <span className="manager-list-icon"><FourLetterIcon code={textIcon.code} backgroundColor={textIcon.backgroundColor} textColor={textIcon.textColor} label={`${label} icon`} /></span>;
+  if (textIcon) return <span className="manager-list-icon"><FourLetterIcon code={textIcon.code} theme={textIcon.theme} label={`${label} icon`} /></span>;
   if (typeof reference === "string" && !reference.startsWith("asset:")) return <span className="manager-list-icon manager-list-icon-text" aria-hidden="true">{reference}</span>;
   return <span className="manager-list-icon manager-list-icon-default" aria-hidden="true">{kind === "topic" ? <BookOpen /> : <ListOrdered />}</span>;
 }

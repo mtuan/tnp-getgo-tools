@@ -5127,12 +5127,11 @@ tbody tr:hover {
   height: 18px;
 }
 .four-letter-icon {
-  --monogram-color: #7c3aed;
-  --monogram-border: color-mix(in srgb, var(--monogram-color) 38%, white);
+  --monogram-border: #6d28d9;
   --monogram-divider: #ffffff70;
   --monogram-text: #fff;
-  --monogram-from: color-mix(in srgb, var(--monogram-color) 18%, white);
-  --monogram-to: color-mix(in srgb, var(--monogram-color) 38%, white);
+  --monogram-from: #7c3aed;
+  --monogram-to: #d946ef;
   display: flex;
   flex-direction: column;
   container-type: inline-size;
@@ -5143,7 +5142,7 @@ tbody tr:hover {
   border: 1px solid var(--monogram-border);
   border-radius: 18%;
   color: var(--monogram-text);
-  background: radial-gradient(circle at 24% 18%, #ffffffb8, transparent 42%), linear-gradient(145deg, var(--monogram-from), var(--monogram-to));
+  background: linear-gradient(145deg, var(--monogram-from), var(--monogram-to));
   box-shadow: 0 clamp(1px, 2.5cqi, 3px) clamp(3px, 7cqi, 8px) #0f172a26;
 }
 .four-letter-icon > .four-letter-icon-row {
@@ -5165,7 +5164,6 @@ tbody tr:hover {
   color: var(--monogram-text);
   -webkit-text-fill-color: var(--monogram-text);
   -webkit-text-stroke: 0;
-  opacity: 1;
   paint-order: stroke fill;
 }
 .four-letter-icon-indigo,
@@ -5249,7 +5247,7 @@ tbody tr:hover {
   gap: 10px 14px;
 }
 .schema-icon-text-preview {
-  grid-row: 1 / span 5;
+  grid-row: 1 / span 4;
   width: 88px;
   height: 88px;
   align-self: start;
@@ -5314,12 +5312,6 @@ tbody tr:hover {
 .schema-icon-theme-picker button:hover,
 .schema-icon-theme-picker button.selected {
   border-color: var(--monogram-border);
-}
-.schema-icon-text-color-picker button.selected {
-  border-color: var(--primary);
-}
-.schema-icon-text-color-picker button:first-child span svg {
-  color: #111827;
 }
 .schema-icon-text-editor p {
   margin: 0;
