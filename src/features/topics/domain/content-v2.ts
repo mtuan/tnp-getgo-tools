@@ -35,18 +35,21 @@ export const localizedTextSchema = z.union([
 ]);
 const legacyIconSchema = z.string().refine(
   (value) => value.startsWith("asset:")
-    || (/^text:(?:(?:violet|indigo|blue|cyan|teal|emerald|lime|yellow|amber|orange|red|rose|pink):)?[\p{L}\p{N}]{4}$/u.test(value))
+    || (/^text:(?:(?:violet|indigo|blue|cyan|teal|emerald|lime|yellow|amber|orange|red|rose|pink):)?(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u.test(value))
     || (value.trim().length <= 16 && /\P{ASCII}/u.test(value)),
 );
 const iconSchema = z.union([
   legacyIconSchema,
   z.object({
     type: z.literal("text"),
-    text: z.string().regex(/^[\p{L}\p{N}]{4}$/u),
-    color: z.string().regex(/^#[0-9a-f]{6}$/i),
+    text: z.string().regex(/^(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u),
+    backgroundColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+    textColor: z.string().regex(/^#[0-9a-f]{6}$/i),
   }),
-  z.object({ type: z.literal("text"), text: z.string().regex(/^[\p{L}\p{N}]{4}$/u), theme: z.enum(textContentIconThemes) })
-    .transform(({ type, text, theme }) => ({ type, text, color: textContentIconColors[theme] })),
+  z.object({ type: z.literal("text"), text: z.string(), color: z.string().regex(/^#[0-9a-f]{6}$/i) })
+    .transform(({ type, text, color }) => ({ type, text, backgroundColor: color, textColor: "#ffffff" })),
+  z.object({ type: z.literal("text"), text: z.string().regex(/^(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u), theme: z.enum(textContentIconThemes) })
+    .transform(({ type, text, theme }) => ({ type, text, backgroundColor: textContentIconColors[theme], textColor: "#ffffff" })),
 ]).optional();
 export const marketplaceTopicMetadataSchema = z.object({
   state: z.preprocess(

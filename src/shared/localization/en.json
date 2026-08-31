@@ -53,6 +53,7 @@
     "syncStarted": "Marketplace sync started",
     "syncStartedDescription": "Open Jobs to follow its progress.",
     "syncPreviewTitle": "Review marketplace sync",
+    "syncLoading": "Reading current topics and quizzes from the file system…",
     "syncItem": "Item",
     "syncAction": "How it will sync",
     "syncMarketplaceState": "State",

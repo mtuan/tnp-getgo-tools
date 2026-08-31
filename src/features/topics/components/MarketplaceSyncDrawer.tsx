@@ -29,6 +29,8 @@ export function MarketplaceSyncDrawer({
   topics,
   quizzes,
   locale,
+  loading,
+  loadError,
   busy,
   onClose,
   onSync,
@@ -36,6 +38,8 @@ export function MarketplaceSyncDrawer({
   topics: ContentV2TopicSummary[];
   quizzes: ContentV2QuizSummary[];
   locale: "en" | "vi";
+  loading: boolean;
+  loadError: string | null;
   busy: boolean;
   onClose(): void;
   onSync(items: MarketplaceSyncJobItem[]): Promise<void>;
@@ -102,24 +106,29 @@ export function MarketplaceSyncDrawer({
     presentation="drawer"
     className="marketplace-sync-drawer"
     title={copy.syncPreviewTitle}
-    busy={busy}
-    error={null}
+    busy={busy || loading}
+    error={loadError}
     submitLabel={copy.syncStart}
     submitColor="primary"
-    submitDisabled={plan.length === 0}
+    submitDisabled={loading || Boolean(loadError) || plan.length === 0}
     onClose={onClose}
     onSubmit={submit}
   >
-    <ui.TreeDataTable
-      ariaLabel={copy.syncPreviewTitle}
-      columns={columns}
-      rows={rows}
-      rowKey={(item) => item.kind === "quiz" ? `quiz:${item.quiz.key}` : `topic:${item.topic.id}`}
-      emptyText={copy.syncNothing}
-      horizontalScroll
-      renderIdentity={(item, _depth, toggle) => item.kind === "quiz"
-        ? <TopicQuizTreeIdentity toggle={toggle} topicId={item.topic.id} reference={item.quiz.icon} title={item.quiz.title} description={item.quiz.id} kind="quiz" />
-        : <TopicQuizTreeIdentity toggle={toggle} topicId={item.topic.id} reference={item.topic.icon} title={item.topic.title} description={item.topic.description || item.topic.id} kind="topic" count={plan.filter((candidate) => candidate.kind === "quiz" && candidate.topic.id === item.topic.id).length} />}
-    />
+    {!loadError && <div className="marketplace-sync-content" aria-busy={loading || undefined}>
+      <ui.TreeDataTable
+        ariaLabel={copy.syncPreviewTitle}
+        columns={columns}
+        rows={rows}
+        rowKey={(item) => item.kind === "quiz" ? `quiz:${item.quiz.key}` : `topic:${item.topic.id}`}
+        emptyText={copy.syncNothing}
+        horizontalScroll
+        renderIdentity={(item, _depth, toggle) => item.kind === "quiz"
+          ? <TopicQuizTreeIdentity toggle={toggle} topicId={item.topic.id} reference={item.quiz.icon} title={item.quiz.title} description={item.quiz.id} kind="quiz" />
+          : <TopicQuizTreeIdentity toggle={toggle} topicId={item.topic.id} reference={item.topic.icon} title={item.topic.title} description={item.topic.description || item.topic.id} kind="topic" count={plan.filter((candidate) => candidate.kind === "quiz" && candidate.topic.id === item.topic.id).length} />}
+      />
+      {loading && <div className="marketplace-sync-loading-mask" role="status" aria-label={copy.syncLoading}>
+        <span className="mini-spinner" aria-hidden="true" />
+      </div>}
+    </div>}
   </ui.DialogFrame>;
 }

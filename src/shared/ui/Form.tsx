@@ -10,6 +10,7 @@ import { Button } from "./Button"
 import { Input } from "./Input"
 import { QuizCodeEditor } from "../../features/quiz-editor/components/QuizCodeEditor"
 import { encodeFourLetterIcon, FourLetterIcon, fourLetterIconColors, fourLetterIconThemeGrades, fourLetterIconThemes, parseFourLetterIcon, type FourLetterIconTheme } from "./FourLetterIcon"
+import { isTextContentIconText } from "../domain/content-icon"
 
 export type { SelectOption } from "./Select"
 export interface FieldRules {
@@ -146,6 +147,7 @@ function IconControl({ field, value, disabled, onChange }: { field: Extract<Form
   const [search, setSearch] = useState("")
   const [textCode, setTextCode] = useState("")
   const [textTheme, setTextTheme] = useState<FourLetterIconTheme>("violet")
+  const [textColor, setTextColor] = useState("#ffffff")
   const [popoverPosition, setPopoverPosition] = useState({ left: 8, width: 420, top: 0, bottom: 0, openUp: false })
   const inputRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -176,7 +178,7 @@ function IconControl({ field, value, disabled, onChange }: { field: Extract<Form
       const rect = pickerRef.current?.getBoundingClientRect()
       if (!rect) return
       const width = Math.min(420, window.innerWidth - 16)
-      const preferredHeight = open === "symbol" ? 440 : 290
+      const preferredHeight = open === "symbol" ? 440 : 350
       const openUp = window.innerHeight - rect.bottom < preferredHeight && rect.top > window.innerHeight - rect.bottom
       setPopoverPosition({
         left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
@@ -211,12 +213,12 @@ function IconControl({ field, value, disabled, onChange }: { field: Extract<Form
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }}
     onDrop={event => { event.preventDefault(); setDragging(false); if (!disabled) load(event.dataTransfer.files?.[0]) }}>
     <div className="schema-icon-value">
-      <span className="schema-icon-preview">{isImage && previewSource ? <img src={previewSource} alt="" /> : textIcon ? <FourLetterIcon code={textIcon.code} color={textIcon.color} /> : source && !isImage ? source : <ImagePlus />}</span>
-      <span>{textIcon ? `4-letter text · ${textIcon.code}` : source ? isImage ? source.startsWith("asset:") ? source.slice(6) : "Selected image" : source : "Select an image, symbol, or 4-letter text"}</span>
+      <span className="schema-icon-preview">{isImage && previewSource ? <img src={previewSource} alt="" /> : textIcon ? <FourLetterIcon code={textIcon.code} backgroundColor={textIcon.backgroundColor} textColor={textIcon.textColor} /> : source && !isImage ? source : <ImagePlus />}</span>
+      <span>{textIcon ? `Text icon · ${textIcon.code}` : source ? isImage ? source.startsWith("asset:") ? source.slice(6) : "Selected image" : source : "Select an image, symbol, or text icon"}</span>
     </div>
     <Button variant="icon" color="primary" icon={<FolderOpen />} title="Browse icon image" aria-label="Browse icon image" disabled={disabled} onClick={event => { event.stopPropagation(); inputRef.current?.click() }} />
     <Button variant="icon" color="neutral" icon={<SmilePlus />} title="Choose Unicode symbol" aria-label="Choose Unicode symbol" disabled={disabled} onClick={event => { event.stopPropagation(); setOpen(current => current === "symbol" ? null : "symbol") }} />
-    <Button variant="icon" color="neutral" icon={<Type />} title="Use 4-letter text" aria-label="Use 4-letter text" disabled={disabled} onClick={event => { event.stopPropagation(); setTextCode(textIcon?.code ?? ""); setTextTheme(textIcon?.theme ?? "violet"); setOpen(current => current === "text" ? null : "text") }} />
+    <Button variant="icon" color="neutral" icon={<Type />} title="Use text icon" aria-label="Use text icon" disabled={disabled} onClick={event => { event.stopPropagation(); setTextCode(textIcon?.code ?? ""); setTextTheme(textIcon?.theme ?? "violet"); setTextColor(textIcon?.textColor ?? "#ffffff"); setOpen(current => current === "text" ? null : "text") }} />
     {(source || textIcon) && <Button variant="icon" color="danger" icon={<X />} title="Remove icon" aria-label="Remove icon" disabled={disabled} onClick={() => onChange("")} />}
     <input ref={inputRef} type="file" accept={field.accept ?? "image/png,image/jpeg,image/webp,image/svg+xml"} hidden onChange={event => { load(event.target.files?.[0]); event.currentTarget.value = "" }} />
     {open === "symbol" && createPortal(<div ref={popoverRef} className="schema-icon-popover schema-icon-popover-portal" style={{ left: popoverPosition.left, width: popoverPosition.width, top: popoverPosition.openUp ? "auto" : popoverPosition.top, bottom: popoverPosition.openUp ? popoverPosition.bottom : "auto" }} role="dialog" aria-label="Choose icon symbol">
@@ -226,14 +228,15 @@ function IconControl({ field, value, disabled, onChange }: { field: Extract<Form
       </div>
       <div className="schema-icon-categories">{categories.length ? categories.map(category => <section key={category.name}><h4>{category.name}</h4><div className="schema-icon-symbols">{category.items.map(([symbol, keywords]) => <button type="button" className={source === symbol ? "selected" : ""} aria-label={`Use ${keywords}`} title={keywords} onClick={() => { onChange(symbol); setOpen(null); setSearch("") }} key={symbol}><span>{symbol}</span>{source === symbol && <Check />}</button>)}</div></section>) : <p className="schema-icon-empty">No matching symbols.</p>}</div>
     </div>, document.body)}
-    {open === "text" && createPortal(<div ref={popoverRef} className="schema-icon-popover schema-icon-popover-portal schema-icon-text-popover" style={{ left: popoverPosition.left, width: popoverPosition.width, top: popoverPosition.openUp ? "auto" : popoverPosition.top, bottom: popoverPosition.openUp ? popoverPosition.bottom : "auto" }} role="dialog" aria-label="Create 4-letter text icon">
-      <div className="schema-icon-popover-header"><div><strong>Four-letter text icon</strong><Button variant="icon" icon={<X />} aria-label="Close text icon editor" title="Close" onClick={() => setOpen(null)} /></div></div>
+    {open === "text" && createPortal(<div ref={popoverRef} className="schema-icon-popover schema-icon-popover-portal schema-icon-text-popover" style={{ left: popoverPosition.left, width: popoverPosition.width, top: popoverPosition.openUp ? "auto" : popoverPosition.top, bottom: popoverPosition.openUp ? popoverPosition.bottom : "auto" }} role="dialog" aria-label="Create text icon">
+      <div className="schema-icon-popover-header"><div><strong>Text icon</strong><Button variant="icon" icon={<X />} aria-label="Close text icon editor" title="Close" onClick={() => setOpen(null)} /></div></div>
       <div className="schema-icon-text-editor">
-        <FourLetterIcon code={textCode.padEnd(4, " ")} theme={textTheme} label="Text icon preview" className="schema-icon-text-preview" />
-        <Input className="schema-icon-code-input" autoFocus aria-label="Four-letter icon text" placeholder="TIMO" value={textCode} onChange={event => setTextCode(Array.from(event.target.value.toLocaleUpperCase().replace(/[^\p{L}\p{N}]/gu, "")).slice(0, 4).join(""))} onKeyDown={event => { if (event.key === "Enter" && Array.from(textCode).length === 4) { event.preventDefault(); onChange(encodeFourLetterIcon(textCode, textTheme)); setOpen(null) } }} />
-        <div className="schema-icon-theme-picker" role="radiogroup" aria-label="Monogram color">{fourLetterIconThemes.map((theme, index) => { const grade = fourLetterIconThemeGrades[index]; const label = grade === "K" ? "Kindergarten" : `Grade ${grade}`; const color = fourLetterIconColors[theme]; return <button type="button" role="radio" aria-checked={textTheme === theme} className={textTheme === theme ? "selected" : ""} style={{ "--monogram-border": color, "--monogram-from": color, "--monogram-to": color } as CSSProperties} aria-label={`${label}: ${color}`} title={`${label} · ${color}`} onClick={() => setTextTheme(theme)} key={theme}><span>{textTheme === theme ? <Check /> : grade}</span></button> })}</div>
-        <p>Enter exactly four letters or numbers. They will appear in a 2 × 2 outlined monogram.</p>
-        <Button variant="solid" color="primary" disabled={Array.from(textCode).length !== 4} onClick={() => { onChange(encodeFourLetterIcon(textCode, textTheme)); setOpen(null) }}>Use text icon</Button>
+        <FourLetterIcon code={textCode.padEnd(4, " ")} theme={textTheme} textColor={textColor} label="Text icon preview" className="schema-icon-text-preview" />
+        <Input className="schema-icon-code-input" autoFocus aria-label="Icon text" placeholder="SEA-MO" value={textCode} onChange={event => { const cleaned = Array.from(event.target.value.toLocaleUpperCase().replace(/[^\p{L}\p{N}-]/gu, "")).filter((character, index, all) => character !== "-" || all.indexOf("-") === index).slice(0, 7).join(""); setTextCode(cleaned) }} onKeyDown={event => { if (event.key === "Enter" && isTextContentIconText(textCode)) { event.preventDefault(); onChange(encodeFourLetterIcon(textCode, textTheme, textColor)); setOpen(null) } }} />
+        <div className="schema-icon-color-field"><strong>Background · grade</strong><div className="schema-icon-theme-picker" role="radiogroup" aria-label="Background color by grade">{fourLetterIconThemes.map((theme, index) => { const grade = fourLetterIconThemeGrades[index]; const label = grade === "K" ? "Kindergarten" : `Grade ${grade}`; const color = fourLetterIconColors[theme]; return <button type="button" role="radio" aria-checked={textTheme === theme} className={textTheme === theme ? "selected" : ""} style={{ "--monogram-border": color, "--monogram-from": color, "--monogram-to": color } as CSSProperties} aria-label={`${label}: ${color}`} title={`${label} · ${color}`} onClick={() => setTextTheme(theme)} key={theme}><span>{textTheme === theme ? <Check /> : grade}</span></button> })}</div></div>
+        <div className="schema-icon-color-field"><strong>Text color</strong><div className="schema-icon-theme-picker schema-icon-text-color-picker" role="radiogroup" aria-label="Text color">{["#ffffff", "#fef3c7", "#dcfce7", "#cffafe", "#dbeafe", "#ede9fe", "#fce7f3", "#111827"].map(color => <button type="button" role="radio" aria-checked={textColor === color} className={textColor === color ? "selected" : ""} style={{ "--monogram-border": color, "--monogram-from": color, "--monogram-to": color } as CSSProperties} aria-label={`Text color ${color}`} title={color} onClick={() => setTextColor(color)} key={color}><span>{textColor === color ? <Check /> : null}</span></button>)}</div></div>
+        <p>Enter 4–6 letters or numbers. Add “-” to choose the row break, for example SEA-MO or HE-LIX.</p>
+        <Button variant="solid" color="primary" disabled={!isTextContentIconText(textCode)} onClick={() => { onChange(encodeFourLetterIcon(textCode, textTheme, textColor)); setOpen(null) }}>Use text icon</Button>
       </div>
     </div>, document.body)}
   </div>

@@ -149,6 +149,31 @@ ipcMain.handle("content-v2:route:load", async (_event, topicId: unknown) => {
     : await loadContentV2TopicsOverview(root, target.projectId);
   return { repositoryPath: root, loadedAt: new Date().toISOString(), content: loaded.content };
 });
+ipcMain.handle("content-v2:sync-preview:load", async () => {
+  const root = await repositoryRoot();
+  const target = await firebaseAuth.publishingTarget();
+  const overview = await loadContentV2TopicsOverview(root, target.projectId);
+  const loaded = [];
+  for (let offset = 0; offset < overview.content.topics.length; offset += 4) {
+    loaded.push(...await Promise.all(
+      overview.content.topics.slice(offset, offset + 4).map((topic) =>
+        loadContentV2TopicFolder(root, topic.id, {
+          lightweight: false,
+          projectId: target.projectId,
+        })),
+    ));
+  }
+  return {
+    repositoryPath: root,
+    loadedAt: new Date().toISOString(),
+    content: {
+      topics: loaded.flatMap((item) => item.content.topics),
+      quizzes: loaded.flatMap((item) => item.content.quizzes),
+      questions: [],
+      issues: loaded.flatMap((item) => item.content.issues),
+    },
+  };
+});
 ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
   if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
   return loadContentV2Topic(await repositoryRoot(), topicId);

@@ -7,12 +7,15 @@ import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { MarketplaceSyncDrawer } from "../../components/MarketplaceSyncDrawer";
 import { TopicFilterControls } from "./TopicFilterControls";
-import { marketplaceSyncCandidateTopicIds } from "../../domain/marketplace-sync-plan";
 import { ManagerSearchInput } from "./ManagerSearchInput";
 
 type Context = Record<string, any> & { snapshot: RepositoryViewData };
 const activeStatuses = new Set(["queued", "running", "paused"]);
 const isSyncJob = (job: BackgroundJob) => job.kind === "publish" && job.name === "Sync marketplace · All topics" && activeStatuses.has(job.status);
+
+async function loadFreshSyncContent(): Promise<RepositoryViewData["contentV2"]> {
+  return (await window.getgo.loadContentV2SyncPreview()).content;
+}
 
 function applyMarketplaceStateUpdate(snapshot: RepositoryViewData, result: MarketplaceStateUpdateResult): RepositoryViewData {
   const records = new Map(result.records.map((record) => [record.id, record]));
@@ -82,34 +85,21 @@ export function ManagerHeaderControls(context: Context) {
   const sync = useMarketplaceSync(locale, toast, onOpenJobs, refreshAfterSync);
   const [syncPreviewOpen, setSyncPreviewOpen] = useState(false);
   const [loadingSyncPreview, setLoadingSyncPreview] = useState(false);
+  const [syncPreviewError, setSyncPreviewError] = useState<string | null>(null);
   const [syncPreview, setSyncPreview] = useState<RepositoryViewData["contentV2"] | null>(null);
   const [startingSync, setStartingSync] = useState(false);
   const openSyncPreview = async () => {
+    setSyncPreview(null);
+    setSyncPreviewError(null);
+    setSyncPreviewOpen(true);
     setLoadingSyncPreview(true);
     try {
-      const topicIds = marketplaceSyncCandidateTopicIds(
-        snapshot.contentV2.topics,
-        snapshot.contentV2.quizzes,
-      );
-      const loaded = await Promise.all(
-        topicIds.map((topicId) => window.getgo.loadContentV2Route(topicId)),
-      );
-      const refreshedIds = new Set(topicIds);
-      setSyncPreview({
-        ...snapshot.contentV2,
-        topics: [
-          ...snapshot.contentV2.topics.filter((topic) => !refreshedIds.has(topic.id)),
-          ...loaded.flatMap((result) => result.content.topics),
-        ],
-        quizzes: [
-          ...snapshot.contentV2.quizzes.filter((quiz) => !refreshedIds.has(quiz.topicId)),
-          ...loaded.flatMap((result) => result.content.quizzes),
-        ],
-        questions: snapshot.contentV2.questions,
-        issues: [...snapshot.contentV2.issues, ...loaded.flatMap((result) => result.content.issues)],
-      });
+      const content = await loadFreshSyncContent();
+      setSyncPreview(content);
+      onSnapshotChange({ ...snapshot, loadedAt: new Date().toISOString(), contentV2: content });
       setSyncPreviewOpen(true);
     } catch (error) {
+      setSyncPreviewError(error instanceof Error ? error.message : String(error));
       toast.show({ title: copy.publishFailed, description: String(error), variant: "error" });
     } finally {
       setLoadingSyncPreview(false);
@@ -202,11 +192,13 @@ export function ManagerHeaderControls(context: Context) {
     {headerStateControl}
     <ui.ActionMenu label="More" disabled={Boolean(buttonAction)} items={items} />
     {syncPreviewOpen && <MarketplaceSyncDrawer
-      topics={syncPreview?.topics ?? snapshot.contentV2.topics}
-      quizzes={syncPreview?.quizzes ?? snapshot.contentV2.quizzes}
+      topics={syncPreview?.topics ?? []}
+      quizzes={syncPreview?.quizzes ?? []}
       locale={locale}
+      loading={loadingSyncPreview}
+      loadError={syncPreviewError}
       busy={startingSync}
-      onClose={() => { setSyncPreviewOpen(false); setSyncPreview(null); }}
+      onClose={() => { setSyncPreviewOpen(false); setSyncPreview(null); setSyncPreviewError(null); }}
       onSync={async (items) => {
         setStartingSync(true);
         const started = await sync.start(items);

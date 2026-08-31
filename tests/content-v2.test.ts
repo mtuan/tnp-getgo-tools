@@ -69,6 +69,10 @@ test("content v2 text icons use an extensible object and accept legacy strings",
   assert.deepEqual(topic.icon, icon);
   assert.deepEqual(parseTextContentIcon(topic.icon), icon);
   assert.deepEqual(parseTextContentIcon("text:emerald:IKMC"), { ...icon, text: "IKMC" });
+  assert.deepEqual(parseTextContentIcon("text:#e11d48:SEAMO"), { type: "text", text: "SEAMO", color: "#e11d48" });
+  assert.deepEqual(parseTextContentIcon("text:#e11d48:SEA-MO"), { type: "text", text: "SEA-MO", color: "#e11d48" });
+  assert.deepEqual(parseTextContentIcon({ type: "text", text: "HE-LIX", color: "#0891b2" }), { type: "text", text: "HE-LIX", color: "#0891b2" });
+  assert.equal(parseTextContentIcon("text:#e11d48:TOOLONG"), null);
 });
 
 test("content safety finds bilingual whole words and reports their data paths", () => {

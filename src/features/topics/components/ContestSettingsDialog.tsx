@@ -38,7 +38,7 @@ const generalFields = (iconPreview: string, topicMode: boolean, language: Editor
       { type: "text", name: language === "vi" ? "titleVi" : "title", label: "Display title", required: true },
     ],
     [
-      { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a four-letter text monogram." },
+      { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a 4–6 character text monogram." },
       { type: "textarea", name: language === "vi" ? "descriptionVi" : "description", label: "Description", rows: 3 },
     ],
     ...(topicMode ? [[

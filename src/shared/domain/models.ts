@@ -757,6 +757,7 @@ export interface DesktopApi {
   onContentSafetyWarning(listener: (warning: ContentSafetyWarning) => void): () => void;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;
+  loadContentV2SyncPreview(): Promise<ContentV2RouteData>;
   loadContentV2Quiz(topicId: string, quizId: string): Promise<ContentV2Quiz>;
   loadContentV2Question(
     topicId: string,

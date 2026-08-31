@@ -53,6 +53,7 @@
     "syncStarted": "Đã bắt đầu đồng bộ kho nội dung",
     "syncStartedDescription": "Mở Tác vụ để theo dõi tiến độ.",
     "syncPreviewTitle": "Kiểm tra đồng bộ kho nội dung",
+    "syncLoading": "Đang đọc chủ đề và bộ câu hỏi hiện tại từ hệ thống tệp…",
     "syncItem": "Mục",
     "syncAction": "Cách đồng bộ",
     "syncMarketplaceState": "Trạng thái",
