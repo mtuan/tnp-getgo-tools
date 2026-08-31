@@ -42,11 +42,15 @@ test("content v2 contest text supports bilingual values and legacy strings", () 
     type: "competition",
     title: { en: "ITMC - Round 1 - Grade 3", vi: "ITMC - Vòng 1 - Lớp 3" },
     description: { en: "International Talent Mathematics Contest", vi: "Kỳ thi Toán học Tài năng Quốc tế" },
+    subjects: ["mathematics"],
+    grades: [3],
     subject: "mathematics",
     rounds: [{ id: "r1", title: { en: "Round 1", vi: "Vòng 1" } }],
     gradeGroups: [{ id: "grade-3", title: { en: "Grade 3", vi: "Lớp 3" }, grades: [3] }],
   });
   assert.equal(localizedText(topic.title, "vi"), "ITMC - Vòng 1 - Lớp 3");
+  assert.deepEqual(topic.subjects, ["mathematics"]);
+  assert.deepEqual(topic.grades, [3]);
   assert.equal(localizedText("Legacy title", "vi"), "Legacy title");
 });
 

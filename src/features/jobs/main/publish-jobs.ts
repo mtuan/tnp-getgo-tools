@@ -163,6 +163,15 @@ export class PublishJobManager {
     await this.persist();
   }
 
+  async clearFinished() {
+    await this.ensureLoaded();
+    const active = new Set(["queued", "running", "paused"]);
+    const removedIds = this.jobs.filter((job) => !active.has(job.status)).map((job) => job.id);
+    this.jobs = this.jobs.filter((job) => active.has(job.status));
+    removedIds.forEach((id) => this.retryTasks.delete(id));
+    await this.persist();
+  }
+
   private async run<T>(job: PublishJob, task: (control: PublishJobControl) => Promise<T>): Promise<T> {
     const runtime: Runtime = { paused: false, cancelled: false };
     this.runtimes.set(job.id, runtime);

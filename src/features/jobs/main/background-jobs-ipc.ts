@@ -54,6 +54,15 @@ export function registerBackgroundJobsIpc(
     return { aiConcurrency: migration.concurrency, jobs };
   };
   ipcMain.handle("jobs:list", snapshot);
+  ipcMain.handle("jobs:clear-finished", async () => {
+    await Promise.all([
+      aiMigrationJobs.clearFinished(),
+      publishJobs.clearFinished(),
+      webDeploymentJobs.clearFinished(),
+      nativeDeploymentJobs.clearFinished(),
+    ]);
+    return snapshot();
+  });
   ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown) => {
     if (!(operation === "run" || operation === "build" || operation === "deploy")) throw new Error("Invalid deployment operation.");
     if (!(component === "firebase" || component === "web" || component === "mobile-ios" || component === "mobile-android")) throw new Error("Invalid deployment component.");

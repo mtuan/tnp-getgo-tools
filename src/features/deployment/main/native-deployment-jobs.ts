@@ -213,6 +213,12 @@ export class NativeDeploymentJobManager {
     await this.persist();
   }
 
+  async clearFinished() {
+    await this.ensureLoaded();
+    this.jobs = this.jobs.filter((job) => ["queued", "running", "paused"].includes(job.status));
+    await this.persist();
+  }
+
   async pause(id: string) {
     await this.ensureLoaded();
     const job = this.jobs.find(item => item.id === id);

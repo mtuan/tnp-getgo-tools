@@ -28,6 +28,9 @@ const emptySettings = (): ContestSettings => ({
   categories: [], quizRules: [],
 })
 
+const subjectOptions = ["Mathematics", "English", "Vietnamese", "Physics", "Chemistry", "Biology", "History", "Geography"].map(label => ({ label, value: label.toLowerCase() }))
+const gradeOptions = Array.from({ length: 13 }, (_, grade) => ({ value: String(grade), label: grade === 0 ? "Kindergarten" : `Grade ${grade}` }))
+
 const generalFields = (iconPreview: string, topicMode: boolean, language: EditorLanguage): FormSchema[] => [
   { section: topicMode ? "Topic information" : "Contest information", description: "Identity and visibility across GetGo.", fields: [
     [
@@ -38,16 +41,18 @@ const generalFields = (iconPreview: string, topicMode: boolean, language: Editor
       { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a four-letter text monogram." },
       { type: "textarea", name: language === "vi" ? "descriptionVi" : "description", label: "Description", rows: 3 },
     ],
-    [
-      { type: "select", name: "subject", label: "Subject", options: ["Mathematics", "English", "Vietnamese", "Physics", "Chemistry", "Biology", "History", "Geography"].map((label, index) => ({ label, value: String(index + 1) })) },
-      { type: "toggle", name: "isActive", label: topicMode ? "Active topic" : "Active contest" },
-    ],
     ...(topicMode ? [[
+      { type: "multi-select" as const, name: "subjects", label: "Subjects", required: true, options: subjectOptions },
+      { type: "multi-select" as const, name: "supportedGrades", label: "Grades", options: gradeOptions },
+    ], [
       { type: "select" as const, name: "topicType", label: "Topic type", options: [
         { value: "competition", label: "Contest" },
         { value: "kid-learning", label: "Kid learning" },
       ] },
-    ]] : []),
+    ]] : [[
+      { type: "select" as const, name: "subject", label: "Subject", options: ["Mathematics", "English", "Vietnamese", "Physics", "Chemistry", "Biology", "History", "Geography"].map((label, index) => ({ label, value: String(index + 1) })) },
+      { type: "toggle" as const, name: "isActive", label: "Active contest" },
+    ]]),
   ] as FormRow[] },
 ]
 
@@ -101,6 +106,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   const dirty = JSON.stringify(settings) !== JSON.stringify(persistedSettings)
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   const isContestTopic = !topicMode || settings.book.topicType !== "kid-learning"
+  const showContestConfiguration = isContestTopic && !(embedded && topicMode)
   const visibleTabs = isContestTopic ? tabs : tabs.filter(item => item.id === "general")
   useEffect(() => {
     if (!isContestTopic) { setTab("general"); setExpanded("general") }
@@ -164,10 +170,12 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     { key: "categories", title: "Categories", width: "12%", render: rule => Array.isArray(rule.categories) ? rule.categories.length : 0 },
     { key: "actions", title: "", width: 84, render: (_rule, index) => <div className="ui-row-actions"><button type="button" onClick={() => setRuleEditor(index)} aria-label={`Edit rule ${index + 1}`}><Pencil /></button><button type="button" onClick={() => remove("quizRules", index)} aria-label={`Delete rule ${index + 1}`}><Trash2 /></button></div> },
   ]
-  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, titleVi: settings.book.titleVi ?? "", icon: settings.book.icon ?? "", description: settings.book.description ?? "", descriptionVi: settings.book.descriptionVi ?? "", topicType: settings.book.topicType ?? "competition", subject: String(settings.book.subject), isActive: settings.book.isActive !== false }
+  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, titleVi: settings.book.titleVi ?? "", icon: settings.book.icon ?? "", description: settings.book.description ?? "", descriptionVi: settings.book.descriptionVi ?? "", topicType: settings.book.topicType ?? "competition", subject: String(settings.book.subject), subjects: settings.book.subjects ?? [], supportedGrades: (settings.book.supportedGrades ?? []).map(String), isActive: settings.book.isActive !== false }
   const updateGeneral = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     if (name === "topicType") setBook({ topicType: value === "kid-learning" ? "kid-learning" : "competition" })
+    else if (name === "subjects") setBook({ subjects: Array.isArray(value) ? value.map(String) : [] })
+    else if (name === "supportedGrades") setBook({ supportedGrades: Array.isArray(value) ? value.map(Number).sort((a, b) => a - b) : [] })
     else if (name === "subject") setBook({ subject: Number(value) })
     else if (name === "isActive") setBook({ isActive: Boolean(value) })
     else if (name === "icon") setBook({ icon: value && (typeof value === "string" || typeof value === "object") ? value as ContestSettings["book"]["icon"] : undefined })
@@ -196,10 +204,10 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     {contest && !embedded && <div className="settings-tabs" role="tablist">{visibleTabs.map(item => { const Icon = item.icon; const count = item.id === "rounds" ? rounds.length : item.id === "grades" ? grades.length : item.id === "categories" ? categories.length : item.id === "rules" ? rules.length : null; return <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}><Icon />{item.label}{count !== null && <i>{count}</i>}</button> })}</div>}
     <div className="settings-tab-content" key={tab}>
       {renderSection("general", "General information", topicMode ? "Identity and topic type." : "Identity, subject, and contest visibility.", <Form fields={generalFields(iconPreview, topicMode, editorLanguage).map(entry => "section" in entry ? { ...entry, fields: entry.fields.map(row => Array.isArray(row) ? row.map(field => field.name === "code" ? { ...field, readOnly: Boolean(contest) } : field) : row.name === "code" ? { ...row, readOnly: Boolean(contest) } : row) } : entry)} values={generalValues} errors={fieldErrors} onChange={updateGeneral} />)}
-      {isContestTopic && renderSection("rounds", "Contest rounds", "Stages and practice availability.", <><div className="section-heading"><div><h3>Contest rounds</h3><p>Edit stages and practice availability inline.</p></div></div><EditTable ariaLabel="Contest rounds" columns={roundColumns(editorLanguage)} rows={rounds} reorderable onRowsReorder={rows => setList("rounds", rows)} onRowChange={(index, field, value) => update("rounds", index, field === "roundCode" ? { roundCode: String(value).toUpperCase() } : { [field]: value })} onRowAdd={() => add("rounds", { roundCode: "", roundName: "", roundNameVi: "", description: "", hasPractice: false })} onRowDelete={index => remove("rounds", index)} addLabel="Add round" emptyText="No rounds yet." /></>)}
-      {isContestTopic && renderSection("grades", "Grade mappings", "Grade names and numeric school grades.", <><div className="section-heading"><div><h3>Grade mappings</h3><p>Edit grade names and their numeric school grades inline.</p></div></div><EditTable ariaLabel="Contest grade mappings" columns={gradeColumns(editorLanguage)} rows={grades} reorderable onRowsReorder={rows => setList("grades", rows)} onRowChange={(index, field, value) => update("grades", index, field === "grades" ? { grades: (value as string[]).map(Number).sort((a, b) => a - b) } : { [field]: String(value) })} onRowAdd={() => add("grades", { gradeName: "", gradeNameVi: "", grades: [] })} onRowDelete={index => remove("grades", index)} addLabel="Add grade" emptyText="No grade mappings yet." /></>)}
-      {isContestTopic && renderSection("categories", "Question categories", "Normalized names and source matching patterns.", <EditTable ariaLabel="Question categories" columns={categoryColumns} rows={categories} reorderable onRowsReorder={rows => setList("categories", rows)} onRowChange={(index, field, value) => { if (field === "roundCodes") update("categories", index, { roundCodes: (value as string[]).map(code => code.toUpperCase()) }); else if (field === "patterns") update("categories", index, { patterns: parseStrings(String(value)) }); else if (field === "roundHint") update("categories", index, { roundHint: String(value).trim() || undefined }); else update("categories", index, { categoryName: String(value) }) }} onRowAdd={() => add("categories", { categoryName: "", roundCodes: [], patterns: [] })} onRowDelete={index => remove("categories", index)} addLabel="Add category" emptyText="No categories yet." />)}
-      {isContestTopic && renderSection("rules", "Quiz rules", "Timing, scoring, and category breakdowns.", <DataTable ariaLabel="Quiz rules" rows={rules} columns={ruleColumns} rowKey={(_rule, index) => String(index)} emptyText="No quiz rules yet." footer={<button type="button" className="ui-data-table-add" onClick={() => setRuleEditor("create")}><Plus />Add rule</button>} />)}
+      {showContestConfiguration && renderSection("rounds", "Contest rounds", "Stages and practice availability.", <><div className="section-heading"><div><h3>Contest rounds</h3><p>Edit stages and practice availability inline.</p></div></div><EditTable ariaLabel="Contest rounds" columns={roundColumns(editorLanguage)} rows={rounds} reorderable onRowsReorder={rows => setList("rounds", rows)} onRowChange={(index, field, value) => update("rounds", index, field === "roundCode" ? { roundCode: String(value).toUpperCase() } : { [field]: value })} onRowAdd={() => add("rounds", { roundCode: "", roundName: "", roundNameVi: "", description: "", hasPractice: false })} onRowDelete={index => remove("rounds", index)} addLabel="Add round" emptyText="No rounds yet." /></>)}
+      {showContestConfiguration && renderSection("grades", "Grade mappings", "Grade names and numeric school grades.", <><div className="section-heading"><div><h3>Grade mappings</h3><p>Edit grade names and their numeric school grades inline.</p></div></div><EditTable ariaLabel="Contest grade mappings" columns={gradeColumns(editorLanguage)} rows={grades} reorderable onRowsReorder={rows => setList("grades", rows)} onRowChange={(index, field, value) => update("grades", index, field === "grades" ? { grades: (value as string[]).map(Number).sort((a, b) => a - b) } : { [field]: String(value) })} onRowAdd={() => add("grades", { gradeName: "", gradeNameVi: "", grades: [] })} onRowDelete={index => remove("grades", index)} addLabel="Add grade" emptyText="No grade mappings yet." /></>)}
+      {showContestConfiguration && renderSection("categories", "Question categories", "Normalized names and source matching patterns.", <EditTable ariaLabel="Question categories" columns={categoryColumns} rows={categories} reorderable onRowsReorder={rows => setList("categories", rows)} onRowChange={(index, field, value) => { if (field === "roundCodes") update("categories", index, { roundCodes: (value as string[]).map(code => code.toUpperCase()) }); else if (field === "patterns") update("categories", index, { patterns: parseStrings(String(value)) }); else if (field === "roundHint") update("categories", index, { roundHint: String(value).trim() || undefined }); else update("categories", index, { categoryName: String(value) }) }} onRowAdd={() => add("categories", { categoryName: "", roundCodes: [], patterns: [] })} onRowDelete={index => remove("categories", index)} addLabel="Add category" emptyText="No categories yet." />)}
+      {showContestConfiguration && renderSection("rules", "Quiz rules", "Timing, scoring, and category breakdowns.", <DataTable ariaLabel="Quiz rules" rows={rules} columns={ruleColumns} rowKey={(_rule, index) => String(index)} emptyText="No quiz rules yet." footer={<button type="button" className="ui-data-table-add" onClick={() => setRuleEditor("create")}><Plus />Add rule</button>} />)}
     </div>
     {ruleEditor !== null && <RuleEditorDrawer rule={ruleEditor === "create" ? { roundCode: "", gradeNames: ["*"], totalQuestions: 1, totalPoints: 0, initPoints: 0, timeLimit: 0, answerType: 0, categories: [] } : rules[ruleEditor]} rounds={rounds} grades={grades} onClose={() => setRuleEditor(null)} onSave={rule => { if (ruleEditor === "create") add("quizRules", rule); else update("quizRules", ruleEditor, rule); setRuleEditor(null) }} />}
   </DialogFrame>

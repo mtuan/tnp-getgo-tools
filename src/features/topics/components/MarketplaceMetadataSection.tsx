@@ -136,6 +136,7 @@ export function MarketplaceMetadataSection({
   }, [recordKey]);
   const current = draft ? metadata(draft) : null;
   const isTopic = Boolean(draft && !("topicId" in draft));
+  const isKidLearningTopic = Boolean(isTopic && draft?.type === "kid-learning");
   const subjectOptions = useMemo(() => {
     if (!isTopic)
       return parentSubjects.map((subject) => ({
@@ -174,32 +175,24 @@ export function MarketplaceMetadataSection({
         helper: copy.fields.previewHelp,
         presentation: "row",
       },
-      {
+      ...(!isTopic ? [{
         type: "textarea",
         name: "shortDescription",
         label: copy.fields.shortDescription,
         required: true,
-      },
-      {
+      } as FormSchema, {
         type: "textarea",
         name: "fullDescription",
         label: copy.fields.fullDescription,
         required: true,
-      },
-      [
-        isTopic
-          ? {
-              type: "multi-select",
-              name: "subjects",
-              label: copy.fields.subjects,
-              options: subjectOptions,
-            }
-          : {
+      } as FormSchema] : []),
+      ...(!isTopic ? [[
+        {
               type: "select",
               name: "subjects",
               label: copy.fields.subjects,
               options: subjectOptions,
-            },
+        },
         {
           type: "multi-select",
           name: "languages",
@@ -209,8 +202,13 @@ export function MarketplaceMetadataSection({
             { value: "vi", label: "Tiếng Việt" },
           ],
         },
-      ],
-      [
+      ] as FormSchema] : [{
+        type: "multi-select",
+        name: "languages",
+        label: copy.fields.languages,
+        options: [{ value: "en", label: "English" }, { value: "vi", label: "Tiếng Việt" }],
+      } as FormSchema]),
+      ...(isKidLearningTopic ? [[
         {
           type: "textarea",
           name: "tags",
@@ -223,7 +221,7 @@ export function MarketplaceMetadataSection({
           label: copy.fields.learningObjectives,
           helper: copy.fields.listHelp,
         },
-      ],
+      ] as FormSchema] : []),
       [
         {
           type: "number",
@@ -265,7 +263,7 @@ export function MarketplaceMetadataSection({
         },
       ],
     ],
-    [copy, isTopic, subjectOptions],
+    [copy, isKidLearningTopic, isTopic, subjectOptions],
   );
   const change = (name: string, value: unknown) =>
     setDraft((record) => {

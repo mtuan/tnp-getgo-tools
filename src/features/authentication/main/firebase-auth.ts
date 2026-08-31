@@ -84,6 +84,38 @@ async function postJson(
   return payload;
 }
 
+const retryableHttpStatuses = new Set([408, 429, 500, 502, 503, 504]);
+
+async function fetchWithRetry(
+  url: string | URL,
+  init: RequestInit,
+  label: string,
+  timeoutMs: number,
+): Promise<Response> {
+  const delays = [0, 350, 900];
+  let lastCause: unknown;
+  for (let attempt = 0; attempt < delays.length; attempt += 1) {
+    if (delays[attempt]) await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    const signal = init.signal
+      ? AbortSignal.any([init.signal, timeoutSignal])
+      : timeoutSignal;
+    try {
+      const response = await fetch(url, { ...init, signal });
+      if (!retryableHttpStatuses.has(response.status) || attempt === delays.length - 1)
+        return response;
+      await response.body?.cancel().catch(() => undefined);
+      lastCause = new Error(`HTTP ${response.status}`);
+    } catch (cause) {
+      if (init.signal?.aborted) throw cause;
+      lastCause = cause;
+      if (attempt === delays.length - 1) break;
+    }
+  }
+  const detail = lastCause instanceof Error ? lastCause.message : String(lastCause);
+  throw new Error(`${label} failed after ${delays.length} attempts: ${detail}`, { cause: lastCause });
+}
+
 export class FirebaseAuthService {
   private session: Session | null = null;
   private sessionEnvironment: GetGoEnvironment | null = null;
@@ -267,10 +299,11 @@ export class FirebaseAuthService {
     await this.persist(environment, nextRefreshToken);
     return this.session;
   }
-  private async activeSession() {
+  private async activeSession(forceRefresh = false) {
     const { environment, firebase } = await this.config();
     if (this.sessionEnvironment !== environment) this.session = null;
     if (
+      !forceRefresh &&
       this.session &&
       isFirebaseIdToken(this.session.idToken) &&
       this.session.expiresAt > Date.now() + 60_000
@@ -303,7 +336,7 @@ export class FirebaseAuthService {
     const {
       firebase: { projectId },
     } = await this.config();
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents${relativePath}`,
       {
         ...init,
@@ -312,17 +345,18 @@ export class FirebaseAuthService {
           "content-type": "application/json",
           ...init.headers,
         },
-        signal: init.signal ?? AbortSignal.timeout(30_000),
       },
+      `Firestore request ${relativePath}`,
+      30_000,
     );
     return { projectId, response };
   }
-  private async storageTarget(): Promise<{
+  private async storageTarget(forceRefresh = false): Promise<{
     session: Session;
     projectId: string;
     bucket: string;
   }> {
-    const session = await this.activeSession();
+    const session = await this.activeSession(forceRefresh);
     if (!session) throw new Error("Sign in before changing content assets.");
     const {
       firebase: { projectId, storageBucket },
@@ -335,42 +369,51 @@ export class FirebaseAuthService {
     data: Uint8Array,
     mimeType: string,
   ): Promise<{ projectId: string; bucket: string }> {
-    const { session, projectId, bucket } = await this.storageTarget();
-    const url = new URL(
-      `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o`,
-    );
-    url.searchParams.set("uploadType", "media");
-    url.searchParams.set("name", objectPath);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${session.idToken}`,
-        "content-type": mimeType,
-      },
-      body: Buffer.from(data),
-      signal: AbortSignal.timeout(60_000),
-    });
+    let target = await this.storageTarget();
+    const upload = ({ session, bucket }: Awaited<ReturnType<FirebaseAuthService["storageTarget"]>>) => {
+      const url = new URL(
+        `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o`,
+      );
+      url.searchParams.set("uploadType", "media");
+      url.searchParams.set("name", objectPath);
+      return fetchWithRetry(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${session.idToken}`,
+          "content-type": mimeType,
+        },
+        body: Buffer.from(data),
+      }, `Storage upload ${objectPath}`, 60_000);
+    };
+    let response = await upload(target);
+    // A cached Firebase token can predate a newly granted publisher claim or
+    // belong to a session restored before an environment/account switch.
+    // Refresh once before treating an authorization response as definitive.
+    if (response.status === 401 || response.status === 403) {
+      target = await this.storageTarget(true);
+      response = await upload(target);
+    }
     if (!response.ok) {
       const payload = (await response.json().catch(() => ({}))) as {
         error?: { message?: string };
       };
       throw new Error(
-        payload.error?.message ??
-          `Firebase Storage returned HTTP ${response.status}.`,
+        `Firebase Storage upload failed for “${objectPath}” in ${target.projectId}/${target.bucket} as ${target.session.user.email || "unknown account"} (HTTP ${response.status}): ${payload.error?.message ?? response.statusText}`,
       );
     }
-    return { projectId, bucket };
+    return { projectId: target.projectId, bucket: target.bucket };
   }
 
   async deleteStorageObject(objectPath: string): Promise<void> {
     const { session, bucket } = await this.storageTarget();
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(objectPath)}`,
       {
         method: "DELETE",
         headers: { authorization: `Bearer ${session.idToken}` },
-        signal: AbortSignal.timeout(30_000),
       },
+      `Storage delete ${objectPath}`,
+      30_000,
     );
     if (response.status === 404) return;
     if (!response.ok) {

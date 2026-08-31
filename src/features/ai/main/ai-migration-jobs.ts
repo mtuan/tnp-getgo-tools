@@ -138,6 +138,17 @@ export class AiMigrationJobManager {
     return this.snapshot()
   }
 
+  async clearFinished() {
+    await this.ensureLoaded()
+    const finished = this.jobs.filter(job => !["queued", "running", "paused"].includes(job.status))
+    this.jobs = this.jobs.filter(job => ["queued", "running", "paused"].includes(job.status))
+    await Promise.all(finished.map(job =>
+      fs.unlink(path.join(path.dirname(job.manifestPath), "ai-migration-job.json")).catch(() => undefined),
+    ))
+    await this.persist()
+    return this.snapshot()
+  }
+
   private schedule() {
     const capacity = this.concurrency - this.runtimes.size
     if (capacity <= 0) return

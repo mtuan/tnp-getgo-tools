@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot } from "../../../shared/domain/models";
-import { Button, ErrorFrame, PageHeader, Pagination, SegmentedControl, usePagination } from "../../../shared/ui";
+import { Button, ErrorFrame, PageHeader, Pagination, ProcessingOverlay, usePagination } from "../../../shared/ui";
 import { BackgroundJobsTable, type BackgroundJobAction } from "../components/BackgroundJobsTable";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -19,7 +19,7 @@ export function JobsPage({
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyJob, setBusyJob] = useState<string | null>(null);
-  const [savingConcurrency, setSavingConcurrency] = useState(false);
+  const [clearingFinished, setClearingFinished] = useState(false);
   const hasActiveJobs = snapshot?.jobs.some((job) => activeStatuses.has(job.status)) ?? false;
   const jobs = snapshot?.jobs ?? [];
   const pagination = usePagination(jobs);
@@ -38,16 +38,6 @@ export function JobsPage({
     const timer = window.setInterval(() => void load(), hasActiveJobs ? 750 : 2500);
     return () => window.clearInterval(timer);
   }, [hasActiveJobs, load]);
-
-  const setConcurrency = async (value: string) => {
-    setSavingConcurrency(true);
-    try {
-      await window.getgo.setAiMigrationConcurrency(Number(value));
-      await load();
-    } finally {
-      setSavingConcurrency(false);
-    }
-  };
 
   const cancel = async (job: BackgroundJob) => {
     if (!window.confirm(copy.cancelConfirm.replace("{name}", job.name))) return;
@@ -88,12 +78,28 @@ export function JobsPage({
     else void terminalAction(job, action);
   };
 
+  const clearFinished = async () => {
+    if (!window.confirm(copy.clearFinishedConfirm)) return;
+    setClearingFinished(true);
+    try {
+      setSnapshot(await window.getgo.clearFinishedBackgroundJobs());
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setClearingFinished(false);
+    }
+  };
+
+  const finishedCount = jobs.filter((job) => !activeStatuses.has(job.status)).length;
+
   return <section className="jobs-page">
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<><Button icon={<ExternalLink />} onClick={() => void window.getgo.openExternal("https://platform.openai.com/usage")}>{copy.openAiUsage}</Button>{snapshot && <div className="jobs-concurrency"><span>{copy.concurrentAiJobs}</span><SegmentedControl value={String(snapshot.aiConcurrency)} options={[1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} disabled={savingConcurrency} ariaLabel={copy.concurrentAiJobs} onValueChange={(value) => void setConcurrency(value)} /></div>}</>} />
+    <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<Button variant="solid" color="danger" icon={<Trash2 />} disabled={!finishedCount || clearingFinished} onClick={() => void clearFinished()}>{copy.clearFinished}</Button>} />
     {error && <div className="jobs-load-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>{copy.retry}</Button></div>}
     {!error && snapshot && <>
       <BackgroundJobsTable locale={locale} ariaLabel={copy.recentJobs} rows={pagination.pageItems} busyJob={busyJob} emptyText={copy.empty} onAction={jobAction} onOpenRoute={onOpenQuiz} />
       <Pagination locale={locale} page={pagination.page} pageCount={pagination.pageCount} onPageChange={pagination.setPage} />
     </>}
+    <ProcessingOverlay open={clearingFinished} title={copy.clearingFinished} />
   </section>;
 }

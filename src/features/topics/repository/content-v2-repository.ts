@@ -389,6 +389,8 @@ export async function loadContentV2WorkspaceFromFiles(
       icon: topic.icon,
       description: localizedText(topic.description),
       localizedDescription: topic.description,
+      subjects: topic.subjects.length ? topic.subjects : topic.type === "competition" ? [topic.subject] : topic.marketplace?.subjects ?? [],
+      grades: topic.grades.length ? topic.grades : topic.type === "competition" ? [...new Set(topic.gradeGroups.flatMap(group => group.grades))].sort((a, b) => a - b) : [],
       status: topic.status,
       order: topic.order,
       filePath: topicFile,

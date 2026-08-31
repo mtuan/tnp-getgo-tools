@@ -95,6 +95,8 @@ export interface ContentV2TopicSummary {
   description: string;
   localizedTitle?: import("./localized-text.js").LocalizedText;
   localizedDescription?: import("./localized-text.js").LocalizedText;
+  subjects: string[];
+  grades: number[];
   icon?: ContentIcon;
   status: "draft" | "pending" | "reviewed" | "rejected";
   order: number;
@@ -200,6 +202,8 @@ export interface ContestSettings {
     titleVi?: string;
     description?: string;
     descriptionVi?: string;
+    subjects?: string[];
+    supportedGrades?: number[];
     icon?: ContentIcon;
     /** Content V2 topic kind. Omitted by legacy contest settings. */
     topicType?: "competition" | "kid-learning";
@@ -928,6 +932,7 @@ export interface DesktopApi {
   resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   retryBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   deleteBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
+  clearFinishedBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
   setAiMigrationConcurrency(
     concurrency: number,
   ): Promise<AiMigrationJobsSnapshot>;

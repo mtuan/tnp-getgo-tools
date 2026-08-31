@@ -125,6 +125,10 @@ export function sanitizeMarketplaceTopic(
     publisherId: record.publisherId,
     publisher: record.publisher,
     ...marketplace,
+    shortDescription: record.description,
+    fullDescription: record.description,
+    subjects: record.subjects,
+    grades: record.grades,
   };
 }
 const baseRecord = {
@@ -148,6 +152,8 @@ export const competitionTopicSchema = z.object({
   ...baseRecord,
   title: localizedTextSchema,
   description: localizedTextSchema.default(""),
+  subjects: z.array(z.string().min(1)).default([]),
+  grades: z.array(z.number().int().min(0).max(12)).default([]),
   type: z.literal("competition"),
   subject: z.string().min(1),
   rounds: z
@@ -168,6 +174,8 @@ export const kidLearningTopicSchema = z.object({
   ...baseRecord,
   title: localizedTextSchema,
   description: localizedTextSchema.default(""),
+  subjects: z.array(z.string().min(1)).default([]),
+  grades: z.array(z.number().int().min(0).max(12)).default([]),
   type: z.literal("kid-learning"),
   supportedLanguages: z.array(z.enum(["en", "vi"])).min(1),
   recommendedAgeRange: z

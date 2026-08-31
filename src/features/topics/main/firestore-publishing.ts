@@ -399,11 +399,13 @@ export class FirestorePublishingService {
     for (const asset of assets) {
       await control?.checkpoint();
       const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
-      await this.auth.uploadStorageObject(
-        `getgo-content-v2/topics/${topicId}/assets/${reference}`,
-        asset.data,
-        asset.mimeType,
-      );
+      const destination = `getgo-content-v2/topics/${topicId}/assets/${reference}`;
+      try {
+        await this.auth.uploadStorageObject(destination, asset.data, asset.mimeType);
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        throw new Error(`Could not upload topic asset “${destination}”: ${message} The signed-in account needs the contentPublisher or contentAdmin Storage claim.`);
+      }
     }
   }
 

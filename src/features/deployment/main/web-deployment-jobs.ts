@@ -463,4 +463,11 @@ export class WebDeploymentJobManager {
     this.jobs = this.jobs.filter((item) => item.id !== id);
     await this.persist();
   }
+
+
+  async clearFinished() {
+    await this.ensureLoaded();
+    this.jobs = this.jobs.filter((job) => ["queued", "running", "paused"].includes(job.status));
+    await this.persist();
+  }
 }

@@ -77,6 +77,8 @@ function managerSettings(topic: RepositoryViewData["contentV2"]["topics"][number
       titleVi: typeof topic.localizedTitle === "object" ? topic.localizedTitle.vi : topic.title,
       description: topic.description,
       descriptionVi: typeof topic.localizedDescription === "object" ? topic.localizedDescription.vi : topic.description,
+      subjects: topic.subjects,
+      supportedGrades: topic.grades,
       icon: topic.icon,
       topicType: topic.type,
       subject: definition.subject,
@@ -437,8 +439,8 @@ export function ContentV2QuizManager(props: Props) {
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
         const topic: ContentV2Topic = settings.book.topicType === "kid-learning"
-          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
-          : { schemaVersion: 2, id: settings.book.code, type: "competition", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
+          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? [], grades: settings.book.supportedGrades ?? [], status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
+          : { schemaVersion: 2, id: settings.book.code, type: "competition", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? ["mathematics"], grades: settings.book.supportedGrades ?? [], status: "pending", order, subject: settings.book.subjects?.[0] ?? "mathematics", rounds: [], gradeGroups: [] };
         await window.getgo.saveContentV2Topic(topic);
         return reloadFromFiles();
       },
@@ -450,6 +452,8 @@ export function ContentV2QuizManager(props: Props) {
           title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title },
           icon: settings.book.icon || undefined,
           description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" },
+          subjects: settings.book.subjects ?? (stored.type === "competition" ? [stored.subject] : stored.subjects),
+          grades: settings.book.supportedGrades ?? stored.grades,
           status: stored.status,
           order: stored.order,
           publisherId: stored.publisherId,
@@ -462,7 +466,7 @@ export function ContentV2QuizManager(props: Props) {
           ? {
               ...common,
               type: "competition",
-              subject: "mathematics",
+              subject: common.subjects[0] ?? (stored.type === "competition" ? stored.subject : "mathematics"),
               rounds: settings.rounds.map((round, index) => ({
                 id: String(round.roundCode ?? `round-${index + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `round-${index + 1}`,
                 title: { en: String(round.roundName ?? round.roundCode ?? `Round ${index + 1}`), vi: String(round.roundNameVi ?? round.roundName ?? round.roundCode ?? `Round ${index + 1}`) },
