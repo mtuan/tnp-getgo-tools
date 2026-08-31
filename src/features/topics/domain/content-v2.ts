@@ -5,7 +5,7 @@ import { marketplaceTopicStates } from "./marketplace-topic-state.js";
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 6;
+export const contentV2QuizPublishContractVersion = 8;
 
 export {
   marketplaceTopicState,
@@ -28,8 +28,10 @@ const hashSchema = z
   .regex(/^[a-f0-9]{64}$/)
   .optional();
 const iconSchema = z.string().refine(
-  (value) => value.startsWith("asset:") || (value.trim().length <= 16 && /\P{ASCII}/u.test(value)),
-  "Icon must be an asset reference or one Unicode symbol.",
+  (value) => value.startsWith("asset:")
+    || (/^text:(?:(?:violet|indigo|blue|cyan|teal|emerald|lime|yellow|amber|orange|red|rose|pink):)?[\p{L}\p{N}]{4}$/u.test(value))
+    || (value.trim().length <= 16 && /\P{ASCII}/u.test(value)),
+  "Icon must be an asset reference, one Unicode symbol, or text followed by exactly four letters or numbers.",
 ).optional();
 export const marketplaceTopicMetadataSchema = z.object({
   state: z.preprocess(

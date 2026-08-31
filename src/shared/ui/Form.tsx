@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
-import { Check, FolderOpen, ImagePlus, Search, SmilePlus, X } from "lucide-react"
+import { createPortal } from "react-dom"
+import { Check, FolderOpen, ImagePlus, Search, SmilePlus, Type, X } from "lucide-react"
 import { Select, type SelectOption } from "./Select"
 import { MultiSelect } from "./MultiSelect"
 import { MultiTagEditor } from "./MultiTagEditor"
@@ -8,6 +9,7 @@ import { Toggle } from "./Toggle"
 import { Button } from "./Button"
 import { Input } from "./Input"
 import { QuizCodeEditor } from "../../features/quiz-editor/components/QuizCodeEditor"
+import { encodeFourLetterIcon, FourLetterIcon, fourLetterIconThemeGrades, fourLetterIconThemes, parseFourLetterIcon, type FourLetterIconTheme } from "./FourLetterIcon"
 
 export type { SelectOption } from "./Select"
 export interface FieldRules {
@@ -139,18 +141,23 @@ const iconSymbolCategories: Array<{ name: string; items: IconSymbolItem[] }> = [
 ]
 
 function IconControl({ field, value, disabled, onChange }: { field: Extract<FormField, { type: "icon" }>; value: unknown; disabled: boolean; autoFocus: boolean; onChange(value: string): void }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<"symbol" | "text" | null>(null)
   const [dragging, setDragging] = useState(false)
   const [search, setSearch] = useState("")
+  const [textCode, setTextCode] = useState("")
+  const [textTheme, setTextTheme] = useState<FourLetterIconTheme>("violet")
+  const [popoverPosition, setPopoverPosition] = useState({ left: 8, width: 420, top: 0, bottom: 0, openUp: false })
   const inputRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const source = typeof value === "string" ? value : ""
+  const textIcon = parseFourLetterIcon(source)
   const isImage = source.startsWith("asset:") || source.startsWith("data:image/") || source.startsWith("http://") || source.startsWith("https://")
   const previewSource = source.startsWith("data:image/") || source.startsWith("http://") || source.startsWith("https://") ? source : field.previewSrc ?? ""
   const load = (file?: File) => {
     if (!file || !file.type.startsWith("image/") || (field.maxBytes && file.size > field.maxBytes)) return
     const reader = new FileReader()
-    reader.onload = () => { onChange(String(reader.result ?? "")); setOpen(false) }
+    reader.onload = () => { onChange(String(reader.result ?? "")); setOpen(null) }
     reader.readAsDataURL(file)
   }
   const normalizedSearch = search.trim().toLocaleLowerCase()
@@ -165,18 +172,37 @@ function IconControl({ field, value, disabled, onChange }: { field: Extract<Form
   })).filter(category => category.items.length)
   useEffect(() => {
     if (!open) return
-    const close = () => { setOpen(false); setSearch("") }
+    const place = () => {
+      const rect = pickerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = Math.min(420, window.innerWidth - 16)
+      const preferredHeight = open === "symbol" ? 440 : 290
+      const openUp = window.innerHeight - rect.bottom < preferredHeight && rect.top > window.innerHeight - rect.bottom
+      setPopoverPosition({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+        width,
+        top: rect.bottom + 6,
+        bottom: window.innerHeight - rect.top + 6,
+        openUp,
+      })
+    }
+    place()
+    const close = () => { setOpen(null); setSearch("") }
     const pointerDown = (event: PointerEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) close()
+      if (!pickerRef.current?.contains(event.target as Node) && !popoverRef.current?.contains(event.target as Node)) close()
     }
     const keyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close()
     }
     document.addEventListener("pointerdown", pointerDown)
     window.addEventListener("keydown", keyDown)
+    window.addEventListener("resize", place)
+    document.addEventListener("scroll", place, true)
     return () => {
       document.removeEventListener("pointerdown", pointerDown)
       window.removeEventListener("keydown", keyDown)
+      window.removeEventListener("resize", place)
+      document.removeEventListener("scroll", place, true)
     }
   }, [open])
   return <div ref={pickerRef} className={`schema-icon-picker ${dragging ? "dragging" : ""}`} tabIndex={0} role="group" aria-label={String(field.label ?? "Icon")}
@@ -185,20 +211,31 @@ function IconControl({ field, value, disabled, onChange }: { field: Extract<Form
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }}
     onDrop={event => { event.preventDefault(); setDragging(false); if (!disabled) load(event.dataTransfer.files?.[0]) }}>
     <div className="schema-icon-value">
-      <span className="schema-icon-preview">{isImage && previewSource ? <img src={previewSource} alt="" /> : source && !isImage ? source : <ImagePlus />}</span>
-      <span>{source ? isImage ? source.startsWith("asset:") ? source.slice(6) : "Selected image" : source : "Select an image or symbol"}</span>
+      <span className="schema-icon-preview">{isImage && previewSource ? <img src={previewSource} alt="" /> : textIcon ? <FourLetterIcon code={textIcon.code} theme={textIcon.theme} /> : source && !isImage ? source : <ImagePlus />}</span>
+      <span>{source ? isImage ? source.startsWith("asset:") ? source.slice(6) : "Selected image" : textIcon ? `4-letter text · ${textIcon.code}` : source : "Select an image, symbol, or 4-letter text"}</span>
     </div>
     <Button variant="icon" color="primary" icon={<FolderOpen />} title="Browse icon image" aria-label="Browse icon image" disabled={disabled} onClick={event => { event.stopPropagation(); inputRef.current?.click() }} />
-    <Button variant="icon" color="neutral" icon={<SmilePlus />} title="Choose Unicode symbol" aria-label="Choose Unicode symbol" disabled={disabled} onClick={event => { event.stopPropagation(); setOpen(current => !current) }} />
+    <Button variant="icon" color="neutral" icon={<SmilePlus />} title="Choose Unicode symbol" aria-label="Choose Unicode symbol" disabled={disabled} onClick={event => { event.stopPropagation(); setOpen(current => current === "symbol" ? null : "symbol") }} />
+    <Button variant="icon" color="neutral" icon={<Type />} title="Use 4-letter text" aria-label="Use 4-letter text" disabled={disabled} onClick={event => { event.stopPropagation(); setTextCode(textIcon?.code ?? ""); setTextTheme(textIcon?.theme ?? "violet"); setOpen(current => current === "text" ? null : "text") }} />
     {source && <Button variant="icon" color="danger" icon={<X />} title="Remove icon" aria-label="Remove icon" disabled={disabled} onClick={() => onChange("")} />}
     <input ref={inputRef} type="file" accept={field.accept ?? "image/png,image/jpeg,image/webp,image/svg+xml"} hidden onChange={event => { load(event.target.files?.[0]); event.currentTarget.value = "" }} />
-    {open && <div className="schema-icon-popover" role="dialog" aria-label="Choose icon">
+    {open === "symbol" && createPortal(<div ref={popoverRef} className="schema-icon-popover schema-icon-popover-portal" style={{ left: popoverPosition.left, width: popoverPosition.width, top: popoverPosition.openUp ? "auto" : popoverPosition.top, bottom: popoverPosition.openUp ? popoverPosition.bottom : "auto" }} role="dialog" aria-label="Choose icon symbol">
       <div className="schema-icon-popover-header">
-        <div><strong>Choose a symbol</strong><Button variant="icon" icon={<X />} aria-label="Close symbol picker" title="Close" onClick={() => setOpen(false)} /></div>
+        <div><strong>Choose a symbol</strong><Button variant="icon" icon={<X />} aria-label="Close symbol picker" title="Close" onClick={() => setOpen(null)} /></div>
         <Input className="schema-icon-search" leftIcon={<Search />} autoFocus type="search" aria-label="Search symbols" placeholder="Search symbols" value={search} onChange={event => setSearch(event.target.value)} />
       </div>
-      <div className="schema-icon-categories">{categories.length ? categories.map(category => <section key={category.name}><h4>{category.name}</h4><div className="schema-icon-symbols">{category.items.map(([symbol, keywords]) => <button type="button" className={source === symbol ? "selected" : ""} aria-label={`Use ${keywords}`} title={keywords} onClick={() => { onChange(symbol); setOpen(false); setSearch("") }} key={symbol}><span>{symbol}</span>{source === symbol && <Check />}</button>)}</div></section>) : <p className="schema-icon-empty">No matching symbols.</p>}</div>
-    </div>}
+      <div className="schema-icon-categories">{categories.length ? categories.map(category => <section key={category.name}><h4>{category.name}</h4><div className="schema-icon-symbols">{category.items.map(([symbol, keywords]) => <button type="button" className={source === symbol ? "selected" : ""} aria-label={`Use ${keywords}`} title={keywords} onClick={() => { onChange(symbol); setOpen(null); setSearch("") }} key={symbol}><span>{symbol}</span>{source === symbol && <Check />}</button>)}</div></section>) : <p className="schema-icon-empty">No matching symbols.</p>}</div>
+    </div>, document.body)}
+    {open === "text" && createPortal(<div ref={popoverRef} className="schema-icon-popover schema-icon-popover-portal schema-icon-text-popover" style={{ left: popoverPosition.left, width: popoverPosition.width, top: popoverPosition.openUp ? "auto" : popoverPosition.top, bottom: popoverPosition.openUp ? popoverPosition.bottom : "auto" }} role="dialog" aria-label="Create 4-letter text icon">
+      <div className="schema-icon-popover-header"><div><strong>Four-letter text icon</strong><Button variant="icon" icon={<X />} aria-label="Close text icon editor" title="Close" onClick={() => setOpen(null)} /></div></div>
+      <div className="schema-icon-text-editor">
+        <FourLetterIcon code={textCode.padEnd(4, " ")} theme={textTheme} label="Text icon preview" className="schema-icon-text-preview" />
+        <Input className="schema-icon-code-input" autoFocus aria-label="Four-letter icon text" placeholder="TIMO" value={textCode} onChange={event => setTextCode(Array.from(event.target.value.toLocaleUpperCase().replace(/[^\p{L}\p{N}]/gu, "")).slice(0, 4).join(""))} onKeyDown={event => { if (event.key === "Enter" && Array.from(textCode).length === 4) { event.preventDefault(); onChange(encodeFourLetterIcon(textCode, textTheme)); setOpen(null) } }} />
+        <div className="schema-icon-theme-picker" role="radiogroup" aria-label="Monogram color theme">{fourLetterIconThemes.map((theme, index) => { const grade = fourLetterIconThemeGrades[index]; const label = grade === "K" ? "Kindergarten" : `Grade ${grade}`; return <button type="button" role="radio" aria-checked={textTheme === theme} className={`four-letter-icon-theme-${theme} ${textTheme === theme ? "selected" : ""}`} aria-label={`${label}: ${theme}`} title={`${label} · ${theme}`} onClick={() => setTextTheme(theme)} key={theme}><span>{textTheme === theme ? <Check /> : grade}</span></button> })}</div>
+        <p>Enter exactly four letters or numbers. They will appear in a 2 × 2 outlined monogram.</p>
+        <Button variant="solid" color="primary" disabled={Array.from(textCode).length !== 4} onClick={() => { onChange(encodeFourLetterIcon(textCode, textTheme)); setOpen(null) }}>Use text icon</Button>
+      </div>
+    </div>, document.body)}
   </div>
 }
 

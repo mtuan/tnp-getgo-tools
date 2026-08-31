@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BookOpen, ListOrdered } from "lucide-react";
+import { FourLetterIcon, parseFourLetterIcon } from "../../../shared/ui/FourLetterIcon";
 
 function TopicQuizIcon({
   topicId,
@@ -30,6 +31,8 @@ function TopicQuizIcon({
     return () => { active = false; };
   }, [reference, topicId]);
   if (source) return <span className="manager-list-icon"><img src={source} alt={`${label} icon`} /></span>;
+  const textIcon = parseFourLetterIcon(reference);
+  if (textIcon) return <span className="manager-list-icon"><FourLetterIcon code={textIcon.code} theme={textIcon.theme} label={`${label} icon`} /></span>;
   if (reference && !reference.startsWith("asset:")) return <span className="manager-list-icon manager-list-icon-text" aria-hidden="true">{reference}</span>;
   return <span className="manager-list-icon manager-list-icon-default" aria-hidden="true">{kind === "topic" ? <BookOpen /> : <ListOrdered />}</span>;
 }

@@ -34,7 +34,7 @@ const generalFields = (iconPreview: string, topicMode: boolean): FormSchema[] =>
       { type: "text", name: "title", label: "Display title", required: true },
     ],
     [
-      { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image or a predefined Unicode symbol." },
+      { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a four-letter text monogram." },
       { type: "textarea", name: "description", label: "Description", rows: 3 },
     ],
     [
