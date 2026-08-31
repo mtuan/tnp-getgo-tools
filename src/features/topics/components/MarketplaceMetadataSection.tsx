@@ -1,10 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { RotateCcw, Save } from "lucide-react";
-import type {
-  ContentV2Quiz,
-  ContentV2Topic,
-  MarketplaceTopicMetadata,
+import {
+  type ContentV2Quiz,
+  type ContentV2Topic,
+  type MarketplaceTopicMetadata,
 } from "../../../features/topics/domain/content-v2";
+import { localizedText, type LocalizedText } from "../../../shared/domain/localized-text";
 import type { AppSettings } from "../../../shared/domain/models";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -46,9 +47,9 @@ function metadata(record: MarketplaceRecord): MarketplaceTopicMetadata {
   return {
     listed: record.marketplace?.listed === true,
     shortDescription:
-      record.marketplace?.shortDescription ?? record.description,
+      record.marketplace?.shortDescription ?? localizedText(record.description as LocalizedText),
     fullDescription:
-      record.marketplace?.fullDescription ?? record.description,
+      record.marketplace?.fullDescription ?? localizedText(record.description as LocalizedText),
     featured: record.marketplace?.featured === true,
     preview: record.marketplace?.preview === true,
     subjects:

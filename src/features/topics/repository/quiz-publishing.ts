@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import type { ContestSummary, PublishableQuiz, QuizQuestionRecord, QuizSummary } from "../../../shared/domain/models.js"
 import { hashPublishedQuestions, hashPublishedQuiz, sanitizePublishedQuestion, type PublishedQuestion } from "../../../features/topics/domain/publishing.js"
+import { legacyContentIcon } from "../../../shared/domain/content-icon.js"
 
 export interface LocalPublishPayload {
   quiz: PublishableQuiz
@@ -25,13 +26,13 @@ export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unk
     if (seen.has(question.question_no)) throw new Error(`Question ${question.question_no} occurs more than once.`)
     seen.add(question.question_no)
   }
-  const contentHash = hashPublishedQuiz(quiz, hashPublishedQuestions(questions))
+  const contentHash = hashPublishedQuiz({ ...quiz, icon: legacyContentIcon(quiz.icon) }, hashPublishedQuestions(questions))
   return {
     quiz: {
       contestId: quiz.contest,
       quizId: quiz.id,
       title: quiz.title,
-      icon: quiz.icon,
+      icon: legacyContentIcon(quiz.icon),
       grade: quiz.grade,
       round: quiz.round,
       year: quiz.year,
@@ -42,7 +43,7 @@ export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unk
       id: contest.id,
       title: contest.title,
       description: contest.description,
-      icon: contest.settings.book.icon,
+      icon: legacyContentIcon(contest.settings.book.icon),
       subject: contest.subject,
       isActive: contest.isActive,
       settings: contest.settings,

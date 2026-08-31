@@ -414,6 +414,30 @@ main {
   cursor: default;
   opacity: 0.5;
 }
+.ui-page-header-actions .topic-editor-language-switch {
+  width: 42px;
+  min-width: 42px;
+  padding-inline: 0;
+}
+.topic-editor-language-flag {
+  width: 24px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.topic-editor-language-switch .ui-button-icon {
+  width: 24px;
+  height: 16px;
+  flex-basis: 24px;
+}
+.topic-editor-language-flag svg {
+  width: 24px;
+  height: 15px;
+  display: block;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #0f172a24;
+}
 .topbar.production-header {
   border-color: #9f1239;
   background: #be123c;

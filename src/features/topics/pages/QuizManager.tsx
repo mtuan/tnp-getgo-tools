@@ -94,6 +94,7 @@ export function QuizManager({
   const [quizInfoDirty, setQuizInfoDirty] = useState(false);
   const [sharedCodeDrawerOpen, setSharedCodeDrawerOpen] = useState(false);
   const [topicInfoDirty, setTopicInfoDirty] = useState(false);
+  const [topicEditorLanguage, setTopicEditorLanguage] = useState<"en" | "vi">("en");
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [contestDialog, setContestDialog] = useState<
     ContestSummary | "create" | null
@@ -563,12 +564,14 @@ export function QuizManager({
     setQuizTab,
     setTopicDictionary,
     setTopicInfoDirty,
+    setTopicEditorLanguage,
     setTopicsView,
     snapshot,
     syncPlan,
     toast,
     topicDictionary,
     topicInfoDirty,
+    topicEditorLanguage,
     topicResourceError,
     topicsView,
     treeTopicQuizzes,

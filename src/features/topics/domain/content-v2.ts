@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
 import { z } from "zod";
 import { marketplaceTopicStates } from "./marketplace-topic-state.js";
+import { textContentIconColors, textContentIconThemes } from "../../../shared/domain/content-icon.js";
+export { localizedText, type LocalizedText } from "../../../shared/domain/localized-text.js";
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 8;
+export const contentV2QuizPublishContractVersion = 11;
 
 export {
   marketplaceTopicState,
@@ -27,12 +29,25 @@ const hashSchema = z
   .string()
   .regex(/^[a-f0-9]{64}$/)
   .optional();
-const iconSchema = z.string().refine(
+export const localizedTextSchema = z.union([
+  z.string(),
+  z.object({ en: z.string(), vi: z.string() }),
+]);
+const legacyIconSchema = z.string().refine(
   (value) => value.startsWith("asset:")
     || (/^text:(?:(?:violet|indigo|blue|cyan|teal|emerald|lime|yellow|amber|orange|red|rose|pink):)?[\p{L}\p{N}]{4}$/u.test(value))
     || (value.trim().length <= 16 && /\P{ASCII}/u.test(value)),
-  "Icon must be an asset reference, one Unicode symbol, or text followed by exactly four letters or numbers.",
-).optional();
+);
+const iconSchema = z.union([
+  legacyIconSchema,
+  z.object({
+    type: z.literal("text"),
+    text: z.string().regex(/^[\p{L}\p{N}]{4}$/u),
+    color: z.string().regex(/^#[0-9a-f]{6}$/i),
+  }),
+  z.object({ type: z.literal("text"), text: z.string().regex(/^[\p{L}\p{N}]{4}$/u), theme: z.enum(textContentIconThemes) })
+    .transform(({ type, text, theme }) => ({ type, text, color: textContentIconColors[theme] })),
+]).optional();
 export const marketplaceTopicMetadataSchema = z.object({
   state: z.preprocess(
     (value) => value === "removed" ? "unlisted" : value,
@@ -115,8 +130,6 @@ export function sanitizeMarketplaceTopic(
 const baseRecord = {
   schemaVersion: z.literal(2),
   id: idSchema,
-  title: z.string().min(1),
-  description: z.string().default(""),
   icon: iconSchema,
   status: z.enum(contentV2ReviewStatuses).default("draft"),
   order: z.number().int().nonnegative().default(0),
@@ -133,16 +146,18 @@ const baseRecord = {
 
 export const competitionTopicSchema = z.object({
   ...baseRecord,
+  title: localizedTextSchema,
+  description: localizedTextSchema.default(""),
   type: z.literal("competition"),
   subject: z.string().min(1),
   rounds: z
-    .array(z.object({ id: idSchema, title: z.string().min(1) }))
+    .array(z.object({ id: idSchema, title: localizedTextSchema }))
     .default([]),
   gradeGroups: z
     .array(
       z.object({
         id: idSchema,
-        title: z.string().min(1),
+        title: localizedTextSchema,
         grades: z.array(z.number().int().nonnegative()),
       }),
     )
@@ -151,6 +166,8 @@ export const competitionTopicSchema = z.object({
 
 export const kidLearningTopicSchema = z.object({
   ...baseRecord,
+  title: localizedTextSchema,
+  description: localizedTextSchema.default(""),
   type: z.literal("kid-learning"),
   supportedLanguages: z.array(z.enum(["en", "vi"])).min(1),
   recommendedAgeRange: z
@@ -173,6 +190,8 @@ export type ContentV2TopicType = ContentV2Topic["type"];
 
 const baseQuiz = {
   ...baseRecord,
+  title: z.string().min(1),
+  description: z.string().default(""),
   topicId: idSchema,
   sharedCode: z.string().default(""),
 };

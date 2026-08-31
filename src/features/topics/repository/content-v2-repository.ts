@@ -8,6 +8,7 @@ import {
   contentV2QuizSchema,
   contentV2TopicSchema,
   hashContentV2,
+  localizedText,
   sanitizeContentV2Question,
   sanitizeContentV2Quiz,
   sanitizeContentV2Topic,
@@ -383,9 +384,11 @@ export async function loadContentV2WorkspaceFromFiles(
     topics.push({
       id: topic.id,
       type: topic.type,
-      title: topic.title,
+      title: localizedText(topic.title),
+      localizedTitle: topic.title,
       icon: topic.icon,
-      description: topic.description,
+      description: localizedText(topic.description),
+      localizedDescription: topic.description,
       status: topic.status,
       order: topic.order,
       filePath: topicFile,
@@ -415,8 +418,8 @@ export async function loadContentV2WorkspaceFromFiles(
       ...(topic.type === "competition"
         ? {
             subject: topic.subject,
-            rounds: topic.rounds,
-            gradeGroups: topic.gradeGroups,
+            rounds: topic.rounds.map(round => ({ ...round, title: localizedText(round.title), localizedTitle: round.title })),
+            gradeGroups: topic.gradeGroups.map(group => ({ ...group, title: localizedText(group.title), localizedTitle: group.title })),
           }
         : {
             supportedLanguages: topic.supportedLanguages,

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BookOpen, ListOrdered } from "lucide-react";
 import { FourLetterIcon, parseFourLetterIcon } from "../../../shared/ui/FourLetterIcon";
+import type { ContentIcon } from "../../../shared/domain/content-icon";
 
 function TopicQuizIcon({
   topicId,
@@ -9,15 +10,15 @@ function TopicQuizIcon({
   kind,
 }: {
   topicId: string;
-  reference?: string;
+  reference?: ContentIcon;
   label: string;
   kind: "topic" | "quiz";
 }) {
   const [source, setSource] = useState(() =>
-    reference?.startsWith("data:image/") ? reference : "",
+    typeof reference === "string" && reference.startsWith("data:image/") ? reference : "",
   );
   useEffect(() => {
-    if (!reference) return setSource("");
+    if (!reference || typeof reference !== "string") return setSource("");
     if (/^(data:image\/|https?:\/\/)/.test(reference)) {
       setSource(reference);
       return;
@@ -32,8 +33,8 @@ function TopicQuizIcon({
   }, [reference, topicId]);
   if (source) return <span className="manager-list-icon"><img src={source} alt={`${label} icon`} /></span>;
   const textIcon = parseFourLetterIcon(reference);
-  if (textIcon) return <span className="manager-list-icon"><FourLetterIcon code={textIcon.code} theme={textIcon.theme} label={`${label} icon`} /></span>;
-  if (reference && !reference.startsWith("asset:")) return <span className="manager-list-icon manager-list-icon-text" aria-hidden="true">{reference}</span>;
+  if (textIcon) return <span className="manager-list-icon"><FourLetterIcon code={textIcon.code} color={textIcon.color} label={`${label} icon`} /></span>;
+  if (typeof reference === "string" && !reference.startsWith("asset:")) return <span className="manager-list-icon manager-list-icon-text" aria-hidden="true">{reference}</span>;
   return <span className="manager-list-icon manager-list-icon-default" aria-hidden="true">{kind === "topic" ? <BookOpen /> : <ListOrdered />}</span>;
 }
 
@@ -48,7 +49,7 @@ export function TopicQuizTreeIdentity({
 }: {
   toggle: ReactNode;
   topicId: string;
-  reference?: string;
+  reference?: ContentIcon;
   title: string;
   description: string;
   kind: "topic" | "quiz";

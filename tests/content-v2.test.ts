@@ -6,13 +6,16 @@ import test from "node:test";
 import {
   assertContentV2Relationship,
   contentV2QuestionSchema,
+  contentV2TopicSchema,
   hashContentV2,
   sanitizeContentV2Topic,
   sanitizeContentV2Question,
   marketplaceTopicState,
+  localizedText,
   sanitizeMarketplaceTopic,
   withMarketplaceTopicState,
 } from "../src/features/topics/domain/content-v2.js";
+
 import { buildContentV2QuestionsCode } from "../src/features/topics/main/firestore-publishing.js";
 import {
   saveContentV2Question,
@@ -30,6 +33,39 @@ import { marketplaceSyncPlan } from "../src/features/topics/domain/marketplace-s
 import { sanitizeVietnamesePronunciationQuestion } from "../src/features/quiz-editor/domain/pronunciation-safety.js";
 import { defaultSafeWordDictionary, findUnsafeContent } from "../src/features/content-safety/domain/content-safety.js";
 import { assertRepositoryContentSafe, saveSafeWordDictionary } from "../src/features/content-safety/repository/content-safety-repository.js";
+import { parseTextContentIcon } from "../src/shared/domain/content-icon.js";
+
+test("content v2 contest text supports bilingual values and legacy strings", () => {
+  const topic = contentV2TopicSchema.parse({
+    schemaVersion: 2,
+    id: "itmc-r1-3",
+    type: "competition",
+    title: { en: "ITMC - Round 1 - Grade 3", vi: "ITMC - Vòng 1 - Lớp 3" },
+    description: { en: "International Talent Mathematics Contest", vi: "Kỳ thi Toán học Tài năng Quốc tế" },
+    subject: "mathematics",
+    rounds: [{ id: "r1", title: { en: "Round 1", vi: "Vòng 1" } }],
+    gradeGroups: [{ id: "grade-3", title: { en: "Grade 3", vi: "Lớp 3" }, grades: [3] }],
+  });
+  assert.equal(localizedText(topic.title, "vi"), "ITMC - Vòng 1 - Lớp 3");
+  assert.equal(localizedText("Legacy title", "vi"), "Legacy title");
+});
+
+test("content v2 text icons use an extensible object and accept legacy strings", () => {
+  const icon = { type: "text" as const, text: "ITMC", color: "#059669" };
+  const topic = contentV2TopicSchema.parse({
+    schemaVersion: 2,
+    id: "itmc-r1-3",
+    type: "competition",
+    title: "ITMC - Round 1 - Grade 3",
+    subject: "mathematics",
+    icon,
+    rounds: [],
+    gradeGroups: [],
+  });
+  assert.deepEqual(topic.icon, icon);
+  assert.deepEqual(parseTextContentIcon(topic.icon), icon);
+  assert.deepEqual(parseTextContentIcon("text:emerald:IKMC"), { ...icon, text: "IKMC" });
+});
 
 test("content safety finds bilingual whole words and reports their data paths", () => {
   const findings = findUnsafeContent({ text: { en: "This is shit", vi: "Không dùng từ đĩ" }, safe: "classic lesson" }, defaultSafeWordDictionary);

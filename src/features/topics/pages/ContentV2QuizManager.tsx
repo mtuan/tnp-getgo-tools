@@ -74,7 +74,9 @@ function managerSettings(topic: RepositoryViewData["contentV2"]["topics"][number
     book: {
       code: topic.id,
       title: topic.title,
+      titleVi: typeof topic.localizedTitle === "object" ? topic.localizedTitle.vi : topic.title,
       description: topic.description,
+      descriptionVi: typeof topic.localizedDescription === "object" ? topic.localizedDescription.vi : topic.description,
       icon: topic.icon,
       topicType: topic.type,
       subject: definition.subject,
@@ -83,10 +85,12 @@ function managerSettings(topic: RepositoryViewData["contentV2"]["topics"][number
     rounds: topic.rounds?.map((round) => ({
       roundCode: round.id.toUpperCase(),
       roundName: round.title,
+      roundNameVi: typeof round.localizedTitle === "object" ? round.localizedTitle.vi : round.title,
       description: "",
     })) ?? [{ roundCode: "MAIN", roundName: "Main Round", description: "" }],
     grades: topic.gradeGroups?.map((group) => ({
       gradeName: group.title,
+      gradeNameVi: typeof group.localizedTitle === "object" ? group.localizedTitle.vi : group.title,
       grades: group.grades,
     })) ?? [{ gradeName: "K", grades: [0] }],
     categories: [],
@@ -433,8 +437,8 @@ export function ContentV2QuizManager(props: Props) {
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
         const topic: ContentV2Topic = settings.book.topicType === "kid-learning"
-          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
-          : { schemaVersion: 2, id: settings.book.code, type: "competition", title: settings.book.title, icon: settings.book.icon || undefined, description: settings.book.description ?? "", status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
+          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
+          : { schemaVersion: 2, id: settings.book.code, type: "competition", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, status: "pending", order, subject: "mathematics", rounds: [], gradeGroups: [] };
         await window.getgo.saveContentV2Topic(topic);
         return reloadFromFiles();
       },
@@ -443,9 +447,9 @@ export function ContentV2QuizManager(props: Props) {
         const common = {
           schemaVersion: 2 as const,
           id: stored.id,
-          title: settings.book.title,
+          title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title },
           icon: settings.book.icon || undefined,
-          description: settings.book.description ?? "",
+          description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" },
           status: stored.status,
           order: stored.order,
           publisherId: stored.publisherId,
@@ -461,11 +465,11 @@ export function ContentV2QuizManager(props: Props) {
               subject: "mathematics",
               rounds: settings.rounds.map((round, index) => ({
                 id: String(round.roundCode ?? `round-${index + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `round-${index + 1}`,
-                title: String(round.roundName ?? round.roundCode ?? `Round ${index + 1}`),
+                title: { en: String(round.roundName ?? round.roundCode ?? `Round ${index + 1}`), vi: String(round.roundNameVi ?? round.roundName ?? round.roundCode ?? `Round ${index + 1}`) },
               })),
               gradeGroups: settings.grades.map((grade, index) => ({
                 id: `grade-${index + 1}`,
-                title: String(grade.gradeName ?? `Grade ${index + 1}`),
+                title: { en: String(grade.gradeName ?? `Grade ${index + 1}`), vi: String(grade.gradeNameVi ?? grade.gradeName ?? `Grade ${index + 1}`) },
                 grades: Array.isArray(grade.grades) ? grade.grades.filter((value): value is number => typeof value === "number") : [],
               })),
             }

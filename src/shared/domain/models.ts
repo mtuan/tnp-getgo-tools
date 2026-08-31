@@ -1,3 +1,5 @@
+import type { ContentIcon } from "./content-icon.js";
+
 export const contentStatuses = [
   "imported",
   "normalized",
@@ -45,7 +47,7 @@ export interface QuizSummary {
   legacyId: string;
   contest: string;
   title: string;
-  icon?: string;
+  icon?: ContentIcon;
   sharedCode?: string;
   type: QuizType;
   language?: "en" | "vi";
@@ -91,7 +93,9 @@ export interface ContentV2TopicSummary {
   type: "competition" | "kid-learning";
   title: string;
   description: string;
-  icon?: string;
+  localizedTitle?: import("./localized-text.js").LocalizedText;
+  localizedDescription?: import("./localized-text.js").LocalizedText;
+  icon?: ContentIcon;
   status: "draft" | "pending" | "reviewed" | "rejected";
   order: number;
   filePath: string;
@@ -100,8 +104,8 @@ export interface ContentV2TopicSummary {
   publishedAt: string | null;
   quizCount: number;
   subject?: string;
-  rounds?: Array<{ id: string; title: string }>;
-  gradeGroups?: Array<{ id: string; title: string; grades: number[] }>;
+  rounds?: Array<{ id: string; title: string; localizedTitle?: import("./localized-text.js").LocalizedText }>;
+  gradeGroups?: Array<{ id: string; title: string; localizedTitle?: import("./localized-text.js").LocalizedText; grades: number[] }>;
   supportedLanguages?: Array<"en" | "vi">;
   recommendedAgeRange?: { minimum: number; maximum: number };
   marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
@@ -135,7 +139,7 @@ export interface ContentV2QuizSummary {
   type: "competition-paper" | "alphabet" | "spelling" | "pronunciation";
   title: string;
   description: string;
-  icon?: string;
+  icon?: ContentIcon;
   sharedCode: string;
   status: "draft" | "pending" | "reviewed" | "rejected";
   order: number;
@@ -193,8 +197,10 @@ export interface ContestSettings {
   book: {
     code: string;
     title: string;
+    titleVi?: string;
     description?: string;
-    icon?: string;
+    descriptionVi?: string;
+    icon?: ContentIcon;
     /** Content V2 topic kind. Omitted by legacy contest settings. */
     topicType?: "competition" | "kid-learning";
     subject: number;
@@ -219,7 +225,7 @@ export interface ContestSummary {
 export interface QuizCrudInput {
   id: string;
   title: string;
-  icon?: string;
+  icon?: ContentIcon;
   sharedCode?: string;
   type?: QuizType;
   language?: "en" | "vi";

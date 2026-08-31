@@ -22,6 +22,11 @@ type ManagerPageContext = Record<string, any> & {
   snapshot: RepositoryViewData;
 };
 
+function EditorLanguageFlag({ language }: { language: "en" | "vi" }) {
+  if (language === "vi") return <svg viewBox="0 0 32 20" role="presentation"><rect width="32" height="20" fill="#da251d"/><path fill="#ffec00" d="m16 4 1.35 4.15h4.36l-3.53 2.56 1.35 4.15L16 12.3l-3.53 2.56 1.35-4.15-3.53-2.56h4.36z"/></svg>;
+  return <svg viewBox="0 0 32 20" role="presentation"><rect width="32" height="20" fill="#16366f"/><path stroke="#fff" strokeWidth="4" d="M0 0l32 20M32 0 0 20"/><path stroke="#c8102e" strokeWidth="2" d="M0 0l32 20M32 0 0 20"/><path stroke="#fff" strokeWidth="7" d="M16 0v20M0 10h32"/><path stroke="#c8102e" strokeWidth="4" d="M16 0v20M0 10h32"/></svg>;
+}
+
 export function renderManagerPage(context: ManagerPageContext) {
   const {
     buttonAction,
@@ -45,9 +50,11 @@ export function renderManagerPage(context: ManagerPageContext) {
     setPage,
     setQuizDialog,
     setTopicDictionary,
+    setTopicEditorLanguage,
     snapshot,
     toast,
     topicDictionary,
+    topicEditorLanguage,
     topicResourceError,
   } = context;
   const isContest = page.kind === "contest";
@@ -119,6 +126,17 @@ export function renderManagerPage(context: ManagerPageContext) {
         }
         actions={
           <>
+            {isContest && topicMode && contestTab === "info" && (
+              <Button
+                className="topic-editor-language-switch"
+                variant="icon"
+                color="neutral"
+                icon={<span className="topic-editor-language-flag"><EditorLanguageFlag language={topicEditorLanguage} /></span>}
+                aria-label={topicEditorLanguage === "vi" ? "Switch editor to English" : "Chuyển trình chỉnh sửa sang Tiếng Việt"}
+                title={topicEditorLanguage === "vi" ? "Switch to English" : "Chuyển sang Tiếng Việt"}
+                onClick={() => setTopicEditorLanguage(topicEditorLanguage === "vi" ? "en" : "vi")}
+              />
+            )}
             {(!isContest || contestTab === "quizzes") && <ManagerHeaderControls {...context} isContest={isContest} topicMode={topicMode} headerStateControl={isContest ? topicStateControl : null} />}
             {isContest && selectedContest && (
               <>
@@ -184,6 +202,7 @@ export function renderManagerPage(context: ManagerPageContext) {
           <ContestSettingsDialog
             embedded
             topicMode={topicMode}
+            editorLanguage={topicEditorLanguage}
             contest={selectedContest}
             onClose={() => undefined}
             onSaved={async (settings) => {

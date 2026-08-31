@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { legacyContentIcon } from "../../../shared/domain/content-icon.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type {
@@ -143,7 +144,7 @@ export async function createQuizFiles(
     legacyId: id,
     contest,
     title,
-    icon: input.icon?.trim() || undefined,
+    icon: legacyContentIcon(input.icon)?.trim() || undefined,
     type: input.type ?? "contest",
     language: input.type === "alphabet" ? input.language ?? "en" : undefined,
     grade: input.grade,
@@ -210,7 +211,7 @@ export async function updateQuizManifest(
   const updated: QuizManifest = {
     ...manifest,
     title: fields.title,
-    icon: input.icon?.trim() || undefined,
+    icon: legacyContentIcon(input.icon)?.trim() || undefined,
     type: input.type ?? manifest.type ?? "contest",
     language: input.type === "alphabet" ? input.language ?? manifest.language ?? "en" : undefined,
     grade: input.grade,
