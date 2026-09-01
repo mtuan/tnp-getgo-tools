@@ -63,7 +63,7 @@ export const marketplaceTopicMetadataSchema = z.object({
   subjects: z.array(z.string()).default([]),
   languages: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
-  learningObjectives: z.array(z.string()).default([]),
+  learningObjectives: z.array(localizedTextSchema).default([]),
   ageRange: z.object({
     minimum: z.number().int().min(1).optional(),
     maximum: z.number().int().min(1).optional(),

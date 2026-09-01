@@ -55,7 +55,7 @@ test("content v2 contest text supports bilingual values and legacy strings", () 
 });
 
 test("content v2 text icons use an extensible object and accept legacy strings", () => {
-  const icon = { type: "text" as const, text: "ITMC", color: "#059669" };
+  const icon = { type: "text" as const, text: "ITMC", theme: "emerald" as const };
   const topic = contentV2TopicSchema.parse({
     schemaVersion: 2,
     id: "itmc-r1-3",
@@ -69,9 +69,9 @@ test("content v2 text icons use an extensible object and accept legacy strings",
   assert.deepEqual(topic.icon, icon);
   assert.deepEqual(parseTextContentIcon(topic.icon), icon);
   assert.deepEqual(parseTextContentIcon("text:emerald:IKMC"), { ...icon, text: "IKMC" });
-  assert.deepEqual(parseTextContentIcon("text:#e11d48:SEAMO"), { type: "text", text: "SEAMO", color: "#e11d48" });
-  assert.deepEqual(parseTextContentIcon("text:#e11d48:SEA-MO"), { type: "text", text: "SEA-MO", color: "#e11d48" });
-  assert.deepEqual(parseTextContentIcon({ type: "text", text: "HE-LIX", color: "#0891b2" }), { type: "text", text: "HE-LIX", color: "#0891b2" });
+  assert.deepEqual(parseTextContentIcon("text:#e11d48:SEAMO"), { type: "text", text: "SEAMO", theme: "rose" });
+  assert.deepEqual(parseTextContentIcon("text:#e11d48:SEA-MO"), { type: "text", text: "SEA-MO", theme: "rose" });
+  assert.deepEqual(parseTextContentIcon({ type: "text", text: "HE-LIX", color: "#0891b2" }), { type: "text", text: "HE-LIX", theme: "cyan" });
   assert.equal(parseTextContentIcon("text:#e11d48:TOOLONG"), null);
 });
 

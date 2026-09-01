@@ -36,6 +36,10 @@ const toLines = (value: unknown) =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string").join("\n")
     : "";
+const localizedLines = (value: unknown, locale: "en" | "vi") =>
+  Array.isArray(value)
+    ? value.map((item) => localizedText(item as LocalizedText, locale)).filter(Boolean).join("\n")
+    : "";
 const toList = (value: unknown) =>
   String(value ?? "")
     .split(/[\n,]/)
@@ -155,7 +159,8 @@ export function MarketplaceMetadataSection({
         subjects: isTopic ? current.subjects : current.subjects[0] ?? "",
         languages: current.languages,
         tags: toLines(current.tags),
-        learningObjectives: toLines(current.learningObjectives),
+        learningObjectivesEn: localizedLines(current.learningObjectives, "en"),
+        learningObjectivesVi: localizedLines(current.learningObjectives, "vi"),
         preview: current.preview,
         minimumAge: current.ageRange?.minimum,
         maximumAge: current.ageRange?.maximum,
@@ -208,20 +213,23 @@ export function MarketplaceMetadataSection({
         label: copy.fields.languages,
         options: [{ value: "en", label: "English" }, { value: "vi", label: "Tiếng Việt" }],
       } as FormSchema]),
-      ...(isKidLearningTopic ? [[
-        {
-          type: "textarea",
-          name: "tags",
-          label: copy.fields.tags,
-          helper: copy.fields.listHelp,
-        },
-        {
-          type: "textarea",
-          name: "learningObjectives",
-          label: copy.fields.learningObjectives,
-          helper: copy.fields.listHelp,
-        },
-      ] as FormSchema] : []),
+      ...(isKidLearningTopic ? [{
+        type: "textarea",
+        name: "tags",
+        label: copy.fields.tags,
+        helper: copy.fields.listHelp,
+      } as FormSchema] : []),
+      ...(isTopic ? [[{
+        type: "textarea",
+        name: "learningObjectivesEn",
+        label: copy.fields.learningObjectivesEn,
+        helper: copy.fields.listHelp,
+      }, {
+        type: "textarea",
+        name: "learningObjectivesVi",
+        label: copy.fields.learningObjectivesVi,
+        helper: copy.fields.listHelp,
+      }] as FormSchema] : []),
       [
         {
           type: "number",
@@ -274,7 +282,15 @@ export function MarketplaceMetadataSection({
         next.subjects = value.map(String);
       else if (name === "subjects")
         next.subjects = value ? [String(value)] : [];
-      else if (["subjects", "tags", "learningObjectives"].includes(name))
+      else if (["learningObjectivesEn", "learningObjectivesVi"].includes(name)) {
+        const en = toList(name === "learningObjectivesEn" ? value : values.learningObjectivesEn);
+        const vi = toList(name === "learningObjectivesVi" ? value : values.learningObjectivesVi);
+        next.learningObjectives = Array.from({ length: Math.max(en.length, vi.length) }, (_, index) => ({
+          en: en[index] ?? vi[index] ?? "",
+          vi: vi[index] ?? en[index] ?? "",
+        }));
+      }
+      else if (["subjects", "tags"].includes(name))
         next[name] = toList(value);
       else if (name === "languages")
         next.languages = Array.isArray(value) ? value.map(String) : [];
