@@ -7,6 +7,7 @@ import { DeploymentServiceCards } from "../components/DeploymentServiceCards";
 import { DeploymentJobReportDrawer } from "../components/DeploymentJobReportDrawer";
 import { NativeDeploymentCards } from "../components/NativeDeploymentCards";
 import { useAuth } from "../../authentication/components/AuthContext";
+import { LastDeploymentJobStatus } from "../components/LastDeploymentJobStatus";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
@@ -168,6 +169,7 @@ export function DeploymentPage({
           <div className="deployment-card-copy">
             <div className="deployment-card-title"><h2>{copy.localhostTitle}</h2><span className={`badge local-web-state-${localWeb?.status ?? "offline"}`}>{localWeb?.status === "online" ? copy.online : localWeb?.status === "starting" ? copy.starting : localWeb?.status === "error" ? copy.failed : copy.offline}</span></div>
             <dl className="deployment-card-facts"><div><dt>{copy.localhostAddress}</dt><dd>{localWeb?.url ?? "http://localhost:5173"}</dd></div><div><dt>{copy.localhostEnvironment}</dt><dd>{copy.development}</dd></div></dl>
+            <LastDeploymentJobStatus job={localWeb?.lastJob} locale={locale} localhost />
             {localWeb?.error && <p className="local-web-error">{localWeb.error}</p>}
           </div>
           <div className="deployment-card-actions">
@@ -179,7 +181,7 @@ export function DeploymentPage({
           </div>
         </ui.PanelBody>
       </ui.Panel>
-      <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} hasLogs={component => Boolean(latestJob(component))} />
+      <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} latestJob={latestJob} />
     </div>
     <div className="deployment-grid deployment-grid-native">
       <NativeDeploymentCards
@@ -189,7 +191,7 @@ export function DeploymentPage({
         onRun={run}
         onOpen={platform => void window.getgo.openNativeProject(platform, environment)}
         onViewLogs={setLogSelection}
-        hasLogs={component => Boolean(latestJob(component))}
+        latestJob={latestJob}
       />
     </div>
     {activeJobs.length > 0 && <section className="deployment-jobs">

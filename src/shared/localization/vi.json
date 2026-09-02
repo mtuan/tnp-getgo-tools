@@ -458,6 +458,15 @@
     "offline": "Ngoại tuyến",
     "starting": "Đang khởi động",
     "failed": "Thất bại",
+    "lastJob": {
+      "none": "Chưa có công việc",
+      "started": "Đã khởi động",
+      "startFailed": "Khởi động thất bại",
+      "startCancelled": "Đã hủy khởi động",
+      "run": { "queued": "Đang chờ chạy", "running": "Đang chạy", "paused": "Đã tạm dừng chạy", "completed": "Đã chạy xong", "cancelled": "Đã hủy chạy", "failed": "Chạy thất bại" },
+      "build": { "queued": "Đang chờ build", "running": "Đang build", "paused": "Đã tạm dừng build", "completed": "Đã build", "cancelled": "Đã hủy build", "failed": "Build thất bại" },
+      "deploy": { "queued": "Đang chờ triển khai", "running": "Đang triển khai", "paused": "Đã tạm dừng triển khai", "completed": "Đã triển khai", "cancelled": "Đã hủy triển khai", "failed": "Triển khai thất bại" }
+    },
     "managedByTools": "Tools quản lý",
     "notManaged": "Đang chạy ngoài Tools",
     "productionConfirm": "Triển khai {component} lên production?",

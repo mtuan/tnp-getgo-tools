@@ -458,6 +458,15 @@
     "offline": "Offline",
     "starting": "Starting",
     "failed": "Failed",
+    "lastJob": {
+      "none": "No jobs yet",
+      "started": "Started",
+      "startFailed": "Start failed",
+      "startCancelled": "Start cancelled",
+      "run": { "queued": "Run queued", "running": "Running", "paused": "Run paused", "completed": "Run completed", "cancelled": "Run cancelled", "failed": "Run failed" },
+      "build": { "queued": "Build queued", "running": "Building", "paused": "Build paused", "completed": "Built", "cancelled": "Build cancelled", "failed": "Build failed" },
+      "deploy": { "queued": "Deployment queued", "running": "Deploying", "paused": "Deployment paused", "completed": "Deployed", "cancelled": "Deployment cancelled", "failed": "Deployment failed" }
+    },
     "managedByTools": "Managed by Tools",
     "notManaged": "Running outside Tools",
     "productionConfirm": "Deploy {component} to production?",

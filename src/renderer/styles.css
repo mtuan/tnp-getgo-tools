@@ -7705,6 +7705,27 @@ button.danger svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.deployment-last-job {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.deployment-last-job strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.deployment-last-job-failed strong,
+.deployment-last-job-cancelled strong {
+  color: #be123c;
+}
+.deployment-last-job-running strong,
+.deployment-last-job-queued strong,
+.deployment-last-job-paused strong {
+  color: #b45309;
+}
 .deployment-target-summary {
   display: flex;
   align-items: center;
@@ -7818,6 +7839,15 @@ button.danger svg {
   .deployment-card-icon {
     color: #a5b4fc;
     background: #312e8166;
+  }
+  .deployment-last-job-failed strong,
+  .deployment-last-job-cancelled strong {
+    color: #fda4af;
+  }
+  .deployment-last-job-running strong,
+  .deployment-last-job-queued strong,
+  .deployment-last-job-paused strong {
+    color: #fcd34d;
   }
 }
 .quiz-migration-status {

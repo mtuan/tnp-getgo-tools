@@ -1,6 +1,7 @@
 import { Apple, ExternalLink, Eye, PackageCheck, Play, Smartphone } from "lucide-react";
 import type { AppSettings, BackgroundJob, DeploymentComponent, DeploymentOperation } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
+import { LastDeploymentJobStatus } from "./LastDeploymentJobStatus";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
@@ -11,10 +12,10 @@ interface NativeDeploymentCardsProps {
   onRun(operation: DeploymentOperation, component: DeploymentComponent): void;
   onOpen(platform: "ios" | "android"): void;
   onViewLogs(component: DeploymentComponent): void;
-  hasLogs(component: DeploymentComponent): boolean;
+  latestJob(component: DeploymentComponent): BackgroundJob | undefined;
 }
 
-export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen, onViewLogs, hasLogs }: NativeDeploymentCardsProps) {
+export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen, onViewLogs, latestJob }: NativeDeploymentCardsProps) {
   const copy = (locale === "vi" ? vi : en).deployment;
   const renderCard = (platform: "ios" | "android") => {
     const component = `mobile-${platform}` as const;
@@ -35,10 +36,11 @@ export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen,
               <div><dt>{copy.nativeArtifact}</dt><dd>{isIos ? "IPA" : "AAB"}</dd></div>
               <div><dt>{copy.nativeDistribution}</dt><dd>{isIos ? "TestFlight / App Store" : "Google Play"}</dd></div>
             </dl>
+            <LastDeploymentJobStatus job={latestJob(component)} locale={locale} />
             {active?.progressLabel && <p className="deployment-active-progress">{active.progressLabel}</p>}
           </div>
           <div className="deployment-card-actions">
-            <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!hasLogs(component)} onClick={() => onViewLogs(component)} />
+            <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!latestJob(component)} onClick={() => onViewLogs(component)} />
             <ui.Button icon={<ExternalLink />} aria-label={copy.openNativeProject} title={copy.openNativeProject} disabled={Boolean(active)} onClick={() => onOpen(platform)} />
             <ui.Button icon={<Play />} loading={active?.operation === "run"} disabled={Boolean(active)} onClick={() => onRun("run", component)}>{isIos ? copy.runIosSimulator : copy.runAndroidSimulator}</ui.Button>
             <ui.Button icon={<PackageCheck />} loading={active?.operation === "build"} disabled={Boolean(active) || busy === component} onClick={() => onRun("build", component)}>{copy.buildNative}</ui.Button>
