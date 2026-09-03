@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot } from "../../../shared/domain/models";
-import { Button, ErrorFrame, PageHeader, Pagination, ProcessingOverlay, usePagination } from "../../../shared/ui";
+import { Button, ErrorFrame, PageHeader, PageLoading, Pagination, ProcessingOverlay, usePagination } from "../../../shared/ui";
 import { BackgroundJobsTable, type BackgroundJobAction } from "../components/BackgroundJobsTable";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -93,6 +93,7 @@ export function JobsPage({
 
   const finishedCount = jobs.filter((job) => !activeStatuses.has(job.status)).length;
 
+  if (!error && snapshot === null) return <PageLoading label={locale === "vi" ? "Đang tải trang" : "Loading page"} />;
   return <section className="jobs-page">
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<Button variant="solid" color="danger" icon={<Trash2 />} disabled={!finishedCount || clearingFinished} onClick={() => void clearFinished()}>{copy.clearFinished}</Button>} />
     {error && <div className="jobs-load-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>{copy.retry}</Button></div>}

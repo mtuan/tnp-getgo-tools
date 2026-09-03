@@ -7,6 +7,7 @@ import {
   DataTable,
   ErrorFrame,
   PageHeader,
+  PageLoading,
   SearchField,
   StatusBadge,
   SummaryCard,
@@ -148,6 +149,7 @@ export function QuestionFeedbackPage({
     },
   ], [onOpenQuestion]);
 
+  if (!error && overviews === null) return <PageLoading label="Loading page" />;
   return <section className="question-feedback-page">
     <PageHeader
       eyebrow="Content quality"
@@ -163,7 +165,6 @@ export function QuestionFeedbackPage({
       <SearchField value={query} placeholder="Search topic, quiz, question, or issue" ariaLabel="Search feedbacks" clearLabel="Clear feedback search" onValueChange={setQuery} />
     </div>
     {error && <div className="question-feedback-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>Retry</Button></div>}
-    {!error && overviews === null && <div className="question-feedback-loading">Loading question feedback…</div>}
     {!error && overviews !== null && <DataTable
       rows={rows}
       columns={columns}

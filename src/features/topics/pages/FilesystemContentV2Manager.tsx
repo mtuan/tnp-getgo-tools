@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, RepositoryViewData, SpeechLanguage, SpeechLanguageSettings } from "../../../shared/domain/models";
+import { PageLoading } from "../../../shared/ui";
 import { ContentV2QuizManager } from "./ContentV2QuizManager";
 
 type Props = {
@@ -46,6 +47,6 @@ export function FilesystemContentV2Manager(props: Props) {
     return () => { active = false; };
   }, [initialTopicId]);
   if (error) return <div className="ui-error-frame">{error}</div>;
-  if (!data) return <div className="manager-loading">Loading topic files…</div>;
+  if (!data) return <PageLoading label={props.locale === "vi" ? "Đang tải chủ đề" : "Loading topics"} />;
   return <ContentV2QuizManager {...props} snapshot={data} onSnapshotChange={setData} />;
 }

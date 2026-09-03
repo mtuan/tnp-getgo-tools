@@ -43,6 +43,7 @@ import { PageTransition } from "../../shared/components/PageTransition";
 import { Button } from "../../shared/ui/Button";
 import { DialogFrame } from "../../shared/ui/DialogFrame";
 import { PageHeader } from "../../shared/ui/PageHeader";
+import { PageLoading } from "../../shared/ui/PageLoading";
 import { Panel } from "../../shared/ui/Panel";
 import { SummaryCard } from "../../shared/ui/SummaryCard";
 import { Select, type SelectOption } from "../../shared/ui/Select";
@@ -82,9 +83,8 @@ const ImagePdfPage = lazy(() =>
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
 
-type View = "dashboard" | "topics" | "quizzes" | "feedbacks" | "jobs"
-  | "deploy" | "image-pdf" | "payments" | "safe-words" | "settings"
-  | "not-found";
+type View = "dashboard" | "topics" | "quizzes" | "feedbacks" | "jobs" | "deploy"
+  | "image-pdf" | "payments" | "safe-words" | "settings" | "not-found";
 type NavigableView = Exclude<View, "not-found">;
 const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
@@ -801,7 +801,7 @@ export function App() {
               />
             )}
             {settings.repositoryPath && view === "feedbacks" && (
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <QuestionFeedbackPage
                   onOpenQuestion={(topicId, quizId, questionId) => {
                     const questionNo = questionId.replace(/^q/i, "");
@@ -811,7 +811,7 @@ export function App() {
               </Suspense>
             )}
             {settings.repositoryPath && view === "jobs" && (
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <JobsPage
                   locale={settings.locale}
                   onOpenQuiz={(route) => goToRoute(route)}
@@ -819,7 +819,7 @@ export function App() {
               </Suspense>
             )}
             {settings.repositoryPath && view === "deploy" && (
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <DeploymentPage
                   locale={settings.locale}
                   environment={settings.environment}
@@ -828,15 +828,15 @@ export function App() {
               </Suspense>
             )}
             {view === "image-pdf" && (
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <ImagePdfPage locale={settings.locale} />
               </Suspense>
             )}
             {settings.repositoryPath && view === "payments" && (
-              <Suspense fallback={null}><PaymentPackagesPage locale={settings.locale} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><PaymentPackagesPage locale={settings.locale} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
             )}
             {settings.repositoryPath && view === "safe-words" && (
-              <Suspense fallback={null}><ContentSafetyPage locale={settings.locale} /></Suspense>
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><ContentSafetyPage locale={settings.locale} /></Suspense>
             )}
             {settings.repositoryPath && view === "settings" && (
               <SettingsPage settings={settings} initialRoute={routeRequest.route} loading={loading} choosingRepository={choosingRepository} checkingEnvironment={checkingEnvironment} savingAiProfile={savingAiProfile} restartingApp={restartingApp} onRouteChange={setCurrentRoute} onChooseRepository={() => void choose()} onChangeEnvironment={value => void changeEnvironment(value)} onChangeLocale={value => void changeLocale(value)} onChangeAiProfile={value => void changeAiProfile(value)} onRestart={() => void restartApp()} />

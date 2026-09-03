@@ -77,6 +77,7 @@ export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] })
     } finally { setSyncing(false); }
   };
   ui.useSaveShortcut({ enabled: dirty && !saving, onSave: () => void save() });
+  if (!draft) return <ui.PageLoading label={isVi ? "Đang tải trang" : "Loading page"} />;
   return <section>
     <ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={<ui.ControlGroup>
       <ui.Button variant="outline" icon={<RotateCcw />} disabled={!dirty || saving} onClick={() => persisted && setDraft(structuredClone(persisted))}>{copy.discard}</ui.Button>
@@ -85,7 +86,7 @@ export function ContentSafetyPage({ locale }: { locale: AppSettings["locale"] })
     </ui.ControlGroup>} />
     <ui.Panel title={copy.title}>
       <ui.PanelBody>
-        {draft ? <ui.Form fields={fields} values={values} errors={{}} onChange={updateList} /> : <div className="ui-panel-loading"><span className="mini-spinner" /></div>}
+        <ui.Form fields={fields} values={values} errors={{}} onChange={updateList} />
       </ui.PanelBody>
     </ui.Panel>
   </section>;

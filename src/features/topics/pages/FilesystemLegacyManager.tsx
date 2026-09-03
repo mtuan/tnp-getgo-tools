@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, RepositoryViewData, SpeechLanguage, SpeechLanguageSettings } from "../../../shared/domain/models";
+import { PageLoading } from "../../../shared/ui";
 import { QuizManager } from "./QuizManager";
 
 type Props = {
@@ -26,6 +27,6 @@ export function FilesystemLegacyManager(props: Props) {
     return () => { active = false; };
   }, [props.initialRoute]);
   if (error) return <div className="ui-error-frame">{error}</div>;
-  if (!data) return <div className="manager-loading">Loading quiz folders…</div>;
+  if (!data) return <PageLoading label={props.locale === "vi" ? "Đang tải thư mục bài thi" : "Loading quiz folders"} />;
   return <QuizManager {...props} snapshot={data} onSnapshotChange={setData} />;
 }
