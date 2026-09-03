@@ -99,7 +99,7 @@ export class StartupEnvironmentService {
       message: missingFirebase.length
         ? `Missing ${missingFirebase.join(", ")}.`
         : "Development, staging, and production Firebase projects are configured.",
-      resolution: missingFirebase.length ? "Restore the committed .env.example file or override these values in .env." : undefined,
+      resolution: missingFirebase.length ? "Copy .env.example to the private .env file, then obtain the missing Firebase values through the team password manager." : undefined,
     }, {
       id: "openai-key",
       label: "AI generation",

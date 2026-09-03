@@ -51,13 +51,16 @@ repository. A different quiz repository can always be selected in the UI.
 
 ## Environment configuration
 
-`.env.example` contains public project configuration and is loaded directly.
-Developers do not need to copy those values. Create an ignored `.env` only for
-private credentials or repository path overrides:
+`.env.example` contains non-credential project identifiers and blank placeholders.
+Create an ignored `.env` for API keys, private credentials, or repository path
+overrides. Obtain credential values through the team password manager:
 
 ```dotenv
 GETGO_AI_OPENAI_API_KEY=
 GETGO_GOOGLE_DESKTOP_CLIENT_SECRET=
+GETGO_FIREBASE_DEVELOPMENT_API_KEY=
+GETGO_FIREBASE_STAGING_API_KEY=
+GETGO_FIREBASE_PRODUCTION_API_KEY=
 ```
 
 For an installed application, place private overrides in the app data folder:
@@ -65,9 +68,9 @@ For an installed application, place private overrides in the app data folder:
 - macOS: `~/Library/Application Support/GetGo Tools/.env`
 - Windows: `%APPDATA%\GetGo Tools\.env`
 
-Public and shareable:
+Safe to commit:
 
-- Firebase API keys, project IDs, project numbers, and storage bucket names
+- Firebase project IDs, project numbers, and storage bucket names
 - Google OAuth client IDs
 - Meta/Facebook app ID
 - Model name and repository layout defaults
@@ -75,13 +78,15 @@ Public and shareable:
 Private and never committed:
 
 - OpenAI API keys
+- Firebase API keys (kept private in this repository to satisfy secret scanning)
 - Google OAuth client secrets
 - Firebase service-account JSON/private keys
 - EAS, Firebase, Apple, Google Play, signing, and store credentials
 
-Firebase API keys identify the Firebase project; Firestore/Storage Security
-Rules and IAM must enforce authorization. API-key restrictions should still be
-configured in Google Cloud.
+Firebase client API keys identify a Firebase project and are not sufficient for
+authorization, but they are kept out of Git because secret scanners classify
+them as Google API keys. Firestore/Storage Security Rules and IAM must enforce
+authorization, and API-key restrictions should be configured in Google Cloud.
 
 ## Platform notes
 
@@ -102,6 +107,7 @@ npm run dist
 
 `npm run dist` creates the platform installer in `release/`. Build macOS and
 Windows installers on their respective operating systems. Private `.env`
-files are never bundled; the packaged app contains only `.env.example`.
+files are never bundled; the packaged app contains only placeholder values from
+`.env.example`, and users configure private values from the startup repair page.
 
 See [PLAN.md](./PLAN.md) for architecture and job status semantics.
