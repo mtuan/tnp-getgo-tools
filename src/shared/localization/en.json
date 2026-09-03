@@ -570,6 +570,22 @@
     "never": "Never",
     "none": "None"
   },
+  "startupEnvironment": {
+    "eyebrow": "Developer workstation",
+    "title": "Environment setup required",
+    "description": "GetGo Tools checked this computer and found required configuration that must be fixed before the workspace can open.",
+    "summary": "{errors} blocking issues and {warnings} optional warnings found.",
+    "configurationPath": "Private configuration",
+    "results": "Environment check results",
+    "ready": "Ready",
+    "warning": "Optional",
+    "error": "Required",
+    "fix": "How to fix",
+    "openConfiguration": "Open configuration",
+    "recheck": "Check again",
+    "restart": "Restart Tools",
+    "checked": "Last checked"
+  },
   "publishing": {
     "eyebrow": "Firestore synchronization",
     "title": "Publishing",

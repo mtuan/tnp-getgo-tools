@@ -6,16 +6,17 @@
   "type": "module",
   "main": "dist/main/main.js",
   "scripts": {
-    "dev": "npm run refresh:logics && npm run dev:run",
-    "dev:run": "npm run sync:monaco-types && concurrently -k \"vite --port 5174 --strictPort\" \"tsc -p tsconfig.node.json --watch\" \"wait-on tcp:5174 file:dist/main/main.js file:dist/preload/preload.cjs && env -u ELECTRON_RUN_AS_NODE VITE_DEV_SERVER_URL=http://localhost:5174 electron .\"",
-    "build": "npm run refresh:logics && npm run build:run",
+    "dev": "npm run dev:run",
+    "dev:run": "npm run sync:monaco-types && concurrently -k \"vite --port 5174 --strictPort\" \"tsc -p tsconfig.node.json --watch\" \"wait-on tcp:5174 file:dist/main/main.js file:dist/preload/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 node scripts/run-electron.mjs\"",
+    "build": "npm run build:run",
     "build:run": "npm run sync:monaco-types && npm run clean && tsc -p tsconfig.node.json && vite build",
     "clean": "rimraf dist",
-    "start": "npm run refresh:logics && npm run build:run && npm run start:run",
-    "start:run": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "start": "npm run build:run && npm run start:run",
+    "start:run": "node scripts/run-electron.mjs",
     "sync:monaco-types": "node scripts/sync-quiz-builder-monaco-types.mjs",
     "refresh:logics": "node scripts/refresh-vendored-logics.mjs",
-    "dev:fresh": "npm run dev",
+    "dev:fresh": "npm run refresh:logics && npm run dev:run",
+    "build:fresh": "npm run refresh:logics && npm run build:run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "check:source-size": "node scripts/check-source-size.mjs",
     "test": "tsx --test tests/**/*.test.ts",
@@ -61,8 +62,8 @@
     },
     "extraResources": [
       {
-        "from": ".env",
-        "to": ".env"
+        "from": ".env.example",
+        "to": ".env.example"
       }
     ],
     "mac": {

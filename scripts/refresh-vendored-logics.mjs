@@ -6,9 +6,37 @@ import { fileURLToPath } from "node:url"
 import { spawnSync } from "node:child_process"
 
 const toolsRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const logicsRoot = resolve(toolsRoot, "../tnp-getgo-logics")
 const vendorRoot = join(toolsRoot, "vendor")
 const installedRoot = join(toolsRoot, "node_modules/@tnp/getgo-logics")
+const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm"
+
+async function isLogicsRepository(candidate) {
+  try {
+    const manifest = JSON.parse(await readFile(join(candidate, "package.json"), "utf8"))
+    return manifest.name === "@tnp/getgo-logics"
+  } catch {
+    return false
+  }
+}
+
+async function findLogicsRepository() {
+  const configured = process.env.GETGO_LOGICS_ROOT?.trim()
+  if (configured) {
+    const candidate = resolve(configured)
+    if (await isLogicsRepository(candidate)) return candidate
+    throw new Error(`GETGO_LOGICS_ROOT does not point to @tnp/getgo-logics: ${candidate}`)
+  }
+  const roots = [toolsRoot, dirname(toolsRoot), dirname(dirname(toolsRoot))]
+  const candidates = roots.flatMap(root => [
+    join(root, "tnp-getgo-logics"),
+    join(dirname(root), "tnp-getgo-logics"),
+  ])
+  for (const candidate of [...new Set(candidates)])
+    if (await isLogicsRepository(candidate)) return candidate
+  throw new Error("GetGo Logics repository was not found. Set GETGO_LOGICS_ROOT to its absolute path.")
+}
+
+const logicsRoot = await findLogicsRepository()
 
 function run(command, args, cwd, capture = false) {
   const result = spawnSync(command, args, {
@@ -59,22 +87,22 @@ async function verifyInstalledPackage(archivePath) {
 }
 
 console.log("Checking and building @tnp/getgo-logics…")
-run("npm", ["run", "check"], logicsRoot)
+run(npmExecutable, ["run", "check"], logicsRoot)
 
 console.log("Packing @tnp/getgo-logics…")
-const packOutput = run("npm", ["pack", "--json", "--pack-destination", vendorRoot], logicsRoot, true)
+const packOutput = run(npmExecutable, ["pack", "--json", "--pack-destination", vendorRoot], logicsRoot, true)
 const packResult = JSON.parse(packOutput)
 const filename = packResult[0]?.filename
 if (typeof filename !== "string" || !filename.endsWith(".tgz")) throw new Error("npm pack did not return a tarball filename")
 const archivePath = join(vendorRoot, basename(filename))
 
 console.log(`Installing ${basename(archivePath)} explicitly…`)
-run("npm", ["install", `./vendor/${basename(archivePath)}`, "--save"], toolsRoot)
+run(npmExecutable, ["install", `./vendor/${basename(archivePath)}`, "--save"], toolsRoot)
 await verifyInstalledPackage(archivePath)
 
 console.log("Syncing editor types and checking GetGo Tools…")
-run("npm", ["run", "sync:monaco-types"], toolsRoot)
-run("npm", ["run", "typecheck"], toolsRoot)
-run("npm", ["test"], toolsRoot)
+run(npmExecutable, ["run", "sync:monaco-types"], toolsRoot)
+run(npmExecutable, ["run", "typecheck"], toolsRoot)
+run(npmExecutable, ["test"], toolsRoot)
 
 console.log("Vendored logics refresh completed successfully. Restart GetGo Tools if it is already running.")

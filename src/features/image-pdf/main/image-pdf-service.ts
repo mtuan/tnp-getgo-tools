@@ -100,7 +100,11 @@ async function detectImageOrientation(filePath: string): Promise<ImagePdfOrienta
     let output = "";
     child.stdout.on("data", (chunk) => { output += String(chunk); });
     child.stderr.on("data", (chunk) => { output += String(chunk); });
-    child.on("error", (cause) => reject((cause as NodeJS.ErrnoException).code === "ENOENT" ? new Error("Text orientation detection requires Tesseract OCR. Install it with: brew install tesseract") : cause));
+    child.on("error", (cause) => reject((cause as NodeJS.ErrnoException).code === "ENOENT"
+      ? new Error(process.platform === "win32"
+        ? "Text orientation detection requires Tesseract OCR. Install it and add tesseract.exe to PATH, or set TESSERACT_PATH."
+        : "Text orientation detection requires Tesseract OCR. Install it with: brew install tesseract")
+      : cause));
     child.on("close", async () => {
       const raw = Number(output.match(/Rotate:\s*(0|90|180|270)/i)?.[1]);
       const confidence = Number(output.match(/Orientation confidence:\s*([\d.]+)/i)?.[1]);

@@ -7,6 +7,8 @@ import type {
 
 const api: DesktopApi = {
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
+  checkStartupEnvironment: () => ipcRenderer.invoke("startup-environment:check"),
+  openEnvironmentConfiguration: () => ipcRenderer.invoke("startup-environment:open-configuration") as Promise<void>,
   browseImagePdfInputs: (mode) => ipcRenderer.invoke("utility:pdf:browse", mode),
   loadImagePdfInputs: (paths) => ipcRenderer.invoke("utility:pdf:load-inputs", paths),
   detectImagePdfOrientations: (paths) => ipcRenderer.invoke("utility:pdf:detect-orientations", paths),

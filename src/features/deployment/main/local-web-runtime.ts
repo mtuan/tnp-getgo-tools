@@ -4,6 +4,7 @@ import { closeSync, openSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 
 export interface LocalWebRuntimeConfig {
   product: DeploymentProduct;
@@ -36,6 +37,7 @@ export const getGoAppRuntimeConfig: LocalWebRuntimeConfig = {
   command: () => ["run", "web", "--", "--port", "8081"],
 };
 const execFileAsync = promisify(execFile);
+const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface PersistedRuntime {
   pid: number;
   startedAt: string;
@@ -147,20 +149,12 @@ export class LocalWebRuntimeManager {
   }
 
   private async repositoryRoot() {
-    const configured = process.env[this.config.repositoryEnvironmentVariable]?.trim();
-    const candidates = [
-      configured,
-      path.resolve(this.toolsAppPath, "..", this.config.repositoryDirectory),
-      path.resolve(process.cwd(), "..", this.config.repositoryDirectory),
-    ].filter((candidate): candidate is string => Boolean(candidate));
-    for (const candidate of [...new Set(candidates)]) {
-      try {
-        const manifest = JSON.parse(await fs.readFile(path.join(candidate, "package.json"), "utf8")) as { name?: string };
-        if (manifest.name === this.config.repositoryName) return candidate;
-      } catch {
-        // Try the next deterministic candidate.
-      }
-    }
+    const root = await findRelatedRepository(this.toolsAppPath, {
+      packageName: this.config.repositoryName,
+      directoryName: this.config.repositoryDirectory,
+      environmentVariable: this.config.repositoryEnvironmentVariable,
+    });
+    if (root) return root;
     throw new Error(`GetGo ${this.config.product === "web" ? "Web" : "App"} repository was not found. Set ${this.config.repositoryEnvironmentVariable} to its absolute path.`);
   }
 
@@ -181,9 +175,16 @@ export class LocalWebRuntimeManager {
   }
 
   private async listenerPid(): Promise<number | null> {
-    if (process.platform === "win32") return null;
     try {
       const port = new URL(this.config.url).port;
+      if (process.platform === "win32") {
+        const { stdout } = await execFileAsync("netstat", ["-ano", "-p", "tcp"]);
+        const match = stdout.split(/\r?\n/).find(line =>
+          new RegExp(`(?:\\]|\\d):${port}\\s+.*\\sLISTENING\\s+\\d+\\s*$`, "i").test(line),
+        );
+        const pid = Number(match?.trim().split(/\s+/).at(-1));
+        return Number.isInteger(pid) && pid > 0 ? pid : null;
+      }
       const { stdout } = await execFileAsync("lsof", ["-nP", `-tiTCP:${port}`, "-sTCP:LISTEN"]);
       const pid = Number(stdout.trim().split(/\s+/)[0]);
       return Number.isInteger(pid) && pid > 0 ? pid : null;
@@ -205,7 +206,7 @@ export class LocalWebRuntimeManager {
 
   private async signalRuntime(pid: number, signal: NodeJS.Signals) {
     if (process.platform === "win32") {
-      process.kill(pid, signal);
+      await execFileAsync("taskkill", ["/PID", String(pid), "/T", ...(signal === "SIGKILL" ? ["/F"] : [])]);
       return;
     }
     const [targetGroup, toolsGroup] = await Promise.all([
@@ -342,7 +343,7 @@ export class LocalWebRuntimeManager {
     ]);
     const stdoutFd = openSync(this.stdoutFile, "a");
     const stderrFd = openSync(this.stderrFile, "a");
-    const child = spawn("npm", command, {
+    const child = spawn(npmExecutable, command, {
       cwd: repositoryRoot,
       detached: process.platform !== "win32",
       env: {

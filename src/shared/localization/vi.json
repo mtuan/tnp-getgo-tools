@@ -570,6 +570,22 @@
     "never": "Chưa bao giờ",
     "none": "Không có"
   },
+  "startupEnvironment": {
+    "eyebrow": "Máy phát triển",
+    "title": "Cần thiết lập môi trường",
+    "description": "GetGo Tools đã kiểm tra máy này và phát hiện cấu hình bắt buộc cần sửa trước khi mở không gian làm việc.",
+    "summary": "Có {errors} lỗi bắt buộc và {warnings} cảnh báo tùy chọn.",
+    "configurationPath": "Cấu hình riêng tư",
+    "results": "Kết quả kiểm tra môi trường",
+    "ready": "Sẵn sàng",
+    "warning": "Tùy chọn",
+    "error": "Bắt buộc",
+    "fix": "Cách khắc phục",
+    "openConfiguration": "Mở cấu hình",
+    "recheck": "Kiểm tra lại",
+    "restart": "Khởi động lại Tools",
+    "checked": "Lần kiểm tra cuối"
+  },
   "publishing": {
     "eyebrow": "Đồng bộ Firestore",
     "title": "Xuất bản",

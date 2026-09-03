@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { BackgroundJob, DeploymentOperation, DeploymentProduct, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
+const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 
 interface Runtime { child: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> }
 
@@ -110,17 +112,12 @@ export class NativeDeploymentJobManager {
   }
 
   private async repositoryRoot() {
-    const candidates = [
-      process.env[this.config.repositoryEnvironmentVariable]?.trim(),
-      path.resolve(this.toolsAppPath, "..", this.config.repositoryDirectory),
-      path.resolve(process.cwd(), "..", this.config.repositoryDirectory),
-    ].filter((value): value is string => Boolean(value));
-    for (const candidate of [...new Set(candidates)]) {
-      try {
-        const value = JSON.parse(await fs.readFile(path.join(candidate, "package.json"), "utf8")) as { name?: string };
-        if (value.name === this.config.repositoryName) return candidate;
-      } catch { /* Try the next candidate. */ }
-    }
+    const root = await findRelatedRepository(this.toolsAppPath, {
+      packageName: this.config.repositoryName,
+      directoryName: this.config.repositoryDirectory,
+      environmentVariable: this.config.repositoryEnvironmentVariable,
+    });
+    if (root) return root;
     throw new Error(`GetGo ${this.config.product === "web" ? "Web" : "App"} repository was not found. Set ${this.config.repositoryEnvironmentVariable} to its absolute path.`);
   }
 
@@ -153,7 +150,7 @@ export class NativeDeploymentJobManager {
   private async run(job: NativeJob, platform: NativePlatform) {
     const root = await this.repositoryRoot();
     const command = this.config.command(job.operation!, platform, job.target!);
-    const child = spawn("npm", ["run", command.script, ...(command.args.length ? ["--", ...command.args] : [])], {
+    const child = spawn(npmExecutable, ["run", command.script, ...(command.args.length ? ["--", ...command.args] : [])], {
       cwd: root, env: process.env, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
     });
     const runtime: Runtime = { child, cancelled: false, buffers: { stdout: "", stderr: "" } };
@@ -214,7 +211,7 @@ export class NativeDeploymentJobManager {
   async open(platform: NativePlatform, target: WebDeploymentTarget) {
     if (this.config.product === "app") throw new Error("Expo native projects are generated when the run command starts.");
     const root = await this.repositoryRoot();
-    const child = spawn("npm", ["run", `native:open:${platform}`, "--", target], {
+    const child = spawn(npmExecutable, ["run", `native:open:${platform}`, "--", target], {
       cwd: root, env: process.env, detached: true, stdio: "ignore",
     });
     child.unref();

@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, DeploymentItemState, DeploymentJobReportStep, DeploymentOperation, DeploymentStateSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 
 type DeploymentJob = BackgroundJob & {
   kind: "deploy";
@@ -10,6 +11,7 @@ type DeploymentJob = BackgroundJob & {
   target?: WebDeploymentTarget;
   operation?: DeploymentOperation;
 };
+const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
 interface Runtime { child: ChildProcess; cancelled: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string }
@@ -138,20 +140,12 @@ export class WebDeploymentJobManager {
   }
 
   private async webRoot() {
-    const configured = process.env.GETGO_WEB_ROOT?.trim();
-    const candidates = [
-      configured,
-      path.resolve(this.toolsAppPath, "..", "tnp-getgo-web"),
-      path.resolve(process.cwd(), "..", "tnp-getgo-web"),
-    ].filter((candidate): candidate is string => Boolean(candidate));
-    for (const candidate of [...new Set(candidates)]) {
-      try {
-        const manifest = JSON.parse(await fs.readFile(path.join(candidate, "package.json"), "utf8")) as { name?: string };
-        if (manifest.name === "tnp-getgo-web") return candidate;
-      } catch {
-        // Try the next deterministic candidate.
-      }
-    }
+    const root = await findRelatedRepository(this.toolsAppPath, {
+      packageName: "tnp-getgo-web",
+      directoryName: "tnp-getgo-web",
+      environmentVariable: "GETGO_WEB_ROOT",
+    });
+    if (root) return root;
     throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
   }
 
@@ -337,7 +331,7 @@ export class WebDeploymentJobManager {
     const args = ["run", targetScripts[target], "--", `--scope=${scope}`];
     if (operation === "build") args.push("--build-only", "--no-lint", "--no-typecheck");
     else args.push("--deploy-only", "--no-lint", "--no-typecheck");
-    const child = spawn("npm", args, {
+    const child = spawn(npmExecutable, args, {
       cwd: webRoot,
       detached: process.platform !== "win32",
       env: process.env,

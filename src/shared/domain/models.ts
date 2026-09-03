@@ -476,7 +476,6 @@ export interface EnvironmentReadiness {
   ready: boolean;
   checks: EnvironmentReadinessCheck[];
 }
-
 export interface PublishableQuiz {
   contestId: string;
   quizId: string;
@@ -733,9 +732,10 @@ export interface SafeWordSyncStatus {
   sourcePath: string;
   sharedPath: string;
 }
-
 export interface DesktopApi {
   restartApp(): Promise<void>;
+  checkStartupEnvironment(): Promise<import("../../features/settings/domain/startup-environment.js").StartupEnvironmentReadiness>;
+  openEnvironmentConfiguration(): Promise<void>;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
   loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;
   detectImagePdfOrientations(paths: string[]): Promise<ImagePdfOrientation[]>;

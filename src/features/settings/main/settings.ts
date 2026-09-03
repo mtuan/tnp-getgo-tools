@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { AppSettings } from "../../../shared/domain/models.js";
 import { defaultSpeechSettings } from "../../../features/speech/domain/speech-settings.js";
+import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 
 const defaults: AppSettings = {
   repositoryPath: null,
@@ -12,7 +13,10 @@ const defaults: AppSettings = {
 };
 
 export class SettingsStore {
-  constructor(private readonly userDataPath: string) {}
+  constructor(
+    private readonly userDataPath: string,
+    private readonly toolsAppPath: string,
+  ) {}
   private get filePath(): string {
     return path.join(this.userDataPath, "settings.json");
   }
@@ -31,7 +35,13 @@ export class SettingsStore {
         },
       };
     } catch {
-      return { ...defaults };
+      const repositoryPath = await findRelatedRepository(this.toolsAppPath, {
+        packageName: "@tnp/getgo-quizzes",
+        directoryName: "tnp-getgo-quizzes",
+        environmentVariable: "GETGO_QUIZZES_ROOT",
+        requiredDirectory: "quizzes",
+      });
+      return { ...defaults, repositoryPath };
     }
   }
 

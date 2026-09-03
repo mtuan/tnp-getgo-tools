@@ -7617,6 +7617,46 @@ button.danger svg {
   display: grid;
   gap: 18px;
 }
+.startup-environment-page {
+  width: min(1120px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 42px 0 56px;
+}
+.startup-environment-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  background: #fef2f2;
+}
+.startup-environment-summary > svg { width: 24px; height: 24px; flex: none; }
+.startup-environment-summary > div { display: grid; gap: 4px; min-width: 0; }
+.startup-environment-summary span { color: #64748b; font-size: 12px; }
+.startup-environment-summary code { overflow-wrap: anywhere; }
+.startup-environment-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.startup-environment-check .ui-panel-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 13px; }
+.startup-environment-check .ui-panel-body > svg { width: 21px; height: 21px; }
+.startup-environment-check-ready .ui-panel-body > svg { color: #16a34a; }
+.startup-environment-check-warning .ui-panel-body > svg { color: #d97706; }
+.startup-environment-check-error .ui-panel-body > svg { color: #dc2626; }
+.startup-environment-check-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.startup-environment-check p { margin: 7px 0 0; color: #64748b; line-height: 1.45; }
+.startup-environment-check small { display: block; margin-top: 8px; color: #334155; line-height: 1.45; }
+.startup-environment-checked { margin: 16px 0 0; color: #64748b; font-size: 12px; text-align: right; }
+@media (max-width: 760px) {
+  .startup-environment-page { width: min(100% - 28px, 1120px); padding-top: 24px; }
+  .startup-environment-checks { grid-template-columns: 1fr; }
+}
+@media (prefers-color-scheme: dark) {
+  .startup-environment-summary { border-color: #7f1d1d; color: #fecaca; background: #450a0a; }
+  .startup-environment-summary span,
+  .startup-environment-check p { color: #94a3b8; }
+  .startup-environment-check small { color: #cbd5e1; }
+}
 .deployment-page-heading .ui-page-header {
   margin-bottom: 0;
 }

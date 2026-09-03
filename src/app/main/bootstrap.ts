@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { config as loadEnvironment } from "dotenv";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -7,6 +7,7 @@ import { loadLegacyOverviewFromFiles } from "../../features/topics/repository/qu
 import { loadQuizQuestions } from "../../features/quiz-editor/repository/quiz-questions.js";
 import { createPublishPayloadFromQuestions, recordPublishedHash } from "../../features/topics/repository/quiz-publishing.js";
 import { SettingsStore } from "../../features/settings/main/settings.js";
+import { StartupEnvironmentService } from "../../features/settings/main/startup-environment.js";
 import { registerSettingsIpc } from "../../features/settings/main/settings-ipc.js";
 import { FirebaseAuthService } from "../../features/authentication/main/firebase-auth.js";
 import { LocalAiService } from "../../features/ai/main/local-ai.js";
@@ -30,10 +31,14 @@ import { registerPaymentPackagesIpc } from "../../features/payment-packages/main
 import { registerContentSafetyIpc } from "../../features/content-safety/main/content-safety-ipc.js";
 import { assertRepositoryContentSafe, setContentSafetyWarningHandler } from "../../features/content-safety/repository/content-safety-repository.js";
 
+const environmentRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
+const privateEnvironmentPath = app.isPackaged
+  ? path.join(app.getPath("userData"), ".env")
+  : path.join(environmentRoot, ".env");
+loadEnvironment({ path: path.join(environmentRoot, ".env.example") });
 loadEnvironment({
-  path: app.isPackaged
-    ? path.join(process.resourcesPath, ".env")
-    : path.join(app.getAppPath(), ".env"),
+  path: privateEnvironmentPath,
+  override: true,
 });
 
 const productName = "GetGo Tools";
@@ -120,7 +125,8 @@ app.whenReady().then(async () => {
   );
   startupLog("Electron ready");
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath);
-  const settings = new SettingsStore(app.getPath("userData"));
+  const settings = new SettingsStore(app.getPath("userData"), app.getAppPath());
+  const startupEnvironment = new StartupEnvironmentService(app.getAppPath(), privateEnvironmentPath);
   const repositoryRoot = async (): Promise<string> => {
     const current = await settings.read();
     if (!current.repositoryPath)
@@ -142,6 +148,11 @@ app.whenReady().then(async () => {
   // remaining feature handlers can finish registering while the loading page
   // is already visible.
   ipcMain.handle("settings:get", () => settings.read());
+  ipcMain.handle("startup-environment:check", () => startupEnvironment.check());
+  ipcMain.handle("startup-environment:open-configuration", async () => {
+    await startupEnvironment.ensureConfigurationFile();
+    shell.showItemInFolder(privateEnvironmentPath);
+  });
   ipcMain.handle(
     "legacy:overview:load",
     async (_event, requestedPath?: string) => {

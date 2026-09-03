@@ -51,6 +51,8 @@ import { SegmentedControl } from "../../shared/ui/SegmentedControl";
 import { useToast } from "../../shared/ui/Toast";
 import { FilesystemLegacyManager } from "../../features/topics/pages/FilesystemLegacyManager";
 import { FilesystemContentV2Manager } from "../../features/topics/pages/FilesystemContentV2Manager";
+import { StartupEnvironmentPage } from "../../features/settings/components/StartupEnvironmentPage";
+import { useStartupEnvironment } from "../../features/settings/components/useStartupEnvironment";
 import en from "../../shared/localization/en.json";
 import vi from "../../shared/localization/vi.json";
 
@@ -81,17 +83,8 @@ const ImagePdfPage = lazy(() =>
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
 
-type View =
-  | "dashboard"
-  | "topics"
-  | "quizzes"
-  | "feedbacks"
-  | "jobs"
-  | "deploy"
-  | "image-pdf"
-  | "payments"
-  | "safe-words"
-  | "settings"
+type View = "dashboard" | "topics" | "quizzes" | "feedbacks" | "jobs"
+  | "deploy" | "image-pdf" | "payments" | "safe-words" | "settings"
   | "not-found";
 type NavigableView = Exclude<View, "not-found">;
 const lastRouteKey = "getgo-tools:last-route";
@@ -192,7 +185,6 @@ const localeOptions: SelectOption[] = [
   { value: "en", label: "English" },
   { value: "vi", label: "Tiếng Việt" },
 ];
-
 export function App() {
   const toast = useToast();
   const auth = useAuth();
@@ -222,6 +214,7 @@ export function App() {
   const [environmentReadiness, setEnvironmentReadiness] =
     useState<EnvironmentReadiness | null>(null);
   const [checkingEnvironment, setCheckingEnvironment] = useState(false);
+  const startupEnvironment = useStartupEnvironment();
   const [savingAiProfile, setSavingAiProfile] = useState(false);
   const [restartingApp, setRestartingApp] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] =
@@ -369,8 +362,7 @@ export function App() {
     rendererStartupLog("App mounted");
   }, []);
   useEffect(() => {
-    window.getgo
-      .getSettings()
+    window.getgo.getSettings()
       .then((value) => {
         rendererStartupLog("Settings received", {
           hasRepository: Boolean(value.repositoryPath),
@@ -422,7 +414,6 @@ export function App() {
     const timeout = window.setTimeout(() => setRouteCopied(false), 1400);
     return () => window.clearTimeout(timeout);
   }, [routeCopied]);
-
   async function copyCurrentRoute() {
     try {
       await window.getgo.copyText(currentRoute);
@@ -517,10 +508,19 @@ export function App() {
     ["reviewed", "validated", "published"].includes(q.contentStatus),
   ).length;
   const contests = 0;
-
-  if (loading)
+  if (loading || !startupEnvironment.readiness)
     return <StartupLoadingScreen settingsLoaded={settingsLoaded} />;
 
+  if (!startupEnvironment.readiness.ready)
+    return <StartupEnvironmentPage
+      locale={settings.locale}
+      readiness={startupEnvironment.readiness}
+      checking={startupEnvironment.checking}
+      restarting={restartingApp}
+      onRecheck={() => void startupEnvironment.check()}
+      onOpenConfiguration={() => void window.getgo.openEnvironmentConfiguration()}
+      onRestart={() => void restartApp()}
+    />;
   return (
     <div
       className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`.trim()}
