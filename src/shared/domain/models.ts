@@ -659,6 +659,7 @@ export interface BackgroundJob {
   createdAt: string;
   startedAt?: string;
   finishedAt?: string;
+  durationMs?: number;
   route?: string;
   component?: DeploymentComponent;
   operation?: DeploymentOperation;

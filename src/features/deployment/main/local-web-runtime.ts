@@ -349,6 +349,7 @@ export class LocalWebRuntimeManager {
       for (const message of `${stdout}\n${stderr}`.replace(/\r/g, "").split("\n").filter(Boolean))
         job.logs?.push({ timestamp: completedAt, stream: "system", message });
       job.progressLabel = "Localhost ready";
+      job.durationMs = Math.max(0, Date.parse(completedAt) - Date.parse(operationStartedAt));
       this.warmingUp = false;
       await this.persistLastJob();
     } catch (cause) {
@@ -360,6 +361,7 @@ export class LocalWebRuntimeManager {
         message: `Warmup did not finish, but Vite is available: ${message}`,
       });
       job.progressLabel = "Localhost ready (warmup incomplete)";
+      job.durationMs = Math.max(0, Date.parse(completedAt) - Date.parse(operationStartedAt));
       this.warmingUp = false;
       await this.persistLastJob();
     }

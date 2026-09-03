@@ -168,6 +168,8 @@ export class NativeDeploymentJobManager {
     job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: job.status === "completed" ? "Native workflow completed." : job.error ?? `Native workflow ${job.status}.` });
     job.cancellable = false;
     job.finishedAt = new Date().toISOString();
+    if (job.startedAt)
+      job.durationMs = Math.max(0, Date.parse(job.finishedAt) - Date.parse(job.startedAt));
     await this.persist();
   }
 

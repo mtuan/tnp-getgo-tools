@@ -461,6 +461,9 @@
     "lastJob": {
       "none": "No jobs yet",
       "started": "Started",
+      "startedAt": "started",
+      "inDuration": "in",
+      "localhostBuilt": "Built",
       "startFailed": "Start failed",
       "startCancelled": "Start cancelled",
       "run": { "queued": "Run queued", "running": "Running", "paused": "Run paused", "completed": "Run completed", "cancelled": "Run cancelled", "failed": "Run failed" },

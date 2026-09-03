@@ -14,6 +14,25 @@ function relativeTime(value: string, locale: AppSettings["locale"]): string {
   return formatter.format(Math.round(elapsedSeconds / 31_536_000), "year");
 }
 
+function duration(value: number, locale: AppSettings["locale"]): string {
+  const seconds = Math.max(0, Math.round(value / 1_000));
+  const formatter = new Intl.NumberFormat(locale === "vi" ? "vi" : "en");
+  if (seconds < 60) return `${formatter.format(seconds)}${locale === "vi" ? " giây" : "s"}`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${formatter.format(minutes)}${locale === "vi" ? " phút" : "m"}`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  const hourText = `${formatter.format(hours)}${locale === "vi" ? " giờ" : "h"}`;
+  return remainingMinutes ? `${hourText} ${formatter.format(remainingMinutes)}${locale === "vi" ? " phút" : "m"}` : hourText;
+}
+
+function jobDuration(job: BackgroundJob): number | undefined {
+  if (typeof job.durationMs === "number") return job.durationMs;
+  if (typeof job.report?.durationMs === "number") return job.report.durationMs;
+  if (!job.startedAt || !job.finishedAt) return undefined;
+  return Math.max(0, Date.parse(job.finishedAt) - Date.parse(job.startedAt));
+}
+
 function statusLabel(job: BackgroundJob, locale: AppSettings["locale"], localhost: boolean): string {
   const copy = (locale === "vi" ? vi : en).deployment.lastJob;
   if (localhost && job.operation === "run") {
@@ -37,13 +56,14 @@ export function LastDeploymentJobStatus({
 }) {
   const copy = (locale === "vi" ? vi : en).deployment.lastJob;
   if (!job) return <p className="deployment-last-job deployment-last-job-empty">{copy.none}</p>;
-  const timestamp = ["completed", "failed", "cancelled"].includes(job.status)
-    ? job.finishedAt ?? job.startedAt ?? job.createdAt
-    : job.startedAt ?? job.createdAt;
+  const timestamp = job.startedAt ?? job.createdAt;
+  const elapsed = jobDuration(job);
+  const showDuration = elapsed !== undefined && (localhost || ["completed", "failed", "cancelled"].includes(job.status));
+  const label = localhost && showDuration ? copy.localhostBuilt : statusLabel(job, locale, localhost);
   return (
     <p className={`deployment-last-job deployment-last-job-${job.status}`}>
-      <strong>{statusLabel(job, locale, localhost)}</strong>
-      <span>{relativeTime(timestamp, locale)}</span>
+      <strong>{label}{showDuration ? ` ${copy.inDuration} ${duration(elapsed, locale)}` : ""}</strong>
+      <span>{copy.startedAt} {relativeTime(timestamp, locale)}</span>
     </p>
   );
 }

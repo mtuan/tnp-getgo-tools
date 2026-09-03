@@ -461,6 +461,9 @@
     "lastJob": {
       "none": "Chưa có công việc",
       "started": "Đã khởi động",
+      "startedAt": "bắt đầu",
+      "inDuration": "trong",
+      "localhostBuilt": "Đã build",
       "startFailed": "Khởi động thất bại",
       "startCancelled": "Đã hủy khởi động",
       "run": { "queued": "Đang chờ chạy", "running": "Đang chạy", "paused": "Đã tạm dừng chạy", "completed": "Đã chạy xong", "cancelled": "Đã hủy chạy", "failed": "Chạy thất bại" },
