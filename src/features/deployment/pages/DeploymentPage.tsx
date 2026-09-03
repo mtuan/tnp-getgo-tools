@@ -221,10 +221,10 @@ export function DeploymentPage({
         <NativeDeploymentCards locale={locale} activeJobs={activeJobs} busy={busy} product="app" runOnly onRun={run} onOpen={() => undefined} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
     </>}
-    {activeJobs.length > 0 && <section className="deployment-jobs">
-      <div><h2>{copy.activeDeployments}</h2><ui.Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openAllJobs}</ui.Button></div>
-      <BackgroundJobsTable locale={locale} ariaLabel={copy.activeDeployments} rows={activeJobs} busyJob={busyJob} emptyText={copy.noActiveDeployments} onAction={(job, action) => void control(job, action)} />
-    </section>}
+    <section className="deployment-jobs">
+      <div><h2>{copy.relatedJobs}</h2><ui.Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openAllJobs}</ui.Button></div>
+      <BackgroundJobsTable locale={locale} ariaLabel={copy.relatedJobs} rows={deployments} busyJob={busyJob} emptyText={copy.noRelatedJobs} onAction={(job, action) => void control(job, action)} />
+    </section>
     {selectedLogJob && <DeploymentJobReportDrawer locale={locale} job={selectedLogJob} onClose={() => setLogSelection(null)} />}
   </section>;
 }
