@@ -23,7 +23,6 @@ import {
   PanelLeftOpen,
   RefreshCw,
   Rocket,
-  RotateCcw,
   Settings,
   ShieldCheck,
   type LucideIcon,
@@ -47,12 +46,12 @@ import { PageHeader } from "../../shared/ui/PageHeader";
 import { Panel } from "../../shared/ui/Panel";
 import { SummaryCard } from "../../shared/ui/SummaryCard";
 import { Select, type SelectOption } from "../../shared/ui/Select";
-import { SegmentedControl } from "../../shared/ui/SegmentedControl";
 import { useToast } from "../../shared/ui/Toast";
 import { FilesystemLegacyManager } from "../../features/topics/pages/FilesystemLegacyManager";
 import { FilesystemContentV2Manager } from "../../features/topics/pages/FilesystemContentV2Manager";
 import { StartupEnvironmentPage } from "../../features/settings/components/StartupEnvironmentPage";
 import { useStartupEnvironment } from "../../features/settings/components/useStartupEnvironment";
+import { SettingsPage } from "../../features/settings/components/SettingsPage";
 import en from "../../shared/localization/en.json";
 import vi from "../../shared/localization/vi.json";
 
@@ -176,14 +175,6 @@ const environmentOptions: SelectOption[] = [
   { value: "development", label: "Development" },
   { value: "staging", label: "Staging" },
   { value: "production", label: "Production" },
-];
-const aiProfileOptions: SelectOption[] = [
-  { value: "thorough", label: "Thorough" },
-  { value: "fast", label: "Fast" },
-];
-const localeOptions: SelectOption[] = [
-  { value: "en", label: "English" },
-  { value: "vi", label: "Tiếng Việt" },
 ];
 export function App() {
   const toast = useToast();
@@ -848,93 +839,7 @@ export function App() {
               <Suspense fallback={null}><ContentSafetyPage locale={settings.locale} /></Suspense>
             )}
             {settings.repositoryPath && view === "settings" && (
-              <section className="settings-page">
-                <span className="eyebrow">Application</span>
-                <h1>Settings</h1>
-                <div className="settings-card">
-                  <label>
-                    Quiz repository
-                    <span>
-                      The folder containing quizzes/, generated/, and schemas/.
-                    </span>
-                  </label>
-                  <div>
-                    <code>{settings.repositoryPath}</code>
-                    <button
-                      className="secondary"
-                      disabled={loading}
-                      onClick={choose}
-                    >
-                      Change
-                    </button>
-                  </div>
-                  <label>
-                    Active environment
-                    <span>
-                      Upload status will be reconciled independently for every
-                      environment.
-                    </span>
-                  </label>
-                  <SegmentedControl
-                    value={settings.environment}
-                    options={environmentOptions}
-                    disabled={checkingEnvironment}
-                    ariaLabel="Active environment"
-                    onValueChange={(value) =>
-                      void changeEnvironment(
-                        value as AppSettings["environment"],
-                      )
-                    }
-                  />
-                  <label>
-                    Locale
-                    <span>
-                      Choose the language used by localized application pages.
-                    </span>
-                  </label>
-                  <SegmentedControl
-                    value={settings.locale}
-                    options={localeOptions}
-                    ariaLabel="Locale"
-                    onValueChange={(value) =>
-                      void changeLocale(value as AppSettings["locale"])
-                    }
-                  />
-                  <label>
-                    AI generation profile
-                    <span>
-                      Thorough preserves the current full-reference behavior.
-                      Fast uses a compact reference and lower reasoning latency.
-                    </span>
-                  </label>
-                  <SegmentedControl
-                    value={settings.aiProfile}
-                    options={aiProfileOptions}
-                    disabled={savingAiProfile}
-                    ariaLabel="AI generation profile"
-                    onValueChange={(value) =>
-                      void changeAiProfile(value as AppSettings["aiProfile"])
-                    }
-                  />
-                  <label>
-                    Restart application
-                    <span>
-                      Development restarts keep the Vite hot-update connection
-                      active. Packaged builds relaunch GetGo Tools.
-                    </span>
-                  </label>
-                  <div>
-                    <Button
-                      icon={<RotateCcw size={15} />}
-                      loading={restartingApp}
-                      variant="secondary"
-                      onClick={() => void restartApp()}
-                    >
-                      Restart GetGo Tools
-                    </Button>
-                  </div>
-                </div>
-              </section>
+              <SettingsPage settings={settings} initialRoute={routeRequest.route} loading={loading} choosingRepository={choosingRepository} checkingEnvironment={checkingEnvironment} savingAiProfile={savingAiProfile} restartingApp={restartingApp} onRouteChange={setCurrentRoute} onChooseRepository={() => void choose()} onChangeEnvironment={value => void changeEnvironment(value)} onChangeLocale={value => void changeLocale(value)} onChangeAiProfile={value => void changeAiProfile(value)} onRestart={() => void restartApp()} />
             )}
           </PageTransition>
         </div>

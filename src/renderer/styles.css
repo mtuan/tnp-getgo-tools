@@ -7653,6 +7653,15 @@ button.danger svg {
 .startup-environment-restart > svg { width: 19px; height: 19px; flex: none; }
 .startup-environment-secret { display: grid; gap: 8px; }
 .startup-environment-secret > span { color: #334155; font-size: 13px; font-weight: 700; }
+.startup-environment-secret > code { width: fit-content; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); color: var(--text); font-size: 12px; }
+.settings-page > .ui-tabs { margin-top: 18px; }
+.settings-tab-panels { margin-top: 18px; }
+.settings-debug-panel { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.settings-debug-panel > div { display: grid; gap: 5px; }
+.settings-debug-panel span { color: var(--muted); font-size: 12px; }
+@media (max-width: 720px) {
+  .settings-debug-panel { align-items: stretch; flex-direction: column; }
+}
 .startup-environment-checked { margin: 16px 0 0; color: #64748b; font-size: 12px; text-align: right; }
 @media (max-width: 760px) {
   .startup-environment-page { width: min(100% - 28px, 1120px); padding-top: 24px; }

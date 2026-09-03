@@ -7,9 +7,9 @@ import type {
 
 const api: DesktopApi = {
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
-  checkStartupEnvironment: () => ipcRenderer.invoke("startup-environment:check"),
+  checkStartupEnvironment: (mockIssues) => ipcRenderer.invoke("startup-environment:check", mockIssues),
   openEnvironmentConfiguration: () => ipcRenderer.invoke("startup-environment:open-configuration") as Promise<void>,
-  resolveStartupRepository: (checkId) => ipcRenderer.invoke("startup-environment:resolve-repository", checkId),
+  resolveStartupRepository: (checkId, preview) => ipcRenderer.invoke("startup-environment:resolve-repository", checkId, preview),
   saveStartupSecret: (checkId, value) => ipcRenderer.invoke("startup-environment:save-secret", checkId, value),
   installStartupDependency: (checkId) => ipcRenderer.invoke("startup-environment:install", checkId),
   browseImagePdfInputs: (mode) => ipcRenderer.invoke("utility:pdf:browse", mode),

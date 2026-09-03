@@ -111,6 +111,7 @@ export class StartupEnvironmentService {
       resolution: isConfigured("GETGO_AI_OPENAI_API_KEY") || isConfigured("OPENAI_API_KEY")
         ? undefined : "Add GETGO_AI_OPENAI_API_KEY to the private .env file.",
       action: isConfigured("GETGO_AI_OPENAI_API_KEY") || isConfigured("OPENAI_API_KEY") ? undefined : "enter-secret",
+      configurationKey: "GETGO_AI_OPENAI_API_KEY",
     }, {
       id: "google-secret",
       label: "Google sign-in",
@@ -122,6 +123,7 @@ export class StartupEnvironmentService {
       resolution: isConfigured("GETGO_GOOGLE_DESKTOP_CLIENT_SECRET")
         ? undefined : "Obtain the secret through the team password manager and add GETGO_GOOGLE_DESKTOP_CLIENT_SECRET to .env.",
       action: isConfigured("GETGO_GOOGLE_DESKTOP_CLIENT_SECRET") ? undefined : "enter-secret",
+      configurationKey: "GETGO_GOOGLE_DESKTOP_CLIENT_SECRET",
     }];
   }
 
@@ -216,12 +218,24 @@ export class StartupEnvironmentService {
     const previous = process.env[repository.environmentVariable];
     process.env[repository.environmentVariable] = selectedPath;
     try {
-      await findRelatedRepository(this.toolsAppPath, repository);
+      await this.validateRepositoryPath(checkId, selectedPath);
       await this.writeEnvironmentValue(repository.environmentVariable, selectedPath);
     } catch (cause) {
       if (previous === undefined) delete process.env[repository.environmentVariable];
       else process.env[repository.environmentVariable] = previous;
       throw cause;
+    }
+  }
+
+  async validateRepositoryPath(checkId: string, selectedPath: string) {
+    const repository = this.repository(checkId);
+    if (!repository) throw new Error("Unknown repository check.");
+    const previous = process.env[repository.environmentVariable];
+    process.env[repository.environmentVariable] = selectedPath;
+    try { await findRelatedRepository(this.toolsAppPath, repository); }
+    finally {
+      if (previous === undefined) delete process.env[repository.environmentVariable];
+      else process.env[repository.environmentVariable] = previous;
     }
   }
 

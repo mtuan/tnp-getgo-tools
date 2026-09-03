@@ -152,12 +152,17 @@ app.whenReady().then(async () => {
   // remaining feature handlers can finish registering while the loading page
   // is already visible.
   ipcMain.handle("settings:get", () => settings.read());
-  ipcMain.handle("startup-environment:check", () => startupEnvironment.check());
+  ipcMain.handle("startup-environment:check", (_event, mockIssues: unknown) => {
+    const preview = !app.isPackaged && mockIssues === true;
+    return preview
+      ? new StartupEnvironmentService(app.getAppPath(), privateEnvironmentPath, true).check()
+      : startupEnvironment.check();
+  });
   ipcMain.handle("startup-environment:open-configuration", async () => {
     await startupEnvironment.ensureConfigurationFile();
     shell.showItemInFolder(privateEnvironmentPath);
   });
-  ipcMain.handle("startup-environment:resolve-repository", async (_event, checkId: unknown) => {
+  ipcMain.handle("startup-environment:resolve-repository", async (_event, checkId: unknown, preview: unknown) => {
     if (typeof checkId !== "string") throw new Error("Invalid repository check.");
     const repository = startupEnvironment.repository(checkId);
     if (!repository) throw new Error("Unknown repository check.");
@@ -167,6 +172,11 @@ app.whenReady().then(async () => {
     });
     if (result.canceled || !result.filePaths[0]) return null;
     const selectedPath = path.resolve(result.filePaths[0]);
+    if (preview === true) {
+      if (app.isPackaged) throw new Error("Environment previews are available only in development.");
+      await startupEnvironment.validateRepositoryPath(checkId, selectedPath);
+      return { readiness: await new StartupEnvironmentService(app.getAppPath(), privateEnvironmentPath, true).check() };
+    }
     await startupEnvironment.setRepositoryPath(checkId, selectedPath);
     if (checkId === "repository-quizzes") await settings.update({ repositoryPath: selectedPath });
     return { readiness: await startupEnvironment.check(), requiresRestart: true };

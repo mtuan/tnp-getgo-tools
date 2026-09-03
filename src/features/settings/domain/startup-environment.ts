@@ -7,6 +7,7 @@ export interface StartupEnvironmentCheck {
   resolution?: string;
   path?: string;
   action?: "select-path" | "enter-secret" | "install";
+  configurationKey?: string;
 }
 
 export interface StartupEnvironmentReadiness {
@@ -23,9 +24,9 @@ export interface StartupEnvironmentActionResult {
 }
 
 export interface StartupEnvironmentDesktopApi {
-  checkStartupEnvironment(): Promise<StartupEnvironmentReadiness>;
+  checkStartupEnvironment(mockIssues?: boolean): Promise<StartupEnvironmentReadiness>;
   openEnvironmentConfiguration(): Promise<void>;
-  resolveStartupRepository(checkId: string): Promise<StartupEnvironmentActionResult | null>;
+  resolveStartupRepository(checkId: string, preview?: boolean): Promise<StartupEnvironmentActionResult | null>;
   saveStartupSecret(checkId: string, value: string): Promise<StartupEnvironmentActionResult>;
   installStartupDependency(checkId: string): Promise<StartupEnvironmentActionResult>;
 }

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, Download, FolderCog, FolderOpen, KeyRound, RefreshCw, RotateCw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FolderCog, FolderOpen, KeyRound, RefreshCw, RotateCw, X, XCircle } from "lucide-react";
 import type { AppSettings } from "../../../shared/domain/models";
 import type { StartupEnvironmentReadiness } from "../domain/startup-environment";
 import * as ui from "../../../shared/ui";
@@ -14,6 +14,8 @@ export function StartupEnvironmentPage({
   onRecheck,
   onOpenConfiguration,
   onRestart,
+  preview = false,
+  onClose,
 }: {
   locale: AppSettings["locale"];
   readiness: StartupEnvironmentReadiness;
@@ -22,6 +24,8 @@ export function StartupEnvironmentPage({
   onRecheck(): Promise<void>;
   onOpenConfiguration(): void;
   onRestart(): void;
+  preview?: boolean;
+  onClose?(): void;
 }) {
   const copy = (locale === "vi" ? vi : en).startupEnvironment;
   const [busyCheck, setBusyCheck] = useState<string | null>(null);
@@ -29,15 +33,29 @@ export function StartupEnvironmentPage({
   const [secret, setSecret] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [restartRequired, setRestartRequired] = useState(false);
-  const errors = readiness.checks.filter(check => check.status === "error").length;
-  const warnings = readiness.checks.filter(check => check.status === "warning").length;
+  const [previewResolved, setPreviewResolved] = useState<string[]>([]);
+  const checks = readiness.checks.map(check => previewResolved.includes(check.id)
+    ? { ...check, status: "ready" as const, message: copy.mockResolved, resolution: undefined, action: undefined }
+    : check);
+  const errors = checks.filter(check => check.status === "error").length;
+  const warnings = checks.filter(check => check.status === "warning").length;
+  const secretConfigurationKey = checks.find(check => check.id === secretCheck)?.configurationKey;
   const categories = ["projects", "configuration", "commands", "tools"] as const;
   async function run(checkId: string, action: "select-path" | "install") {
     setBusyCheck(checkId); setActionError(null);
     try {
+      if (preview && action === "install") {
+        await new Promise(resolve => window.setTimeout(resolve, 450));
+        setPreviewResolved(current => [...current, checkId]);
+        return;
+      }
       const result = action === "select-path"
-        ? await window.getgo.resolveStartupRepository(checkId)
+        ? await window.getgo.resolveStartupRepository(checkId, preview)
         : await window.getgo.installStartupDependency(checkId);
+      if (preview && result) {
+        setPreviewResolved(current => [...current, checkId]);
+        return;
+      }
       if (result?.requiresRestart) setRestartRequired(true);
       if (result) await onRecheck();
     } catch (cause) {
@@ -49,6 +67,11 @@ export function StartupEnvironmentPage({
     if (!secretCheck || !secret.trim()) return;
     setBusyCheck(secretCheck); setActionError(null);
     try {
+      if (preview) {
+        setPreviewResolved(current => [...current, secretCheck]);
+        setSecretCheck(null); setSecret("");
+        return;
+      }
       const result = await window.getgo.saveStartupSecret(secretCheck, secret);
       if (result.requiresRestart) setRestartRequired(true);
       setSecretCheck(null); setSecret("");
@@ -62,7 +85,7 @@ export function StartupEnvironmentPage({
       eyebrow={copy.eyebrow}
       title={copy.title}
       description={copy.description}
-      actions={<>
+      actions={preview ? <ui.Button icon={<X />} onClick={onClose}>{copy.closePreview}</ui.Button> : <>
         <ui.Button icon={<FolderCog />} onClick={onOpenConfiguration}>{copy.openConfiguration}</ui.Button>
         <ui.Button icon={<RefreshCw />} loading={checking} disabled={checking || restarting} onClick={() => void onRecheck()}>{copy.recheck}</ui.Button>
         <ui.Button variant="solid" icon={<RotateCw />} loading={restarting} disabled={checking || restarting} onClick={onRestart}>{copy.restart}</ui.Button>
@@ -77,7 +100,7 @@ export function StartupEnvironmentPage({
     {categories.map(category => <section key={category} className="startup-environment-category" aria-label={copy.categories[category]}>
       <h2>{copy.categories[category]}</h2>
       <div className="startup-environment-checks">
-      {readiness.checks.filter(check => check.category === category).map(check => {
+      {checks.filter(check => check.category === category).map(check => {
         const Icon = check.status === "ready" ? CheckCircle2 : check.status === "warning" ? AlertTriangle : XCircle;
         return <ui.Panel key={check.id} className={`startup-environment-check startup-environment-check-${check.status}`}>
           <ui.PanelBody>
@@ -103,7 +126,7 @@ export function StartupEnvironmentPage({
     </section>)}
     <p className="startup-environment-checked">{copy.checked}: {new Date(readiness.checkedAt).toLocaleString(locale)}</p>
     {secretCheck && <ui.DialogFrame presentation="modal" title={copy.secretTitle} busy={busyCheck === secretCheck} error={null} submitLabel={copy.saveSecret} submitDisabled={!secret.trim()} onClose={() => { setSecretCheck(null); setSecret(""); }} onSubmit={saveSecret}>
-      <label className="startup-environment-secret"><span>{copy.secretLabel}</span><ui.Input autoFocus type="password" autoComplete="off" value={secret} onChange={event => setSecret(event.target.value)} /></label>
+      <label className="startup-environment-secret"><span>{copy.secretLabel}</span>{secretConfigurationKey && <code>{secretConfigurationKey}</code>}<ui.Input autoFocus type="password" autoComplete="off" aria-label={secretConfigurationKey ?? copy.secretLabel} value={secret} onChange={event => setSecret(event.target.value)} /></label>
       <p className="form-note">{copy.secretNote}</p>
     </ui.DialogFrame>}
   </main>;
