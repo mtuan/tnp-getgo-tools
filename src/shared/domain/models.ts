@@ -1,4 +1,5 @@
 import type { ContentIcon } from "./content-icon.js";
+import type { StartupEnvironmentDesktopApi } from "../../features/settings/domain/startup-environment.js";
 
 export const contentStatuses = [
   "imported",
@@ -732,10 +733,8 @@ export interface SafeWordSyncStatus {
   sourcePath: string;
   sharedPath: string;
 }
-export interface DesktopApi {
+export interface DesktopApi extends StartupEnvironmentDesktopApi {
   restartApp(): Promise<void>;
-  checkStartupEnvironment(): Promise<import("../../features/settings/domain/startup-environment.js").StartupEnvironmentReadiness>;
-  openEnvironmentConfiguration(): Promise<void>;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
   loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;
   detectImagePdfOrientations(paths: string[]): Promise<ImagePdfOrientation[]>;

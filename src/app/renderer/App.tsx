@@ -517,7 +517,7 @@ export function App() {
       readiness={startupEnvironment.readiness}
       checking={startupEnvironment.checking}
       restarting={restartingApp}
-      onRecheck={() => void startupEnvironment.check()}
+      onRecheck={startupEnvironment.check}
       onOpenConfiguration={() => void window.getgo.openEnvironmentConfiguration()}
       onRestart={() => void restartApp()}
     />;

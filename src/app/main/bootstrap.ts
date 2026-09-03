@@ -126,7 +126,11 @@ app.whenReady().then(async () => {
   startupLog("Electron ready");
   if (process.platform === "darwin") app.dock?.setIcon(appIconPath);
   const settings = new SettingsStore(app.getPath("userData"), app.getAppPath());
-  const startupEnvironment = new StartupEnvironmentService(app.getAppPath(), privateEnvironmentPath);
+  const startupEnvironment = new StartupEnvironmentService(
+    app.getAppPath(),
+    privateEnvironmentPath,
+    !app.isPackaged && process.env.GETGO_MOCK_STARTUP_ISSUES === "all",
+  );
   const repositoryRoot = async (): Promise<string> => {
     const current = await settings.read();
     if (!current.repositoryPath)
@@ -152,6 +156,30 @@ app.whenReady().then(async () => {
   ipcMain.handle("startup-environment:open-configuration", async () => {
     await startupEnvironment.ensureConfigurationFile();
     shell.showItemInFolder(privateEnvironmentPath);
+  });
+  ipcMain.handle("startup-environment:resolve-repository", async (_event, checkId: unknown) => {
+    if (typeof checkId !== "string") throw new Error("Invalid repository check.");
+    const repository = startupEnvironment.repository(checkId);
+    if (!repository) throw new Error("Unknown repository check.");
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: `Select ${repository.label}`,
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const selectedPath = path.resolve(result.filePaths[0]);
+    await startupEnvironment.setRepositoryPath(checkId, selectedPath);
+    if (checkId === "repository-quizzes") await settings.update({ repositoryPath: selectedPath });
+    return { readiness: await startupEnvironment.check(), requiresRestart: true };
+  });
+  ipcMain.handle("startup-environment:save-secret", async (_event, checkId: unknown, value: unknown) => {
+    if (typeof checkId !== "string" || typeof value !== "string") throw new Error("Invalid secret configuration.");
+    await startupEnvironment.setSecret(checkId, value);
+    return { readiness: await startupEnvironment.check(), requiresRestart: true };
+  });
+  ipcMain.handle("startup-environment:install", async (_event, checkId: unknown) => {
+    if (typeof checkId !== "string") throw new Error("Invalid dependency check.");
+    await startupEnvironment.install(checkId);
+    return { readiness: await startupEnvironment.check() };
   });
   ipcMain.handle(
     "legacy:overview:load",

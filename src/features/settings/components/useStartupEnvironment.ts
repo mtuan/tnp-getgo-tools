@@ -11,6 +11,7 @@ function failedReadiness(cause: unknown): StartupEnvironmentReadiness {
     checks: [{
       id: "startup-check",
       label: "Environment verification",
+      category: "configuration",
       status: "error",
       message,
       resolution: "Restart GetGo Tools. If the check still fails, reinstall dependencies with npm install.",
