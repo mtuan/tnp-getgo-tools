@@ -7617,6 +7617,9 @@ button.danger svg {
   display: grid;
   gap: 18px;
 }
+.deployment-page-heading .ui-page-header {
+  margin-bottom: 0;
+}
 .deployment-grid {
   display: grid;
   gap: 18px;
@@ -7626,6 +7629,9 @@ button.danger svg {
 }
 .deployment-grid-native {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.deployment-grid-app {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .deployment-card {
   height: 100%;
@@ -7823,7 +7829,8 @@ button.danger svg {
   white-space: nowrap;
 }
 @media (max-width: 1100px) {
-  .deployment-grid-web {
+  .deployment-grid-web,
+  .deployment-grid-app {
     grid-template-columns: 1fr;
   }
 }

@@ -3,14 +3,53 @@ import { randomUUID } from "node:crypto";
 import { closeSync, openSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { BackgroundJob, LocalWebRuntimeSnapshot } from "../../../shared/domain/models.js";
+import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
 
-const LOCAL_WEB_URL = "http://localhost:5173";
-const LOCAL_WEB_HEALTH_URL = `${LOCAL_WEB_URL}/manifest.json`;
+export interface LocalWebRuntimeConfig {
+  product: DeploymentProduct;
+  repositoryName: string;
+  repositoryDirectory: string;
+  repositoryEnvironmentVariable: string;
+  url: string;
+  healthPath?: string;
+  command(target: WebDeploymentTarget): string[];
+  warmCommand?: string[];
+}
+
+export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
+  product: "web",
+  repositoryName: "tnp-getgo-web",
+  repositoryDirectory: "tnp-getgo-web",
+  repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
+  url: "http://localhost:5173",
+  healthPath: "/manifest.json",
+  command: () => ["run", "dev:getgo:dev", "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
+  warmCommand: ["run", "warm:dev", "--", "--url", "http://localhost:5173"],
+};
+
+export const getGoAppRuntimeConfig: LocalWebRuntimeConfig = {
+  product: "app",
+  repositoryName: "tnp-getgo",
+  repositoryDirectory: "tnp-getgo-app",
+  repositoryEnvironmentVariable: "GETGO_APP_ROOT",
+  url: "http://localhost:8081",
+  command: () => ["run", "web", "--", "--port", "8081"],
+};
 const execFileAsync = promisify(execFile);
 interface PersistedRuntime {
   pid: number;
   startedAt: string;
+}
+
+function runtimeFailureSummary(job: BackgroundJob, fallback: string) {
+  const useful = (job.logs ?? [])
+    .map(log => log.message.trim())
+    .filter(message => /required permissions|incorrect user|entity not authorized|missing required environment|failed to resolve plugin|graphql request failed/i.test(message))
+    .filter((message, index, values) => values.indexOf(message) === index);
+  const authorization = useful.find(message => /entity not authorized/i.test(message));
+  const permission = useful.find(message => /required permissions/i.test(message));
+  const configuration = useful.find(message => /missing required environment|failed to resolve plugin/i.test(message));
+  return [permission, authorization, configuration].filter(Boolean).join("\n") || useful.at(-1) || fallback;
 }
 
 export class LocalWebRuntimeManager {
@@ -31,11 +70,13 @@ export class LocalWebRuntimeManager {
   constructor(
     private readonly toolsAppPath: string,
     userDataPath: string,
+    private readonly config: LocalWebRuntimeConfig = getGoWebRuntimeConfig,
   ) {
-    this.stateFile = path.join(userDataPath, "local-web-runtime.json");
-    this.jobFile = path.join(userDataPath, "local-web-runtime-job.json");
-    this.stdoutFile = path.join(userDataPath, "local-web-runtime.stdout.log");
-    this.stderrFile = path.join(userDataPath, "local-web-runtime.stderr.log");
+    const prefix = config.product === "web" ? "local-web-runtime" : "local-app-runtime";
+    this.stateFile = path.join(userDataPath, `${prefix}.json`);
+    this.jobFile = path.join(userDataPath, `${prefix}-job.json`);
+    this.stdoutFile = path.join(userDataPath, `${prefix}.stdout.log`);
+    this.stderrFile = path.join(userDataPath, `${prefix}.stderr.log`);
   }
 
   private async loadLastJob() {
@@ -105,27 +146,30 @@ export class LocalWebRuntimeManager {
     await fs.writeFile(this.stateFile, `${JSON.stringify(runtime, null, 2)}\n`, "utf8");
   }
 
-  private async webRoot() {
-    const configured = process.env.GETGO_WEB_ROOT?.trim();
+  private async repositoryRoot() {
+    const configured = process.env[this.config.repositoryEnvironmentVariable]?.trim();
     const candidates = [
       configured,
-      path.resolve(this.toolsAppPath, "..", "tnp-getgo-web"),
-      path.resolve(process.cwd(), "..", "tnp-getgo-web"),
+      path.resolve(this.toolsAppPath, "..", this.config.repositoryDirectory),
+      path.resolve(process.cwd(), "..", this.config.repositoryDirectory),
     ].filter((candidate): candidate is string => Boolean(candidate));
     for (const candidate of [...new Set(candidates)]) {
       try {
         const manifest = JSON.parse(await fs.readFile(path.join(candidate, "package.json"), "utf8")) as { name?: string };
-        if (manifest.name === "tnp-getgo-web") return candidate;
+        if (manifest.name === this.config.repositoryName) return candidate;
       } catch {
         // Try the next deterministic candidate.
       }
     }
-    throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
+    throw new Error(`GetGo ${this.config.product === "web" ? "Web" : "App"} repository was not found. Set ${this.config.repositoryEnvironmentVariable} to its absolute path.`);
   }
 
   private async isOnline() {
+    // Expo can need several minutes for its first web bundle. Treat its bound
+    // Metro port as ready so health probes do not repeatedly abort cold SSR.
+    if (this.config.product === "app") return Boolean(await this.listenerPid());
     try {
-      const response = await fetch(LOCAL_WEB_HEALTH_URL, {
+      const response = await fetch(`${this.config.url}${this.config.healthPath ?? ""}`, {
         cache: "no-store",
         signal: AbortSignal.timeout(1500),
       });
@@ -139,7 +183,8 @@ export class LocalWebRuntimeManager {
   private async listenerPid(): Promise<number | null> {
     if (process.platform === "win32") return null;
     try {
-      const { stdout } = await execFileAsync("lsof", ["-nP", "-tiTCP:5173", "-sTCP:LISTEN"]);
+      const port = new URL(this.config.url).port;
+      const { stdout } = await execFileAsync("lsof", ["-nP", `-tiTCP:${port}`, "-sTCP:LISTEN"]);
       const pid = Number(stdout.trim().split(/\s+/)[0]);
       return Number.isInteger(pid) && pid > 0 ? pid : null;
     } catch {
@@ -174,13 +219,35 @@ export class LocalWebRuntimeManager {
     else process.kill(pid, signal);
   }
 
-  private async waitUntilOffline(timeoutMs: number) {
+  private async waitUntilPortFree(timeoutMs: number) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      if (!await this.isOnline()) return true;
+      if (!await this.listenerPid()) return true;
       await new Promise(resolve => setTimeout(resolve, 200));
     }
-    return !await this.isOnline();
+    return !await this.listenerPid();
+  }
+
+  private async clearExistingRuntime() {
+    const persisted = await this.persistedRuntime();
+    const managedPid = this.child?.pid ?? persisted?.pid;
+    const listenerPid = await this.listenerPid();
+    const pid = listenerPid ?? managedPid;
+    if (!pid) {
+      this.child = null;
+      await this.persist(null);
+      return;
+    }
+
+    await this.signalRuntime(pid, "SIGTERM");
+    this.child = null;
+    await this.persist(null);
+    if (await this.waitUntilPortFree(4_000)) return;
+
+    const remainingPid = await this.listenerPid();
+    if (remainingPid) await this.signalRuntime(remainingPid, "SIGKILL");
+    if (!await this.waitUntilPortFree(2_000))
+      throw new Error(`${this.config.url} remained occupied after stopping its existing process.`);
   }
 
   private async waitUntilOnline(timeoutMs: number) {
@@ -206,6 +273,11 @@ export class LocalWebRuntimeManager {
   async state(): Promise<LocalWebRuntimeSnapshot> {
     await this.ensureLastJobLoaded();
     await this.syncOutputLogs();
+    if (this.lastJob?.status === "failed") {
+      const summary = runtimeFailureSummary(this.lastJob, this.lastJob.error ?? "Local runtime failed.");
+      this.lastJob.error = summary;
+      this.error = summary;
+    }
     const online = await this.isOnline();
     const persisted = await this.persistedRuntime();
     const managed = Boolean(this.child || persisted);
@@ -214,9 +286,9 @@ export class LocalWebRuntimeManager {
     const recentlyOnline = this.lastConfirmedOnlineAt > 0 && Date.now() - this.lastConfirmedOnlineAt < 6_000;
     return {
       status: !this.warmingUp && (online || (managed && recentlyOnline)) ? "online" : managed ? "starting" : this.error ? "error" : "offline",
-      url: LOCAL_WEB_URL,
+      url: this.config.url,
       managed,
-      target: "development",
+      target: this.lastJob?.target ?? "development",
       pid,
       startedAt,
       error: this.error ?? undefined,
@@ -224,45 +296,34 @@ export class LocalWebRuntimeManager {
     };
   }
 
-  start(operation: "start" | "restart" = "start") {
-    return this.singleFlight(() => this.startInternal(operation));
+  start(operation: "start" | "restart" = "start", target: WebDeploymentTarget = "development") {
+    return this.singleFlight(() => this.startInternal(operation, target));
   }
 
-  private async startInternal(operation: "start" | "restart") {
+  private async startInternal(operation: "start" | "restart", target: WebDeploymentTarget) {
     await this.ensureLastJobLoaded();
-    if (this.child) return this.state();
-    const persisted = await this.persistedRuntime();
-    if (await this.isOnline()) {
-      if (persisted) return this.state();
-      const pid = await this.listenerPid();
-      if (!pid) throw new Error("The process using port 5173 could not be identified for startup cleanup.");
-      await this.signalRuntime(pid, "SIGTERM");
-      if (!await this.waitUntilOffline(4_000)) {
-        const remainingPid = await this.listenerPid();
-        if (remainingPid) await this.signalRuntime(remainingPid, "SIGKILL");
-        if (!await this.waitUntilOffline(2_000))
-          throw new Error("Port 5173 remained occupied after startup cleanup.");
-      }
-    }
-    const webRoot = await this.webRoot();
+    this.lastConfirmedOnlineAt = 0;
+    await this.clearExistingRuntime();
+    const repositoryRoot = await this.repositoryRoot();
     const operationStartedAt = new Date().toISOString();
     this.startedAt = operationStartedAt;
     this.error = null;
     const projectId = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_ID?.trim();
     const projectNumber = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_NUMBER?.trim();
     const apiKey = process.env.GETGO_FIREBASE_DEVELOPMENT_API_KEY?.trim();
-    if (!projectId || !projectNumber || !apiKey)
+    if (this.config.product === "web" && (!projectId || !projectNumber || !apiKey))
       throw new Error("Development Firebase configuration is incomplete in GetGo Tools .env.");
     this.warmingUp = true;
-    const command = ["run", "dev:getgo:dev", "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort"];
+    const command = this.config.command(target);
     const job: BackgroundJob = {
       id: randomUUID(),
       kind: "deploy",
+      deploymentProduct: this.config.product,
       component: "web",
       operation: "run",
-      target: "development",
-      name: operation === "restart" ? "Restart Localhost Web" : "Start Localhost Web",
-      description: "Run GetGo Web on http://localhost:5173",
+      target,
+      name: operation === "restart" ? `Restart Localhost ${this.config.product === "web" ? "Web" : "App"}` : `Start Localhost ${this.config.product === "web" ? "Web" : "App"}`,
+      description: `Run GetGo ${this.config.product === "web" ? "Web" : "App"} on ${this.config.url}`,
       status: "running",
       completed: 1,
       total: 1,
@@ -282,13 +343,15 @@ export class LocalWebRuntimeManager {
     const stdoutFd = openSync(this.stdoutFile, "a");
     const stderrFd = openSync(this.stderrFile, "a");
     const child = spawn("npm", command, {
-      cwd: webRoot,
+      cwd: repositoryRoot,
       detached: process.platform !== "win32",
       env: {
         ...process.env,
-        VITE_FIREBASE_API_KEY: apiKey,
-        VITE_FIREBASE_PROJECT_ID: projectId,
-        VITE_FIREBASE_MESSAGING_SENDER_ID: projectNumber,
+        ...(this.config.product === "web" ? {
+          VITE_FIREBASE_API_KEY: apiKey!,
+          VITE_FIREBASE_PROJECT_ID: projectId!,
+          VITE_FIREBASE_MESSAGING_SENDER_ID: projectNumber!,
+        } : {}),
       },
       // File descriptors are inherited by the detached process and remain
       // valid after Electron exits. Parent-owned pipes make localhost die when
@@ -319,28 +382,28 @@ export class LocalWebRuntimeManager {
       job.status = code === 0 ? "completed" : "failed";
       job.completed = job.total;
       job.finishedAt = new Date().toISOString();
-      if (code !== 0) job.error = this.error = `Local Web exited with code ${code ?? "unknown"}.`;
+      if (code !== 0) job.error = this.error = `Local ${this.config.product === "web" ? "Web" : "App"} exited with code ${code ?? "unknown"}.`;
       job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: job.error ?? "Localhost stopped." });
       void this.persistLastJob();
     });
     if (!await this.waitUntilOnline(60_000)) {
-      const message = this.error ?? "Local Web did not become available within 60 seconds.";
+      const message = this.error ?? `Local ${this.config.product === "web" ? "Web" : "App"} did not become available within 60 seconds.`;
       await this.terminate().catch(() => undefined);
       throw new Error(message);
     }
-    job.progressLabel = "Warming common GetGo routes";
-    job.logs?.push({
-      timestamp: new Date().toISOString(),
-      stream: "system",
-      message: "Vite is listening. Precompiling the common GetGo route graphs.",
-    });
-    await this.persistLastJob();
-    try {
+    if (this.config.warmCommand) try {
+      job.progressLabel = "Warming common GetGo routes";
+      job.logs?.push({
+        timestamp: new Date().toISOString(),
+        stream: "system",
+        message: "The local server is listening. Precompiling the common GetGo route graphs.",
+      });
+      await this.persistLastJob();
       const { stdout, stderr } = await execFileAsync(
         "npm",
-        ["run", "warm:dev", "--", "--url", LOCAL_WEB_URL],
+        this.config.warmCommand,
         {
-          cwd: webRoot,
+          cwd: repositoryRoot,
           timeout: 180_000,
           maxBuffer: 10 * 1024 * 1024,
         },
@@ -350,8 +413,6 @@ export class LocalWebRuntimeManager {
         job.logs?.push({ timestamp: completedAt, stream: "system", message });
       job.progressLabel = "Localhost ready";
       job.durationMs = Math.max(0, Date.parse(completedAt) - Date.parse(operationStartedAt));
-      this.warmingUp = false;
-      await this.persistLastJob();
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       const completedAt = new Date().toISOString();
@@ -362,9 +423,13 @@ export class LocalWebRuntimeManager {
       });
       job.progressLabel = "Localhost ready (warmup incomplete)";
       job.durationMs = Math.max(0, Date.parse(completedAt) - Date.parse(operationStartedAt));
-      this.warmingUp = false;
-      await this.persistLastJob();
     }
+    else {
+      job.progressLabel = "Localhost ready";
+      job.durationMs = Math.max(0, Date.now() - Date.parse(operationStartedAt));
+    }
+    this.warmingUp = false;
+    await this.persistLastJob();
     return this.state();
   }
 
@@ -377,28 +442,16 @@ export class LocalWebRuntimeManager {
     await this.persist(null);
   }
 
-  restart() {
-    return this.singleFlight(() => this.restartInternal());
+  restart(target: WebDeploymentTarget = "development") {
+    return this.singleFlight(() => this.restartInternal(target));
   }
 
-  private async restartInternal() {
+  private async restartInternal(target: WebDeploymentTarget) {
     // An intentional restart must not inherit the health-check grace period
     // from the process that is being replaced.
     this.lastConfirmedOnlineAt = 0;
-    const managed = Boolean(this.child || await this.persistedRuntime());
-    if (managed) await this.terminate();
-    else if (await this.isOnline()) {
-      const pid = await this.listenerPid();
-      if (!pid) throw new Error("The process using port 5173 could not be identified for restart.");
-      await this.signalRuntime(pid, "SIGTERM");
-    }
-    if (!await this.waitUntilOffline(4_000)) {
-      const pid = await this.listenerPid();
-      if (pid) await this.signalRuntime(pid, "SIGKILL");
-      if (!await this.waitUntilOffline(2_000))
-        throw new Error("The existing localhost server did not stop after graceful and forced shutdown attempts.");
-    }
-    return this.startInternal("restart");
+    await this.clearExistingRuntime();
+    return this.startInternal("restart", target);
   }
 
 }

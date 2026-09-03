@@ -13,10 +13,17 @@ export function registerBackgroundJobsIpc(
   webDeploymentJobs: WebDeploymentJobManager,
   nativeDeploymentJobs: NativeDeploymentJobManager,
   localWebRuntime: LocalWebRuntimeManager,
+  appNativeRuntimeJobs: NativeDeploymentJobManager,
+  localAppRuntime: LocalWebRuntimeManager,
 ) {
+  const deploymentProduct = (value: unknown) => {
+    if (value === undefined || value === "web") return "web" as const;
+    if (value === "app") return "app" as const;
+    throw new Error("Invalid deployment product.");
+  };
   const snapshot = async () => {
-    const [migration, published, deployments, nativeDeployments] = await Promise.all([
-      aiMigrationJobs.list(), publishJobs.list(), webDeploymentJobs.list(), nativeDeploymentJobs.list(),
+    const [migration, published, deployments, nativeDeployments, appNativeJobs] = await Promise.all([
+      aiMigrationJobs.list(), publishJobs.list(), webDeploymentJobs.list(), nativeDeploymentJobs.list(), appNativeRuntimeJobs.list(),
     ]);
     const migrated = migration.jobs.map((job) => ({
       id: job.id, kind: "ai-migrate" as const,
@@ -48,7 +55,7 @@ export function registerBackgroundJobsIpc(
         ],
       };
     };
-    const jobs = [...migrated, ...published, ...deployments, ...nativeDeployments]
+    const jobs = [...migrated, ...published, ...deployments, ...nativeDeployments, ...appNativeJobs]
       .map(withFallbackLogs)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     return { aiConcurrency: migration.concurrency, jobs };
@@ -60,15 +67,17 @@ export function registerBackgroundJobsIpc(
       publishJobs.clearFinished(),
       webDeploymentJobs.clearFinished(),
       nativeDeploymentJobs.clearFinished(),
+      appNativeRuntimeJobs.clearFinished(),
     ]);
     return snapshot();
   });
-  ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown) => {
+  ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown, product: unknown = "web") => {
     if (!(operation === "run" || operation === "build" || operation === "deploy")) throw new Error("Invalid deployment operation.");
     if (!(component === "firebase" || component === "web" || component === "mobile-ios" || component === "mobile-android")) throw new Error("Invalid deployment component.");
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
+    const requestedProduct = deploymentProduct(product);
     if (component === "mobile-ios" || component === "mobile-android") {
-      await nativeDeploymentJobs.start(operation, component === "mobile-ios" ? "ios" : "android", target);
+      await (requestedProduct === "app" ? appNativeRuntimeJobs : nativeDeploymentJobs).start(operation, component === "mobile-ios" ? "ios" : "android", target);
     } else if (operation === "run") {
       throw new Error("Simulator runs are only available for native apps.");
     } else {
@@ -80,18 +89,25 @@ export function registerBackgroundJobsIpc(
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     return webDeploymentJobs.state(target);
   });
-  ipcMain.handle("local-web:state", () => localWebRuntime.state());
-  ipcMain.handle("local-web:start", () => localWebRuntime.start());
-  ipcMain.handle("local-web:restart", () => localWebRuntime.restart());
-  ipcMain.handle("native-project:open", (_event, platform: unknown, target: unknown) => {
+  const runtime = (product: unknown) => deploymentProduct(product) === "app" ? localAppRuntime : localWebRuntime;
+  ipcMain.handle("local-web:state", (_event, product: unknown = "web") => runtime(product).state());
+  ipcMain.handle("local-web:start", (_event, product: unknown = "web", target: unknown = "development") => {
+    if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
+    return runtime(product).start("start", target);
+  });
+  ipcMain.handle("local-web:restart", (_event, product: unknown = "web", target: unknown = "development") => {
+    if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
+    return runtime(product).restart(target);
+  });
+  ipcMain.handle("native-project:open", (_event, platform: unknown, target: unknown, product: unknown = "web") => {
     if (!(platform === "ios" || platform === "android")) throw new Error("Invalid native platform.");
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
-    return nativeDeploymentJobs.open(platform, target);
+    return (deploymentProduct(product) === "app" ? appNativeRuntimeJobs : nativeDeploymentJobs).open(platform, target);
   });
   for (const action of ["cancel", "pause", "resume", "retry", "delete"] as const)
     ipcMain.handle(`jobs:${action}`, async (_event, jobId: unknown) => {
       if (typeof jobId !== "string") throw new Error("Invalid job ID.");
-      await Promise.all([aiMigrationJobs[action](jobId), publishJobs[action](jobId), webDeploymentJobs[action](jobId), nativeDeploymentJobs[action](jobId)]);
+      await Promise.all([aiMigrationJobs[action](jobId), publishJobs[action](jobId), webDeploymentJobs[action](jobId), nativeDeploymentJobs[action](jobId), appNativeRuntimeJobs[action](jobId)]);
       return snapshot();
     });
   return snapshot;

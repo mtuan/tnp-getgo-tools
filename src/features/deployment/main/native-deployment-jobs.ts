@@ -2,12 +2,46 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, DeploymentOperation, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { BackgroundJob, DeploymentOperation, DeploymentProduct, WebDeploymentTarget } from "../../../shared/domain/models.js";
 
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
 
 interface Runtime { child: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> }
+
+interface NativeDeploymentConfig {
+  product: DeploymentProduct;
+  repositoryName: string;
+  repositoryDirectory: string;
+  repositoryEnvironmentVariable: string;
+  storageFile: string;
+  technology: "Capacitor" | "Expo";
+  command(operation: DeploymentOperation, platform: NativePlatform, target: WebDeploymentTarget): { script: string; args: string[] };
+}
+
+export const getGoWebNativeConfig: NativeDeploymentConfig = {
+  product: "web",
+  repositoryName: "tnp-getgo-web",
+  repositoryDirectory: "tnp-getgo-web",
+  repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
+  storageFile: "native-deployment-jobs.json",
+  technology: "Capacitor",
+  command: (operation, platform, target) => ({ script: `native:${operation}:${platform}`, args: [target] }),
+};
+
+export const getGoAppNativeConfig: NativeDeploymentConfig = {
+  product: "app",
+  repositoryName: "tnp-getgo",
+  repositoryDirectory: "tnp-getgo-app",
+  repositoryEnvironmentVariable: "GETGO_APP_ROOT",
+  storageFile: "app-native-runtime-jobs.json",
+  technology: "Expo",
+  command: (operation, platform, target) => {
+    if (operation !== "run") throw new Error("GetGo App currently supports local Expo run jobs only.");
+    const environment = target === "development" ? "dev" : target === "staging" ? "stg" : "pro";
+    return { script: `${platform}:${environment}`, args: [] };
+  },
+};
 
 function cleanOutput(value: string) {
   return value.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "").trimEnd().slice(-4000);
@@ -41,9 +75,13 @@ export class NativeDeploymentJobManager {
   private persistChain: Promise<void> = Promise.resolve();
   private runtimes = new Map<string, Runtime>();
 
-  constructor(private readonly userDataPath: string, private readonly toolsAppPath: string) {}
+  constructor(
+    private readonly userDataPath: string,
+    private readonly toolsAppPath: string,
+    private readonly config: NativeDeploymentConfig = getGoWebNativeConfig,
+  ) {}
 
-  private get filePath() { return path.join(this.userDataPath, "native-deployment-jobs.json"); }
+  private get filePath() { return path.join(this.userDataPath, this.config.storageFile); }
   private ensureLoaded() { return this.loaded ??= this.load(); }
 
   private async load() {
@@ -71,19 +109,19 @@ export class NativeDeploymentJobManager {
     await this.persistChain;
   }
 
-  private async webRoot() {
+  private async repositoryRoot() {
     const candidates = [
-      process.env.GETGO_WEB_ROOT?.trim(),
-      path.resolve(this.toolsAppPath, "..", "tnp-getgo-web"),
-      path.resolve(process.cwd(), "..", "tnp-getgo-web"),
+      process.env[this.config.repositoryEnvironmentVariable]?.trim(),
+      path.resolve(this.toolsAppPath, "..", this.config.repositoryDirectory),
+      path.resolve(process.cwd(), "..", this.config.repositoryDirectory),
     ].filter((value): value is string => Boolean(value));
     for (const candidate of [...new Set(candidates)]) {
       try {
         const value = JSON.parse(await fs.readFile(path.join(candidate, "package.json"), "utf8")) as { name?: string };
-        if (value.name === "tnp-getgo-web") return candidate;
+        if (value.name === this.config.repositoryName) return candidate;
       } catch { /* Try the next candidate. */ }
     }
-    throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
+    throw new Error(`GetGo ${this.config.product === "web" ? "Web" : "App"} repository was not found. Set ${this.config.repositoryEnvironmentVariable} to its absolute path.`);
   }
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
@@ -95,13 +133,13 @@ export class NativeDeploymentJobManager {
       throw new Error("Another native job is already active. iOS and Android builds share the Web bundle and cannot run concurrently.");
     }
     const job: NativeJob = {
-      id: randomUUID(), kind: "deploy", component, operation, target,
-      name: `${operation === "run" ? "Run" : operation === "build" ? "Build" : "Deploy"} Capacitor ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
+      id: randomUUID(), kind: "deploy", deploymentProduct: this.config.product, component, operation, target,
+      name: `${operation === "run" ? "Run" : operation === "build" ? "Build" : "Deploy"} ${this.config.technology} ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
       description: operation === "run"
-        ? `Build, install, and launch the ${target} Capacitor app in a local ${platform} simulator`
+        ? `Build, install, and launch the ${target} ${this.config.technology} app in a local ${platform} simulator`
         : operation === "build"
-        ? `Compile and sign the ${target} Capacitor ${platform} artifact`
-        : `Build if required and upload the ${target} Capacitor ${platform} artifact`,
+        ? `Compile and sign the ${target} ${this.config.technology} ${platform} artifact`
+        : `Build if required and upload the ${target} ${this.config.technology} ${platform} artifact`,
       status: "queued", completed: 0, total: 4, progressLabel: "Starting native workflow",
       createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Native workflow queued." }],
@@ -113,16 +151,16 @@ export class NativeDeploymentJobManager {
   }
 
   private async run(job: NativeJob, platform: NativePlatform) {
-    const root = await this.webRoot();
-    const command = `native:${job.operation}:${platform}`;
-    const child = spawn("npm", ["run", command, "--", job.target!], {
+    const root = await this.repositoryRoot();
+    const command = this.config.command(job.operation!, platform, job.target!);
+    const child = spawn("npm", ["run", command.script, ...(command.args.length ? ["--", ...command.args] : [])], {
       cwd: root, env: process.env, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
     });
     const runtime: Runtime = { child, cancelled: false, buffers: { stdout: "", stderr: "" } };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
-    job.logs?.push({ timestamp: job.startedAt, stream: "system", message: `$ npm run ${command} -- ${job.target}` });
+    job.logs?.push({ timestamp: job.startedAt, stream: "system", message: `$ npm run ${command.script}${command.args.length ? ` -- ${command.args.join(" ")}` : ""}` });
     await this.persist();
     const output = (stream: "stdout" | "stderr", chunk: Buffer) => {
       const value = runtime.buffers[stream] + chunk.toString("utf8");
@@ -174,7 +212,8 @@ export class NativeDeploymentJobManager {
   }
 
   async open(platform: NativePlatform, target: WebDeploymentTarget) {
-    const root = await this.webRoot();
+    if (this.config.product === "app") throw new Error("Expo native projects are generated when the run command starts.");
+    const root = await this.repositoryRoot();
     const child = spawn("npm", ["run", `native:open:${platform}`, "--", target], {
       cwd: root, env: process.env, detached: true, stdio: "ignore",
     });

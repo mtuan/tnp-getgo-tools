@@ -62,7 +62,9 @@ function assertAllowedExternalUrl(requestedUrl: unknown): URL {
   const hosts = new Set(["tnp-getgo-dev.web.app", "tnp-getgo-stg.web.app", "tnp-getgo.web.app", "platform.openai.com", "youtube.com", "www.youtube.com", "youtu.be"]);
   const firebasePaths = ["/project/tnp-getgo-dev/", "/project/tnp-getgo-stg/", "/project/tnp-getgo/"];
   const firebase = url.hostname === "console.firebase.google.com" && firebasePaths.some((prefix) => url.pathname.startsWith(prefix));
-  const local = url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname) && url.port === "5173";
+  const local = url.protocol === "http:"
+    && ["localhost", "127.0.0.1"].includes(url.hostname)
+    && ["5173", "8081"].includes(url.port);
   if (!local && (url.protocol !== "https:" || (!hosts.has(url.hostname) && !firebase)))
     throw new Error("External URL is not allowed");
   return url;

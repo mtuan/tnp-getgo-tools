@@ -584,7 +584,7 @@ export interface AiMigrationJobsSnapshot {
   jobs: AiMigrationJob[];
 }
 
-export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy";
+export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app";
 export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
 export type DeploymentOperation = "run" | "build" | "deploy";
@@ -660,7 +660,7 @@ export interface BackgroundJob {
   startedAt?: string;
   finishedAt?: string;
   durationMs?: number;
-  route?: string;
+  route?: string; deploymentProduct?: DeploymentProduct;
   component?: DeploymentComponent;
   operation?: DeploymentOperation;
   target?: WebDeploymentTarget;
@@ -919,16 +919,12 @@ export interface DesktopApi {
   }): Promise<AiMigrationJob>;
   getAiMigrationJobs(): Promise<AiMigrationJobsSnapshot>;
   getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
-  startDeployment(
-    operation: DeploymentOperation,
-    component: DeploymentComponent,
-    target: WebDeploymentTarget,
-  ): Promise<BackgroundJobsSnapshot>;
+  startDeployment(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget, product?: DeploymentProduct): Promise<BackgroundJobsSnapshot>;
   getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
-  openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget): Promise<void>;
-  getLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
-  startLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
-  restartLocalWebRuntime(): Promise<LocalWebRuntimeSnapshot>;
+  openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget, product?: DeploymentProduct): Promise<void>;
+  getLocalWebRuntime(product?: DeploymentProduct): Promise<LocalWebRuntimeSnapshot>;
+  startLocalWebRuntime(product?: DeploymentProduct, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
+  restartLocalWebRuntime(product?: DeploymentProduct, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
   cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;

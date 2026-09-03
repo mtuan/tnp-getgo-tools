@@ -13,8 +13,8 @@ import { LocalAiService } from "../../features/ai/main/local-ai.js";
 import { AiMigrationJobManager } from "../../features/ai/main/ai-migration-jobs.js";
 import { PublishJobManager } from "../../features/jobs/main/publish-jobs.js";
 import { WebDeploymentJobManager } from "../../features/deployment/main/web-deployment-jobs.js";
-import { LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
-import { NativeDeploymentJobManager } from "../../features/deployment/main/native-deployment-jobs.js";
+import { getGoAppRuntimeConfig, LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
+import { getGoAppNativeConfig, NativeDeploymentJobManager } from "../../features/deployment/main/native-deployment-jobs.js";
 import { registerBackgroundJobsIpc } from "../../features/jobs/main/background-jobs-ipc.js";
 import { registerAiIpc } from "../../features/ai/main/ai-ipc.js";
 import { registerImagePdfIpc } from "../../features/image-pdf/main/image-pdf-ipc.js";
@@ -180,9 +180,19 @@ app.whenReady().then(async () => {
     app.getAppPath(),
     app.getPath("userData"),
   );
+  const localAppRuntime = new LocalWebRuntimeManager(
+    app.getAppPath(),
+    app.getPath("userData"),
+    getGoAppRuntimeConfig,
+  );
   const nativeDeploymentJobs = new NativeDeploymentJobManager(
     app.getPath("userData"),
     app.getAppPath(),
+  );
+  const appNativeRuntimeJobs = new NativeDeploymentJobManager(
+    app.getPath("userData"),
+    app.getAppPath(),
+    getGoAppNativeConfig,
   );
   startupLog("Background services initialized");
   ipcMain.handle("app:restart", () => {
@@ -198,6 +208,7 @@ app.whenReady().then(async () => {
   registerAiIpc(ipcMain, localAi, aiMigrationJobs, repositoryRoot);
   const backgroundJobsSnapshot = registerBackgroundJobsIpc(
     ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, nativeDeploymentJobs, localWebRuntime,
+    appNativeRuntimeJobs, localAppRuntime,
   );
   ipcMain.handle(
     "publishing:quiz",
