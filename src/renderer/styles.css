@@ -9425,3 +9425,32 @@ button.danger svg {
     transform: translateX(155%);
   }
 }
+.avatar-sets-page { display: grid; gap: 18px; }
+.avatar-sets-source {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  color: var(--muted); font-size: 13px;
+}
+.avatar-sets-source code {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text); background: var(--soft); border-radius: 8px; padding: 5px 8px;
+}
+.avatar-set-list { display: grid; gap: 18px; }
+.avatar-set-count { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.avatar-set-groups { display: grid; gap: 22px; }
+.avatar-set-group { display: grid; gap: 12px; }
+.avatar-set-group h3 {
+  display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: var(--text);
+}
+.avatar-set-group h3 span {
+  display: inline-grid; min-width: 24px; height: 24px; padding: 0 7px; place-items: center;
+  border-radius: 999px; background: var(--soft); color: var(--muted); font-size: 12px;
+}
+.avatar-set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 14px; }
+.avatar-set-grid figure { display: grid; gap: 7px; margin: 0; min-width: 0; text-align: center; }
+.avatar-set-grid img {
+  width: 100%; aspect-ratio: 1; display: block; object-fit: cover; border-radius: 18px;
+  border: 1px solid var(--line); background: var(--soft); box-shadow: 0 5px 14px rgb(15 23 42 / 8%);
+}
+.avatar-set-grid figcaption {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px;
+}

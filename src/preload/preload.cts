@@ -35,6 +35,9 @@ const api: DesktopApi = {
   saveSafeWordDictionary: (dictionary) => ipcRenderer.invoke("content-safety:dictionary:save", dictionary),
   getSafeWordSyncStatus: () => ipcRenderer.invoke("content-safety:dictionary:sync-status"),
   syncSafeWordDictionary: () => ipcRenderer.invoke("content-safety:dictionary:sync"),
+  chooseAvatarSetsFolder: () => ipcRenderer.invoke("avatar-sets:choose"),
+  loadAvatarSets: (sourcePath) => ipcRenderer.invoke("avatar-sets:load", sourcePath),
+  syncAvatarSets: (sourcePath) => ipcRenderer.invoke("avatar-sets:sync", sourcePath),
   onContentSafetyWarning: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, warning: Parameters<typeof listener>[0]) => listener(warning);
     ipcRenderer.on("content-safety:warning", handler);

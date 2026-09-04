@@ -29,6 +29,7 @@ import { QuestionFeedbackSyncService } from "../../features/topics/main/question
 import { registerQuestionFeedbackIpc } from "../../features/topics/main/question-feedback-ipc.js";
 import { registerPaymentPackagesIpc } from "../../features/payment-packages/main/payment-packages-ipc.js";
 import { registerContentSafetyIpc } from "../../features/content-safety/main/content-safety-ipc.js";
+import { registerAvatarSetIpc } from "../../features/avatar-sets/main/avatar-set-ipc.js";
 import { assertRepositoryContentSafe, setContentSafetyWarningHandler } from "../../features/content-safety/repository/content-safety-repository.js";
 
 const environmentRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -316,6 +317,7 @@ app.whenReady().then(async () => {
   registerQuestionFeedbackIpc(ipcMain, { repositoryRoot, sync: questionFeedbackSync });
   registerPaymentPackagesIpc(ipcMain, { repositoryRoot, publishing });
   registerContentSafetyIpc(ipcMain, repositoryRoot);
+  registerAvatarSetIpc(ipcMain, { mainWindow: mainWindow!, appPath: app.getAppPath(), firebase: firebaseAuth });
   setContentSafetyWarningHandler((warning) => mainWindow?.webContents.send("content-safety:warning", warning));
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });

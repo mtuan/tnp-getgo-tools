@@ -9,23 +9,13 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
-  BriefcaseBusiness,
   Check,
   Copy,
-  CreditCard,
   FolderOpen,
-  LayoutDashboard,
-  Library,
-  Images,
-  MessageSquareWarning,
   LogIn,
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
-  Rocket,
-  Settings,
-  ShieldCheck,
-  type LucideIcon,
 } from "lucide-react";
 import type {
   AppSettings,
@@ -46,7 +36,8 @@ import { PageHeader } from "../../shared/ui/PageHeader";
 import { PageLoading } from "../../shared/ui/PageLoading";
 import { Panel } from "../../shared/ui/Panel";
 import { SummaryCard } from "../../shared/ui/SummaryCard";
-import { Select, type SelectOption } from "../../shared/ui/Select";
+import { Select } from "../../shared/ui/Select";
+import { environmentOptions, featureNavigation, primaryNavigation, utilityNavigation, type NavigableView, type View } from "./navigation";
 import { useToast } from "../../shared/ui/Toast";
 import { FilesystemLegacyManager } from "../../features/topics/pages/FilesystemLegacyManager";
 import { FilesystemContentV2Manager } from "../../features/topics/pages/FilesystemContentV2Manager";
@@ -82,10 +73,8 @@ const ImagePdfPage = lazy(() =>
 );
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
+const AvatarSetsPage = lazy(() => import("../../features/avatar-sets/pages/AvatarSetsPage").then((module) => ({ default: module.AvatarSetsPage })));
 
-type View = "dashboard" | "topics" | "quizzes" | "feedbacks" | "jobs" | "deploy"
-  | "image-pdf" | "payments" | "safe-words" | "settings" | "not-found";
-type NavigableView = Exclude<View, "not-found">;
 const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
 const readLastRoute = () => {
@@ -115,6 +104,7 @@ function viewFromRoute(route: string): View {
     "jobs",
     "deploy",
     "image-pdf",
+    "avatar-sets",
     "payments",
     "safe-words",
     "settings",
@@ -157,25 +147,6 @@ const normalizedRoute = (route: string) => {
   if (!value) return "/dashboard";
   return value.startsWith("/") ? value : `/${value}`;
 };
-type NavigationItem = { id: NavigableView; label: string; icon: LucideIcon };
-const primaryNavigation: NavigationItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
-];
-const featureNavigation: NavigationItem[] = [
-  { id: "topics", label: "Topics", icon: Library },
-  { id: "feedbacks", label: "Feedbacks", icon: MessageSquareWarning },
-  { id: "deploy", label: "Deploy", icon: Rocket },
-  { id: "image-pdf", label: "Image to PDF", icon: Images },
-  { id: "payments", label: "Payments", icon: CreditCard },
-  { id: "safe-words", label: "Safe words", icon: ShieldCheck },
-];
-const utilityNavigation: NavigationItem[] = [{ id: "settings", label: "Settings", icon: Settings }];
-const environmentOptions: SelectOption[] = [
-  { value: "development", label: "Development" },
-  { value: "staging", label: "Staging" },
-  { value: "production", label: "Production" },
-];
 export function App() {
   const toast = useToast();
   const auth = useAuth();
@@ -589,6 +560,8 @@ export function App() {
                   ? contentCopy.legacyNav
                   : item.id === "image-pdf"
                     ? imagePdfCopy.nav
+                    : item.id === "avatar-sets"
+                      ? settings.locale === "vi" ? "Bộ ảnh đại diện" : "Avatar sets"
                     : item.label;
             return (
               <button
@@ -684,7 +657,8 @@ export function App() {
             {!settings.repositoryPath &&
             !loading &&
             view !== "not-found" &&
-            view !== "image-pdf" ? (
+            view !== "image-pdf" &&
+            view !== "avatar-sets" ? (
               <section className="welcome">
                 <div className="welcome-mark">
                   <GetGoIcon size={56} />
@@ -830,6 +804,11 @@ export function App() {
             {view === "image-pdf" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <ImagePdfPage locale={settings.locale} />
+              </Suspense>
+            )}
+            {view === "avatar-sets" && (
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <AvatarSetsPage locale={settings.locale} />
               </Suspense>
             )}
             {settings.repositoryPath && view === "payments" && (
