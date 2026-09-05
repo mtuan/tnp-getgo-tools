@@ -55,7 +55,9 @@ function failureSummary(job: NativeJob, fallback: string) {
     /build failed/i, /archive failed/i, /what went wrong/i,
     /no profiles? for/i, /provisioning profile/i, /signing for .* requires/i,
     /exited with code/i, /unable to locate a java runtime/i,
-    /android builds require jdk/i,
+    /android builds require jdk/i, /device unauthorized/i,
+    /adb.*unresponsive/i, /failed to authenticate/i, /ADB_VENDOR_KEYS/i,
+    /confirmation dialog on your device/i,
   ];
   const ignored = [
     /^\s*at\s/, /^\s*\^/, /^node\.js\s/i, /^file:\/\//i,
@@ -97,6 +99,10 @@ export class NativeDeploymentJobManager {
         job.cancellable = false;
         job.retryable = true;
         job.finishedAt = new Date().toISOString();
+      } else if (job.status === "failed") {
+        // Re-evaluate stored failures so improved matchers also repair the
+        // currently visible job instead of helping only future runs.
+        job.error = failureSummary(job, job.error ?? "Native workflow failed.");
       }
     }
     await this.persist();
