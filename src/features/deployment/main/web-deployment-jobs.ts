@@ -36,7 +36,7 @@ function reportedDeploymentError(job: DeploymentJob) {
 
 function progressTotal(operation: DeploymentOperation, component: DeploymentComponent) {
   if (operation === "build") return component === "firebase" ? 6 : 4;
-  return 3;
+  return component === "firebase" ? 8 : 6;
 }
 
 function outputPhase(line: string, component: DeploymentComponent) {
@@ -289,13 +289,6 @@ export class WebDeploymentJobManager {
     if (operation === "deploy" && activeJobs.some((job) => job.operation === "deploy"))
       throw new Error("Another deployment is already active.");
     const webRoot = await this.webRoot();
-    if (operation === "deploy") {
-      const build = this.builds.find((item) => item.component === component && item.format === "shared-v1");
-      if (!build) throw new Error("Build this component locally for the selected target before deploying it.");
-      const currentItems = await this.localItems(component, webRoot);
-      if (build.items.some((builtItem) => currentItems.find((item) => item.id === builtItem.id)?.localHash !== builtItem.localHash))
-        throw new Error("Local deployment artifacts changed after the recorded build. Build this component again before deploying it.");
-    }
     const job: DeploymentJob = {
       id: randomUUID(),
       kind: "deploy",
@@ -304,10 +297,10 @@ export class WebDeploymentJobManager {
       operation,
       name: operation === "build"
         ? `Build ${component === "web" ? "Web" : "Firebase"}`
-        : `Deploy ${component === "web" ? "Web" : "Firebase"} · ${target}`,
+        : `Build & deploy ${component === "web" ? "Web" : "Firebase"} · ${target}`,
       description: operation === "build"
         ? `Prepare local ${component === "web" ? "GetGo Web" : "Firebase rules, indexes, and Cloud Functions"} deployment files`
-        : `Publish ${component === "web" ? "GetGo Web" : "only changed Firebase rules, indexes, or Cloud Functions"} to ${target}`,
+        : `Build and publish ${component === "web" ? "GetGo Web" : "changed Firebase rules, indexes, or Cloud Functions"} to ${target}`,
       status: "queued",
       completed: 0,
       total: progressTotal(operation, component),
@@ -330,7 +323,7 @@ export class WebDeploymentJobManager {
     const scope = component === "web" ? "web" : "firebase";
     const args = ["run", targetScripts[target], "--", `--scope=${scope}`];
     if (operation === "build") args.push("--build-only", "--no-lint", "--no-typecheck");
-    else args.push("--deploy-only", "--no-lint", "--no-typecheck");
+    else args.push("--no-lint", "--no-typecheck");
     const child = spawn(npmExecutable, args, {
       cwd: webRoot,
       detached: process.platform !== "win32",
@@ -376,7 +369,7 @@ export class WebDeploymentJobManager {
         job.status = "completed";
         job.completed = job.total;
         job.progressLabel = job.operation === "build" ? "Built" : "Deployed";
-        if (job.operation === "build" && job.component && job.target)
+        if ((job.operation === "build" || job.operation === "deploy") && job.component && job.target)
           await this.recordBuild(job.component, job.target);
         if (job.operation === "deploy" && job.component && job.target)
           await this.recordDeployment(job.component, job.target);

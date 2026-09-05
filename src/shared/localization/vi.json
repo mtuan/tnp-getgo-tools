@@ -418,6 +418,7 @@
     "deployRules": "Triển khai",
     "openFirebase": "Mở",
     "buildLocal": "Build",
+    "buildAndDeploy": "Build và triển khai",
     "rebuild": "Build",
     "buildRequired": "Cần build cục bộ",
     "notDeployed": "Chưa triển khai",

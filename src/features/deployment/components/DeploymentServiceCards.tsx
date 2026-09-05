@@ -55,8 +55,7 @@ export function DeploymentServiceCards({
         <div className="deployment-card-actions">
           <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!latestJob("firebase")} onClick={() => onViewLogs("firebase")} />
           <ui.Button icon={<ExternalLink />} aria-label={copy.openFirebase} title={copy.openFirebase} disabled={!state?.firebaseConsoleUrl} onClick={() => state && void window.getgo.openExternal(state.firebaseConsoleUrl)} />
-          <ui.Button icon={<Rocket />} loading={busy === "firebase" || operationIsRunning("firebase", "build")} disabled={componentControlsLocked("firebase")} onClick={() => onRun("build", "firebase")}>{copy.buildLocal}</ui.Button>
-          <ui.Button variant="solid" icon={<Rocket />} loading={operationIsRunning("firebase", "deploy")} disabled={componentControlsLocked("firebase") || deploymentIsActive || !state?.rules.builtAt || state.rules.status === "up-to-date"} onClick={() => onRun("deploy", "firebase")}>{copy.deployRules}</ui.Button>
+          <ui.Button variant="solid" icon={<Rocket />} loading={busy === "firebase" || operationIsRunning("firebase", "deploy")} disabled={componentControlsLocked("firebase") || deploymentIsActive} onClick={() => onRun("deploy", "firebase")}>{copy.buildAndDeploy}</ui.Button>
         </div>
       </ui.PanelBody>
     </ui.Panel>
@@ -79,8 +78,7 @@ export function DeploymentServiceCards({
         <div className="deployment-card-actions">
           <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!latestJob("web")} onClick={() => onViewLogs("web")} />
           <ui.Button icon={<ExternalLink />} aria-label={copy.openWeb} title={copy.openWeb} disabled={!state?.webUrl} onClick={() => state && void window.getgo.openExternal(state.webUrl)} />
-          <ui.Button icon={<Rocket />} loading={busy === "web" || operationIsRunning("web", "build")} disabled={componentControlsLocked("web")} onClick={() => onRun("build", "web")}>{copy.buildLocal}</ui.Button>
-          <ui.Button variant="solid" icon={<Rocket />} loading={operationIsRunning("web", "deploy")} disabled={componentControlsLocked("web") || deploymentIsActive || !state?.web.builtAt || state.web.status === "up-to-date"} onClick={() => onRun("deploy", "web")}>{copy.deployWeb}</ui.Button>
+          <ui.Button variant="solid" icon={<Rocket />} loading={busy === "web" || operationIsRunning("web", "deploy")} disabled={componentControlsLocked("web") || deploymentIsActive} onClick={() => onRun("deploy", "web")}>{copy.buildAndDeploy}</ui.Button>
         </div>
       </ui.PanelBody>
     </ui.Panel>

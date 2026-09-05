@@ -418,6 +418,7 @@
     "deployRules": "Deploy",
     "openFirebase": "Open",
     "buildLocal": "Build",
+    "buildAndDeploy": "Build & deploy",
     "rebuild": "Build",
     "buildRequired": "Local build required",
     "notDeployed": "Not deployed",
