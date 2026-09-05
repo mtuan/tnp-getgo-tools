@@ -1,8 +1,8 @@
-import { contentV2QuizPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic } from "../../../features/topics/domain/content-v2.js";
+import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic } from "../../../features/topics/domain/content-v2.js";
 import type { MarketplaceSyncJobItem } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicFolder, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2TopicFolder, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
@@ -21,6 +21,7 @@ export async function syncAllMarketplaceTopics(
   const topicIds = [...new Set(requestedPlan.map((item) => item.topicId))];
   for (const topicId of topicIds) {
     await control.checkpoint();
+    await control.report(`Preparing topic · ${topicId}`);
     const content = (await loadContentV2TopicFolder(root, topicId, {
       lightweight: false,
       projectId: target.projectId,
@@ -116,8 +117,10 @@ export async function syncAllMarketplaceTopics(
       await control.advance(`Synchronized quiz · ${summary.title}`);
     }
     const reviewedQuizIds = reviewedTopicQuizzes(next.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
-    const topicAssets = await loadContentV2Assets(root, topicId, undefined, { topic });
+    const topicAssets = await loadContentV2TopicAssets(root, topic);
+    await control.report(`Topic assets discovered · ${topicSummary.title} · ${topicAssets.length} files`);
     await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
+    await control.report(`Publishing topic document · ${topicSummary.title}`);
     const topicResult = await publishing.publishContentV2Topic(topic, topicSummary.localHash, reviewedQuizIds);
     await recordContentV2Published(topicSummary.filePath, topicResult.contentHash, topicResult.publishedAt);
     const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
@@ -134,6 +137,7 @@ export async function syncAllMarketplaceTopics(
       targets: {
         ...previousTopicState.targets,
         [target.projectId]: {
+          publishContractVersion: topic.type === "kid-learning" ? contentV2TopicPublishContractVersion : undefined,
           environment: target.environment,
           projectId: target.projectId,
           contentHash: topicResult.contentHash,
@@ -159,7 +163,13 @@ export async function syncAllMarketplaceTopics(
     })).content;
     const remaining = marketplaceSyncPlan(verified.topics, verified.quizzes)
       .filter((item) => item.ready);
-    if (remaining.length > 0)
-      throw new Error(`Synchronization did not settle ${topicId}: ${remaining.map((item) => item.kind === "quiz" ? item.quiz.id : item.topic.id).join(", ")}`);
+    if (remaining.length > 0) {
+      const details = remaining.map((item) => item.kind === "quiz"
+        ? `quiz ${item.quiz.id} (${item.action}): local=${item.quiz.localHash}, published=${item.quiz.publishedHash ?? "none"}`
+        : `topic ${item.topic.id} (${item.action}): content local=${item.topic.localHash}, published=${item.topic.publishedHash ?? "none"}; marketplace local=${item.topic.marketplaceLocalHash}, published=${item.topic.marketplacePublishedHash ?? "none"}`
+      ).join(" | ");
+      throw new Error(`Synchronization did not settle ${topicId}: ${details}`);
+    }
+    await control.report(`Verified synchronization · ${topicSummary.title}`);
   }
 }

@@ -24,6 +24,7 @@ export interface ContentV2QuizPublishState {
 }
 
 export interface ContentV2TopicPublishTargetState {
+  publishContractVersion?: number;
   environment: string;
   projectId: string;
   contentHash: string | null;

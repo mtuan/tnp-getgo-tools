@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   assertContentV2Relationship,
   contentV2QuizPublishContractVersion,
+  contentV2TopicPublishContractVersion,
   contentV2QuestionSchema,
   contentV2QuizSchema,
   contentV2TopicSchema,
@@ -173,6 +174,7 @@ export async function loadContentV2WorkspaceFromFiles(
       continue;
     }
 
+    const lightweight = options.lightweight === true;
     const topicQuizzes: ContentV2QuizSummary[] = [];
     const quizzesRoot = path.join(root, topic.id, "quizzes");
     for (const quizDirectoryName of await directories(quizzesRoot)) {
@@ -203,7 +205,6 @@ export async function loadContentV2WorkspaceFromFiles(
         summary: ContentV2QuestionSummary;
       }> = [];
       const questionsStartedAt = Date.now();
-      const lightweight = options.lightweight === true;
       const files = options.includeQuestions === false
         ? []
         : await questionFiles(path.join(path.dirname(quizFile), "questions"));
@@ -381,6 +382,9 @@ export async function loadContentV2WorkspaceFromFiles(
     const targetTopicPublishState = options.projectId
       ? (await readContentV2TopicPublishState(topicFile)).targets[options.projectId]
       : undefined;
+    const topicAssets = lightweight || topic.type !== "kid-learning"
+      ? []
+      : await loadContentV2TopicAssets(repositoryPath, topic);
     topics.push({
       id: topic.id,
       type: topic.type,
@@ -394,14 +398,25 @@ export async function loadContentV2WorkspaceFromFiles(
       status: topic.status,
       order: topic.order,
       filePath: topicFile,
-      localHash: hashContentV2({
+      localHash: lightweight
+        ? targetTopicPublishState && topic.type === "kid-learning" && targetTopicPublishState.publishContractVersion !== contentV2TopicPublishContractVersion
+          ? `publish-contract-v${contentV2TopicPublishContractVersion}`
+          : targetTopicPublishState?.contentHash ?? topic.publishedHash ?? ""
+        : hashContentV2({
         topic: sanitizeContentV2Topic(topic),
         quizzes: topicQuizzes.map((quiz) => ({
           id: quiz.id,
           type: quiz.type,
           order: quiz.order,
         })),
-      }),
+        ...(topic.type === "kid-learning" ? {
+          publishContractVersion: contentV2TopicPublishContractVersion,
+          assets: topicAssets.map((asset) => ({
+            reference: asset.reference,
+            contentHash: asset.contentHash,
+          })),
+        } : {}),
+        }),
       publishedHash: options.projectId
         ? targetTopicPublishState?.contentHash ?? null
         : topic.publishedHash ?? null,
@@ -596,6 +611,16 @@ export async function loadContentV2TopicDictionary(
   return parseKidLearningDictionary(
     await readJson(sharedDictionaryPath(repositoryPath, topicId)),
   );
+}
+
+export async function loadContentV2TopicAssets(
+  repositoryPath: string,
+  topic: ContentV2Topic,
+): Promise<ContentV2Asset[]> {
+  const topicResources = topic.type === "kid-learning"
+    ? { dictionary: await loadContentV2TopicDictionary(repositoryPath, topic.id) }
+    : {};
+  return loadContentV2Assets(repositoryPath, topic.id, undefined, { topic, topicResources });
 }
 
 export async function saveContentV2TopicDictionary(

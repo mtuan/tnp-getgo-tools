@@ -2,7 +2,7 @@ import type { IpcMain } from "electron";
 import { contentV2QuizPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { reviewedTopicQuizzes, shouldPublishContainingTopic } from "../domain/content-v2-publish-policy.js";
 import { createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, type FirestorePublishingService } from "./firestore-publishing.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
@@ -178,7 +178,7 @@ ipcMain.handle(
         }
         // Topic-owned assets are uploaded after quiz cleanup so an old quiz
         // publish state can never remove the shared topic icon permanently.
-        const topicAssets = await loadContentV2Assets(root, topicId, undefined, { topic });
+        const topicAssets = await loadContentV2TopicAssets(root, topic);
         await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
         // Publish the catalog entry last so it never advertises a quiz early.
         const result = await publishing.publishContentV2Topic(
@@ -362,7 +362,7 @@ ipcMain.handle(
           control,
           publishContainingTopic ? 2 : 0,
         );
-        const topicAssets = await loadContentV2Assets(root, topicId, undefined, { topic });
+        const topicAssets = await loadContentV2TopicAssets(root, topic);
         await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
         const removingQuiz = marketplaceTopicState(quiz.marketplace) === "unlisted";
         const topicResult = publishContainingTopic

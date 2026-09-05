@@ -8,6 +8,8 @@ export { localizedText, type LocalizedText } from "../../../shared/domain/locali
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
 export const contentV2QuizPublishContractVersion = 11;
+// Increment when topic documents or shared topic-asset publication changes.
+export const contentV2TopicPublishContractVersion = 1;
 
 export {
   marketplaceTopicState,

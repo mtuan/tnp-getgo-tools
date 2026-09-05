@@ -396,16 +396,26 @@ export class FirestorePublishingService {
     assets: ContentV2Asset[],
     control?: PublishJobControl,
   ): Promise<void> {
-    for (const asset of assets) {
-      await control?.checkpoint();
-      const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
-      const destination = `getgo-content-v2/topics/${topicId}/assets/${reference}`;
-      try {
-        await this.auth.uploadStorageObject(destination, asset.data, asset.mimeType);
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        throw new Error(`Could not upload topic asset “${destination}”: ${message} The signed-in account needs the contentPublisher or contentAdmin Storage claim.`);
-      }
+    if (assets.length === 0) {
+      await control?.report(`No topic assets to upload · ${topicId}`);
+      return;
+    }
+    let uploaded = 0;
+    await control?.report(`Uploading topic assets · ${topicId} · 0/${assets.length}`);
+    for (let offset = 0; offset < assets.length; offset += 8) {
+      await Promise.all(assets.slice(offset, offset + 8).map(async (asset) => {
+        await control?.checkpoint();
+        const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
+        const destination = `getgo-content-v2/topics/${topicId}/assets/${reference}`;
+        try {
+          await this.auth.uploadStorageObject(destination, asset.data, asset.mimeType);
+        } catch (cause) {
+          const message = cause instanceof Error ? cause.message : String(cause);
+          throw new Error(`Could not upload topic asset “${destination}”: ${message} The signed-in account needs the contentPublisher or contentAdmin Storage claim.`);
+        }
+        uploaded += 1;
+        await control?.report(`Uploading topic assets · ${topicId} · ${uploaded}/${assets.length} · ${reference}`);
+      }));
     }
   }
 

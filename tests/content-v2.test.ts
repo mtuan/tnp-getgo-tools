@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import {
   assertContentV2Relationship,
+  contentV2QuizPublishContractVersion,
+  contentV2TopicPublishContractVersion,
   contentV2QuestionSchema,
   contentV2TopicSchema,
   hashContentV2,
@@ -221,6 +223,7 @@ test("a target-aware filesystem snapshot has an empty plan after every local has
     targets: {
       [target.projectId]: {
         ...target,
+        publishContractVersion: contentV2TopicPublishContractVersion,
         contentHash: topicSummary.localHash,
         marketplaceContentHash: topicSummary.marketplaceLocalHash!,
         publishedAt: "2026-08-17T00:00:00.000Z",
@@ -232,6 +235,7 @@ test("a target-aware filesystem snapshot has an empty plan after every local has
     targets: {
       [target.projectId]: {
         ...target,
+        publishContractVersion: contentV2QuizPublishContractVersion,
         contentHash: quizSummary.localHash,
         publishedAt: "2026-08-17T00:00:00.000Z",
         items: {},
@@ -244,6 +248,11 @@ test("a target-aware filesystem snapshot has an empty plan after every local has
     projectId: target.projectId,
   })).content;
   assert.deepEqual(marketplaceSyncPlan(after.topics, after.quizzes), []);
+  const lightweightAfter = (await loadContentV2WorkspaceFromFiles(root, {
+    lightweight: true,
+    projectId: target.projectId,
+  })).content;
+  assert.deepEqual(marketplaceSyncPlan(lightweightAfter.topics, lightweightAfter.quizzes), []);
   assert.equal((await readContentV2TopicPublishState(topicSummary.filePath)).targets[target.projectId]?.contentHash, topicSummary.localHash);
 });
 
