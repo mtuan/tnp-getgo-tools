@@ -1,4 +1,4 @@
-import { clipboard, nativeImage } from "electron";
+import { clipboard, nativeImage, shell } from "electron";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -32,6 +32,18 @@ const cleanText = (value: unknown, label: string, required = false) => {
 const normalizeRoute = (value: unknown) => {
   const route = cleanText(value, "route") || "/";
   return route.startsWith("/") ? route : `/${route}`;
+};
+
+const normalizePreviewConfig = (value: ScreenshotProjectInput["previewConfig"] | undefined) => {
+  const baseUrlValue = value?.baseUrl ?? "http://localhost:5173";
+  const baseUrl = new URL(baseUrlValue);
+  if (!["http:", "https:"].includes(baseUrl.protocol) || !["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname))
+    throw new Error("Preview URL must use localhost, 127.0.0.1, or ::1.");
+  const width = Number(value?.width ?? 393);
+  const height = Number(value?.height ?? 852);
+  if (!Number.isInteger(width) || width < 240 || width > 2560 || !Number.isInteger(height) || height < 320 || height > 2560)
+    throw new Error("Preview dimensions are invalid.");
+  return { baseUrl: baseUrl.toString().replace(/\/$/, ""), devicePreset: cleanText(value?.devicePreset ?? "iphone-15", "device preset", true), width, height };
 };
 
 export class ScreenshotProjectService {
@@ -71,7 +83,7 @@ export class ScreenshotProjectService {
       !Array.isArray(data.screenshots)
     )
       throw new Error("The screenshot project is invalid.");
-    return data;
+    return { ...data, previewConfig: normalizePreviewConfig(data.previewConfig) };
   }
 
   async list(): Promise<ScreenshotProjectSummary[]> {
@@ -110,6 +122,7 @@ export class ScreenshotProjectService {
       description: cleanText(input?.description ?? "", "description"),
       createdAt: now,
       updatedAt: now,
+      previewConfig: normalizePreviewConfig(input?.previewConfig),
       screenshots: [],
     };
     await fs.mkdir(path.join(this.projectFolder(project.id), "screenshots"), {
@@ -117,6 +130,17 @@ export class ScreenshotProjectService {
     });
     await this.write(project);
     return project;
+  }
+
+
+  async updateProject(projectId: string, input: ScreenshotProjectInput): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    project.name = cleanText(input?.name, "project name", true);
+    project.description = cleanText(input?.description ?? "", "description");
+    project.previewConfig = normalizePreviewConfig(input?.previewConfig);
+    project.updatedAt = new Date().toISOString();
+    await this.write(project);
+    return this.load(project.id);
   }
 
   async load(projectId: string): Promise<ScreenshotProject> {
@@ -197,6 +221,18 @@ export class ScreenshotProjectService {
     screenshot.route = normalizeRoute(metadata?.route);
     screenshot.updatedAt = new Date().toISOString();
     project.updatedAt = screenshot.updatedAt;
+    await this.write(project);
+    return this.load(project.id);
+  }
+
+  async delete(projectId: string, screenshotId: string): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    const index = project.screenshots.findIndex((item) => item.id === screenshotId);
+    if (index < 0) throw new Error("Screenshot not found.");
+    const [screenshot] = project.screenshots.splice(index, 1);
+    const imagePath = path.join(this.projectFolder(project.id), "screenshots", safeFileName(screenshot.fileName));
+    await shell.trashItem(imagePath);
+    project.updatedAt = new Date().toISOString();
     await this.write(project);
     return this.load(project.id);
   }

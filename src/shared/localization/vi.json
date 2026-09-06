@@ -664,13 +664,13 @@
     "paste": "Thêm ảnh chụp", "pasteScreenshot": "Đọc ảnh từ bảng nhớ tạm", "addScreenshot": "Thêm ảnh chụp",
     "pasteHint": "Thêm tên, đường dẫn và mô tả cho ảnh chụp đã được đọc ở trên.",
     "defaultScreenshotName": "Màn hình mới", "editScreenshot": "Sửa thông tin ảnh chụp", "openFolder": "Mở thư mục",
-    "viewMode": "Chế độ xem ảnh chụp", "gallery": "Thư viện", "routeMap": "Sơ đồ đường dẫn", "loading": "Đang tải dự án ảnh chụp màn hình",
+    "viewMode": "Chế độ xem ảnh chụp", "gallery": "Thư viện", "galleryAndPreview": "Thư viện & xem trước", "screenshotList": "Ảnh chụp", "previewImage": "Xem trước", "routeMap": "Sơ đồ đường dẫn", "loading": "Đang tải dự án ảnh chụp màn hình",
     "noDescription": "Chưa có mô tả", "noProjects": "Chưa có dự án", "noProjectsDescription": "Tạo dự án để bắt đầu thu thập màn hình.",
     "noScreenshots": "Chưa có ảnh chụp", "noScreenshotsDescription": "Sao chép ảnh chụp rồi dán vào dự án này.",
     "noRoutes": "Chưa có đường dẫn", "noRoutesDescription": "Màn hình sẽ xuất hiện ở đây sau khi lưu đường dẫn.",
     "selectProject": "Chọn một dự án", "selectProjectDescription": "Chọn dự án trong danh sách hoặc tạo dự án mới."
     ,"project": "Dự án", "screenshots": "Ảnh chụp", "lastUpdated": "Cập nhật gần nhất", "backToProjects": "Quay lại danh sách dự án",
-    "pasteShortcut": "Chụp màn hình, sau đó nhấn Command+V để thêm ảnh.", "clipboardMissing": "Bảng nhớ tạm không chứa hình ảnh.", "clipboardPreview": "Xem trước ảnh chụp trong bảng nhớ tạm",
-    "devicePreview": { "tab": "Xem theo thiết bị", "device": "Thiết bị mẫu", "width": "Rộng", "height": "Cao", "rotate": "Xoay thiết bị", "address": "Địa chỉ web cục bộ", "back": "Quay lại", "forward": "Tiến tới", "reload": "Tải lại", "capture": "Chụp và lưu", "localOnly": "Nhập địa chỉ localhost, 127.0.0.1 hoặc ::1.", "captured": "Đã lưu ảnh chụp", "untitled": "Trang chưa có tiêu đề" }
+    "pasteShortcut": "Chụp màn hình, sau đó nhấn Command+V để thêm ảnh.", "clipboardMissing": "Bảng nhớ tạm không chứa hình ảnh.", "clipboardPreview": "Xem trước ảnh chụp trong bảng nhớ tạm", "projectConfig": "Cài đặt dự án", "previewConfig": "Xem trước web", "baseUrl": "URL web", "openInPreview": "Mở đường dẫn trong bản xem trước", "deleteScreenshot": "Xóa ảnh chụp", "deleteScreenshotConfirm": "Chuyển ‘{name}’ vào Thùng rác?",
+    "devicePreview": { "tab": "Xem theo thiết bị", "device": "Thiết bị mẫu", "width": "Rộng", "height": "Cao", "rotate": "Xoay thiết bị", "address": "Địa chỉ web cục bộ", "back": "Quay lại", "forward": "Tiến tới", "reload": "Tải lại", "capture": "Chụp và lưu", "localOnly": "Nhập địa chỉ localhost, 127.0.0.1 hoặc ::1.", "captured": "Đã lưu ảnh chụp", "untitled": "Trang chưa có tiêu đề", "pageInfo": "Trang hiện tại" }
   }
 }

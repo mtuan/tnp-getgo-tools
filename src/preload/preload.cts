@@ -8,10 +8,12 @@ import type {
 const api: DesktopApi = {
   listScreenshotProjects: () => ipcRenderer.invoke("screenshots:projects:list"),
   createScreenshotProject: (input) => ipcRenderer.invoke("screenshots:projects:create", input),
+  updateScreenshotProject: (projectId, input) => ipcRenderer.invoke("screenshots:projects:update", projectId, input),
   loadScreenshotProject: (projectId) => ipcRenderer.invoke("screenshots:projects:load", projectId),
   inspectClipboardScreenshot: () => ipcRenderer.invoke("screenshots:clipboard:inspect"),
   addScreenshot: (projectId, imageDataUrl, metadata) => ipcRenderer.invoke("screenshots:add", projectId, imageDataUrl, metadata),
   updateScreenshot: (projectId, screenshotId, metadata) => ipcRenderer.invoke("screenshots:update", projectId, screenshotId, metadata),
+  deleteScreenshot: (projectId, screenshotId) => ipcRenderer.invoke("screenshots:delete", projectId, screenshotId),
   showScreenshotProjectFolder: (projectId) => ipcRenderer.invoke("screenshots:projects:show", projectId) as Promise<void>,
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
   checkStartupEnvironment: (mockIssues) => ipcRenderer.invoke("startup-environment:check", mockIssues),

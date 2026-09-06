@@ -15,6 +15,10 @@ export function registerScreenshotProjectIpc(
     "screenshots:projects:create",
     (_event, input: ScreenshotProjectInput) => service.create(input),
   );
+  ipcMain.handle(
+    "screenshots:projects:update",
+    (_event, projectId: string, input: ScreenshotProjectInput) => service.updateProject(projectId, input),
+  );
   ipcMain.handle("screenshots:projects:load", (_event, projectId: string) =>
     service.load(projectId),
   );
@@ -32,6 +36,10 @@ export function registerScreenshotProjectIpc(
       screenshotId: string,
       metadata: ScreenshotMetadataInput,
     ) => service.update(projectId, screenshotId, metadata),
+  );
+  ipcMain.handle(
+    "screenshots:delete",
+    (_event, projectId: string, screenshotId: string) => service.delete(projectId, screenshotId),
   );
   ipcMain.handle(
     "screenshots:projects:show",

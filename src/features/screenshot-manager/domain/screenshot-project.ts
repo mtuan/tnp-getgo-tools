@@ -19,7 +19,15 @@ export interface ScreenshotProject {
   description: string;
   createdAt: string;
   updatedAt: string;
+  previewConfig: ScreenshotPreviewConfig;
   screenshots: ScreenshotRecord[];
+}
+
+export interface ScreenshotPreviewConfig {
+  baseUrl: string;
+  devicePreset: string;
+  width: number;
+  height: number;
 }
 
 export interface ScreenshotProjectSummary {
@@ -34,6 +42,7 @@ export interface ScreenshotProjectSummary {
 export interface ScreenshotProjectInput {
   name: string;
   description: string;
+  previewConfig: ScreenshotPreviewConfig;
 }
 
 export interface ScreenshotMetadataInput {
@@ -53,6 +62,10 @@ export interface ScreenshotManagerDesktopApi {
   createScreenshotProject(
     input: ScreenshotProjectInput,
   ): Promise<ScreenshotProject>;
+  updateScreenshotProject(
+    projectId: string,
+    input: ScreenshotProjectInput,
+  ): Promise<ScreenshotProject>;
   loadScreenshotProject(projectId: string): Promise<ScreenshotProject>;
   inspectClipboardScreenshot(): Promise<ClipboardScreenshot | null>;
   addScreenshot(
@@ -64,6 +77,10 @@ export interface ScreenshotManagerDesktopApi {
     projectId: string,
     screenshotId: string,
     metadata: ScreenshotMetadataInput,
+  ): Promise<ScreenshotProject>;
+  deleteScreenshot(
+    projectId: string,
+    screenshotId: string,
   ): Promise<ScreenshotProject>;
   showScreenshotProjectFolder(projectId: string): Promise<void>;
 }

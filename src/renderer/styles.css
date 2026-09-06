@@ -157,7 +157,8 @@ html {
 * {
   box-sizing: border-box;
 }
-.screenshot-manager-page { display: grid; gap: 24px; }
+.screenshot-manager-page { display: block; }
+.screenshot-project-heading .ui-page-header { margin-bottom: 0; }
 .screenshot-project-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 22px; align-items: start; }
 .screenshot-projects-panel { position: sticky; top: 70px; min-height: 420px; }
 .screenshot-project-list { display: grid; gap: 8px; }
@@ -178,6 +179,18 @@ html {
 .screenshot-date { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
 .screenshot-project-header { margin-bottom: 18px; }
 .screenshot-gallery-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 11px; color: var(--muted); background: var(--getgo-panel); }
+.screenshot-capture-workspace { display: grid; grid-template-columns: minmax(360px, 1fr) minmax(280px, 50%); align-items: start; gap: 22px; }
+.screenshot-capture-library { min-width: 0; }
+.screenshot-capture-library .screenshot-gallery-toolbar { margin-bottom: 12px; padding: 0 0 10px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.screenshot-capture-library .screenshot-gallery-toolbar > span { color: var(--text); font-size: 13px; font-weight: 700; }
+.screenshot-capture-library .screenshot-gallery-toolbar .ui-button { width: 32px; height: 32px; min-height: 32px; padding: 0; }
+.screenshot-capture-library .ui-data-table-scroll { max-height: calc(100vh - 290px); overflow: auto; scrollbar-gutter: stable; }
+.ui-image.screenshot-table-thumbnail { display: block; width: 40px; min-width: 40px; max-width: 40px; height: 32px; min-height: 32px; max-height: 32px; contain: size layout paint; overflow: hidden; border-radius: 4px; background: var(--soft); }
+.ui-image.screenshot-table-thumbnail .ui-image-element { width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
+.screenshot-table-title { display: block; overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+.screenshot-table-route { display: block; overflow: hidden; max-width: 100%; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.screenshot-table-actions { display: flex; justify-content: flex-end; gap: 2px; }
+.screenshot-device-workspace { min-width: 0; }
 .screenshot-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
 .screenshot-card { display: grid; overflow: hidden; padding: 0; border: 1px solid var(--line); border-radius: 13px; color: var(--text); background: var(--getgo-panel); text-align: left; box-shadow: 0 1px 3px #0f172a12; transition: transform 150ms ease, box-shadow 150ms ease; }
 .screenshot-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #0f172a18; }
@@ -188,23 +201,14 @@ html {
 .screenshot-card code { overflow: hidden; color: #4f46e5; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .screenshot-card small { color: var(--muted); }
 .screenshot-empty-workspace { min-height: 460px; border: 1px dashed var(--line); border-radius: 13px; background: var(--getgo-panel); }
-.device-preview { display: grid; gap: 16px; }
-.device-preview-controls { display: flex; align-items: end; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--getgo-panel); }
-.device-preview-controls > .schema-select { width: min(310px, 100%); }
-.device-preview-controls label { display: grid; width: 112px; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 650; }
-.device-preview-controls label .ui-input input { min-width: 0; }
-.device-preview-times { padding-bottom: 10px; color: var(--muted); }
-.device-preview-scale { margin-left: auto; align-self: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.device-preview-stage { position: relative; overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--soft) 78%, var(--getgo-panel)); }
-.device-browser { position: absolute; left: 50%; top: 24px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 70%, #334155); border-radius: 14px; background: #fff; box-shadow: 0 18px 48px #0f172a26; transform-origin: top center; }
+.device-preview { display: grid; gap: 10px; }
+.device-preview-stage { position: relative; overflow: hidden; }
+.device-browser { position: absolute; right: 0; top: 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 70%, #334155); border-radius: 14px; background: #fff; box-shadow: 0 12px 32px #0f172a20; transform-origin: top right; }
 .device-browser-bar { display: grid; grid-template-columns: 36px 36px 36px minmax(0, 1fr) 40px; align-items: center; gap: 6px; height: 52px; padding: 7px 8px; border-bottom: 1px solid var(--line); background: var(--getgo-panel); }
 .device-browser-bar .ui-button { width: 36px; height: 36px; padding: 0; }
 .device-browser-bar .ui-input input { height: 36px; }
 .device-browser-webview { display: flex; width: 100%; height: calc(100% - 52px); background: #fff; }
-.device-preview-status { display: flex; align-items: baseline; gap: 10px; min-width: 0; color: var(--muted); font-size: 12px; }
-.device-preview-status strong { color: var(--text); }
-.device-preview-status code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 800px) { .device-preview-controls { align-items: stretch; flex-wrap: wrap; } .device-preview-controls > .schema-select { width: 100%; } .device-preview-scale { margin-left: 0; } }
+@media (max-width: 850px) { .screenshot-capture-workspace { grid-template-columns: 1fr; } .screenshot-capture-library .screenshot-gallery { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); max-height: none; } }
 .screenshot-paste-note { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .screenshot-clipboard-preview { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
 .screenshot-clipboard-preview .ui-image { width: 112px; aspect-ratio: 16 / 10; border-radius: 7px; overflow: hidden; background: #e2e8f0; }
