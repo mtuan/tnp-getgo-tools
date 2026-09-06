@@ -178,7 +178,7 @@ html {
 .screenshot-project-cell small { color: var(--muted); }
 .screenshot-date { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
 .screenshot-project-header { margin-bottom: 18px; }
-.screenshot-capture-workspace { display: grid; grid-template-columns: minmax(360px, 1fr) var(--screenshot-preview-width); align-items: start; gap: 22px; }
+.screenshot-capture-workspace { display: grid; grid-template-columns: minmax(0, 1fr) var(--screenshot-preview-width); align-items: start; gap: 22px; }
 .screenshot-capture-library { min-width: 0; }
 .screenshot-capture-library .ui-data-table-scroll { max-height: calc(100vh - 290px); overflow: auto; scrollbar-gutter: stable; }
 .ui-image.screenshot-table-thumbnail { display: block; width: 40px; min-width: 40px; max-width: 40px; height: 32px; min-height: 32px; max-height: 32px; contain: size layout paint; overflow: hidden; border-radius: 4px; background: var(--soft); }
