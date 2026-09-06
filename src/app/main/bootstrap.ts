@@ -348,7 +348,7 @@ app.whenReady().then(async () => {
   registerPaymentPackagesIpc(ipcMain, { repositoryRoot, publishing });
   registerContentSafetyIpc(ipcMain, repositoryRoot);
   registerAvatarSetIpc(ipcMain, { mainWindow: mainWindow!, appPath: app.getAppPath(), firebase: firebaseAuth });
-  registerScreenshotProjectIpc(ipcMain, app.getPath("userData"));
+  registerScreenshotProjectIpc(ipcMain, app.getAppPath());
   setContentSafetyWarningHandler((warning) => mainWindow?.webContents.send("content-safety:warning", warning));
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });

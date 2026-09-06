@@ -1,48 +1,66 @@
 import { session, shell, webContents, type IpcMain } from "electron";
+import path from "node:path";
 import type {
   ScreenshotMetadataInput,
   ScreenshotProjectInput,
 } from "../domain/screenshot-project.js";
 import { ScreenshotProjectService } from "./screenshot-project-service.js";
+import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 
 export function registerScreenshotProjectIpc(
   ipcMain: IpcMain,
-  userDataPath: string,
+  toolsAppPath: string,
 ): void {
-  const service = new ScreenshotProjectService(userDataPath);
-  ipcMain.handle("screenshots:projects:list", () => service.list());
+  const service = async () => {
+    const webRepositoryRoot = await findRelatedRepository(toolsAppPath, {
+      packageName: "tnp-getgo-web",
+      directoryName: "tnp-getgo-web",
+      environmentVariable: "GETGO_WEB_ROOT",
+    });
+    if (!webRepositoryRoot)
+      throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
+    return new ScreenshotProjectService(path.join(
+      webRepositoryRoot,
+      "docs",
+      "screenshots",
+      "projects",
+    ));
+  };
+  ipcMain.handle("screenshots:projects:list", async () => (await service()).list());
   ipcMain.handle(
     "screenshots:projects:create",
-    (_event, input: ScreenshotProjectInput) => service.create(input),
+    async (_event, input: ScreenshotProjectInput) => (await service()).create(input),
   );
   ipcMain.handle(
     "screenshots:projects:update",
-    (_event, projectId: string, input: ScreenshotProjectInput) => service.updateProject(projectId, input),
+    async (_event, projectId: string, input: ScreenshotProjectInput) => (await service()).updateProject(projectId, input),
   );
-  ipcMain.handle("screenshots:projects:load", (_event, projectId: string) =>
-    service.load(projectId),
+  ipcMain.handle("screenshots:projects:load", async (_event, projectId: string) =>
+    (await service()).load(projectId),
   );
-  ipcMain.handle("screenshots:clipboard:inspect", () => service.inspectClipboard());
+  ipcMain.handle("screenshots:clipboard:inspect", async () =>
+    (await service()).inspectClipboard(),
+  );
   ipcMain.handle(
     "screenshots:add",
-    (_event, projectId: string, imageDataUrl: string, metadata: ScreenshotMetadataInput) =>
-      service.add(projectId, imageDataUrl, metadata),
+    async (_event, projectId: string, imageDataUrl: string, metadata: ScreenshotMetadataInput) =>
+      (await service()).add(projectId, imageDataUrl, metadata),
   );
   ipcMain.handle(
     "screenshots:update",
-    (
+    async (
       _event,
       projectId: string,
       screenshotId: string,
       metadata: ScreenshotMetadataInput,
-    ) => service.update(projectId, screenshotId, metadata),
+    ) => (await service()).update(projectId, screenshotId, metadata),
   );
   ipcMain.handle(
     "screenshots:delete",
-    (_event, projectId: string, screenshotId: string) => service.delete(projectId, screenshotId),
+    async (_event, projectId: string, screenshotId: string) => (await service()).delete(projectId, screenshotId),
   );
-  ipcMain.handle("screenshots:clear", (_event, projectId: string) =>
-    service.clear(projectId),
+  ipcMain.handle("screenshots:clear", async (_event, projectId: string) =>
+    (await service()).clear(projectId),
   );
   ipcMain.handle("screenshots:preview:clear-data", async () => {
     const previewSession = session.fromPartition("persist:getgo-device-preview");
@@ -61,7 +79,7 @@ export function registerScreenshotProjectIpc(
   ipcMain.handle(
     "screenshots:projects:show",
     async (_event, projectId: string) => {
-      await shell.openPath(service.folder(projectId));
+      await shell.openPath((await service()).folder(projectId));
     },
   );
 }

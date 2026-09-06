@@ -50,8 +50,8 @@ const normalizePreviewConfig = (value: ScreenshotProjectInput["previewConfig"] |
 export class ScreenshotProjectService {
   private readonly root: string;
 
-  constructor(userDataPath: string) {
-    this.root = path.join(userDataPath, "screenshot-projects");
+  constructor(screenshotProjectsRoot: string) {
+    this.root = path.resolve(screenshotProjectsRoot);
   }
 
   private projectFolder(projectId: string) {
