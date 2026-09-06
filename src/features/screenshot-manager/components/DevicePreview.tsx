@@ -41,7 +41,7 @@ const screenshotRoute = (value: string) => {
   return `${url.pathname}${url.search}${url.hash}` || "/";
 };
 
-export function DevicePreview({ locale, project, requestedRoute, onProjectChange }: { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; onProjectChange(project: ScreenshotProject): void }) {
+export function DevicePreview({ locale, project, requestedRoute, resetKey, onProjectChange, onScaleChange }: { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; resetKey: number; onProjectChange(project: ScreenshotProject): void; onScaleChange(scale: number): void }) {
   const copy = (locale === "vi" ? vi : en).screenshotManager.devicePreview;
   const selected = devices.find(device => device.id === project.previewConfig.devicePreset) ?? devices[devices.length - 1];
   const width = project.previewConfig.width;
@@ -92,17 +92,24 @@ export function DevicePreview({ locale, project, requestedRoute, onProjectChange
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
+    if (project.previewConfig.sizeMode === "default") {
+      setScale(1);
+      onScaleChange(1);
+      return;
+    }
     const fit = () => {
       const availableWidth = stage.clientWidth;
       const availableHeight = Math.max(1, window.innerHeight - stage.getBoundingClientRect().top - 24);
-      setScale(Math.min(1, availableWidth / width, availableHeight / (height + 52)));
+      const next = Math.min(1, availableWidth / width, availableHeight / (height + 52));
+      setScale(next);
+      onScaleChange(next);
     };
     const observer = new ResizeObserver(fit);
     observer.observe(stage);
     window.addEventListener("resize", fit);
     fit();
     return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
-  }, [height, width]);
+  }, [height, onScaleChange, project.previewConfig.sizeMode, width]);
 
   useEffect(() => {
     setDraftUrl(project.previewConfig.baseUrl);
@@ -114,6 +121,9 @@ export function DevicePreview({ locale, project, requestedRoute, onProjectChange
     setDraftUrl(next);
     setCurrentUrl(next);
   }, [project.previewConfig.baseUrl, requestedRoute?.key, requestedRoute?.route]);
+  useEffect(() => {
+    if (resetKey > 0 && ready) webviewRef.current?.reload();
+  }, [ready, resetKey]);
   const navigate = (event: FormEvent) => {
     event.preventDefault();
     const next = normalizeLocalUrl(draftUrl);

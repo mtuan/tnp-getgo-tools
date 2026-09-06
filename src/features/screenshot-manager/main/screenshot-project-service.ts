@@ -43,7 +43,8 @@ const normalizePreviewConfig = (value: ScreenshotProjectInput["previewConfig"] |
   const height = Number(value?.height ?? 852);
   if (!Number.isInteger(width) || width < 240 || width > 2560 || !Number.isInteger(height) || height < 320 || height > 2560)
     throw new Error("Preview dimensions are invalid.");
-  return { baseUrl: baseUrl.toString().replace(/\/$/, ""), devicePreset: cleanText(value?.devicePreset ?? "iphone-15", "device preset", true), width, height };
+  const sizeMode: "fit" | "default" = value?.sizeMode === "default" ? "default" : "fit";
+  return { baseUrl: baseUrl.toString().replace(/\/$/, ""), devicePreset: cleanText(value?.devicePreset ?? "iphone-15", "device preset", true), width, height, sizeMode };
 };
 
 export class ScreenshotProjectService {
@@ -232,6 +233,18 @@ export class ScreenshotProjectService {
     const [screenshot] = project.screenshots.splice(index, 1);
     const imagePath = path.join(this.projectFolder(project.id), "screenshots", safeFileName(screenshot.fileName));
     await shell.trashItem(imagePath);
+    project.updatedAt = new Date().toISOString();
+    await this.write(project);
+    return this.load(project.id);
+  }
+
+  async clear(projectId: string): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    for (const screenshot of project.screenshots) {
+      const imagePath = path.join(this.projectFolder(project.id), "screenshots", safeFileName(screenshot.fileName));
+      await shell.trashItem(imagePath);
+    }
+    project.screenshots = [];
     project.updatedAt = new Date().toISOString();
     await this.write(project);
     return this.load(project.id);

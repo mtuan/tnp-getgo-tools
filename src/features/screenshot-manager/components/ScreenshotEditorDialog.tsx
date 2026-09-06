@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import * as ui from "../../../shared/ui";
 import type {
   ScreenshotMetadataInput,
@@ -24,6 +24,7 @@ export function ScreenshotEditorDialog({
     addScreenshot: string;
     save: string;
     clipboardPreview: string;
+    previewImage: string;
     pasteHint: string;
   };
   busy: boolean;
@@ -80,9 +81,18 @@ export function ScreenshotEditorDialog({
       setSubmitError(cause instanceof Error ? cause.message : String(cause));
     }
   }
+  const preview = record?.previewDataUrl ?? clipboard?.previewDataUrl;
+  const dimensions = record
+    ? `${record.width} × ${record.height}`
+    : clipboard
+      ? `${clipboard.width} × ${clipboard.height}`
+      : "";
+  const previewWidth = record?.width ?? clipboard?.width ?? 1;
+  const previewHeight = record?.height ?? clipboard?.height ?? 1;
   return (
     <ui.DialogFrame
       presentation="modal"
+      className="screenshot-editor-dialog"
       title={record ? copy.editScreenshot : copy.addScreenshot}
       busy={busy}
       error={submitError}
@@ -90,17 +100,21 @@ export function ScreenshotEditorDialog({
       onClose={onClose}
       onSubmit={submit}
     >
-      {clipboard && <div className="screenshot-clipboard-preview"><ui.Image src={clipboard.previewDataUrl} alt={copy.clipboardPreview} /><span>{clipboard.width} × {clipboard.height}</span></div>}
-      <ui.Form
-        fields={fields}
-        values={values}
-        errors={errors}
-        onChange={(name, value) => {
-          setValues((current) => ({ ...current, [name]: value }));
-          setErrors((current) => ({ ...current, [name]: "" }));
-        }}
-      />
-      {!record && <p className="screenshot-paste-note">{copy.pasteHint}</p>}
+      <div className="screenshot-editor-layout">
+        <div className="screenshot-editor-fields">
+          <ui.Form
+            fields={fields}
+            values={values}
+            errors={errors}
+            onChange={(name, value) => {
+              setValues((current) => ({ ...current, [name]: value }));
+              setErrors((current) => ({ ...current, [name]: "" }));
+            }}
+          />
+          {!record && <p className="screenshot-paste-note">{copy.pasteHint}</p>}
+        </div>
+        {preview && <figure className="screenshot-editor-preview" style={{ "--screenshot-image-ratio": `${previewWidth} / ${previewHeight}` } as CSSProperties}><ui.Image src={preview} fit="contain" alt={record ? copy.previewImage : copy.clipboardPreview} /><figcaption>{dimensions}</figcaption></figure>}
+      </div>
     </ui.DialogFrame>
   );
 }

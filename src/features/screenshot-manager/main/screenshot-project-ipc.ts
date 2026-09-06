@@ -1,4 +1,4 @@
-import { shell, type IpcMain } from "electron";
+import { session, shell, webContents, type IpcMain } from "electron";
 import type {
   ScreenshotMetadataInput,
   ScreenshotProjectInput,
@@ -41,6 +41,23 @@ export function registerScreenshotProjectIpc(
     "screenshots:delete",
     (_event, projectId: string, screenshotId: string) => service.delete(projectId, screenshotId),
   );
+  ipcMain.handle("screenshots:clear", (_event, projectId: string) =>
+    service.clear(projectId),
+  );
+  ipcMain.handle("screenshots:preview:clear-data", async () => {
+    const previewSession = session.fromPartition("persist:getgo-device-preview");
+    const previewContents = webContents
+      .getAllWebContents()
+      .filter((contents) => !contents.isDestroyed() && contents.session === previewSession);
+    await Promise.allSettled(previewContents.map((contents) =>
+      contents.executeJavaScript("localStorage.clear(); sessionStorage.clear();"),
+    ));
+    await Promise.all([
+      previewSession.clearStorageData(),
+      previewSession.clearCache(),
+    ]);
+    previewSession.flushStorageData();
+  });
   ipcMain.handle(
     "screenshots:projects:show",
     async (_event, projectId: string) => {

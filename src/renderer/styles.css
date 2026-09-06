@@ -178,12 +178,8 @@ html {
 .screenshot-project-cell small { color: var(--muted); }
 .screenshot-date { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
 .screenshot-project-header { margin-bottom: 18px; }
-.screenshot-gallery-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 11px; color: var(--muted); background: var(--getgo-panel); }
-.screenshot-capture-workspace { display: grid; grid-template-columns: minmax(360px, 1fr) minmax(280px, 50%); align-items: start; gap: 22px; }
+.screenshot-capture-workspace { display: grid; grid-template-columns: minmax(360px, 1fr) var(--screenshot-preview-width); align-items: start; gap: 22px; }
 .screenshot-capture-library { min-width: 0; }
-.screenshot-capture-library .screenshot-gallery-toolbar { margin-bottom: 12px; padding: 0 0 10px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
-.screenshot-capture-library .screenshot-gallery-toolbar > span { color: var(--text); font-size: 13px; font-weight: 700; }
-.screenshot-capture-library .screenshot-gallery-toolbar .ui-button { width: 32px; height: 32px; min-height: 32px; padding: 0; }
 .screenshot-capture-library .ui-data-table-scroll { max-height: calc(100vh - 290px); overflow: auto; scrollbar-gutter: stable; }
 .ui-image.screenshot-table-thumbnail { display: block; width: 40px; min-width: 40px; max-width: 40px; height: 32px; min-height: 32px; max-height: 32px; contain: size layout paint; overflow: hidden; border-radius: 4px; background: var(--soft); }
 .ui-image.screenshot-table-thumbnail .ui-image-element { width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
@@ -210,10 +206,14 @@ html {
 .device-browser-webview { display: flex; width: 100%; height: calc(100% - 52px); background: #fff; }
 @media (max-width: 850px) { .screenshot-capture-workspace { grid-template-columns: 1fr; } .screenshot-capture-library .screenshot-gallery { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); max-height: none; } }
 .screenshot-paste-note { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.screenshot-clipboard-preview { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
-.screenshot-clipboard-preview .ui-image { width: 112px; aspect-ratio: 16 / 10; border-radius: 7px; overflow: hidden; background: #e2e8f0; }
-.screenshot-clipboard-preview .ui-image-element { width: 100%; height: 100%; }
-.screenshot-clipboard-preview > span { color: var(--muted); font-size: 12px; }
+.crud-dialog.presentation-modal.screenshot-editor-dialog { width: min(960px, calc(100vw - 64px)); }
+.screenshot-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); align-items: start; gap: 24px; }
+.screenshot-editor-fields { min-width: 0; }
+.screenshot-editor-preview { display: grid; min-width: 0; justify-items: center; gap: 8px; margin: 0; }
+.screenshot-editor-preview .ui-image { display: block; overflow: hidden; width: auto; max-width: 100%; height: min(520px, calc(100vh - 230px)); aspect-ratio: var(--screenshot-image-ratio); border-radius: 10px; background: var(--soft); }
+.screenshot-editor-preview .ui-image-element { width: 100%; height: 100%; object-fit: contain; object-position: center top; }
+.screenshot-editor-preview figcaption { width: 100%; color: var(--muted); font-size: 11px; text-align: right; }
+@media (max-width: 760px) { .screenshot-editor-layout { grid-template-columns: 1fr; } .screenshot-editor-preview .ui-image { height: min(360px, 45vh); } }
 .screenshot-map-panel { overflow: hidden; }
 .screenshot-map { display: grid; gap: 8px; background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--line) 75%, transparent) 1px, transparent 0); background-size: 18px 18px; }
 .screenshot-map-branch { display: grid; gap: 6px; }
@@ -1740,8 +1740,13 @@ main {
   height: 15px;
   flex: 0 0 15px;
 }
-.ui-action-menu > button.danger {
+.ui-action-menu > button.ui-action-menu-item-danger {
   color: #be123c;
+}
+.ui-action-menu > button.ui-action-menu-item-danger:hover:not(:disabled),
+.ui-action-menu > button.ui-action-menu-item-danger:focus-visible:not(:disabled) {
+  color: #be123c;
+  background: #fff1f2;
 }
 .primary,
 .secondary {

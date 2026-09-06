@@ -28,6 +28,7 @@ export interface ScreenshotPreviewConfig {
   devicePreset: string;
   width: number;
   height: number;
+  sizeMode: "fit" | "default";
 }
 
 export interface ScreenshotProjectSummary {
@@ -82,5 +83,7 @@ export interface ScreenshotManagerDesktopApi {
     projectId: string,
     screenshotId: string,
   ): Promise<ScreenshotProject>;
+  clearScreenshots(projectId: string): Promise<ScreenshotProject>;
+  clearPreviewBrowserData(): Promise<void>;
   showScreenshotProjectFolder(projectId: string): Promise<void>;
 }

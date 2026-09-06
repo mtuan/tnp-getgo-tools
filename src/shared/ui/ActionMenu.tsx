@@ -101,7 +101,7 @@ export function ActionMenu({
                   type="button"
                   role="menuitem"
                   tabIndex={-1}
-                  className={item.color === "danger" ? "danger" : ""}
+                  className={item.color === "danger" ? "ui-action-menu-item-danger" : ""}
                   disabled={item.disabled}
                   key={item.id}
                   onClick={() => {
