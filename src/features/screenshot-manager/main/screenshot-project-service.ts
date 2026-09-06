@@ -1,0 +1,214 @@
+import { clipboard, nativeImage } from "electron";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import type {
+  ScreenshotMetadataInput,
+  ScreenshotProject,
+  ScreenshotProjectInput,
+  ScreenshotProjectSummary,
+} from "../domain/screenshot-project.js";
+
+const safeId = (value: string) => {
+  if (!/^[a-z0-9-]+$/.test(value))
+    throw new Error("Invalid screenshot project identifier.");
+  return value;
+};
+
+const safeFileName = (value: string) => {
+  if (!/^[a-f0-9-]+\.png$/.test(value))
+    throw new Error("Invalid screenshot file name.");
+  return value;
+};
+
+const cleanText = (value: unknown, label: string, required = false) => {
+  if (typeof value !== "string") throw new Error(`Invalid ${label}.`);
+  const cleaned = value.trim();
+  if (required && !cleaned) throw new Error(`${label} is required.`);
+  if (cleaned.length > 500) throw new Error(`${label} is too long.`);
+  return cleaned;
+};
+
+const normalizeRoute = (value: unknown) => {
+  const route = cleanText(value, "route") || "/";
+  return route.startsWith("/") ? route : `/${route}`;
+};
+
+export class ScreenshotProjectService {
+  private readonly root: string;
+
+  constructor(userDataPath: string) {
+    this.root = path.join(userDataPath, "screenshot-projects");
+  }
+
+  private projectFolder(projectId: string) {
+    return path.join(this.root, safeId(projectId));
+  }
+
+  private manifestPath(projectId: string) {
+    return path.join(this.projectFolder(projectId), "project.json");
+  }
+
+  private async write(project: ScreenshotProject) {
+    const file = this.manifestPath(project.id);
+    const temporary = `${file}.tmp`;
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(
+      temporary,
+      `${JSON.stringify(project, null, 2)}\n`,
+      "utf8",
+    );
+    await fs.rename(temporary, file);
+  }
+
+  private async read(projectId: string): Promise<ScreenshotProject> {
+    const data = JSON.parse(
+      await fs.readFile(this.manifestPath(projectId), "utf8"),
+    ) as ScreenshotProject;
+    if (
+      data.schemaVersion !== 1 ||
+      data.id !== projectId ||
+      !Array.isArray(data.screenshots)
+    )
+      throw new Error("The screenshot project is invalid.");
+    return data;
+  }
+
+  async list(): Promise<ScreenshotProjectSummary[]> {
+    await fs.mkdir(this.root, { recursive: true });
+    const entries = await fs.readdir(this.root, { withFileTypes: true });
+    const projects = await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory())
+        .map(async (entry) => {
+          try {
+            const project = await this.read(entry.name);
+            return {
+              id: project.id,
+              name: project.name,
+              description: project.description,
+              screenshotCount: project.screenshots.length,
+              createdAt: project.createdAt,
+              updatedAt: project.updatedAt,
+            };
+          } catch {
+            return null;
+          }
+        }),
+    );
+    return projects
+      .filter((item): item is ScreenshotProjectSummary => Boolean(item))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  async create(input: ScreenshotProjectInput): Promise<ScreenshotProject> {
+    const now = new Date().toISOString();
+    const project: ScreenshotProject = {
+      schemaVersion: 1,
+      id: randomUUID(),
+      name: cleanText(input?.name, "project name", true),
+      description: cleanText(input?.description ?? "", "description"),
+      createdAt: now,
+      updatedAt: now,
+      screenshots: [],
+    };
+    await fs.mkdir(path.join(this.projectFolder(project.id), "screenshots"), {
+      recursive: true,
+    });
+    await this.write(project);
+    return project;
+  }
+
+  async load(projectId: string): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    const screenshots = await Promise.all(
+      project.screenshots.map(async (screenshot) => {
+        try {
+          const bytes = await fs.readFile(
+            path.join(
+              this.projectFolder(project.id),
+              "screenshots",
+              safeFileName(screenshot.fileName),
+            ),
+          );
+          return {
+            ...screenshot,
+            previewDataUrl: `data:${screenshot.mimeType};base64,${bytes.toString("base64")}`,
+          };
+        } catch {
+          return screenshot;
+        }
+      }),
+    );
+    return { ...project, screenshots };
+  }
+
+  async add(
+    projectId: string,
+    imageDataUrl: string,
+    metadata: ScreenshotMetadataInput,
+  ): Promise<ScreenshotProject> {
+    if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/png;base64,"))
+      throw new Error("Invalid screenshot image data.");
+    const image = nativeImage.createFromDataURL(imageDataUrl);
+    if (image.isEmpty())
+      throw new Error("The screenshot image could not be decoded.");
+    const project = await this.read(safeId(projectId));
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const size = image.getSize();
+    const fileName = `${id}.png`;
+    await fs.writeFile(
+      path.join(this.projectFolder(project.id), "screenshots", fileName),
+      image.toPNG(),
+    );
+    project.screenshots.push({
+      id,
+      name: cleanText(metadata?.name, "screenshot name", true),
+      description: cleanText(metadata?.description ?? "", "description"),
+      route: normalizeRoute(metadata?.route),
+      fileName,
+      mimeType: "image/png",
+      width: size.width,
+      height: size.height,
+      createdAt: now,
+      updatedAt: now,
+    });
+    project.updatedAt = now;
+    await this.write(project);
+    return this.load(project.id);
+  }
+
+  async update(
+    projectId: string,
+    screenshotId: string,
+    metadata: ScreenshotMetadataInput,
+  ): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    const screenshot = project.screenshots.find(
+      (item) => item.id === screenshotId,
+    );
+    if (!screenshot) throw new Error("Screenshot not found.");
+    screenshot.name = cleanText(metadata?.name, "screenshot name", true);
+    screenshot.description = cleanText(
+      metadata?.description ?? "",
+      "description",
+    );
+    screenshot.route = normalizeRoute(metadata?.route);
+    screenshot.updatedAt = new Date().toISOString();
+    project.updatedAt = screenshot.updatedAt;
+    await this.write(project);
+    return this.load(project.id);
+  }
+
+  inspectClipboard() {
+    const image = clipboard.readImage();
+    if (image.isEmpty()) return null;
+    const size = image.getSize();
+    return { previewDataUrl: image.toDataURL(), width: size.width, height: size.height };
+  }
+
+  folder(projectId: string) {
+    return this.projectFolder(safeId(projectId));
+  }
+}

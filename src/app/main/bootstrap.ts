@@ -30,6 +30,7 @@ import { registerQuestionFeedbackIpc } from "../../features/topics/main/question
 import { registerPaymentPackagesIpc } from "../../features/payment-packages/main/payment-packages-ipc.js";
 import { registerContentSafetyIpc } from "../../features/content-safety/main/content-safety-ipc.js";
 import { registerAvatarSetIpc } from "../../features/avatar-sets/main/avatar-set-ipc.js";
+import { registerScreenshotProjectIpc } from "../../features/screenshot-manager/main/screenshot-project-ipc.js";
 import { assertRepositoryContentSafe, setContentSafetyWarningHandler } from "../../features/content-safety/repository/content-safety-repository.js";
 
 const environmentRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -94,10 +95,21 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webviewTag: true,
     },
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+  mainWindow.webContents.on("will-attach-webview", (event, webPreferences, params) => {
+    if (!isAllowedDevicePreviewUrl(params.src)) {
+      event.preventDefault();
+      return;
+    }
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
   });
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   mainWindow.webContents.once("did-finish-load", () => {
@@ -109,6 +121,24 @@ function createWindow(): void {
       path.join(currentDirectory, "../../renderer/index.html"),
     );
 }
+
+const isAllowedDevicePreviewUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:")
+      && ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+};
+
+app.on("web-contents-created", (_event, contents) => {
+  if (contents.getType() !== "webview") return;
+  contents.setWindowOpenHandler(() => ({ action: "deny" }));
+  contents.on("will-navigate", (event, navigationUrl) => {
+    if (!isAllowedDevicePreviewUrl(navigationUrl)) event.preventDefault();
+  });
+});
 
 app.whenReady().then(async () => {
   const startupLogDirectory = path.join(
@@ -318,6 +348,7 @@ app.whenReady().then(async () => {
   registerPaymentPackagesIpc(ipcMain, { repositoryRoot, publishing });
   registerContentSafetyIpc(ipcMain, repositoryRoot);
   registerAvatarSetIpc(ipcMain, { mainWindow: mainWindow!, appPath: app.getAppPath(), firebase: firebaseAuth });
+  registerScreenshotProjectIpc(ipcMain, app.getPath("userData"));
   setContentSafetyWarningHandler((warning) => mainWindow?.webContents.send("content-safety:warning", warning));
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });

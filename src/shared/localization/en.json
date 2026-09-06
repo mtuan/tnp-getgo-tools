@@ -655,5 +655,22 @@
     "successDescription": "Published {count} quizzes and verified their Firestore hashes.",
     "failureTitle": "Publishing stopped",
     "authentication": "Sign in with an authorized Firebase account before reading or publishing question data."
+  },
+  "screenshotManager": {
+    "nav": "Screen captures", "eyebrow": "Visual QA", "title": "Screen capture projects",
+    "pageDescription": "Collect, describe, and map web and app screens by route.",
+    "newProject": "New project", "projects": "Projects", "projectsDescription": "Saved in the GetGo Tools data folder.",
+    "name": "Name", "description": "Description", "route": "Route", "create": "Create project", "save": "Save changes",
+    "paste": "Add screenshot", "pasteScreenshot": "Read clipboard image", "addScreenshot": "Add screenshot",
+    "pasteHint": "Add a name, route, and description for the parsed screenshot shown above.",
+    "defaultScreenshotName": "New screen", "editScreenshot": "Edit screenshot information", "openFolder": "Open folder",
+    "viewMode": "Screenshot view", "gallery": "Gallery", "routeMap": "Route map", "loading": "Loading screen capture projects",
+    "noDescription": "No description", "noProjects": "No projects yet", "noProjectsDescription": "Create a project to start collecting screens.",
+    "noScreenshots": "No screenshots yet", "noScreenshotsDescription": "Copy a screenshot and paste it into this project.",
+    "noRoutes": "No routes yet", "noRoutesDescription": "Screens appear here after their route is saved.",
+    "selectProject": "Select a project", "selectProjectDescription": "Choose a project from the list or create a new one."
+    ,"project": "Project", "screenshots": "Screenshots", "lastUpdated": "Last updated", "backToProjects": "Back to projects",
+    "pasteShortcut": "Take a screenshot, then press Command+V to add it.", "clipboardMissing": "The clipboard does not contain an image.", "clipboardPreview": "Clipboard screenshot preview",
+    "devicePreview": { "tab": "Device preview", "device": "Device preset", "width": "Width", "height": "Height", "rotate": "Rotate device", "address": "Local web address", "back": "Back", "forward": "Forward", "reload": "Reload", "capture": "Capture and save", "localOnly": "Enter a localhost, 127.0.0.1, or ::1 web address.", "captured": "Screenshot saved", "untitled": "Untitled page" }
   }
 }

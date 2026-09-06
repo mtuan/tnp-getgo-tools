@@ -74,6 +74,7 @@ const ImagePdfPage = lazy(() =>
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
 const AvatarSetsPage = lazy(() => import("../../features/avatar-sets/pages/AvatarSetsPage").then((module) => ({ default: module.AvatarSetsPage })));
+const ScreenshotProjectsPage = lazy(() => import("../../features/screenshot-manager/pages/ScreenshotProjectsPage").then((module) => ({ default: module.ScreenshotProjectsPage })));
 
 const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
@@ -104,11 +105,12 @@ function viewFromRoute(route: string): View {
     "jobs",
     "deploy",
     "image-pdf",
+    "screenshots",
     "avatar-sets",
     "payments",
     "safe-words",
     "settings",
-  ].find((value) => pathname === `/${value}`);
+  ].find((value) => pathname === `/${value}` || (value === "screenshots" && pathname.startsWith("/screenshots/")));
   if (staticView) return staticView as NavigableView;
   if (pathname === "/payment-packages") return "payments";
   if (pathname === "/feedback") return "feedbacks";
@@ -560,6 +562,8 @@ export function App() {
                   ? contentCopy.legacyNav
                   : item.id === "image-pdf"
                     ? imagePdfCopy.nav
+                    : item.id === "screenshots"
+                      ? (settings.locale === "vi" ? vi : en).screenshotManager.nav
                     : item.id === "avatar-sets"
                       ? settings.locale === "vi" ? "Bộ ảnh đại diện" : "Avatar sets"
                     : item.label;
@@ -658,6 +662,7 @@ export function App() {
             !loading &&
             view !== "not-found" &&
             view !== "image-pdf" &&
+            view !== "screenshots" &&
             view !== "avatar-sets" ? (
               <section className="welcome">
                 <div className="welcome-mark">
@@ -804,6 +809,11 @@ export function App() {
             {view === "image-pdf" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <ImagePdfPage locale={settings.locale} />
+              </Suspense>
+            )}
+            {view === "screenshots" && (
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <ScreenshotProjectsPage locale={settings.locale} initialRoute={currentRoute} onRouteChange={setCurrentRoute} />
               </Suspense>
             )}
             {view === "avatar-sets" && (

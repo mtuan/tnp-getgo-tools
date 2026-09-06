@@ -1,5 +1,6 @@
 import type { ContentIcon } from "./content-icon.js";
 import type { StartupEnvironmentDesktopApi } from "../../features/settings/domain/startup-environment.js"; import type { AvatarSetDesktopApi } from "../../features/avatar-sets/domain/avatar-set.js";
+import type { ScreenshotManagerDesktopApi } from "../../features/screenshot-manager/domain/screenshot-project.js";
 
 export const contentStatuses = [
   "imported",
@@ -733,7 +734,7 @@ export interface SafeWordSyncStatus {
   sourcePath: string;
   sharedPath: string;
 }
-export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi {
+export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi, ScreenshotManagerDesktopApi {
   restartApp(): Promise<void>;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
   loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;
