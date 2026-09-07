@@ -14,7 +14,7 @@ import { LocalAiService } from "../../features/ai/main/local-ai.js";
 import { AiMigrationJobManager } from "../../features/ai/main/ai-migration-jobs.js";
 import { PublishJobManager } from "../../features/jobs/main/publish-jobs.js";
 import { WebDeploymentJobManager } from "../../features/deployment/main/web-deployment-jobs.js";
-import { getGoAppRuntimeConfig, getGoKidsDesignRuntimeConfig, LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
+import { getGoAppRuntimeConfig, LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
 import { getGoAppNativeConfig, NativeDeploymentJobManager } from "../../features/deployment/main/native-deployment-jobs.js";
 import { registerBackgroundJobsIpc } from "../../features/jobs/main/background-jobs-ipc.js";
 import { registerAiIpc } from "../../features/ai/main/ai-ipc.js";
@@ -31,6 +31,7 @@ import { registerPaymentPackagesIpc } from "../../features/payment-packages/main
 import { registerContentSafetyIpc } from "../../features/content-safety/main/content-safety-ipc.js";
 import { registerAvatarSetIpc } from "../../features/avatar-sets/main/avatar-set-ipc.js";
 import { registerScreenshotProjectIpc } from "../../features/screenshot-manager/main/screenshot-project-ipc.js";
+import { registerDesignProjectIpc } from "../../features/design-projects/main/design-project-ipc.js";
 import { assertRepositoryContentSafe, setContentSafetyWarningHandler } from "../../features/content-safety/repository/content-safety-repository.js";
 
 const environmentRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -265,11 +266,6 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     getGoAppRuntimeConfig,
   );
-  const kidsDesignRuntime = new LocalWebRuntimeManager(
-    app.getAppPath(),
-    app.getPath("userData"),
-    getGoKidsDesignRuntimeConfig,
-  );
   const nativeDeploymentJobs = new NativeDeploymentJobManager(
     app.getPath("userData"),
     app.getAppPath(),
@@ -293,7 +289,7 @@ app.whenReady().then(async () => {
   registerAiIpc(ipcMain, localAi, aiMigrationJobs, repositoryRoot);
   const backgroundJobsSnapshot = registerBackgroundJobsIpc(
     ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, nativeDeploymentJobs, localWebRuntime,
-    appNativeRuntimeJobs, localAppRuntime, kidsDesignRuntime,
+    appNativeRuntimeJobs, localAppRuntime,
   );
   ipcMain.handle(
     "publishing:quiz",
@@ -354,6 +350,7 @@ app.whenReady().then(async () => {
   registerContentSafetyIpc(ipcMain, repositoryRoot);
   registerAvatarSetIpc(ipcMain, { mainWindow: mainWindow!, appPath: app.getAppPath(), firebase: firebaseAuth });
   registerScreenshotProjectIpc(ipcMain, app.getAppPath());
+  registerDesignProjectIpc(ipcMain, app.getAppPath(), { apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY, model: process.env.GETGO_AI_OPENAI_MODEL, imageModel: process.env.GETGO_AI_OPENAI_IMAGE_MODEL });
   setContentSafetyWarningHandler((warning) => mainWindow?.webContents.send("content-safety:warning", warning));
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });

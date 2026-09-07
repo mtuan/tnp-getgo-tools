@@ -15,7 +15,6 @@ export function registerBackgroundJobsIpc(
   localWebRuntime: LocalWebRuntimeManager,
   appNativeRuntimeJobs: NativeDeploymentJobManager,
   localAppRuntime: LocalWebRuntimeManager,
-  kidsDesignRuntime: LocalWebRuntimeManager,
 ) {
   const deploymentProduct = (value: unknown) => {
     if (value === undefined || value === "web") return "web" as const;
@@ -90,9 +89,7 @@ export function registerBackgroundJobsIpc(
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     return webDeploymentJobs.state(target);
   });
-  const runtime = (value: unknown) => value === "kids-design"
-    ? kidsDesignRuntime
-    : deploymentProduct(value) === "app" ? localAppRuntime : localWebRuntime;
+  const runtime = (value: unknown) => deploymentProduct(value) === "app" ? localAppRuntime : localWebRuntime;
   ipcMain.handle("local-web:state", (_event, runtimeId: unknown = "web") => runtime(runtimeId).state());
   ipcMain.handle("local-web:start", (_event, runtimeId: unknown = "web", target: unknown = "development") => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");

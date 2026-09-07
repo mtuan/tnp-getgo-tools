@@ -7,7 +7,7 @@ import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDepl
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 
 export interface LocalWebRuntimeConfig {
-  id: "web" | "app" | "kids-design";
+  id: "web" | "app";
   product: DeploymentProduct;
   displayName: string;
   repositoryName: string;
@@ -44,18 +44,6 @@ export const getGoAppRuntimeConfig: LocalWebRuntimeConfig = {
   command: () => ["run", "web", "--", "--port", "8081"],
 };
 
-export const getGoKidsDesignRuntimeConfig: LocalWebRuntimeConfig = {
-  id: "kids-design",
-  product: "web",
-  displayName: "Kids Design Demo",
-  repositoryName: "tnp-getgo-web",
-  repositoryDirectory: "tnp-getgo-web",
-  repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
-  url: "http://127.0.0.1:8765",
-  healthPath: "/index.html",
-  executable: "python3",
-  command: () => ["docs/getgo/kids-friendly-iphone-ui/reconstruction/serve.py"],
-};
 const execFileAsync = promisify(execFile);
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface PersistedRuntime {

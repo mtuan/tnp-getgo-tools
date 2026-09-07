@@ -1,6 +1,6 @@
 import type { ContentIcon } from "./content-icon.js";
 import type { StartupEnvironmentDesktopApi } from "../../features/settings/domain/startup-environment.js"; import type { AvatarSetDesktopApi } from "../../features/avatar-sets/domain/avatar-set.js";
-import type { ScreenshotManagerDesktopApi } from "../../features/screenshot-manager/domain/screenshot-project.js";
+import type { ScreenshotManagerDesktopApi } from "../../features/screenshot-manager/domain/screenshot-project.js"; import type { DesignProjectsDesktopApi } from "../../features/design-projects/domain/design-project.js";
 
 export const contentStatuses = [
   "imported",
@@ -585,7 +585,7 @@ export interface AiMigrationJobsSnapshot {
   jobs: AiMigrationJob[];
 }
 
-export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "kids-design";
+export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct;
 export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
 export type DeploymentOperation = "run" | "build" | "deploy";
@@ -734,7 +734,7 @@ export interface SafeWordSyncStatus {
   sourcePath: string;
   sharedPath: string;
 }
-export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi, ScreenshotManagerDesktopApi {
+export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi, ScreenshotManagerDesktopApi, DesignProjectsDesktopApi {
   restartApp(): Promise<void>;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
   loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;

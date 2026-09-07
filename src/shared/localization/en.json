@@ -456,7 +456,6 @@
     "deployTestFlight": "Upload",
     "deployPlay": "Upload",
     "localhostTitle": "Localhost Web",
-    "kidsDesignTitle": "Kids design demo",
     "staticDemo": "Static simulator",
     "localhostDescription": "Run GetGo Web locally with the Development Firebase configuration. Repository files are read directly when needed.",
     "localhostAddress": "Local address",

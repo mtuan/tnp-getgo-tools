@@ -6,6 +6,15 @@ import type {
 } from "../shared/domain/models.js";
 
 const api: DesktopApi = {
+  listDesignProjects: () => ipcRenderer.invoke("designs:projects:list"),
+  createDesignProject: (input) => ipcRenderer.invoke("designs:projects:create", input),
+  updateDesignProject: (id, input) => ipcRenderer.invoke("designs:projects:update", id, input),
+  loadDesignProject: (id) => ipcRenderer.invoke("designs:projects:load", id),
+  generateDesignPage: (id, input) => ipcRenderer.invoke("designs:pages:generate", id, input),
+  deleteDesignPage: (id, pageId) => ipcRenderer.invoke("designs:pages:delete", id, pageId),
+  showDesignProjectFolder: (id) => ipcRenderer.invoke("designs:projects:show", id),
+  getDesignPreviewUrl: (id, pageId, viewport, theme) => ipcRenderer.invoke("designs:preview:url", id, pageId, viewport, theme),
+  getDesignSimulatorUrl: (id) => ipcRenderer.invoke("designs:simulator:url", id),
   listScreenshotProjects: () => ipcRenderer.invoke("screenshots:projects:list"),
   createScreenshotProject: (input) => ipcRenderer.invoke("screenshots:projects:create", input),
   updateScreenshotProject: (projectId, input) => ipcRenderer.invoke("screenshots:projects:update", projectId, input),

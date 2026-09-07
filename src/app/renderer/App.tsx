@@ -57,17 +57,9 @@ const rendererStartupLog = (
     details,
   );
 
-const JobsPage = lazy(() =>
-  import("../../features/jobs/pages/JobsPage").then((module) => ({ default: module.JobsPage })),
-);
-const QuestionFeedbackPage = lazy(() =>
-  import("../../features/feedback/pages/QuestionFeedbackPage").then((module) => ({ default: module.QuestionFeedbackPage })),
-);
-const DeploymentPage = lazy(() =>
-  import("../../features/deployment/pages/DeploymentPage").then((module) => ({
-    default: module.DeploymentPage,
-  })),
-);
+const JobsPage = lazy(() => import("../../features/jobs/pages/JobsPage").then((module) => ({ default: module.JobsPage })));
+const QuestionFeedbackPage = lazy(() => import("../../features/feedback/pages/QuestionFeedbackPage").then((module) => ({ default: module.QuestionFeedbackPage })));
+const DeploymentPage = lazy(() => import("../../features/deployment/pages/DeploymentPage").then((module) => ({ default: module.DeploymentPage })));
 const ImagePdfPage = lazy(() =>
   import("../../features/image-pdf/pages/ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
@@ -75,6 +67,7 @@ const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/p
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
 const AvatarSetsPage = lazy(() => import("../../features/avatar-sets/pages/AvatarSetsPage").then((module) => ({ default: module.AvatarSetsPage })));
 const ScreenshotProjectsPage = lazy(() => import("../../features/screenshot-manager/pages/ScreenshotProjectsPage").then((module) => ({ default: module.ScreenshotProjectsPage })));
+const DesignProjectsPage = lazy(() => import("../../features/design-projects/pages/DesignProjectsPage").then((module) => ({ default: module.DesignProjectsPage })));
 
 const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
@@ -105,12 +98,12 @@ function viewFromRoute(route: string): View {
     "jobs",
     "deploy",
     "image-pdf",
-    "screenshots",
+    "screenshots", "designs",
     "avatar-sets",
     "payments",
     "safe-words",
     "settings",
-  ].find((value) => pathname === `/${value}` || (value === "screenshots" && pathname.startsWith("/screenshots/")));
+  ].find((value) => pathname === `/${value}` || (["screenshots", "designs"].includes(value) && pathname.startsWith(`/${value}/`)));
   if (staticView) return staticView as NavigableView;
   if (pathname === "/payment-packages") return "payments";
   if (pathname === "/feedback") return "feedbacks";
@@ -564,6 +557,8 @@ export function App() {
                     ? imagePdfCopy.nav
                     : item.id === "screenshots"
                       ? (settings.locale === "vi" ? vi : en).screenshotManager.nav
+                    : item.id === "designs"
+                      ? settings.locale === "vi" ? "Thiết kế" : "Design"
                     : item.id === "avatar-sets"
                       ? settings.locale === "vi" ? "Bộ ảnh đại diện" : "Avatar sets"
                     : item.label;
@@ -662,7 +657,7 @@ export function App() {
             !loading &&
             view !== "not-found" &&
             view !== "image-pdf" &&
-            view !== "screenshots" &&
+            view !== "screenshots" && view !== "designs" &&
             view !== "avatar-sets" ? (
               <section className="welcome">
                 <div className="welcome-mark">
@@ -816,6 +811,7 @@ export function App() {
                 <ScreenshotProjectsPage locale={settings.locale} initialRoute={currentRoute} onRouteChange={setCurrentRoute} />
               </Suspense>
             )}
+            {view === "designs" && <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><DesignProjectsPage locale={settings.locale} initialRoute={currentRoute} onRouteChange={setCurrentRoute} /></Suspense>}
             {view === "avatar-sets" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <AvatarSetsPage locale={settings.locale} />
