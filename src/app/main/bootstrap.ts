@@ -14,7 +14,7 @@ import { LocalAiService } from "../../features/ai/main/local-ai.js";
 import { AiMigrationJobManager } from "../../features/ai/main/ai-migration-jobs.js";
 import { PublishJobManager } from "../../features/jobs/main/publish-jobs.js";
 import { WebDeploymentJobManager } from "../../features/deployment/main/web-deployment-jobs.js";
-import { getGoAppRuntimeConfig, LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
+import { getGoAppRuntimeConfig, getGoKidsDesignRuntimeConfig, LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
 import { getGoAppNativeConfig, NativeDeploymentJobManager } from "../../features/deployment/main/native-deployment-jobs.js";
 import { registerBackgroundJobsIpc } from "../../features/jobs/main/background-jobs-ipc.js";
 import { registerAiIpc } from "../../features/ai/main/ai-ipc.js";
@@ -265,6 +265,11 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     getGoAppRuntimeConfig,
   );
+  const kidsDesignRuntime = new LocalWebRuntimeManager(
+    app.getAppPath(),
+    app.getPath("userData"),
+    getGoKidsDesignRuntimeConfig,
+  );
   const nativeDeploymentJobs = new NativeDeploymentJobManager(
     app.getPath("userData"),
     app.getAppPath(),
@@ -288,7 +293,7 @@ app.whenReady().then(async () => {
   registerAiIpc(ipcMain, localAi, aiMigrationJobs, repositoryRoot);
   const backgroundJobsSnapshot = registerBackgroundJobsIpc(
     ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, nativeDeploymentJobs, localWebRuntime,
-    appNativeRuntimeJobs, localAppRuntime,
+    appNativeRuntimeJobs, localAppRuntime, kidsDesignRuntime,
   );
   ipcMain.handle(
     "publishing:quiz",

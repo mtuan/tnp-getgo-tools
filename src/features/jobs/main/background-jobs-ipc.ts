@@ -15,6 +15,7 @@ export function registerBackgroundJobsIpc(
   localWebRuntime: LocalWebRuntimeManager,
   appNativeRuntimeJobs: NativeDeploymentJobManager,
   localAppRuntime: LocalWebRuntimeManager,
+  kidsDesignRuntime: LocalWebRuntimeManager,
 ) {
   const deploymentProduct = (value: unknown) => {
     if (value === undefined || value === "web") return "web" as const;
@@ -89,15 +90,17 @@ export function registerBackgroundJobsIpc(
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     return webDeploymentJobs.state(target);
   });
-  const runtime = (product: unknown) => deploymentProduct(product) === "app" ? localAppRuntime : localWebRuntime;
-  ipcMain.handle("local-web:state", (_event, product: unknown = "web") => runtime(product).state());
-  ipcMain.handle("local-web:start", (_event, product: unknown = "web", target: unknown = "development") => {
+  const runtime = (value: unknown) => value === "kids-design"
+    ? kidsDesignRuntime
+    : deploymentProduct(value) === "app" ? localAppRuntime : localWebRuntime;
+  ipcMain.handle("local-web:state", (_event, runtimeId: unknown = "web") => runtime(runtimeId).state());
+  ipcMain.handle("local-web:start", (_event, runtimeId: unknown = "web", target: unknown = "development") => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
-    return runtime(product).start("start", target);
+    return runtime(runtimeId).start("start", target);
   });
-  ipcMain.handle("local-web:restart", (_event, product: unknown = "web", target: unknown = "development") => {
+  ipcMain.handle("local-web:restart", (_event, runtimeId: unknown = "web", target: unknown = "development") => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
-    return runtime(product).restart(target);
+    return runtime(runtimeId).restart(target);
   });
   ipcMain.handle("native-project:open", (_event, platform: unknown, target: unknown, product: unknown = "web") => {
     if (!(platform === "ios" || platform === "android")) throw new Error("Invalid native platform.");

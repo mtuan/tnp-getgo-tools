@@ -585,7 +585,7 @@ export interface AiMigrationJobsSnapshot {
   jobs: AiMigrationJob[];
 }
 
-export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app";
+export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "kids-design";
 export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
 export type DeploymentOperation = "run" | "build" | "deploy";
@@ -922,9 +922,9 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   startDeployment(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget, product?: DeploymentProduct): Promise<BackgroundJobsSnapshot>;
   getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
   openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget, product?: DeploymentProduct): Promise<void>;
-  getLocalWebRuntime(product?: DeploymentProduct): Promise<LocalWebRuntimeSnapshot>;
-  startLocalWebRuntime(product?: DeploymentProduct, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
-  restartLocalWebRuntime(product?: DeploymentProduct, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
+  getLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;
+  startLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
+  restartLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
   cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;

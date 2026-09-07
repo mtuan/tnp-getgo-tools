@@ -7,18 +7,23 @@ import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDepl
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 
 export interface LocalWebRuntimeConfig {
+  id: "web" | "app" | "kids-design";
   product: DeploymentProduct;
+  displayName: string;
   repositoryName: string;
   repositoryDirectory: string;
   repositoryEnvironmentVariable: string;
   url: string;
   healthPath?: string;
   command(target: WebDeploymentTarget): string[];
+  executable?: string;
   warmCommand?: string[];
 }
 
 export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
+  id: "web",
   product: "web",
+  displayName: "GetGo Web",
   repositoryName: "tnp-getgo-web",
   repositoryDirectory: "tnp-getgo-web",
   repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
@@ -29,12 +34,27 @@ export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
 };
 
 export const getGoAppRuntimeConfig: LocalWebRuntimeConfig = {
+  id: "app",
   product: "app",
+  displayName: "GetGo App",
   repositoryName: "tnp-getgo",
   repositoryDirectory: "tnp-getgo-app",
   repositoryEnvironmentVariable: "GETGO_APP_ROOT",
   url: "http://localhost:8081",
   command: () => ["run", "web", "--", "--port", "8081"],
+};
+
+export const getGoKidsDesignRuntimeConfig: LocalWebRuntimeConfig = {
+  id: "kids-design",
+  product: "web",
+  displayName: "Kids Design Demo",
+  repositoryName: "tnp-getgo-web",
+  repositoryDirectory: "tnp-getgo-web",
+  repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
+  url: "http://127.0.0.1:8765",
+  healthPath: "/index.html",
+  executable: "python3",
+  command: () => ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "docs/getgo/kids-friendly-iphone-ui/reconstruction"],
 };
 const execFileAsync = promisify(execFile);
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -74,7 +94,7 @@ export class LocalWebRuntimeManager {
     userDataPath: string,
     private readonly config: LocalWebRuntimeConfig = getGoWebRuntimeConfig,
   ) {
-    const prefix = config.product === "web" ? "local-web-runtime" : "local-app-runtime";
+    const prefix = `local-${config.id}-runtime`;
     this.stateFile = path.join(userDataPath, `${prefix}.json`);
     this.jobFile = path.join(userDataPath, `${prefix}-job.json`);
     this.stdoutFile = path.join(userDataPath, `${prefix}.stdout.log`);
@@ -323,8 +343,8 @@ export class LocalWebRuntimeManager {
       component: "web",
       operation: "run",
       target,
-      name: operation === "restart" ? `Restart Localhost ${this.config.product === "web" ? "Web" : "App"}` : `Start Localhost ${this.config.product === "web" ? "Web" : "App"}`,
-      description: `Run GetGo ${this.config.product === "web" ? "Web" : "App"} on ${this.config.url}`,
+      name: `${operation === "restart" ? "Restart" : "Start"} ${this.config.displayName}`,
+      description: `Run ${this.config.displayName} on ${this.config.url}`,
       status: "running",
       completed: 1,
       total: 1,
@@ -333,7 +353,7 @@ export class LocalWebRuntimeManager {
       startedAt: operationStartedAt,
       cancellable: false,
       retryable: false,
-      logs: [{ timestamp: operationStartedAt, stream: "system", message: `$ npm ${command.join(" ")}` }],
+      logs: [{ timestamp: operationStartedAt, stream: "system", message: `$ ${this.config.executable ?? npmExecutable} ${command.join(" ")}` }],
     };
     this.lastJob = job;
     await this.persistLastJob();
@@ -343,7 +363,7 @@ export class LocalWebRuntimeManager {
     ]);
     const stdoutFd = openSync(this.stdoutFile, "a");
     const stderrFd = openSync(this.stderrFile, "a");
-    const child = spawn(npmExecutable, command, {
+    const child = spawn(this.config.executable ?? npmExecutable, command, {
       cwd: repositoryRoot,
       detached: process.platform !== "win32",
       env: {
@@ -383,12 +403,12 @@ export class LocalWebRuntimeManager {
       job.status = code === 0 ? "completed" : "failed";
       job.completed = job.total;
       job.finishedAt = new Date().toISOString();
-      if (code !== 0) job.error = this.error = `Local ${this.config.product === "web" ? "Web" : "App"} exited with code ${code ?? "unknown"}.`;
+      if (code !== 0) job.error = this.error = `${this.config.displayName} exited with code ${code ?? "unknown"}.`;
       job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: job.error ?? "Localhost stopped." });
       void this.persistLastJob();
     });
     if (!await this.waitUntilOnline(60_000)) {
-      const message = this.error ?? `Local ${this.config.product === "web" ? "Web" : "App"} did not become available within 60 seconds.`;
+      const message = this.error ?? `${this.config.displayName} did not become available within 60 seconds.`;
       await this.terminate().catch(() => undefined);
       throw new Error(message);
     }

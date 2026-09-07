@@ -30,11 +30,14 @@ export function DeploymentPage({
   const [localWeb, setLocalWeb] = useState<LocalWebRuntimeSnapshot | null>(null);
   const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | null>(null);
   const localWebActionRef = useRef<"start" | "restart" | null>(null);
+  const [kidsDesign, setKidsDesign] = useState<LocalWebRuntimeSnapshot | null>(null);
+  const [kidsDesignAction, setKidsDesignAction] = useState<"start" | "restart" | null>(null);
+  const kidsDesignActionRef = useRef<"start" | "restart" | null>(null);
   const [localApp, setLocalApp] = useState<LocalWebRuntimeSnapshot | null>(null);
   const [localAppAction, setLocalAppAction] = useState<"start" | "restart" | null>(null);
   const localAppActionRef = useRef<"start" | "restart" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [logSelection, setLogSelection] = useState<DeploymentComponent | "localhost" | null>(null);
+  const [logSelection, setLogSelection] = useState<DeploymentComponent | "localhost" | "kids-design" | null>(null);
   const environmentRef = useRef(environment);
   environmentRef.current = environment;
 
@@ -74,6 +77,15 @@ export function DeploymentPage({
     }
   }, []);
 
+  const loadKidsDesign = useCallback(async () => {
+    try {
+      const state = await window.getgo.getLocalWebRuntime("kids-design");
+      if (!kidsDesignActionRef.current) setKidsDesign(state);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }, []);
+
   useEffect(() => {
     setDeploymentState(null);
     void loadDeploymentState();
@@ -95,6 +107,11 @@ export function DeploymentPage({
     const timer = window.setInterval(() => void loadLocalApp(), 2000);
     return () => window.clearInterval(timer);
   }, [loadLocalApp]);
+  useEffect(() => {
+    void loadKidsDesign();
+    const timer = window.setInterval(() => void loadKidsDesign(), 2000);
+    return () => window.clearInterval(timer);
+  }, [loadKidsDesign]);
 
   const executeRun = async (operation: DeploymentOperation, component: DeploymentComponent) => {
     const componentName = component === "web" ? copy.webTitle : component === "firebase" ? copy.rulesTitle : component === "mobile-ios" ? copy.iosTitle : copy.androidTitle;
@@ -150,11 +167,31 @@ export function DeploymentPage({
     }
   };
 
+  const controlKidsDesign = async (action: "start" | "restart") => {
+    if (kidsDesignActionRef.current) return;
+    kidsDesignActionRef.current = action;
+    setKidsDesignAction(action);
+    setKidsDesign(current => current ? { ...current, status: "starting", error: undefined } : current);
+    setError(null);
+    try {
+      setKidsDesign(action === "start"
+        ? await window.getgo.startLocalWebRuntime("kids-design")
+        : await window.getgo.restartLocalWebRuntime("kids-design"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      kidsDesignActionRef.current = null;
+      setKidsDesignAction(null);
+    }
+  };
+
   const deployments = snapshot?.jobs.filter((job) => job.kind === "deploy" && (product === "app" ? job.deploymentProduct === "app" : job.deploymentProduct !== "app")) ?? [];
   const activeJobs = deployments.filter((job) => ["queued", "running", "paused"].includes(job.status));
   const latestJob = (component: DeploymentComponent) => deployments.find(job => job.component === component && job.target === environment);
   const selectedLogJob = logSelection === "localhost"
     ? (product === "app" ? localApp?.lastJob : localWeb?.lastJob)
+    : logSelection === "kids-design"
+      ? kidsDesign?.lastJob
     : logSelection
       ? latestJob(logSelection)
       : undefined;
@@ -210,6 +247,7 @@ export function DeploymentPage({
     {product === "web" ? <>
       <div className="deployment-grid deployment-grid-web">
         <LocalRuntimeCard locale={locale} runtime={localWeb} action={localWebAction} title={copy.localhostTitle} environment={copy.development} onControl={action => void controlLocalWeb(action)} onViewLogs={() => setLogSelection("localhost")} />
+        <LocalRuntimeCard locale={locale} runtime={kidsDesign} action={kidsDesignAction} title={copy.kidsDesignTitle} environment={copy.staticDemo} onControl={action => void controlKidsDesign(action)} onViewLogs={() => setLogSelection("kids-design")} />
         <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
       <div className="deployment-grid deployment-grid-native">

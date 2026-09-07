@@ -64,7 +64,7 @@ function assertAllowedExternalUrl(requestedUrl: unknown): URL {
   const firebase = url.hostname === "console.firebase.google.com" && firebasePaths.some((prefix) => url.pathname.startsWith(prefix));
   const local = url.protocol === "http:"
     && ["localhost", "127.0.0.1"].includes(url.hostname)
-    && ["5173", "8081"].includes(url.port);
+    && ["5173", "8081", "8765"].includes(url.port);
   if (!local && (url.protocol !== "https:" || (!hosts.has(url.hostname) && !firebase)))
     throw new Error("External URL is not allowed");
   return url;
