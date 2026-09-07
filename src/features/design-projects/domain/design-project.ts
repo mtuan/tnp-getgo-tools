@@ -20,5 +20,5 @@ export interface DesignProjectsDesktopApi {
   deleteDesignPage(id: string, pageId: string): Promise<DesignProject>;
   showDesignProjectFolder(id: string): Promise<void>;
   getDesignPreviewUrl(id: string, pageId: string, viewport: DesignViewport, theme: DesignTheme): Promise<string>;
-  getDesignSimulatorUrl(id: string): Promise<string>;
+  getDesignReferenceUrl(id: string, pageId: string, viewport: DesignViewport, theme: DesignTheme): Promise<string>;
 }
