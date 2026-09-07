@@ -54,7 +54,7 @@ export const getGoKidsDesignRuntimeConfig: LocalWebRuntimeConfig = {
   url: "http://127.0.0.1:8765",
   healthPath: "/index.html",
   executable: "python3",
-  command: () => ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "docs/getgo/kids-friendly-iphone-ui/reconstruction"],
+  command: () => ["docs/getgo/kids-friendly-iphone-ui/reconstruction/serve.py"],
 };
 const execFileAsync = promisify(execFile);
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
