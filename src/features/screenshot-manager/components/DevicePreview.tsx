@@ -82,20 +82,22 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
+    const container = stage.parentElement;
+    if (!container) return;
     if (project.previewConfig.sizeMode === "default") {
       setScale(1);
       onScaleChange(1);
       return;
     }
     const fit = () => {
-      const availableWidth = stage.clientWidth;
-      const availableHeight = Math.max(1, window.innerHeight - stage.getBoundingClientRect().top - 24);
+      const availableWidth = container.clientWidth;
+      const availableHeight = Math.max(1, container.clientHeight);
       const next = Math.min(1, availableWidth / width, availableHeight / (height + 52));
       setScale(next);
       onScaleChange(next);
     };
     const observer = new ResizeObserver(fit);
-    observer.observe(stage);
+    observer.observe(container);
     window.addEventListener("resize", fit);
     fit();
     return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
@@ -150,7 +152,7 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
 
   return <div className="device-preview">
     {error && <ui.ErrorFrame message={error} />}
-    <div className="device-preview-stage" ref={stageRef} style={{ height: Math.round((height + 52) * scale), "--device-preview-width": `${width}px` } as CSSProperties}>
+    <div className="device-preview-stage" ref={stageRef} style={{ height: Math.ceil((height + 52) * scale), "--device-preview-width": `${width}px` } as CSSProperties}>
       <div className="device-browser" style={{ width, height: height + 52, transform: `scale(${scale})` }}>
         <form className="device-browser-bar" onSubmit={navigate}>
           <ui.Button variant="icon" icon={<ArrowLeft />} aria-label={copy.back} disabled={!ready || !navigation.back} onClick={() => webviewRef.current?.goBack()} />

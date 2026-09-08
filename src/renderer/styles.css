@@ -5,6 +5,9 @@
   --soft: #f8fafc;
   --routebar-height: 46px;
   --topbar-height: 56px;
+  --page-header-top-spacing: 16px;
+  --page-content-edge-spacing: 12px;
+  --page-content-inline-spacing: 28px;
   --sticky-content-gap: 16px;
   font-family:
     Inter,
@@ -158,6 +161,29 @@ html {
   box-sizing: border-box;
 }
 .screenshot-manager-page { display: block; }
+.content:has(.ui-page-header) {
+  padding-top: var(--page-header-top-spacing);
+}
+.content:has(.project-capture-workspace) {
+  height: calc(100dvh - var(--routebar-height) - var(--topbar-height));
+  min-height: 0;
+  padding-bottom: var(--page-content-edge-spacing);
+  overflow: hidden;
+}
+.content:has(.project-capture-workspace) > .page-transition {
+  height: 100%;
+  min-height: 0;
+}
+.screenshot-manager-page:has(.project-capture-workspace) {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+.screenshot-manager-page:has(.project-capture-workspace) > .ui-page-header {
+  flex: none;
+  margin-bottom: var(--page-content-edge-spacing);
+}
 .design-projects-page { display: grid; gap: 0; min-width: 0; }
 .design-projects-page > .ui-page-header { margin-bottom: 0; }
 .design-project-cell { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
@@ -222,7 +248,7 @@ html {
 .screenshot-table-actions { display: flex; justify-content: flex-end; gap: 2px; }
 .screenshot-device-workspace { min-width: 0; }
 .project-capture-preview { display: grid; min-height: 0; gap: 12px; }
-.project-capture-workspace { min-height: 0; align-items: stretch; overflow: hidden; }
+.project-capture-workspace { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow: hidden; }
 .project-capture-workspace .screenshot-capture-library,
 .project-capture-workspace .ui-data-table,
 .project-capture-workspace .ui-data-table-scroll { min-height: 0; height: 100%; }
@@ -2805,7 +2831,7 @@ main {
 }
 .topbar {
   height: 56px;
-  padding: 0 28px;
+  padding: 0 var(--page-content-inline-spacing);
   border-color: #e2e8f0;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(16px);
@@ -3067,7 +3093,7 @@ main {
   background: white;
 }
 .content {
-  padding: 32px 36px 56px;
+  padding: 32px var(--page-content-inline-spacing) 56px;
 }
 .page-transition {
   min-height: calc(100vh - 190px);

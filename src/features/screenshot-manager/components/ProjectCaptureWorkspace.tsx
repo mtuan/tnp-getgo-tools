@@ -26,7 +26,6 @@ export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectCh
   const pages = useMemo(() => projectPages(project), [project]);
   const [selectedRoute, setSelectedRoute] = useState<string | null>(pages[0]?.route ?? null);
   const [scale, setScale] = useState(1);
-  const [workspaceHeight, setWorkspaceHeight] = useState(1);
   const [capturedRoute, setCapturedRoute] = useState<string | null>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const selected = pages.find(page => page.route === selectedRoute) ?? pages[0];
@@ -38,20 +37,6 @@ export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectCh
     }),
   ], [vi]);
   useEffect(() => {
-    const workspace = workspaceRef.current;
-    if (!workspace) return;
-    const fit = () => {
-      const content = workspace.closest<HTMLElement>(".content");
-      const bottomPadding = content ? Number.parseFloat(getComputedStyle(content).paddingBottom) || 0 : 0;
-      setWorkspaceHeight(Math.max(1, window.innerHeight - workspace.getBoundingClientRect().top - bottomPadding));
-    };
-    const observer = new ResizeObserver(fit);
-    observer.observe(document.documentElement);
-    window.addEventListener("resize", fit);
-    fit();
-    return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
-  }, []);
-  useEffect(() => {
     if (!capturedRoute || !pages.some(page => page.route === capturedRoute)) return;
     setSelectedRoute(capturedRoute);
     requestAnimationFrame(() => {
@@ -61,7 +46,7 @@ export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectCh
     });
   }, [capturedRoute, pages]);
   if (!selected) return <ui.Panel><ui.PanelBody><strong>{vi ? "Chưa có trang" : "No pages yet"}</strong><p>{vi ? "Thêm ảnh có tuyến đường để bắt đầu." : "Add a routed screenshot to begin."}</p></ui.PanelBody></ui.Panel>;
-  return <div ref={workspaceRef} className="screenshot-capture-workspace project-capture-workspace" style={{ "--screenshot-preview-width": `${Math.round(project.previewConfig.width * scale)}px`, height: workspaceHeight } as CSSProperties}>
+  return <div ref={workspaceRef} className="screenshot-capture-workspace project-capture-workspace" style={{ "--screenshot-preview-width": `${Math.round(project.previewConfig.width * scale)}px` } as CSSProperties}>
     <aside className="screenshot-capture-library"><ui.DataTable rows={pages} columns={columns} rowKey={page => page.id} ariaLabel={vi ? "Danh sách trang" : "Page list"} emptyText={vi ? "Chưa có trang" : "No pages"} selectedRowKey={selected.route} onRowClick={page => setSelectedRoute(page.route)} /></aside>
     <div className="screenshot-device-workspace project-capture-preview">
       <DevicePreview locale={locale} project={project} requestedRoute={{ route: selected.route, key: selected.route === selectedRoute ? 1 : 0 }} resetKey={resetKey} onScaleChange={setScale} onProjectChange={onProjectChange} onCaptured={setCapturedRoute} />
