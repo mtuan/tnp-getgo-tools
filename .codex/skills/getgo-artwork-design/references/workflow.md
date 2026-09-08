@@ -10,7 +10,8 @@ Do not browse neighboring design folders for inspiration or reusable files. Do n
 
 - Locate the selected Screenshot Manager project and page/route.
 - Load its available `portrait-light`, `portrait-dark`, `landscape-light`, and `landscape-dark` captures.
-- Load matching DOM snapshots, page breakdowns, general rules, shared structure library, and page definition.
+- Load general rules, the shared structure library, and the page definition from the project's generated analysis documents.
+- Never inspect or use captured DOM snapshot files. If analyzed inputs are missing or insufficient, stop and report the gap instead of deriving replacements from DOM data.
 - Record missing source variants. Derive one only from established project rules and disclose that derivation.
 
 ## 2. Extract invariants and requested changes

@@ -207,6 +207,9 @@ export class ScreenshotProjectService {
     );
     return { ...project, screenshots };
   }
+  async loadMetadata(projectId: string): Promise<ScreenshotProject> {
+    return this.read(safeId(projectId));
+  }
   async loadAnalysis(projectId: string) {
     const project = await this.read(safeId(projectId));
     if (!project.analysis) return null;

@@ -27,6 +27,8 @@ Every transparent production asset must:
 - use a stable lowercase kebab-case filename;
 - declare its anchor, focal point, and supported variants in `design.json`.
 
+An opaque or nearly opaque image that visually depicts a checkerboard/transparency grid fails this contract. Never remove or hide the depicted grid by declaring the file transparent, masking it in HTML/CSS, or placing it over a matching background.
+
 Do not combine unrelated assets into a sprite sheet. Do not overwrite an accepted asset unless replacement was requested; use a versioned sibling while iterating.
 
 ## Variant strategy
@@ -56,8 +58,20 @@ Avoid: text, controls, logos, watermark, frames, extra objects, matte, checkerbo
 
 For edits, state `change only X; keep Y unchanged` on every iteration. Use one generation call per distinct asset and make one targeted correction per iteration.
 
+For GetGo Design Projects, pass this prompt contract to the repository-native `DesignAiGenerator`. Do not invoke a separate built-in image tool or create a one-off OpenAI SDK script; the generator owns the configured API model, output format, alpha validation, and saved provenance.
+
 When creating a sun/moon pair, approve the sun composition first. Generate the moon as a precise replacement constrained to the same transparent canvas, silhouette bounds, visual weight, anchor, and padding. Do not include surrounding stars, clouds, or sky in either celestial asset.
 
 ## Manifest and validation
 
 For each accepted asset record its ID/file, every allowlisted source and role, final prompt, generation tool/mode, dimensions, variants, post-processing, and status. The alpha report records dimensions, mode, alpha minimum/maximum, fully transparent pixel count, and pass/fail. Also inspect edges on white, black, light-theme, and dark-theme backgrounds. Fail validation if a file was copied or derived from a source not explicitly classified as `approved-reusable-asset` or `edit-target`.
+
+Transparency is a hard acceptance gate:
+
+1. Decode the final PNG and measure its alpha channel. Require alpha minimum `0`, alpha maximum `255`, and a meaningful nonzero count of fully transparent pixels surrounding the subject; dimensions or color type alone are not evidence.
+2. Detect visible checker/grid patterns in RGB content, including alternating repeated square regions. If detected, reject the asset even when some alpha exists.
+3. Composite the decoded asset over white, black, the light-theme background, and the dark-theme background. Inspect the subject boundary for matte, fringe, glow, grid remnants, and lost interior detail.
+4. If generation returns fake transparency, reject that output. Regenerate with a plain high-contrast removable background or use deterministic segmentation/background removal and edge cleanup when it preserves the subject. Record every post-processing operation.
+5. Re-run the measurements and composite inspection on the final saved file. Only that exact validated file may be marked accepted or referenced by `design.json` and HTML.
+
+Do not claim completion when this gate fails. Preserve failed drafts outside the final package or mark them rejected in the manifest; never use them as production assets.
