@@ -49,10 +49,11 @@ export interface AutomaticCaptureProgress {
   route: string;
   orientation: "portrait" | "landscape";
   theme: "light" | "dark";
+  skipped?: boolean;
 }
 
 export interface DevicePreviewHandle {
-  captureAll(pages: { route: string; name: string }[], onProgress: (progress: AutomaticCaptureProgress) => void): Promise<void>;
+  captureAll(pages: { route: string; name: string; capturedVariants: string[] }[], onProgress: (progress: AutomaticCaptureProgress) => void, missingOnly?: boolean): Promise<{ skipped: number }>;
   cancelAutomaticCapture(): void;
 }
 
@@ -205,9 +206,15 @@ export const DevicePreview = forwardRef<DevicePreviewHandle, { locale: "en" | "v
     throw new Error(copy.orientationChangeFailed);
   };
 
+  const waitForPageReady = (webview: DeviceWebview) =>
+    webview.executeJavaScript<boolean>(`window.__GETGO_DESIGN_WAIT_READY__?.() ?? Promise.resolve(true)`);
+
+  const setTheme = (webview: DeviceWebview, theme: "light" | "dark") =>
+    webview.executeJavaScript<boolean>(`window.__GETGO_DESIGN_SET_THEME__?.(${JSON.stringify(theme)}) ?? Promise.resolve(false)`);
+
   useImperativeHandle(ref, () => ({
     cancelAutomaticCapture() { automaticCaptureCancelledRef.current = true; },
-    async captureAll(pages, onProgress) {
+    async captureAll(pages, onProgress, missingOnly = false) {
       const webview = webviewRef.current;
       if (!webview || !ready) throw new Error(copy.navigationUnavailable);
       automaticCaptureRef.current = true;
@@ -215,26 +222,39 @@ export const DevicePreview = forwardRef<DevicePreviewHandle, { locale: "en" | "v
       const originalTheme = await webview.executeJavaScript<"light" | "dark">(
         `document.documentElement.classList.contains("dark") ? "dark" : "light"`,
       );
-      const total = pages.length * 4;
+      const total = missingOnly ? pages.reduce((count, page) => count + 4 - page.capturedVariants.length, 0) : pages.length * 4;
       let completed = 0;
+      let skipped = 0;
       try {
         for (const orientation of ["portrait", "landscape"] as const) {
+          if (missingOnly && !pages.some(page => ["light", "dark"].some(theme => !page.capturedVariants.includes(`${orientation}-${theme}`)))) continue;
           await onOrientationChange(orientation);
           await waitForOrientation(orientation);
-          await webview.executeJavaScript(`window.__GETGO_DESIGN_WAIT_READY__?.() ?? Promise.resolve(true)`);
           for (const theme of ["light", "dark"] as const) {
+            if (missingOnly && !pages.some(page => !page.capturedVariants.includes(`${orientation}-${theme}`))) continue;
             if (automaticCaptureCancelledRef.current) throw new Error("AUTOMATIC_CAPTURE_CANCELLED");
-            const changed = await webview.executeJavaScript<boolean>(`window.__GETGO_DESIGN_SET_THEME__?.(${JSON.stringify(theme)}) ?? Promise.resolve(false)`);
+            const changed = await setTheme(webview, theme);
             if (!changed) throw new Error(copy.automationUnavailable);
             for (const page of pages) {
               const { route } = page;
+              if (missingOnly && page.capturedVariants.includes(`${orientation}-${theme}`)) continue;
               if (automaticCaptureCancelledRef.current) throw new Error("AUTOMATIC_CAPTURE_CANCELLED");
-              const navigated = await webview.executeJavaScript<boolean>(clientNavigateScript(route));
-              if (!navigated) throw new Error(copy.navigationUnavailable);
-              await webview.executeJavaScript(`window.__GETGO_DESIGN_WAIT_READY__?.() ?? Promise.resolve(true)`);
-              await captureCurrent(false, page.name);
-              completed += 1;
-              onProgress({ completed, total, route, orientation, theme });
+              try {
+                const navigated = await webview.executeJavaScript<boolean>(clientNavigateScript(route));
+                if (!navigated) throw new Error(copy.navigationUnavailable);
+                await waitForPageReady(webview);
+                const themeRetained = await setTheme(webview, theme);
+                if (!themeRetained) throw new Error(copy.automationUnavailable);
+                await captureCurrent(false, page.name);
+                completed += 1;
+                onProgress({ completed, total, route, orientation, theme });
+              } catch (cause) {
+                if (automaticCaptureCancelledRef.current || (cause instanceof Error && cause.message === "AUTOMATIC_CAPTURE_CANCELLED")) throw cause;
+                skipped += 1;
+                completed += 1;
+                onProgress({ completed, total, route, orientation, theme, skipped: true });
+                console.warn("[Screenshot automation] Skipping capture slot", { route, orientation, theme, cause });
+              }
             }
           }
         }
@@ -244,6 +264,7 @@ export const DevicePreview = forwardRef<DevicePreviewHandle, { locale: "en" | "v
           `window.__GETGO_DESIGN_SET_THEME__?.(${JSON.stringify(originalTheme)}) ?? Promise.resolve(false)`,
         ).catch(() => undefined);
       }
+      return { skipped };
     },
   }), [copy.automationUnavailable, copy.navigationUnavailable, copy.orientationChangeFailed, onOrientationChange, ready]);
 

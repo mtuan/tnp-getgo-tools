@@ -64,8 +64,15 @@ export function registerScreenshotProjectIpc(
     "screenshots:delete",
     async (_event, projectId: string, screenshotId: string) => (await service()).delete(projectId, screenshotId),
   );
+  ipcMain.handle(
+    "screenshots:page:delete",
+    async (_event, projectId: string, route: string) => (await service()).deletePage(projectId, route),
+  );
   ipcMain.handle("screenshots:clear", async (_event, projectId: string) =>
     (await service()).clear(projectId),
+  );
+  ipcMain.handle("screenshots:clear-all-data", async (_event, projectId: string) =>
+    (await service()).clearAllData(projectId),
   );
   ipcMain.handle("screenshots:breakdown:update", async (_event, projectId: string, input: PageBreakdownInput) =>
     (await service()).updatePageBreakdown(projectId, input),

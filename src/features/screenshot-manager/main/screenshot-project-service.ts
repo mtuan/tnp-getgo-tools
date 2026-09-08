@@ -101,9 +101,18 @@ export class ScreenshotProjectService {
       !Array.isArray(data.screenshots)
     )
       throw new Error("The screenshot project is invalid.");
+    const pagesByRoute = new Map<string, { route: string; name: string }>();
+    for (const page of (data as ScreenshotProject & { pages?: Array<{ route?: unknown; name?: unknown }> }).pages ?? []) {
+      const route = normalizeRoute(page.route);
+      pagesByRoute.set(route, { route, name: cleanText(page.name ?? route, "page name", true) });
+    }
+    for (const screenshot of data.screenshots) {
+      if (!pagesByRoute.has(screenshot.route)) pagesByRoute.set(screenshot.route, { route: screenshot.route, name: screenshot.name });
+    }
     return {
       ...data,
       instructions: typeof data.instructions === "string" ? data.instructions : "",
+      pages: [...pagesByRoute.values()],
       previewConfig: normalizePreviewConfig(data.previewConfig),
       screenshots: data.screenshots.map(item => ({
         ...item,
@@ -128,7 +137,7 @@ export class ScreenshotProjectService {
               name: project.name,
               description: project.description,
               screenshotCount: project.screenshots.length,
-              pageCount: new Set(project.screenshots.map(item => item.route)).size,
+              pageCount: project.pages.length,
               createdAt: project.createdAt,
               updatedAt: project.updatedAt,
             };
@@ -153,6 +162,7 @@ export class ScreenshotProjectService {
       createdAt: now,
       updatedAt: now,
       previewConfig: normalizePreviewConfig(input?.previewConfig),
+      pages: [],
       screenshots: [],
       pageBreakdowns: {},
     };
@@ -162,8 +172,6 @@ export class ScreenshotProjectService {
     await this.write(project);
     return project;
   }
-
-
   async updateProject(projectId: string, input: ScreenshotProjectInput): Promise<ScreenshotProject> {
     const project = await this.read(safeId(projectId));
     project.name = cleanText(input?.name, "project name", true);
@@ -174,7 +182,6 @@ export class ScreenshotProjectService {
     await this.write(project);
     return this.load(project.id);
   }
-
   async load(projectId: string): Promise<ScreenshotProject> {
     const project = await this.read(safeId(projectId));
     const screenshots = await Promise.all(
@@ -200,7 +207,6 @@ export class ScreenshotProjectService {
     );
     return { ...project, screenshots };
   }
-
   async loadAnalysis(projectId: string) {
     const project = await this.read(safeId(projectId));
     if (!project.analysis) return null;
@@ -216,7 +222,6 @@ export class ScreenshotProjectService {
     if (!structureLibrary || typeof structureLibrary !== "object" || Array.isArray(structureLibrary) || !Array.isArray(pages)) throw new Error("The screenshot page analysis is invalid.");
     return { generalRulesMarkdown, structureLibrary, pages };
   }
-
   async add(
     projectId: string,
     imageDataUrl: string,
@@ -238,6 +243,9 @@ export class ScreenshotProjectService {
     const orientation: DesignOrientation = metadata.orientation === "landscape" ? "landscape" : "portrait";
     const theme: DesignTheme = metadata.theme === "dark" ? "dark" : "light";
     const route = normalizeRoute(metadata?.route);
+    const page = project.pages.find(item => item.route === route);
+    if (page) page.name = cleanText(metadata?.name, "screenshot name", true);
+    else project.pages.push({ route, name: cleanText(metadata?.name, "screenshot name", true) });
     const existing = project.screenshots.find(item => item.route === route && item.orientation === orientation && item.theme === theme);
     await fs.writeFile(
       path.join(this.projectFolder(project.id), "screenshots", fileName),
@@ -269,7 +277,6 @@ export class ScreenshotProjectService {
     await this.write(project);
     return this.load(project.id);
   }
-
   async update(
     projectId: string,
     screenshotId: string,
@@ -286,6 +293,9 @@ export class ScreenshotProjectService {
       "description",
     );
     screenshot.route = normalizeRoute(metadata?.route);
+    const page = project.pages.find(item => item.route === screenshot.route);
+    if (page) page.name = screenshot.name;
+    else project.pages.push({ route: screenshot.route, name: screenshot.name });
     screenshot.orientation = metadata.orientation === "landscape" ? "landscape" : screenshot.orientation;
     screenshot.theme = metadata.theme === "dark" ? "dark" : metadata.theme === "light" ? "light" : screenshot.theme;
     screenshot.updatedAt = new Date().toISOString();
@@ -307,6 +317,33 @@ export class ScreenshotProjectService {
     return this.load(project.id);
   }
 
+  async deletePage(projectId: string, routeInput: string): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    const route = normalizeRoute(routeInput);
+    const screenshots = project.screenshots.filter(item => item.route === route);
+    if (!screenshots.length) throw new Error("Screenshot page not found.");
+    for (const screenshot of screenshots) {
+      await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeFileName(screenshot.fileName)));
+      if (screenshot.snapshotFileName) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeSnapshotFileName(screenshot.snapshotFileName)));
+    }
+    project.screenshots = project.screenshots.filter(item => item.route !== route);
+    project.pages = project.pages.filter(item => item.route !== route);
+    for (const key of Object.keys(project.pageBreakdowns)) {
+      if (key === `${route}:portrait` || key === `${route}:landscape`) delete project.pageBreakdowns[key];
+    }
+    if (project.analysis) {
+      const pagesFile = path.join(this.projectFolder(project.id), project.analysis.pagesFile);
+      const source = await fs.readFile(pagesFile, "utf8").catch(() => null);
+      if (source) {
+        const pages = JSON.parse(source) as Array<{ route?: string }>;
+        if (Array.isArray(pages)) await fs.writeFile(pagesFile, `${JSON.stringify(pages.filter(page => page.route !== route), null, 2)}\n`, "utf8");
+      }
+    }
+    project.updatedAt = new Date().toISOString();
+    await this.write(project);
+    return this.load(project.id);
+  }
+
   async clear(projectId: string): Promise<ScreenshotProject> {
     const project = await this.read(safeId(projectId));
     for (const screenshot of project.screenshots) {
@@ -315,6 +352,19 @@ export class ScreenshotProjectService {
       if (screenshot.snapshotFileName) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeSnapshotFileName(screenshot.snapshotFileName)));
     }
     project.screenshots = [];
+    project.pageBreakdowns = {};
+    if (project.analysis) {
+      await shell.trashItem(path.join(this.projectFolder(project.id), "analysis")).catch(() => undefined);
+      delete project.analysis;
+    }
+    project.updatedAt = new Date().toISOString();
+    await this.write(project);
+    return this.load(project.id);
+  }
+
+  async clearAllData(projectId: string): Promise<ScreenshotProject> {
+    const project = await this.clear(projectId);
+    project.pages = [];
     project.updatedAt = new Date().toISOString();
     await this.write(project);
     return this.load(project.id);

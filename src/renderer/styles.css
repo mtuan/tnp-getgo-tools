@@ -290,7 +290,8 @@ html {
 .screenshot-page-highlight { position: absolute; z-index: 2; min-width: 18px; min-height: 18px; border: 3px solid #f43f5e; background: #fb718533; box-shadow: 0 0 0 2px #fff9, 0 8px 22px #88133744; pointer-events: none; }
 .screenshot-page-highlight span { position: absolute; top: 4px; left: 4px; max-width: calc(100% - 8px); padding: 3px 6px; overflow: hidden; border-radius: 5px; color: white; background: #be123c; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .screenshot-page-tree-panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--getgo-panel); }
-.screenshot-page-tree-panel > header { display: grid; gap: 4px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.screenshot-page-tree-panel > header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.screenshot-page-tree-panel > header > div { display: grid; min-width: 0; gap: 4px; }
 .screenshot-page-tree-panel > header span { color: var(--muted); font-size: 11px; }
 .screenshot-page-tree-panel > .ui-tree-view { min-height: 0; border-right: 0; }
 .screenshot-page-selection-detail { display: grid; gap: 4px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--soft); }

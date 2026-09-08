@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import type { CapturedDomElement, DesignOrientation, ScreenshotAnalysisDocuments, ScreenshotPageAnalysis, ScreenshotProject, ScreenshotRecord } from "../domain/screenshot-project";
 
@@ -79,7 +80,7 @@ function domTree(screenshots: ScreenshotRecord[]): ui.TreeViewItem[] {
   return rootKeys.map(make);
 }
 
-export function ScreenshotPageDetail({ locale, project, route }: { locale: "en" | "vi"; project: ScreenshotProject; route: string }) {
+export function ScreenshotPageDetail({ locale, project, route, deleteLabel, deleting = false, onDelete }: { locale: "en" | "vi"; project: ScreenshotProject; route: string; deleteLabel: string; deleting?: boolean; onDelete(): void }) {
   const vi = locale === "vi";
   const [documents, setDocuments] = useState<ScreenshotAnalysisDocuments | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +112,7 @@ export function ScreenshotPageDetail({ locale, project, route }: { locale: "en" 
       </div>
     </section>
     <aside className="screenshot-page-tree-panel">
-      <header><strong>{vi ? "Cấu trúc trang" : "Page layout"}</strong><span>{vi ? "Chọn vùng hoặc phần tử để đánh dấu" : "Select a region or element to highlight it"}</span></header>
+      <header><div><strong>{vi ? "Cấu trúc trang" : "Page layout"}</strong><span>{vi ? "Chọn vùng hoặc phần tử để đánh dấu" : "Select a region or element to highlight it"}</span></div><ui.Button variant="danger" icon={<Trash2 />} loading={deleting} onClick={onDelete}>{deleteLabel}</ui.Button></header>
       {hasCapturedDom || analysis ? <ui.TreeView ariaLabel={vi ? "Cây cấu trúc trang" : "Page layout tree"} items={tree} selectedId={selectedId} onSelect={setSelectedId} selectBranches={hasCapturedDom} /> : <div className="screenshot-empty"><strong>{vi ? "Chưa có dữ liệu cấu trúc" : "No structure data"}</strong></div>}
       {selectedDomElement && <div className="screenshot-page-selection-detail"><strong>{domLabel(selectedDomElement)}</strong>{selectedDomElement.semantic?.meaning && <span>{selectedDomElement.semantic.meaning}</span>}<span>{selectedDomElement.semantic?.kind}</span><span>{selectedDomElement.selector}</span><span>{`${Math.round(selectedDomElement.bounds.x)} × ${Math.round(selectedDomElement.bounds.y)} · ${Math.round(selectedDomElement.bounds.width)} × ${Math.round(selectedDomElement.bounds.height)} px`}</span><code>{selectedDomElement.positioning.display} · {selectedDomElement.positioning.position}</code></div>}
       {selectedRegion && <div className="screenshot-page-selection-detail"><strong>{selectedRegion.name ?? selectedRegion.id}</strong><span>{selectedRegion.meaning}</span>{!highlightStyle(selectedRegion, "portrait") && !highlightStyle(selectedRegion, "landscape") && <em>{vi ? "Thiếu tọa độ đã xác minh từ ảnh tham chiếu; không hiển thị vùng đánh dấu." : "Verified reference-image bounds are missing; no highlight is shown."}</em>}<code>{selectedRegion.id}</code></div>}

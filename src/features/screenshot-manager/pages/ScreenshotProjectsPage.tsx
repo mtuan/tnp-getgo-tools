@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Calendar, Camera, FileSearch, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, Settings, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, Camera, Check, FileSearch, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, Settings, Square, Trash2 } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -129,12 +129,22 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       setProject(next); setProjects(await window.getgo.listScreenshotProjects()); setEditor(null); setClipboard(undefined);
     } finally { setBusy(false); }
   }
-  async function clearData() {
-    if (!project || !window.confirm(copy.clearScreenshotsConfirm)) return;
+  async function clearScreenshots() {
+    if (!project || !window.confirm(copy.clearScreenshotsOnlyConfirm)) return;
+    setBusy(true); setError(null);
+    try {
+      const next = await window.getgo.clearScreenshots(project.id);
+      setProject(next); setProjects(await window.getgo.listScreenshotProjects());
+      toast.show({ title: copy.screenshotsCleared, description: copy.screenshotsClearedDescription });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
+  async function clearAllData() {
+    if (!project || !window.confirm(copy.clearAllDataConfirm)) return;
     setBusy(true); setError(null);
     try {
       const [next] = await Promise.all([
-        window.getgo.clearScreenshots(project.id),
+        window.getgo.clearScreenshotProjectData(project.id),
         window.getgo.clearPreviewBrowserData(),
       ]);
       setProject(next); setProjects(await window.getgo.listScreenshotProjects());
@@ -184,14 +194,29 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
-  async function startAutomaticCapture() {
+  async function deletePage(routeToDelete: string) {
+    if (!project) return;
+    if (!project.screenshots.some(item => item.route === routeToDelete) || !window.confirm(copy.deletePageConfirm.replace("{route}", routeToDelete))) return;
+    setBusy(true); setError(null);
+    try {
+      const next = await window.getgo.deleteScreenshotPage(project.id, routeToDelete);
+      setProject(next);
+      setProjects(await window.getgo.listScreenshotProjects());
+      onRouteChange(detailRoute(project.id));
+      toast.show({ title: copy.pageDeleted, description: routeToDelete });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
+  async function startAutomaticCapture(missingOnly = false) {
     if (!captureWorkspaceRef.current || busy || automaticCapture) return;
     setError(null);
-    const routeCount = new Set(project!.screenshots.map(item => item.route)).size;
-    setAutomaticCapture({ completed: 0, total: routeCount * 4, route: "", orientation: "portrait", theme: "light" });
+    const capturedSlots = new Set(project!.screenshots.map(item => `${item.route}:${item.orientation}-${item.theme}`));
+    const total = missingOnly ? project!.pages.reduce((count, page) => count + ["portrait-light", "portrait-dark", "landscape-light", "landscape-dark"].filter(variant => !capturedSlots.has(`${page.route}:${variant}`)).length, 0) : project!.pages.length * 4;
+    if (!total) { toast.show({ title: copy.noMissingScreenshots }); return; }
+    setAutomaticCapture({ completed: 0, total, route: "", orientation: "portrait", theme: "light" });
     try {
-      await captureWorkspaceRef.current.captureAll(setAutomaticCapture);
-      toast.show({ title: copy.automaticCaptureComplete, description: copy.automaticCaptureCompleteDescription });
+      const result = await captureWorkspaceRef.current.captureAll(setAutomaticCapture, missingOnly);
+      toast.show({ title: copy.automaticCaptureComplete, description: result.skipped ? copy.automaticCaptureSkipped.replace("{count}", String(result.skipped)) : copy.automaticCaptureCompleteDescription });
     } catch (cause) {
       if (cause instanceof Error && cause.message === "AUTOMATIC_CAPTURE_CANCELLED") {
         toast.show({ title: copy.automaticCaptureCancelled });
@@ -206,6 +231,22 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   ], [copy, locale]);
   if (loading) return <ui.PageLoading label={copy.loading} />;
   const closeEditor = () => { setEditor(null); setClipboard(undefined); };
+  const projectActions: ui.ActionMenuItem[] = project ? [
+    { id: "capture-label", type: "label", label: copy.captureActions, onSelect: () => undefined },
+    { id: "capture-all", label: automaticCapture ? copy.stopAutomaticCapture.replace("{completed}", String(automaticCapture.completed)).replace("{total}", String(automaticCapture.total)) : copy.automaticCapture, icon: automaticCapture ? Square : Camera, disabled: !automaticCapture && !project.pages.length, onSelect: () => automaticCapture ? captureWorkspaceRef.current?.cancelAutomaticCapture() : void startAutomaticCapture(false) },
+    { id: "capture-missing", label: copy.continueCapture, icon: Camera, disabled: !!automaticCapture || !project.pages.length, onSelect: () => void startAutomaticCapture(true) },
+    { id: "portrait", label: copy.portrait, icon: RectangleVertical, trailingIcon: project.previewConfig.width < project.previewConfig.height ? Check : undefined, disabled: !!automaticCapture, onSelect: () => void setCaptureOrientation("portrait") },
+    { id: "landscape", label: copy.landscape, icon: RectangleHorizontal, trailingIcon: project.previewConfig.width > project.previewConfig.height ? Check : undefined, disabled: !!automaticCapture, onSelect: () => void setCaptureOrientation("landscape") },
+    { id: "view-label", type: "label", label: copy.viewActions, onSelect: () => undefined },
+    { id: "size-mode", label: project.previewConfig.sizeMode === "fit" ? copy.useDefaultSize : copy.useAutoFit, icon: project.previewConfig.sizeMode === "fit" ? Maximize2 : Minimize2, disabled: !!automaticCapture, onSelect: () => void togglePreviewSizeMode() },
+    { id: "analysis", label: copy.analysis, icon: FileSearch, disabled: !project.analysis || !!automaticCapture, onSelect: () => void openAnalysis() },
+    { id: "project-label", type: "label", label: copy.projectActions, onSelect: () => undefined },
+    { id: "settings", label: copy.projectConfig, icon: Settings, disabled: !!automaticCapture, onSelect: openProjectConfig },
+    { id: "folder", label: copy.openFolder, icon: FolderOpen, disabled: !!automaticCapture, onSelect: () => void window.getgo.showScreenshotProjectFolder(project.id) },
+    { id: "data-label", type: "label", label: copy.dataActions, onSelect: () => undefined },
+    { id: "clear-screenshots", label: copy.clearScreenshots, icon: Trash2, color: "danger", disabled: !!automaticCapture || !project.screenshots.length, onSelect: () => void clearScreenshots() },
+    { id: "clear-all", label: copy.clearAllData, icon: Trash2, color: "danger", disabled: !!automaticCapture || (!project.pages.length && !project.screenshots.length), onSelect: () => void clearAllData() },
+  ] : [];
 
   return <div className="screenshot-manager-page">
     {!project ? <>
@@ -213,10 +254,10 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       {error && <ui.ErrorFrame message={error} />}
       <ui.Panel title={copy.projects} description={copy.projectsDescription}><ui.DataTable rows={projects} columns={columns} rowKey={item => item.id} ariaLabel={copy.projects} emptyText={copy.noProjects} defaultSort={{ key: "updated", direction: "desc" }} onRowClick={item => onRouteChange(detailRoute(item.id))} /></ui.Panel>
     </> : route.pageRoute ? <>
-      <ui.PageHeader eyebrow={copy.eyebrow} title={project.screenshots.find(item => item.route === route.pageRoute)?.name ?? route.pageRoute} description={route.pageRoute} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={locale === "vi" ? "Quay lại ảnh chụp" : "Back to captures"} onClick={() => onRouteChange(detailRoute(project.id))} />} />
-      <ScreenshotPageDetail locale={locale} project={project} route={route.pageRoute} />
+      <ui.PageHeader eyebrow={copy.eyebrow} title={project.pages.find(item => item.route === route.pageRoute)?.name ?? route.pageRoute} description={route.pageRoute} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={locale === "vi" ? "Quay lại ảnh chụp" : "Back to captures"} onClick={() => onRouteChange(detailRoute(project.id))} />} />
+      <ScreenshotPageDetail locale={locale} project={project} route={route.pageRoute} deleteLabel={copy.deletePage} deleting={busy} onDelete={() => void deletePage(route.pageRoute!)} />
     </> : <>
-      <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ControlGroup><ui.Button icon={automaticCapture ? <Square /> : <Camera />} variant="primary" disabled={busy} onClick={() => automaticCapture ? captureWorkspaceRef.current?.cancelAutomaticCapture() : void startAutomaticCapture()}>{automaticCapture ? copy.stopAutomaticCapture.replace("{completed}", String(automaticCapture.completed)).replace("{total}", String(automaticCapture.total)) : copy.automaticCapture}</ui.Button><ui.Button icon={<RectangleVertical />} variant={project.previewConfig.width < project.previewConfig.height ? "primary" : "secondary"} disabled={busy || !!automaticCapture} onClick={() => void setCaptureOrientation("portrait")}>{locale === "vi" ? "Dọc" : "Portrait"}</ui.Button><ui.Button icon={<RectangleHorizontal />} variant={project.previewConfig.width > project.previewConfig.height ? "primary" : "secondary"} disabled={busy || !!automaticCapture} onClick={() => void setCaptureOrientation("landscape")}>{locale === "vi" ? "Ngang" : "Landscape"}</ui.Button><ui.ActionMenu label={copy.more} disabled={busy || !!automaticCapture} items={[{ id: "size-mode", label: project.previewConfig.sizeMode === "fit" ? copy.useDefaultSize : copy.useAutoFit, icon: project.previewConfig.sizeMode === "fit" ? Maximize2 : Minimize2, onSelect: () => void togglePreviewSizeMode() }, { id: "clear", label: copy.clearData, icon: Trash2, color: "danger", onSelect: () => void clearData() }]} /><ui.Button icon={<FileSearch />} disabled={!project.analysis || busy || !!automaticCapture} onClick={() => void openAnalysis()}>{locale === "vi" ? "Phân tích" : "Analysis"}</ui.Button><ui.Button icon={<Settings />} disabled={!!automaticCapture} onClick={openProjectConfig}>{copy.projectConfig}</ui.Button><ui.Button icon={<FolderOpen />} disabled={!!automaticCapture} onClick={() => void window.getgo.showScreenshotProjectFolder(project.id)}>{copy.openFolder}</ui.Button></ui.ControlGroup>} />
+      <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ActionMenu label={copy.actions} variant="primary" disabled={busy} items={projectActions} />} />
       {error && <ui.ErrorFrame message={error} />}
       <ProjectCaptureWorkspace ref={captureWorkspaceRef} locale={locale} project={project} resetKey={previewResetKey} onViewPage={pageRoute => onRouteChange(pageDetailRoute(project.id, pageRoute))} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} onOrientationChange={setCaptureOrientation} />
     </>}

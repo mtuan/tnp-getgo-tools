@@ -8,6 +8,7 @@ const variants: DesignVariant[] = ["landscape-light", "landscape-dark", "portrai
 
 function projectPages(project: ScreenshotProject): DesignPageRecord[] {
   const pages = new Map<string, DesignPageRecord>();
+  for (const page of project.pages) pages.set(page.route, { id: page.route, name: page.name, route: page.route, screenshots: {}, breakdowns: {} });
   for (const screenshot of project.screenshots) {
     const page = pages.get(screenshot.route) ?? { id: screenshot.route, name: screenshot.name, route: screenshot.route, screenshots: {}, breakdowns: {} };
     page.name = screenshot.name;
@@ -18,7 +19,7 @@ function projectPages(project: ScreenshotProject): DesignPageRecord[] {
 }
 
 export interface ProjectCaptureWorkspaceHandle {
-  captureAll(onProgress: (progress: AutomaticCaptureProgress) => void): Promise<void>;
+  captureAll(onProgress: (progress: AutomaticCaptureProgress) => void, missingOnly?: boolean): Promise<{ skipped: number }>;
   cancelAutomaticCapture(): void;
 }
 
@@ -58,9 +59,9 @@ export const ProjectCaptureWorkspace = forwardRef<ProjectCaptureWorkspaceHandle,
     });
   }, [capturedRoute, pages]);
   useImperativeHandle(ref, () => ({
-    captureAll(onProgress) {
+    captureAll(onProgress, missingOnly = false) {
       if (!devicePreviewRef.current) throw new Error(vi ? "Bản xem trước chưa sẵn sàng." : "The preview is not ready.");
-      return devicePreviewRef.current.captureAll(pages.map(({ route, name }) => ({ route, name })), onProgress);
+      return devicePreviewRef.current.captureAll(pages.map(({ route, name, screenshots }) => ({ route, name, capturedVariants: Object.keys(screenshots) })), onProgress, missingOnly);
     },
     cancelAutomaticCapture() { devicePreviewRef.current?.cancelAutomaticCapture(); },
   }), [pages, vi]);

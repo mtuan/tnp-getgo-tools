@@ -100,6 +100,7 @@ export interface ScreenshotProject {
   updatedAt: string;
   previewConfig: ScreenshotPreviewConfig;
   instructions: string;
+  pages: Array<{ route: string; name: string }>;
   screenshots: ScreenshotRecord[];
   pageBreakdowns: Record<string, PageBreakdown>;
   analysis?: ScreenshotProjectAnalysis;
@@ -177,7 +178,9 @@ export interface ScreenshotManagerDesktopApi {
     projectId: string,
     screenshotId: string,
   ): Promise<ScreenshotProject>;
+  deleteScreenshotPage(projectId: string, route: string): Promise<ScreenshotProject>;
   clearScreenshots(projectId: string): Promise<ScreenshotProject>;
+  clearScreenshotProjectData(projectId: string): Promise<ScreenshotProject>;
   updatePageBreakdown(projectId: string, input: PageBreakdownInput): Promise<ScreenshotProject>;
   loadScreenshotProjectAnalysis(projectId: string): Promise<ScreenshotAnalysisDocuments | null>;
   clearPreviewBrowserData(): Promise<void>;
