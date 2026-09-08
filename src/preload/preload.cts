@@ -19,6 +19,7 @@ const api: DesktopApi = {
   createScreenshotProject: (input) => ipcRenderer.invoke("screenshots:projects:create", input),
   updateScreenshotProject: (projectId, input) => ipcRenderer.invoke("screenshots:projects:update", projectId, input),
   loadScreenshotProject: (projectId) => ipcRenderer.invoke("screenshots:projects:load", projectId),
+  loadScreenshotProjectAnalysis: (projectId) => ipcRenderer.invoke("screenshots:analysis:load", projectId),
   inspectClipboardScreenshot: () => ipcRenderer.invoke("screenshots:clipboard:inspect"),
   addScreenshot: (projectId, imageDataUrl, metadata) => ipcRenderer.invoke("screenshots:add", projectId, imageDataUrl, metadata),
   updateScreenshot: (projectId, screenshotId, metadata) => ipcRenderer.invoke("screenshots:update", projectId, screenshotId, metadata),

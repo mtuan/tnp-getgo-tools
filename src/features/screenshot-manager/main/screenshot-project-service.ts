@@ -185,6 +185,20 @@ export class ScreenshotProjectService {
     return { ...project, screenshots };
   }
 
+  async loadAnalysis(projectId: string) {
+    const project = await this.read(safeId(projectId));
+    if (!project.analysis) return null;
+    const analysisFolder = path.join(this.projectFolder(project.id), "analysis");
+    if (project.analysis.generalRulesFile !== "analysis/general-rules.md" || project.analysis.pagesFile !== "analysis/pages.json") throw new Error("The screenshot analysis index is invalid.");
+    const [generalRulesMarkdown, pagesSource] = await Promise.all([
+      fs.readFile(path.join(analysisFolder, "general-rules.md"), "utf8"),
+      fs.readFile(path.join(analysisFolder, "pages.json"), "utf8"),
+    ]);
+    const pages = JSON.parse(pagesSource) as unknown;
+    if (!Array.isArray(pages)) throw new Error("The screenshot page analysis is invalid.");
+    return { generalRulesMarkdown, pages };
+  }
+
   async add(
     projectId: string,
     imageDataUrl: string,

@@ -33,6 +33,24 @@ export interface DesignPageRecord {
   breakdowns: Partial<Record<DesignOrientation, PageBreakdown>>;
 }
 
+export interface ScreenshotPageAnalysis {
+  route: string;
+  name: string;
+  sourceVariants: DesignVariant[];
+  definition: Record<string, unknown>;
+}
+
+export interface ScreenshotProjectAnalysis {
+  generalRulesFile: string;
+  pagesFile: string;
+  updatedAt: string;
+}
+
+export interface ScreenshotAnalysisDocuments {
+  generalRulesMarkdown: string;
+  pages: ScreenshotPageAnalysis[];
+}
+
 export interface ScreenshotProject {
   schemaVersion: 1;
   id: string;
@@ -44,6 +62,7 @@ export interface ScreenshotProject {
   instructions: string;
   screenshots: ScreenshotRecord[];
   pageBreakdowns: Record<string, PageBreakdown>;
+  analysis?: ScreenshotProjectAnalysis;
 }
 
 export interface ScreenshotPreviewConfig {
@@ -119,6 +138,7 @@ export interface ScreenshotManagerDesktopApi {
   ): Promise<ScreenshotProject>;
   clearScreenshots(projectId: string): Promise<ScreenshotProject>;
   updatePageBreakdown(projectId: string, input: PageBreakdownInput): Promise<ScreenshotProject>;
+  loadScreenshotProjectAnalysis(projectId: string): Promise<ScreenshotAnalysisDocuments | null>;
   clearPreviewBrowserData(): Promise<void>;
   showScreenshotProjectFolder(projectId: string): Promise<void>;
 }

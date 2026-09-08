@@ -257,6 +257,14 @@ html {
 .project-capture-preview .device-preview { min-height: 0; }
 .capture-slot-thumbnail { width: 54px; height: 42px; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); }
 .capture-slot-empty { color: var(--muted); }
+.screenshot-analysis-dialog { width: min(760px, calc(100vw - 32px)); }
+.screenshot-analysis-dialog .crud-body { display: grid; min-height: 0; gap: 14px; }
+.screenshot-analysis-page-viewer { display: grid; min-height: 0; gap: 12px; }
+.screenshot-analysis-page-meta { display: grid; gap: 3px; }
+.screenshot-analysis-page-meta code,
+.screenshot-analysis-page-meta span { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.screenshot-analysis-document { min-height: 0; max-height: calc(100vh - 190px); margin: 0; padding: 16px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--soft); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.screenshot-analysis-json { white-space: pre; }
 .project-capture-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
 .project-capture-toolbar > div:first-child { display: grid; min-width: 0; gap: 3px; }
 .project-capture-toolbar strong,

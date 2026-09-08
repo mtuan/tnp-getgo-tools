@@ -39,6 +39,9 @@ export function registerScreenshotProjectIpc(
   ipcMain.handle("screenshots:projects:load", async (_event, projectId: string) =>
     (await service()).load(projectId),
   );
+  ipcMain.handle("screenshots:analysis:load", async (_event, projectId: string) =>
+    (await service()).loadAnalysis(projectId),
+  );
   ipcMain.handle("screenshots:clipboard:inspect", async () =>
     (await service()).inspectClipboard(),
   );

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ArrowLeft, Calendar, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, Settings, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, FileSearch, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, Settings, Trash2 } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
-import type { ClipboardScreenshot, ScreenshotMetadataInput, ScreenshotProject, ScreenshotProjectSummary, ScreenshotRecord } from "../domain/screenshot-project";
+import type { ClipboardScreenshot, ScreenshotAnalysisDocuments, ScreenshotMetadataInput, ScreenshotProject, ScreenshotProjectSummary, ScreenshotRecord } from "../domain/screenshot-project";
 import { ScreenshotEditorDialog } from "../components/ScreenshotEditorDialog";
 import { ProjectCaptureWorkspace } from "../components/ProjectCaptureWorkspace";
+import { ScreenshotAnalysisDialog } from "../components/ScreenshotAnalysisDialog";
 
 const previewPresets = [
   { value: "iphone-se", label: "iPhone SE · 375 × 667", width: 375, height: 667 },
@@ -42,6 +43,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   const [editor, setEditor] = useState<ScreenshotRecord | "paste" | null>(null);
   const [clipboard, setClipboard] = useState<ClipboardScreenshot>();
   const [previewResetKey, setPreviewResetKey] = useState(0);
+  const [analysis, setAnalysis] = useState<ScreenshotAnalysisDocuments | null>(null);
   const [projectValues, setProjectValues] = useState<ui.FormValues>({ name: "", description: "", baseUrl: "http://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 });
   const toast = ui.useToast();
 
@@ -164,6 +166,13 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
+  async function openAnalysis() {
+    if (!project?.analysis) return;
+    setBusy(true); setError(null);
+    try { setAnalysis(await window.getgo.loadScreenshotProjectAnalysis(project.id)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
 
   const columns = useMemo<ui.DataColumn<ScreenshotProjectSummary>[]>(() => [
     { key: "name", title: copy.project, render: item => <span className="screenshot-project-cell"><strong>{item.name}</strong><small>{item.description || copy.noDescription}</small></span>, sortValue: item => item.name },
@@ -179,12 +188,13 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       {error && <ui.ErrorFrame message={error} />}
       <ui.Panel title={copy.projects} description={copy.projectsDescription}><ui.DataTable rows={projects} columns={columns} rowKey={item => item.id} ariaLabel={copy.projects} emptyText={copy.noProjects} defaultSort={{ key: "updated", direction: "desc" }} onRowClick={item => onRouteChange(detailRoute(item.id))} /></ui.Panel>
     </> : <>
-      <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ControlGroup><ui.Button icon={<RectangleVertical />} variant={project.previewConfig.width < project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("portrait")}>{locale === "vi" ? "Dọc" : "Portrait"}</ui.Button><ui.Button icon={<RectangleHorizontal />} variant={project.previewConfig.width > project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("landscape")}>{locale === "vi" ? "Ngang" : "Landscape"}</ui.Button><ui.ActionMenu label={copy.more} disabled={busy} items={[{ id: "size-mode", label: project.previewConfig.sizeMode === "fit" ? copy.useDefaultSize : copy.useAutoFit, icon: project.previewConfig.sizeMode === "fit" ? Maximize2 : Minimize2, onSelect: () => void togglePreviewSizeMode() }, { id: "clear", label: copy.clearData, icon: Trash2, color: "danger", onSelect: () => void clearData() }]} /><ui.Button icon={<Settings />} onClick={openProjectConfig}>{copy.projectConfig}</ui.Button><ui.Button icon={<FolderOpen />} onClick={() => void window.getgo.showScreenshotProjectFolder(project.id)}>{copy.openFolder}</ui.Button></ui.ControlGroup>} />
+      <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ControlGroup><ui.Button icon={<RectangleVertical />} variant={project.previewConfig.width < project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("portrait")}>{locale === "vi" ? "Dọc" : "Portrait"}</ui.Button><ui.Button icon={<RectangleHorizontal />} variant={project.previewConfig.width > project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("landscape")}>{locale === "vi" ? "Ngang" : "Landscape"}</ui.Button><ui.ActionMenu label={copy.more} disabled={busy} items={[{ id: "size-mode", label: project.previewConfig.sizeMode === "fit" ? copy.useDefaultSize : copy.useAutoFit, icon: project.previewConfig.sizeMode === "fit" ? Maximize2 : Minimize2, onSelect: () => void togglePreviewSizeMode() }, { id: "clear", label: copy.clearData, icon: Trash2, color: "danger", onSelect: () => void clearData() }]} /><ui.Button icon={<FileSearch />} disabled={!project.analysis || busy} onClick={() => void openAnalysis()}>{locale === "vi" ? "Phân tích" : "Analysis"}</ui.Button><ui.Button icon={<Settings />} onClick={openProjectConfig}>{copy.projectConfig}</ui.Button><ui.Button icon={<FolderOpen />} onClick={() => void window.getgo.showScreenshotProjectFolder(project.id)}>{copy.openFolder}</ui.Button></ui.ControlGroup>} />
       {error && <ui.ErrorFrame message={error} />}
       <ProjectCaptureWorkspace locale={locale} project={project} resetKey={previewResetKey} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} />
     </>}
     {creating && <ui.DialogFrame presentation="modal" title={copy.newProject} busy={busy} error={error} submitLabel={copy.create} onClose={() => setCreating(false)} onSubmit={create}><ui.Form fields={projectFields} values={projectValues} onChange={changeProjectValue} /></ui.DialogFrame>}
     {configuring && <ui.DialogFrame presentation="modal" title={copy.projectConfig} busy={busy} error={error} submitLabel={copy.save} onClose={() => setConfiguring(false)} onSubmit={saveProject}><ui.Form fields={projectFields} values={projectValues} onChange={changeProjectValue} /></ui.DialogFrame>}
     {editor && <ScreenshotEditorDialog record={editor === "paste" ? undefined : editor} clipboard={clipboard} copy={copy} busy={busy} onClose={closeEditor} onSave={saveScreenshot} />}
+    {analysis && <ScreenshotAnalysisDialog locale={locale} documents={analysis} onClose={() => setAnalysis(null)} />}
   </div>;
 }
