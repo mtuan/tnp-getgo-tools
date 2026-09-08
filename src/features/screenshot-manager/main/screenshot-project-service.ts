@@ -225,6 +225,15 @@ export class ScreenshotProjectService {
     if (!structureLibrary || typeof structureLibrary !== "object" || Array.isArray(structureLibrary) || !Array.isArray(pages)) throw new Error("The screenshot page analysis is invalid.");
     return { generalRulesMarkdown, structureLibrary, pages };
   }
+  async loadPagesAnalysis(projectId:string) {
+    const project=await this.read(safeId(projectId));
+    if(!project.analysis || project.analysis.pagesFile!=="analysis/pages.json")return null;
+    const pages=JSON.parse(await fs.readFile(path.join(this.projectFolder(project.id),project.analysis.pagesFile),"utf8")) as unknown;
+    if(!Array.isArray(pages))throw new Error("The screenshot pages analysis is invalid.");
+    return pages;
+  }
+
+  async loadScreenshotImage(projectId:string,screenshotId:string){const project=await this.read(safeId(projectId)),screenshot=project.screenshots.find(item=>item.id===screenshotId);if(!screenshot)throw new Error(`Screenshot ${screenshotId} was not found in project ${projectId}.`);const file=path.join(this.projectFolder(project.id),"screenshots",safeFileName(screenshot.fileName));return{file,mimeType:screenshot.mimeType,base64:(await fs.readFile(file)).toString("base64"),route:screenshot.route};}
   async add(
     projectId: string,
     imageDataUrl: string,

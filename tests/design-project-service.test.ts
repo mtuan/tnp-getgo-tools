@@ -16,3 +16,11 @@ test("legacy reconstruction is imported once as a managed design project", async
   const base=await mkdtemp(path.join(os.tmpdir(),"getgo-design-legacy-")),root=path.join(base,"projects"),legacy=path.join(base,"legacy"); await mkdir(legacy,{recursive:true}); await writeFile(path.join(legacy,"index.html"),"<!doctype html>"); const service=new DesignProjectService(root,legacy);
   const first=await service.list(),second=await service.list(); assert.equal(first.length,1); assert.equal(second.length,1); assert.deepEqual((await service.load("kids-ui-reconstruction")).pages.map(page=>page.id),["login","profile","ranking","student-switch"]);
 });
+
+test("art direction is a mandatory generation input", async () => {
+  const root=await mkdtemp(path.join(os.tmpdir(),"getgo-design-direction-")),service=new DesignProjectService(root),project=await service.create({name:"Demo",description:"",instructions:"Follow art-direction.md",references:[]});
+  await assert.rejects(service.loadArtDirection(project.id),/missing required art-direction\.md/);
+  await writeFile(path.join(service.folder(project.id),"art-direction.md"),"Bright watercolor storybook world.\n");
+  const direction=await service.loadArtDirection(project.id);
+  assert.equal(direction.content,"Bright watercolor storybook world.");
+});

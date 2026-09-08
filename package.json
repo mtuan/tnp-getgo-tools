@@ -6,6 +6,7 @@
   "type": "module",
   "main": "dist/main/main.js",
   "scripts": {
+    "design:generate": "tsx scripts/generate-design.mts",
     "dev": "npm run dev:run",
     "dev:run": "npm run sync:monaco-types && concurrently -k \"vite --port 5174 --strictPort\" \"tsc -p tsconfig.node.json --watch\" \"wait-on tcp:5174 file:dist/main/main.js file:dist/preload/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 node scripts/run-electron.mjs\"",
     "build": "npm run build:run",
@@ -32,6 +33,8 @@
     "jspdf": "^3.0.4",
     "lucide-react": "^0.577.0",
     "monaco-editor": "^0.56.0",
+    "playwright-core": "^1.63.0",
+    "pngjs": "^6.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "vite": "^6.3.5",

@@ -8,7 +8,8 @@ export interface DesignPage { id: string; name: string; slug: string; request: s
 export interface DesignProject { schemaVersion: 1; id: string; name: string; description: string; instructions: string; createdAt: string; updatedAt: string; references: DesignReference[]; pages: DesignPage[]; }
 export interface DesignProjectSummary { id: string; name: string; description: string; pageCount: number; updatedAt: string; }
 export interface DesignProjectInput { name: string; description: string; instructions: string; references: DesignReference[]; }
-export interface DesignGenerationInput { name: string; request: string; }
+export type DesignGenerationMode = "page" | "demo" | "reference";
+export interface DesignGenerationInput { name: string; request: string; mode?: DesignGenerationMode; }
 export interface DesignGenerationResult { project: DesignProject; page: DesignPage; usage: { inputTokens: number; outputTokens: number; cachedInputTokens: number; }; }
 
 export interface DesignProjectsDesktopApi {
