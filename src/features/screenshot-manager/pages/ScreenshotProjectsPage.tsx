@@ -7,6 +7,7 @@ import type { ClipboardScreenshot, ScreenshotAnalysisDocuments, ScreenshotMetada
 import { ScreenshotEditorDialog } from "../components/ScreenshotEditorDialog";
 import { ProjectCaptureWorkspace } from "../components/ProjectCaptureWorkspace";
 import { ScreenshotAnalysisDialog } from "../components/ScreenshotAnalysisDialog";
+import { ScreenshotPageDetail } from "../components/ScreenshotPageDetail";
 
 const previewPresets = [
   { value: "iphone-se", label: "iPhone SE · 375 × 667", width: 375, height: 667 },
@@ -22,12 +23,14 @@ const captureSizes = {
   landscape: { devicePreset: "desktop", width: 1440, height: 900 },
 } as const;
 const parseRoute = (route: string) => {
-  const match = /^\/screenshots\/([^/]+)/.exec(route.split("?")[0]);
-  if (!match) return { projectId: null };
-  try { return { projectId: decodeURIComponent(match[1]) }; }
-  catch { return { projectId: null }; }
+  const parsed = new URL(route, "http://getgo.local");
+  const match = /^\/screenshots\/([^/]+)(?:\/(capture|page))?\/?$/.exec(parsed.pathname);
+  if (!match) return { projectId: null, pageRoute: null };
+  try { return { projectId: decodeURIComponent(match[1]), pageRoute: match[2] === "page" ? parsed.searchParams.get("route") : null }; }
+  catch { return { projectId: null, pageRoute: null }; }
 };
 const detailRoute = (projectId: string) => `/screenshots/${encodeURIComponent(projectId)}/capture`;
+const pageDetailRoute = (projectId: string, route: string) => `/screenshots/${encodeURIComponent(projectId)}/page?route=${encodeURIComponent(route)}`;
 const formatDate = (value: string, locale: "en" | "vi") => new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 
 export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: { locale: "en" | "vi"; initialRoute: string; onRouteChange(route: string): void }) {
@@ -187,10 +190,13 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       <ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<ui.Button icon={<Plus />} variant="primary" onClick={() => setCreating(true)}>{copy.newProject}</ui.Button>} />
       {error && <ui.ErrorFrame message={error} />}
       <ui.Panel title={copy.projects} description={copy.projectsDescription}><ui.DataTable rows={projects} columns={columns} rowKey={item => item.id} ariaLabel={copy.projects} emptyText={copy.noProjects} defaultSort={{ key: "updated", direction: "desc" }} onRowClick={item => onRouteChange(detailRoute(item.id))} /></ui.Panel>
+    </> : route.pageRoute ? <>
+      <ui.PageHeader eyebrow={copy.eyebrow} title={project.screenshots.find(item => item.route === route.pageRoute)?.name ?? route.pageRoute} description={route.pageRoute} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={locale === "vi" ? "Quay lại ảnh chụp" : "Back to captures"} onClick={() => onRouteChange(detailRoute(project.id))} />} />
+      <ScreenshotPageDetail locale={locale} project={project} route={route.pageRoute} />
     </> : <>
       <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ControlGroup><ui.Button icon={<RectangleVertical />} variant={project.previewConfig.width < project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("portrait")}>{locale === "vi" ? "Dọc" : "Portrait"}</ui.Button><ui.Button icon={<RectangleHorizontal />} variant={project.previewConfig.width > project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("landscape")}>{locale === "vi" ? "Ngang" : "Landscape"}</ui.Button><ui.ActionMenu label={copy.more} disabled={busy} items={[{ id: "size-mode", label: project.previewConfig.sizeMode === "fit" ? copy.useDefaultSize : copy.useAutoFit, icon: project.previewConfig.sizeMode === "fit" ? Maximize2 : Minimize2, onSelect: () => void togglePreviewSizeMode() }, { id: "clear", label: copy.clearData, icon: Trash2, color: "danger", onSelect: () => void clearData() }]} /><ui.Button icon={<FileSearch />} disabled={!project.analysis || busy} onClick={() => void openAnalysis()}>{locale === "vi" ? "Phân tích" : "Analysis"}</ui.Button><ui.Button icon={<Settings />} onClick={openProjectConfig}>{copy.projectConfig}</ui.Button><ui.Button icon={<FolderOpen />} onClick={() => void window.getgo.showScreenshotProjectFolder(project.id)}>{copy.openFolder}</ui.Button></ui.ControlGroup>} />
       {error && <ui.ErrorFrame message={error} />}
-      <ProjectCaptureWorkspace locale={locale} project={project} resetKey={previewResetKey} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} />
+      <ProjectCaptureWorkspace locale={locale} project={project} resetKey={previewResetKey} onViewPage={pageRoute => onRouteChange(pageDetailRoute(project.id, pageRoute))} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} />
     </>}
     {creating && <ui.DialogFrame presentation="modal" title={copy.newProject} busy={busy} error={error} submitLabel={copy.create} onClose={() => setCreating(false)} onSubmit={create}><ui.Form fields={projectFields} values={projectValues} onChange={changeProjectValue} /></ui.DialogFrame>}
     {configuring && <ui.DialogFrame presentation="modal" title={copy.projectConfig} busy={busy} error={error} submitLabel={copy.save} onClose={() => setConfiguring(false)} onSubmit={saveProject}><ui.Form fields={projectFields} values={projectValues} onChange={changeProjectValue} /></ui.DialogFrame>}

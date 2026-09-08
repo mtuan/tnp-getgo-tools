@@ -189,14 +189,16 @@ export class ScreenshotProjectService {
     const project = await this.read(safeId(projectId));
     if (!project.analysis) return null;
     const analysisFolder = path.join(this.projectFolder(project.id), "analysis");
-    if (project.analysis.generalRulesFile !== "analysis/general-rules.md" || project.analysis.pagesFile !== "analysis/pages.json") throw new Error("The screenshot analysis index is invalid.");
-    const [generalRulesMarkdown, pagesSource] = await Promise.all([
+    if (project.analysis.generalRulesFile !== "analysis/general-rules.md" || project.analysis.structureLibraryFile !== "analysis/structure-library.json" || project.analysis.pagesFile !== "analysis/pages.json") throw new Error("The screenshot analysis index is invalid.");
+    const [generalRulesMarkdown, structureLibrarySource, pagesSource] = await Promise.all([
       fs.readFile(path.join(analysisFolder, "general-rules.md"), "utf8"),
+      fs.readFile(path.join(analysisFolder, "structure-library.json"), "utf8"),
       fs.readFile(path.join(analysisFolder, "pages.json"), "utf8"),
     ]);
+    const structureLibrary = JSON.parse(structureLibrarySource) as unknown;
     const pages = JSON.parse(pagesSource) as unknown;
-    if (!Array.isArray(pages)) throw new Error("The screenshot page analysis is invalid.");
-    return { generalRulesMarkdown, pages };
+    if (!structureLibrary || typeof structureLibrary !== "object" || Array.isArray(structureLibrary) || !Array.isArray(pages)) throw new Error("The screenshot page analysis is invalid.");
+    return { generalRulesMarkdown, structureLibrary, pages };
   }
 
   async add(

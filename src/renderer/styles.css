@@ -238,9 +238,11 @@ html {
 .screenshot-capture-library { min-width: 0; }
 .screenshot-capture-library .ui-data-table-scroll { max-height: calc(100vh - 290px); overflow: auto; scrollbar-gutter: stable; }
 .screenshot-capture-library .ui-data-table thead { position: sticky; top: 0; z-index: 2; background: var(--getgo-panel); box-shadow: 0 1px var(--line); }
-.capture-mode-heading { display: grid; justify-items: center; gap: 1px; line-height: 1.1; }
-.capture-mode-heading strong { font-size: 11px; font-weight: 650; }
-.capture-mode-heading small { color: var(--muted); font-size: 10px; font-weight: 500; }
+.capture-mode-heading { display: inline-flex; align-items: center; justify-content: center; gap: 5px; line-height: 1; }
+.capture-mode-heading strong { color: var(--muted); font-size: 16px; font-weight: 750; }
+.capture-theme-dot { display: block; width: 9px; height: 9px; border: 1px solid #94a3b8; border-radius: 999px; }
+.capture-theme-dot.is-light { background: #fff; }
+.capture-theme-dot.is-dark { border-color: #334155; background: #172033; }
 .ui-image.screenshot-table-thumbnail { display: block; width: 40px; min-width: 40px; max-width: 40px; height: 32px; min-height: 32px; max-height: 32px; contain: size layout paint; overflow: hidden; border-radius: 4px; background: var(--soft); }
 .ui-image.screenshot-table-thumbnail .ui-image-element { width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
 .screenshot-table-title { display: block; overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
@@ -257,6 +259,8 @@ html {
 .project-capture-preview .device-preview { min-height: 0; }
 .capture-slot-thumbnail { width: 54px; height: 42px; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); }
 .capture-slot-empty { color: var(--muted); }
+.capture-slot-complete { display: inline-grid; width: 22px; height: 22px; place-items: center; border-radius: 999px; color: #047857; background: #d1fae5; font-size: 14px; font-weight: 850; }
+.capture-slot-complete.is-dark { color: #d1fae5; background: #166534; }
 .screenshot-analysis-dialog { width: min(760px, calc(100vw - 32px)); }
 .screenshot-analysis-dialog .crud-body { display: grid; min-height: 0; gap: 14px; }
 .screenshot-analysis-page-viewer { display: grid; min-height: 0; gap: 12px; }
@@ -265,6 +269,33 @@ html {
 .screenshot-analysis-page-meta span { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .screenshot-analysis-document { min-height: 0; max-height: calc(100vh - 190px); margin: 0; padding: 16px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--soft); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .screenshot-analysis-json { white-space: pre; }
+.content:has(.screenshot-page-detail-workspace) {
+  height: calc(100dvh - var(--routebar-height) - var(--topbar-height));
+  min-height: 0;
+  padding-bottom: var(--page-content-edge-spacing);
+  overflow: hidden;
+}
+.content:has(.screenshot-page-detail-workspace) > .page-transition,
+.screenshot-manager-page:has(.screenshot-page-detail-workspace) { height: 100%; min-height: 0; }
+.screenshot-manager-page:has(.screenshot-page-detail-workspace) { display: flex; flex-direction: column; }
+.screenshot-manager-page:has(.screenshot-page-detail-workspace) > .ui-page-header { flex: none; margin-bottom: var(--page-content-edge-spacing); }
+.screenshot-page-detail-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 330px; flex: 1 1 auto; min-width: 0; min-height: 0; gap: 18px; overflow: hidden; }
+.screenshot-page-comparison { min-width: 0; min-height: 0; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); scrollbar-gutter: stable; }
+.screenshot-page-track { display: flex; width: max-content; min-width: 100%; height: 100%; align-items: stretch; gap: 18px; padding: 14px; }
+.screenshot-page-figure { display: grid; grid-template-rows: 28px minmax(0, 1fr); min-width: 0; height: 100%; margin: 0; gap: 8px; }
+.screenshot-page-figure figcaption { display: flex; align-items: center; gap: 7px; color: var(--text); font-size: 12px; }
+.screenshot-page-figure figcaption span { color: var(--muted); }
+.screenshot-page-image-wrap { position: relative; min-width: 0; min-height: 0; height: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: var(--getgo-panel); box-shadow: 0 8px 22px #0f172a14; }
+.screenshot-page-image-wrap img { display: block; width: auto; height: 100%; object-fit: contain; }
+.screenshot-page-highlight { position: absolute; z-index: 2; min-width: 18px; min-height: 18px; border: 3px solid #f43f5e; background: #fb718533; box-shadow: 0 0 0 2px #fff9, 0 8px 22px #88133744; pointer-events: none; }
+.screenshot-page-highlight span { position: absolute; top: 4px; left: 4px; max-width: calc(100% - 8px); padding: 3px 6px; overflow: hidden; border-radius: 5px; color: white; background: #be123c; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.screenshot-page-tree-panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--getgo-panel); }
+.screenshot-page-tree-panel > header { display: grid; gap: 4px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.screenshot-page-tree-panel > header span { color: var(--muted); font-size: 11px; }
+.screenshot-page-tree-panel > .ui-tree-view { min-height: 0; border-right: 0; }
+.screenshot-page-selection-detail { display: grid; gap: 4px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--soft); }
+.screenshot-page-selection-detail span { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.screenshot-page-selection-detail code { color: #4f46e5; font-size: 10px; overflow-wrap: anywhere; }
 .project-capture-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
 .project-capture-toolbar > div:first-child { display: grid; min-width: 0; gap: 3px; }
 .project-capture-toolbar strong,

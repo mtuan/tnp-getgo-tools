@@ -42,12 +42,14 @@ export interface ScreenshotPageAnalysis {
 
 export interface ScreenshotProjectAnalysis {
   generalRulesFile: string;
+  structureLibraryFile: string;
   pagesFile: string;
   updatedAt: string;
 }
 
 export interface ScreenshotAnalysisDocuments {
   generalRulesMarkdown: string;
+  structureLibrary: Record<string, unknown>;
   pages: ScreenshotPageAnalysis[];
 }
 

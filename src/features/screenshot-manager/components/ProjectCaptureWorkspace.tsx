@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Eye } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import type { DesignPageRecord, DesignVariant, ScreenshotProject } from "../domain/screenshot-project";
 import { DevicePreview } from "./DevicePreview";
@@ -16,11 +17,12 @@ function projectPages(project: ScreenshotProject): DesignPageRecord[] {
   return [...pages.values()].sort((a, b) => a.route.localeCompare(b.route));
 }
 
-export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectChange }: {
+export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectChange, onViewPage }: {
   locale: "en" | "vi";
   project: ScreenshotProject;
   resetKey: number;
   onProjectChange(project: ScreenshotProject): void;
+  onViewPage(route: string): void;
 }) {
   const vi = locale === "vi";
   const pages = useMemo(() => projectPages(project), [project]);
@@ -33,9 +35,12 @@ export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectCh
     { key: "page", title: vi ? "Trang" : "Page", render: page => <span className="screenshot-project-cell"><strong>{page.name}</strong><small>{page.route}</small></span> },
     ...variants.map(variant => {
       const [orientation, theme] = variant.split("-");
-      return { key: variant, title: <span className="capture-mode-heading"><strong>{orientation === "landscape" ? (vi ? "Ngang" : "Landscape") : (vi ? "Dọc" : "Portrait")}</strong><small>{theme === "dark" ? (vi ? "Tối" : "Dark") : (vi ? "Sáng" : "Light")}</small></span>, width: 88, align: "center" as const, render: (page: DesignPageRecord) => page.screenshots[variant] ? <ui.Image className="capture-slot-thumbnail" src={page.screenshots[variant]?.previewDataUrl} alt={`${page.name} ${variant}`} fit="cover" /> : <span className="capture-slot-empty">—</span> };
+      const orientationLabel = orientation === "landscape" ? (vi ? "Ngang" : "Landscape") : (vi ? "Dọc" : "Portrait");
+      const themeLabel = theme === "dark" ? (vi ? "Tối" : "Dark") : (vi ? "Sáng" : "Light");
+      return { key: variant, title: <span className="capture-mode-heading" title={`${orientationLabel} · ${themeLabel}`} aria-label={`${orientationLabel} · ${themeLabel}`}><strong aria-hidden="true">{orientation === "landscape" ? "↔" : "↕"}</strong><i className={`capture-theme-dot is-${theme}`} aria-hidden="true" /></span>, width: 48, align: "center" as const, render: (page: DesignPageRecord) => page.screenshots[variant] ? <span className={`capture-slot-complete is-${theme}`} title={`${page.name} · ${orientationLabel} · ${themeLabel}`} aria-label={`${orientationLabel} · ${themeLabel}: ${vi ? "Đã chụp" : "Captured"}`}>✓</span> : <span className="capture-slot-empty" aria-label={`${orientationLabel} · ${themeLabel}: ${vi ? "Chưa chụp" : "Not captured"}`}>—</span> };
     }),
-  ], [vi]);
+    { key: "actions", title: "", width: 48, align: "right" as const, role: "actions" as const, render: (page: DesignPageRecord) => <ui.Button variant="icon" icon={<Eye />} aria-label={vi ? `Xem ${page.name}` : `View ${page.name}`} title={vi ? "Xem trang" : "View page"} onClick={event => { event.stopPropagation(); onViewPage(page.route); }} /> },
+  ], [onViewPage, vi]);
   useEffect(() => {
     if (!capturedRoute || !pages.some(page => page.route === capturedRoute)) return;
     setSelectedRoute(capturedRoute);
