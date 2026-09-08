@@ -27,6 +27,7 @@ export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectCh
   const [selectedRoute, setSelectedRoute] = useState<string | null>(pages[0]?.route ?? null);
   const [scale, setScale] = useState(1);
   const [workspaceHeight, setWorkspaceHeight] = useState(1);
+  const [capturedRoute, setCapturedRoute] = useState<string | null>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const selected = pages.find(page => page.route === selectedRoute) ?? pages[0];
   const columns = useMemo<ui.DataColumn<DesignPageRecord>[]>(() => [
@@ -50,11 +51,20 @@ export function ProjectCaptureWorkspace({ locale, project, resetKey, onProjectCh
     fit();
     return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
   }, []);
+  useEffect(() => {
+    if (!capturedRoute || !pages.some(page => page.route === capturedRoute)) return;
+    setSelectedRoute(capturedRoute);
+    requestAnimationFrame(() => {
+      const row = workspaceRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(capturedRoute)}"]`);
+      row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      setCapturedRoute(null);
+    });
+  }, [capturedRoute, pages]);
   if (!selected) return <ui.Panel><ui.PanelBody><strong>{vi ? "Chưa có trang" : "No pages yet"}</strong><p>{vi ? "Thêm ảnh có tuyến đường để bắt đầu." : "Add a routed screenshot to begin."}</p></ui.PanelBody></ui.Panel>;
   return <div ref={workspaceRef} className="screenshot-capture-workspace project-capture-workspace" style={{ "--screenshot-preview-width": `${Math.round(project.previewConfig.width * scale)}px`, height: workspaceHeight } as CSSProperties}>
     <aside className="screenshot-capture-library"><ui.DataTable rows={pages} columns={columns} rowKey={page => page.id} ariaLabel={vi ? "Danh sách trang" : "Page list"} emptyText={vi ? "Chưa có trang" : "No pages"} selectedRowKey={selected.route} onRowClick={page => setSelectedRoute(page.route)} /></aside>
     <div className="screenshot-device-workspace project-capture-preview">
-      <DevicePreview locale={locale} project={project} requestedRoute={{ route: selected.route, key: selected.route === selectedRoute ? 1 : 0 }} resetKey={resetKey} onScaleChange={setScale} onProjectChange={onProjectChange} />
+      <DevicePreview locale={locale} project={project} requestedRoute={{ route: selected.route, key: selected.route === selectedRoute ? 1 : 0 }} resetKey={resetKey} onScaleChange={setScale} onProjectChange={onProjectChange} onCaptured={setCapturedRoute} />
     </div>
   </div>;
 }

@@ -32,7 +32,7 @@ const screenshotRoute = (value: string) => {
   return `${url.pathname}${url.search}${url.hash}` || "/";
 };
 
-export function DevicePreview({ locale, project, requestedRoute, resetKey, onProjectChange, onScaleChange }: { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; resetKey: number; onProjectChange(project: ScreenshotProject): void; onScaleChange(scale: number): void }) {
+export function DevicePreview({ locale, project, requestedRoute, resetKey, onProjectChange, onScaleChange, onCaptured }: { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; resetKey: number; onProjectChange(project: ScreenshotProject): void; onScaleChange(scale: number): void; onCaptured?(route: string): void }) {
   const copy = (locale === "vi" ? vi : en).screenshotManager.devicePreview;
   const width = project.previewConfig.width;
   const height = project.previewConfig.height;
@@ -142,6 +142,7 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
         description: `${orientation} · ${theme} · ${width} × ${height} · ${new URL(url).origin}`,
       });
       onProjectChange(next);
+      onCaptured?.(route);
       toast.show({ title: copy.captured, description: `${pageTitle} · ${orientation} · ${theme}` });
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setCapturing(false); }
