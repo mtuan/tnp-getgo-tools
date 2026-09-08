@@ -25,6 +25,7 @@ const api: DesktopApi = {
   updateScreenshot: (projectId, screenshotId, metadata) => ipcRenderer.invoke("screenshots:update", projectId, screenshotId, metadata),
   deleteScreenshot: (projectId, screenshotId) => ipcRenderer.invoke("screenshots:delete", projectId, screenshotId),
   deleteScreenshotPage: (projectId, route) => ipcRenderer.invoke("screenshots:page:delete", projectId, route),
+  clearScreenshotPage: (projectId, route) => ipcRenderer.invoke("screenshots:page:clear", projectId, route),
   clearScreenshots: (projectId) => ipcRenderer.invoke("screenshots:clear", projectId),
   clearScreenshotProjectData: (projectId) => ipcRenderer.invoke("screenshots:clear-all-data", projectId),
   clearPreviewBrowserData: () => ipcRenderer.invoke("screenshots:preview:clear-data") as Promise<void>,

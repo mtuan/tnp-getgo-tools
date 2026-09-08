@@ -317,17 +317,13 @@ export class ScreenshotProjectService {
     return this.load(project.id);
   }
 
-  async deletePage(projectId: string, routeInput: string): Promise<ScreenshotProject> {
-    const project = await this.read(safeId(projectId));
-    const route = normalizeRoute(routeInput);
+  private async clearPageData(project: ScreenshotProject, route: string): Promise<void> {
     const screenshots = project.screenshots.filter(item => item.route === route);
-    if (!screenshots.length) throw new Error("Screenshot page not found.");
     for (const screenshot of screenshots) {
       await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeFileName(screenshot.fileName)));
       if (screenshot.snapshotFileName) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeSnapshotFileName(screenshot.snapshotFileName)));
     }
     project.screenshots = project.screenshots.filter(item => item.route !== route);
-    project.pages = project.pages.filter(item => item.route !== route);
     for (const key of Object.keys(project.pageBreakdowns)) {
       if (key === `${route}:portrait` || key === `${route}:landscape`) delete project.pageBreakdowns[key];
     }
@@ -339,6 +335,24 @@ export class ScreenshotProjectService {
         if (Array.isArray(pages)) await fs.writeFile(pagesFile, `${JSON.stringify(pages.filter(page => page.route !== route), null, 2)}\n`, "utf8");
       }
     }
+  }
+
+  async clearPage(projectId: string, routeInput: string): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    const route = normalizeRoute(routeInput);
+    if (!project.pages.some(item => item.route === route)) throw new Error("Screenshot page not found.");
+    await this.clearPageData(project, route);
+    project.updatedAt = new Date().toISOString();
+    await this.write(project);
+    return this.load(project.id);
+  }
+
+  async deletePage(projectId: string, routeInput: string): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId));
+    const route = normalizeRoute(routeInput);
+    if (!project.pages.some(item => item.route === route)) throw new Error("Screenshot page not found.");
+    await this.clearPageData(project, route);
+    project.pages = project.pages.filter(item => item.route !== route);
     project.updatedAt = new Date().toISOString();
     await this.write(project);
     return this.load(project.id);

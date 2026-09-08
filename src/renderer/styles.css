@@ -287,6 +287,7 @@ html {
 .screenshot-page-figure figcaption span { color: var(--muted); }
 .screenshot-page-image-wrap { position: relative; min-width: 0; min-height: 0; height: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: var(--getgo-panel); box-shadow: 0 8px 22px #0f172a14; }
 .screenshot-page-image-wrap img { display: block; width: auto; height: 100%; object-fit: contain; }
+.screenshot-page-image-delete { position: absolute; z-index: 3; top: 8px; right: 8px; box-shadow: 0 4px 14px #0f172a33; }
 .screenshot-page-highlight { position: absolute; z-index: 2; min-width: 18px; min-height: 18px; border: 3px solid #f43f5e; background: #fb718533; box-shadow: 0 0 0 2px #fff9, 0 8px 22px #88133744; pointer-events: none; }
 .screenshot-page-highlight span { position: absolute; top: 4px; left: 4px; max-width: calc(100% - 8px); padding: 3px 6px; overflow: hidden; border-radius: 5px; color: white; background: #be123c; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .screenshot-page-tree-panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--getgo-panel); }

@@ -179,6 +179,7 @@ export interface ScreenshotManagerDesktopApi {
     screenshotId: string,
   ): Promise<ScreenshotProject>;
   deleteScreenshotPage(projectId: string, route: string): Promise<ScreenshotProject>;
+  clearScreenshotPage(projectId: string, route: string): Promise<ScreenshotProject>;
   clearScreenshots(projectId: string): Promise<ScreenshotProject>;
   clearScreenshotProjectData(projectId: string): Promise<ScreenshotProject>;
   updatePageBreakdown(projectId: string, input: PageBreakdownInput): Promise<ScreenshotProject>;

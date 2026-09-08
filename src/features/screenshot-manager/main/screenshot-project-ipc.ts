@@ -68,6 +68,10 @@ export function registerScreenshotProjectIpc(
     "screenshots:page:delete",
     async (_event, projectId: string, route: string) => (await service()).deletePage(projectId, route),
   );
+  ipcMain.handle(
+    "screenshots:page:clear",
+    async (_event, projectId: string, route: string) => (await service()).clearPage(projectId, route),
+  );
   ipcMain.handle("screenshots:clear", async (_event, projectId: string) =>
     (await service()).clear(projectId),
   );

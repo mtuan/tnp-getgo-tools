@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Calendar, Camera, Check, FileSearch, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, Settings, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, Camera, Check, Eraser, FileSearch, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, Settings, Square, Trash2 } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -51,6 +51,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   const [previewResetKey, setPreviewResetKey] = useState(0);
   const [analysis, setAnalysis] = useState<ScreenshotAnalysisDocuments | null>(null);
   const [automaticCapture, setAutomaticCapture] = useState<AutomaticCaptureProgress | null>(null);
+  const [deletingScreenshotId, setDeletingScreenshotId] = useState<string | null>(null);
   const captureWorkspaceRef = useRef<ProjectCaptureWorkspaceHandle>(null);
   const [projectValues, setProjectValues] = useState<ui.FormValues>({ name: "", description: "", baseUrl: "http://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 });
   const toast = ui.useToast();
@@ -196,7 +197,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   }
   async function deletePage(routeToDelete: string) {
     if (!project) return;
-    if (!project.screenshots.some(item => item.route === routeToDelete) || !window.confirm(copy.deletePageConfirm.replace("{route}", routeToDelete))) return;
+    if (!project.pages.some(item => item.route === routeToDelete) || !window.confirm(copy.deletePageConfirm.replace("{route}", routeToDelete))) return;
     setBusy(true); setError(null);
     try {
       const next = await window.getgo.deleteScreenshotPage(project.id, routeToDelete);
@@ -206,6 +207,28 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       toast.show({ title: copy.pageDeleted, description: routeToDelete });
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
+  }
+  async function clearPage(routeToClear: string) {
+    if (!project || !window.confirm(copy.clearPageConfirm.replace("{route}", routeToClear))) return;
+    setBusy(true); setError(null);
+    try {
+      const next = await window.getgo.clearScreenshotPage(project.id, routeToClear);
+      setProject(next);
+      setProjects(await window.getgo.listScreenshotProjects());
+      toast.show({ title: copy.pageCleared, description: routeToClear });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
+  async function deleteScreenshot(screenshot: ScreenshotRecord) {
+    if (!project || !window.confirm(copy.deleteScreenshotConfirm.replace("{name}", `${screenshot.orientation} · ${screenshot.theme}`))) return;
+    setDeletingScreenshotId(screenshot.id); setError(null);
+    try {
+      const next = await window.getgo.deleteScreenshot(project.id, screenshot.id);
+      setProject(next);
+      setProjects(await window.getgo.listScreenshotProjects());
+      toast.show({ title: copy.screenshotDeleted, description: `${screenshot.orientation} · ${screenshot.theme}` });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setDeletingScreenshotId(null); }
   }
   async function startAutomaticCapture(missingOnly = false) {
     if (!captureWorkspaceRef.current || busy || automaticCapture) return;
@@ -247,6 +270,11 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     { id: "clear-screenshots", label: copy.clearScreenshots, icon: Trash2, color: "danger", disabled: !!automaticCapture || !project.screenshots.length, onSelect: () => void clearScreenshots() },
     { id: "clear-all", label: copy.clearAllData, icon: Trash2, color: "danger", disabled: !!automaticCapture || (!project.pages.length && !project.screenshots.length), onSelect: () => void clearAllData() },
   ] : [];
+  const pageActions: ui.ActionMenuItem[] = project && route.pageRoute ? [
+    { id: "data-label", type: "label", label: copy.dataActions, onSelect: () => undefined },
+    { id: "clear-page", label: copy.clearPage, icon: Eraser, disabled: busy, onSelect: () => void clearPage(route.pageRoute!) },
+    { id: "delete-page", label: copy.deletePage, icon: Trash2, color: "danger", disabled: busy, onSelect: () => void deletePage(route.pageRoute!) },
+  ] : [];
 
   return <div className="screenshot-manager-page">
     {!project ? <>
@@ -254,8 +282,8 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       {error && <ui.ErrorFrame message={error} />}
       <ui.Panel title={copy.projects} description={copy.projectsDescription}><ui.DataTable rows={projects} columns={columns} rowKey={item => item.id} ariaLabel={copy.projects} emptyText={copy.noProjects} defaultSort={{ key: "updated", direction: "desc" }} onRowClick={item => onRouteChange(detailRoute(item.id))} /></ui.Panel>
     </> : route.pageRoute ? <>
-      <ui.PageHeader eyebrow={copy.eyebrow} title={project.pages.find(item => item.route === route.pageRoute)?.name ?? route.pageRoute} description={route.pageRoute} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={locale === "vi" ? "Quay lại ảnh chụp" : "Back to captures"} onClick={() => onRouteChange(detailRoute(project.id))} />} />
-      <ScreenshotPageDetail locale={locale} project={project} route={route.pageRoute} deleteLabel={copy.deletePage} deleting={busy} onDelete={() => void deletePage(route.pageRoute!)} />
+      <ui.PageHeader eyebrow={copy.eyebrow} title={project.pages.find(item => item.route === route.pageRoute)?.name ?? route.pageRoute} description={route.pageRoute} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={locale === "vi" ? "Quay lại ảnh chụp" : "Back to captures"} onClick={() => onRouteChange(detailRoute(project.id))} />} actions={<ui.ActionMenu label={copy.actions} variant="primary" disabled={busy} items={pageActions} />} />
+      <ScreenshotPageDetail locale={locale} project={project} route={route.pageRoute} deleteScreenshotLabel={copy.deleteScreenshot} deleting={busy} deletingScreenshotId={deletingScreenshotId} onDeleteScreenshot={screenshot => void deleteScreenshot(screenshot)} />
     </> : <>
       <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ActionMenu label={copy.actions} variant="primary" disabled={busy} items={projectActions} />} />
       {error && <ui.ErrorFrame message={error} />}

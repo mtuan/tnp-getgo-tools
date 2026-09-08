@@ -59,19 +59,49 @@
     "syncMarketplaceState": "Trạng thái",
     "syncReview": "Duyệt",
     "syncActions": {
-      "topic": { "create": "Tạo chủ đề và mục kho", "update": "Cập nhật chủ đề và mục kho", "remove": "Xóa dữ liệu chủ đề" },
-      "quiz": { "create": "Tạo dữ liệu bộ câu hỏi", "update": "Cập nhật dữ liệu bộ câu hỏi", "remove": "Xóa dữ liệu bộ câu hỏi" }
+      "topic": {
+        "create": "Tạo chủ đề và mục kho",
+        "update": "Cập nhật chủ đề và mục kho",
+        "remove": "Xóa dữ liệu chủ đề"
+      },
+      "quiz": {
+        "create": "Tạo dữ liệu bộ câu hỏi",
+        "update": "Cập nhật dữ liệu bộ câu hỏi",
+        "remove": "Xóa dữ liệu bộ câu hỏi"
+      }
     },
     "syncDetails": {
       "topic": {
-        "create": ["Tạo tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId} cùng quizIds.", "Tạo tài liệu kho nội dung /getgo-marketplace-topics/{topicId} cho “{title}”."],
-        "update": ["Cập nhật tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId}, gồm quizIds.", "Cập nhật tài liệu kho nội dung /getgo-marketplace-topics/{topicId} cho “{title}”."],
-        "remove": ["Xóa tài liệu kho nội dung /getgo-marketplace-topics/{topicId} của “{title}”.", "Xóa tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId}.", "Xóa mọi bộ câu hỏi, câu hỏi, tài nguyên và tài sản thuộc chủ đề này."]
+        "create": [
+          "Tạo tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId} cùng quizIds.",
+          "Tạo tài liệu kho nội dung /getgo-marketplace-topics/{topicId} cho “{title}”."
+        ],
+        "update": [
+          "Cập nhật tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId}, gồm quizIds.",
+          "Cập nhật tài liệu kho nội dung /getgo-marketplace-topics/{topicId} cho “{title}”."
+        ],
+        "remove": [
+          "Xóa tài liệu kho nội dung /getgo-marketplace-topics/{topicId} của “{title}”.",
+          "Xóa tài liệu chủ đề /getgo-content-v2/catalog/topics/{topicId}.",
+          "Xóa mọi bộ câu hỏi, câu hỏi, tài nguyên và tài sản thuộc chủ đề này."
+        ]
       },
       "quiz": {
-        "create": ["Tạo tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} cho “{title}”.", "Ghi {questionCount} tài liệu câu hỏi.", "Đồng bộ tài liệu tài nguyên và tệp tài sản được dữ liệu cục bộ tham chiếu."],
-        "update": ["Cập nhật tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} cho “{title}”.", "Đồng bộ thay đổi trong {questionCount} tài liệu câu hỏi.", "Đồng bộ tài liệu tài nguyên và tệp tài sản; xóa các bản ghi con cũ."],
-        "remove": ["Xóa tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} của “{title}”.", "Xóa toàn bộ tài liệu câu hỏi và tài nguyên con.", "Xóa toàn bộ bản ghi và tệp tài sản thuộc bộ câu hỏi này."]
+        "create": [
+          "Tạo tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} cho “{title}”.",
+          "Ghi {questionCount} tài liệu câu hỏi.",
+          "Đồng bộ tài liệu tài nguyên và tệp tài sản được dữ liệu cục bộ tham chiếu."
+        ],
+        "update": [
+          "Cập nhật tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} cho “{title}”.",
+          "Đồng bộ thay đổi trong {questionCount} tài liệu câu hỏi.",
+          "Đồng bộ tài liệu tài nguyên và tệp tài sản; xóa các bản ghi con cũ."
+        ],
+        "remove": [
+          "Xóa tài liệu bộ câu hỏi /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} của “{title}”.",
+          "Xóa toàn bộ tài liệu câu hỏi và tài nguyên con.",
+          "Xóa toàn bộ bản ghi và tệp tài sản thuộc bộ câu hỏi này."
+        ]
       }
     },
     "syncNothing": "Mọi nội dung đã được đồng bộ.",
@@ -124,10 +154,10 @@
     "unlisted": "Đã ẩn",
     "competition": "Kỳ thi",
     "kidLearning": "Học tập trẻ em",
-  "free": "Miễn phí",
-  "subscription": "Yêu cầu thành viên",
-  "inherit": "Theo chủ đề",
-  "paid": "Trả phí",
+    "free": "Miễn phí",
+    "subscription": "Yêu cầu thành viên",
+    "inherit": "Theo chủ đề",
+    "paid": "Trả phí",
     "columns": {
       "topic": "Chủ đề",
       "type": "Loại",
@@ -313,17 +343,17 @@
     "save": "Lưu từ điển",
     "saved": "Đã lưu từ điển",
     "savedDescription": "Từ điển đa ngôn ngữ dùng chung đã được cập nhật.",
-    "saveError": "Không thể lưu từ điển"
-    ,"filter": "Lọc từ trong từ điển"
-    ,"clearFilter": "Xóa bộ lọc từ điển"
-    ,"reviewed": "Đã duyệt"
-    ,"toggleAllReviewed": "Đánh dấu hoặc bỏ đánh dấu tất cả các từ là đã duyệt"
-    ,"startingLetter": "Lọc theo chữ cái đầu"
-    ,"allLetters": "Tất cả"
-    ,"concept": "Khái niệm"
-    ,"english": "Tiếng Anh"
-    ,"vietnamese": "Tiếng Việt"
-    ,"reviewedHelp": "Chỉ các từ đã duyệt được đưa vào khi xuất bản bài kiểm tra."
+    "saveError": "Không thể lưu từ điển",
+    "filter": "Lọc từ trong từ điển",
+    "clearFilter": "Xóa bộ lọc từ điển",
+    "reviewed": "Đã duyệt",
+    "toggleAllReviewed": "Đánh dấu hoặc bỏ đánh dấu tất cả các từ là đã duyệt",
+    "startingLetter": "Lọc theo chữ cái đầu",
+    "allLetters": "Tất cả",
+    "concept": "Khái niệm",
+    "english": "Tiếng Anh",
+    "vietnamese": "Tiếng Việt",
+    "reviewedHelp": "Chỉ các từ đã duyệt được đưa vào khi xuất bản bài kiểm tra."
   },
   "speechSettings": {
     "title": "Cài đặt giọng đọc",
@@ -477,9 +507,30 @@
       "localhostBuilt": "Đã build",
       "startFailed": "Khởi động thất bại",
       "startCancelled": "Đã hủy khởi động",
-      "run": { "queued": "Đang chờ chạy", "running": "Đang chạy", "paused": "Đã tạm dừng chạy", "completed": "Đã chạy xong", "cancelled": "Đã hủy chạy", "failed": "Chạy thất bại" },
-      "build": { "queued": "Đang chờ build", "running": "Đang build", "paused": "Đã tạm dừng build", "completed": "Đã build", "cancelled": "Đã hủy build", "failed": "Build thất bại" },
-      "deploy": { "queued": "Đang chờ triển khai", "running": "Đang triển khai", "paused": "Đã tạm dừng triển khai", "completed": "Đã triển khai", "cancelled": "Đã hủy triển khai", "failed": "Triển khai thất bại" }
+      "run": {
+        "queued": "Đang chờ chạy",
+        "running": "Đang chạy",
+        "paused": "Đã tạm dừng chạy",
+        "completed": "Đã chạy xong",
+        "cancelled": "Đã hủy chạy",
+        "failed": "Chạy thất bại"
+      },
+      "build": {
+        "queued": "Đang chờ build",
+        "running": "Đang build",
+        "paused": "Đã tạm dừng build",
+        "completed": "Đã build",
+        "cancelled": "Đã hủy build",
+        "failed": "Build thất bại"
+      },
+      "deploy": {
+        "queued": "Đang chờ triển khai",
+        "running": "Đang triển khai",
+        "paused": "Đã tạm dừng triển khai",
+        "completed": "Đã triển khai",
+        "cancelled": "Đã hủy triển khai",
+        "failed": "Triển khai thất bại"
+      }
     },
     "managedByTools": "Tools quản lý",
     "notManaged": "Đang chạy ngoài Tools",
@@ -658,20 +709,111 @@
     "authentication": "Đăng nhập bằng tài khoản Firebase được cấp quyền trước khi đọc hoặc xuất bản dữ liệu câu hỏi."
   },
   "screenshotManager": {
-    "nav": "Ảnh chụp màn hình", "eyebrow": "Kiểm tra giao diện", "title": "Dự án ảnh chụp màn hình",
+    "nav": "Ảnh chụp màn hình",
+    "eyebrow": "Kiểm tra giao diện",
+    "title": "Dự án ảnh chụp màn hình",
     "pageDescription": "Thu thập, mô tả và lập sơ đồ màn hình web hoặc ứng dụng theo đường dẫn.",
-    "newProject": "Dự án mới", "projects": "Dự án", "projectsDescription": "Được lưu trong thư mục dữ liệu của GetGo Tools.",
-    "name": "Tên", "description": "Mô tả", "route": "Đường dẫn", "create": "Tạo dự án", "save": "Lưu thay đổi",
-    "paste": "Thêm ảnh chụp", "pasteScreenshot": "Đọc ảnh từ bảng nhớ tạm", "addScreenshot": "Thêm ảnh chụp",
+    "newProject": "Dự án mới",
+    "projects": "Dự án",
+    "projectsDescription": "Được lưu trong thư mục dữ liệu của GetGo Tools.",
+    "name": "Tên",
+    "description": "Mô tả",
+    "route": "Đường dẫn",
+    "create": "Tạo dự án",
+    "save": "Lưu thay đổi",
+    "paste": "Thêm ảnh chụp",
+    "pasteScreenshot": "Đọc ảnh từ bảng nhớ tạm",
+    "addScreenshot": "Thêm ảnh chụp",
     "pasteHint": "Thêm tên, đường dẫn và mô tả cho ảnh chụp đã được đọc ở trên.",
-    "defaultScreenshotName": "Màn hình mới", "editScreenshot": "Sửa thông tin ảnh chụp", "openFolder": "Mở thư mục",
-    "viewMode": "Chế độ xem ảnh chụp", "gallery": "Thư viện", "galleryAndPreview": "Thư viện & xem trước", "screenshotList": "Ảnh chụp", "previewImage": "Xem trước", "routeMap": "Sơ đồ đường dẫn", "loading": "Đang tải dự án ảnh chụp màn hình",
-    "noDescription": "Chưa có mô tả", "noProjects": "Chưa có dự án", "noProjectsDescription": "Tạo dự án để bắt đầu thu thập màn hình.",
-    "noScreenshots": "Chưa có ảnh chụp", "noScreenshotsDescription": "Sao chép ảnh chụp rồi dán vào dự án này.",
-    "noRoutes": "Chưa có đường dẫn", "noRoutesDescription": "Màn hình sẽ xuất hiện ở đây sau khi lưu đường dẫn.",
-    "selectProject": "Chọn một dự án", "selectProjectDescription": "Chọn dự án trong danh sách hoặc tạo dự án mới."
-    ,"project": "Dự án", "screenshots": "Ảnh chụp", "lastUpdated": "Cập nhật gần nhất", "backToProjects": "Quay lại danh sách dự án",
-    "actions": "Thao tác", "captureActions": "Chụp ảnh", "viewActions": "Hiển thị", "projectActions": "Dự án", "dataActions": "Dữ liệu", "portrait": "Dọc", "landscape": "Ngang", "analysis": "Phân tích", "clearScreenshots": "Xóa ảnh chụp", "clearScreenshotsOnlyConfirm": "Xóa tất cả ảnh chụp và dữ liệu cấu trúc trang? Tên trang và đường dẫn sẽ được giữ lại.", "screenshotsCleared": "Đã xóa ảnh chụp", "screenshotsClearedDescription": "Tên trang và đường dẫn được giữ lại.", "clearAllData": "Xóa toàn bộ dữ liệu", "clearAllDataConfirm": "Xóa tất cả ảnh chụp, bản ghi trang, dữ liệu cấu trúc và dữ liệu trình duyệt xem trước?", "pasteShortcut": "Chụp màn hình, sau đó nhấn Command+V để thêm ảnh.", "clipboardMissing": "Bảng nhớ tạm không chứa hình ảnh.", "clipboardPreview": "Xem trước ảnh chụp trong bảng nhớ tạm", "deletePage": "Xóa trang", "deletePageConfirm": "Xóa bản ghi trang {route} và tất cả ảnh chụp của trang này?", "pageDeleted": "Đã xóa trang", "projectConfig": "Cài đặt dự án", "previewConfig": "Xem trước web", "baseUrl": "URL web", "openInPreview": "Mở đường dẫn trong bản xem trước", "deleteScreenshot": "Xóa ảnh chụp", "deleteScreenshotConfirm": "Chuyển ‘{name}’ vào Thùng rác?", "more": "Thêm", "clearData": "Xóa dữ liệu", "clearScreenshotsConfirm": "Xóa tất cả ảnh chụp và toàn bộ dữ liệu do trình duyệt xem trước lưu trữ?", "dataCleared": "Đã xóa dữ liệu", "dataClearedDescription": "Đã xóa ảnh chụp và dữ liệu trình duyệt xem trước.", "useAutoFit": "Dùng kích thước tự co", "useDefaultSize": "Dùng kích thước mặc định", "previewSizeChanged": "Đã đổi kích thước xem trước", "autoFitSize": "Kích thước tự co", "defaultSize": "Kích thước mặc định", "continueCapture": "Tiếp tục chụp", "noMissingScreenshots": "Tất cả ô ảnh chụp đã có dữ liệu", "automaticCapture": "Chụp tất cả", "stopAutomaticCapture": "Dừng {completed}/{total}", "automaticCaptureComplete": "Đã chụp tự động", "automaticCaptureCompleteDescription": "Đã cập nhật mọi trang, hướng màn hình và giao diện.", "automaticCaptureSkipped": "Đã hoàn tất và bỏ qua {count} ô chụp vì trang chưa tải xong.", "automaticCaptureCancelled": "Đã dừng chụp tự động",
-    "devicePreview": { "tab": "Xem theo thiết bị", "device": "Thiết bị mẫu", "width": "Rộng", "height": "Cao", "rotate": "Xoay thiết bị", "address": "Địa chỉ web cục bộ", "back": "Quay lại", "forward": "Tiến tới", "reload": "Tải lại", "capture": "Chụp và lưu", "localOnly": "Nhập địa chỉ localhost, 127.0.0.1 hoặc ::1.", "navigationUnavailable": "Ứng dụng xem trước chưa hỗ trợ chuyển tuyến nội bộ.", "automationUnavailable": "Ứng dụng xem trước chưa hỗ trợ tự động đổi giao diện. Hãy tải lại GetGo Web rồi thử lại.", "orientationChangeFailed": "Bản xem trước chưa chuyển hướng màn hình.", "captured": "Đã lưu ảnh chụp", "untitled": "Trang chưa có tiêu đề", "pageInfo": "Trang hiện tại" }
+    "defaultScreenshotName": "Màn hình mới",
+    "editScreenshot": "Sửa thông tin ảnh chụp",
+    "openFolder": "Mở thư mục",
+    "viewMode": "Chế độ xem ảnh chụp",
+    "gallery": "Thư viện",
+    "galleryAndPreview": "Thư viện & xem trước",
+    "screenshotList": "Ảnh chụp",
+    "previewImage": "Xem trước",
+    "routeMap": "Sơ đồ đường dẫn",
+    "loading": "Đang tải dự án ảnh chụp màn hình",
+    "noDescription": "Chưa có mô tả",
+    "noProjects": "Chưa có dự án",
+    "noProjectsDescription": "Tạo dự án để bắt đầu thu thập màn hình.",
+    "noScreenshots": "Chưa có ảnh chụp",
+    "noScreenshotsDescription": "Sao chép ảnh chụp rồi dán vào dự án này.",
+    "noRoutes": "Chưa có đường dẫn",
+    "noRoutesDescription": "Màn hình sẽ xuất hiện ở đây sau khi lưu đường dẫn.",
+    "selectProject": "Chọn một dự án",
+    "selectProjectDescription": "Chọn dự án trong danh sách hoặc tạo dự án mới.",
+    "project": "Dự án",
+    "screenshots": "Ảnh chụp",
+    "lastUpdated": "Cập nhật gần nhất",
+    "backToProjects": "Quay lại danh sách dự án",
+    "actions": "Thao tác",
+    "captureActions": "Chụp ảnh",
+    "viewActions": "Hiển thị",
+    "projectActions": "Dự án",
+    "dataActions": "Dữ liệu",
+    "portrait": "Dọc",
+    "landscape": "Ngang",
+    "analysis": "Phân tích",
+    "clearScreenshots": "Xóa ảnh chụp",
+    "clearScreenshotsOnlyConfirm": "Xóa tất cả ảnh chụp và dữ liệu cấu trúc trang? Tên trang và đường dẫn sẽ được giữ lại.",
+    "screenshotsCleared": "Đã xóa ảnh chụp",
+    "screenshotsClearedDescription": "Tên trang và đường dẫn được giữ lại.",
+    "clearAllData": "Xóa toàn bộ dữ liệu",
+    "clearAllDataConfirm": "Xóa tất cả ảnh chụp, bản ghi trang, dữ liệu cấu trúc và dữ liệu trình duyệt xem trước?",
+    "pasteShortcut": "Chụp màn hình, sau đó nhấn Command+V để thêm ảnh.",
+    "clipboardMissing": "Bảng nhớ tạm không chứa hình ảnh.",
+    "clipboardPreview": "Xem trước ảnh chụp trong bảng nhớ tạm",
+    "clearPage": "Xóa dữ liệu",
+    "clearPageConfirm": "Xóa tất cả ảnh chụp và dữ liệu bố cục của {route}? Tên trang và đường dẫn sẽ được giữ lại.",
+    "pageCleared": "Đã xóa dữ liệu trang",
+    "deletePage": "Xóa",
+    "deletePageConfirm": "Xóa bản ghi trang {route} và tất cả dữ liệu liên quan?",
+    "pageDeleted": "Đã xóa trang",
+    "projectConfig": "Cài đặt dự án",
+    "previewConfig": "Xem trước web",
+    "baseUrl": "URL web",
+    "openInPreview": "Mở đường dẫn trong bản xem trước",
+    "screenshotDeleted": "Đã xóa ảnh chụp",
+    "deleteScreenshot": "Xóa ảnh chụp",
+    "deleteScreenshotConfirm": "Chuyển ‘{name}’ vào Thùng rác?",
+    "more": "Thêm",
+    "clearData": "Xóa dữ liệu",
+    "clearScreenshotsConfirm": "Xóa tất cả ảnh chụp và toàn bộ dữ liệu do trình duyệt xem trước lưu trữ?",
+    "dataCleared": "Đã xóa dữ liệu",
+    "dataClearedDescription": "Đã xóa ảnh chụp và dữ liệu trình duyệt xem trước.",
+    "useAutoFit": "Dùng kích thước tự co",
+    "useDefaultSize": "Dùng kích thước mặc định",
+    "previewSizeChanged": "Đã đổi kích thước xem trước",
+    "autoFitSize": "Kích thước tự co",
+    "defaultSize": "Kích thước mặc định",
+    "continueCapture": "Tiếp tục chụp",
+    "noMissingScreenshots": "Tất cả ô ảnh chụp đã có dữ liệu",
+    "automaticCapture": "Chụp tất cả",
+    "stopAutomaticCapture": "Dừng {completed}/{total}",
+    "automaticCaptureComplete": "Đã chụp tự động",
+    "automaticCaptureCompleteDescription": "Đã cập nhật mọi trang, hướng màn hình và giao diện.",
+    "automaticCaptureSkipped": "Đã hoàn tất và bỏ qua {count} ô chụp vì trang chưa tải xong.",
+    "automaticCaptureCancelled": "Đã dừng chụp tự động",
+    "devicePreview": {
+      "tab": "Xem theo thiết bị",
+      "device": "Thiết bị mẫu",
+      "width": "Rộng",
+      "height": "Cao",
+      "rotate": "Xoay thiết bị",
+      "address": "Địa chỉ web cục bộ",
+      "back": "Quay lại",
+      "forward": "Tiến tới",
+      "reload": "Tải lại",
+      "capture": "Chụp và lưu",
+      "localOnly": "Nhập địa chỉ localhost, 127.0.0.1 hoặc ::1.",
+      "navigationUnavailable": "Ứng dụng xem trước chưa hỗ trợ chuyển tuyến nội bộ.",
+      "automationUnavailable": "Ứng dụng xem trước chưa hỗ trợ tự động đổi giao diện. Hãy tải lại GetGo Web rồi thử lại.",
+      "orientationChangeFailed": "Bản xem trước chưa chuyển hướng màn hình.",
+      "captured": "Đã lưu ảnh chụp",
+      "untitled": "Trang chưa có tiêu đề",
+      "pageInfo": "Trang hiện tại"
+    }
   }
 }

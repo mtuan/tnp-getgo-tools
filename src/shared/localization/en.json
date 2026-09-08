@@ -59,19 +59,49 @@
     "syncMarketplaceState": "State",
     "syncReview": "Review",
     "syncActions": {
-      "topic": { "create": "Create topic and listing", "update": "Update topic and listing", "remove": "Remove topic data" },
-      "quiz": { "create": "Create quiz data", "update": "Update quiz data", "remove": "Remove quiz data" }
+      "topic": {
+        "create": "Create topic and listing",
+        "update": "Update topic and listing",
+        "remove": "Remove topic data"
+      },
+      "quiz": {
+        "create": "Create quiz data",
+        "update": "Update quiz data",
+        "remove": "Remove quiz data"
+      }
     },
     "syncDetails": {
       "topic": {
-        "create": ["Create topic document /getgo-content-v2/catalog/topics/{topicId} with its quizIds.", "Create marketplace document /getgo-marketplace-topics/{topicId} for “{title}”."],
-        "update": ["Update topic document /getgo-content-v2/catalog/topics/{topicId}, including its quizIds.", "Update marketplace document /getgo-marketplace-topics/{topicId} for “{title}”."],
-        "remove": ["Delete marketplace document /getgo-marketplace-topics/{topicId} for “{title}”.", "Delete topic document /getgo-content-v2/catalog/topics/{topicId}.", "Delete every quiz, question, resource, and asset belonging to this topic."]
+        "create": [
+          "Create topic document /getgo-content-v2/catalog/topics/{topicId} with its quizIds.",
+          "Create marketplace document /getgo-marketplace-topics/{topicId} for “{title}”."
+        ],
+        "update": [
+          "Update topic document /getgo-content-v2/catalog/topics/{topicId}, including its quizIds.",
+          "Update marketplace document /getgo-marketplace-topics/{topicId} for “{title}”."
+        ],
+        "remove": [
+          "Delete marketplace document /getgo-marketplace-topics/{topicId} for “{title}”.",
+          "Delete topic document /getgo-content-v2/catalog/topics/{topicId}.",
+          "Delete every quiz, question, resource, and asset belonging to this topic."
+        ]
       },
       "quiz": {
-        "create": ["Create quiz document /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} for “{title}”.", "Write {questionCount} question documents.", "Synchronize resource documents and asset files referenced by local data."],
-        "update": ["Update quiz document /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} for “{title}”.", "Synchronize changes among its {questionCount} question documents.", "Synchronize resource documents and asset files; delete stale child records."],
-        "remove": ["Delete quiz document /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} for “{title}”.", "Delete all child question and resource documents.", "Delete all asset records and files belonging to this quiz."]
+        "create": [
+          "Create quiz document /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} for “{title}”.",
+          "Write {questionCount} question documents.",
+          "Synchronize resource documents and asset files referenced by local data."
+        ],
+        "update": [
+          "Update quiz document /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} for “{title}”.",
+          "Synchronize changes among its {questionCount} question documents.",
+          "Synchronize resource documents and asset files; delete stale child records."
+        ],
+        "remove": [
+          "Delete quiz document /getgo-content-v2/catalog/topics/{topicId}/quizzes/{quizId} for “{title}”.",
+          "Delete all child question and resource documents.",
+          "Delete all asset records and files belonging to this quiz."
+        ]
       }
     },
     "syncNothing": "Everything is already synchronized.",
@@ -124,10 +154,10 @@
     "unlisted": "Not listed",
     "competition": "Competition",
     "kidLearning": "Kids learning",
-  "free": "Free",
-  "subscription": "Subscription required",
-  "inherit": "Inherit from topic",
-  "paid": "Paid",
+    "free": "Free",
+    "subscription": "Subscription required",
+    "inherit": "Inherit from topic",
+    "paid": "Paid",
     "columns": {
       "topic": "Topic",
       "type": "Type",
@@ -313,17 +343,17 @@
     "save": "Save dictionary",
     "saved": "Dictionary saved",
     "savedDescription": "The shared multilingual dictionary was updated.",
-    "saveError": "Could not save dictionary"
-    ,"filter": "Filter dictionary words"
-    ,"clearFilter": "Clear dictionary filter"
-    ,"reviewed": "Reviewed"
-    ,"toggleAllReviewed": "Mark or unmark all dictionary words as reviewed"
-    ,"startingLetter": "Filter by starting letter"
-    ,"allLetters": "All"
-    ,"concept": "Concept"
-    ,"english": "English"
-    ,"vietnamese": "Vietnamese"
-    ,"reviewedHelp": "Only reviewed words are included when quizzes are published."
+    "saveError": "Could not save dictionary",
+    "filter": "Filter dictionary words",
+    "clearFilter": "Clear dictionary filter",
+    "reviewed": "Reviewed",
+    "toggleAllReviewed": "Mark or unmark all dictionary words as reviewed",
+    "startingLetter": "Filter by starting letter",
+    "allLetters": "All",
+    "concept": "Concept",
+    "english": "English",
+    "vietnamese": "Vietnamese",
+    "reviewedHelp": "Only reviewed words are included when quizzes are published."
   },
   "speechSettings": {
     "title": "Speech settings",
@@ -477,9 +507,30 @@
       "localhostBuilt": "Built",
       "startFailed": "Start failed",
       "startCancelled": "Start cancelled",
-      "run": { "queued": "Run queued", "running": "Running", "paused": "Run paused", "completed": "Run completed", "cancelled": "Run cancelled", "failed": "Run failed" },
-      "build": { "queued": "Build queued", "running": "Building", "paused": "Build paused", "completed": "Built", "cancelled": "Build cancelled", "failed": "Build failed" },
-      "deploy": { "queued": "Deployment queued", "running": "Deploying", "paused": "Deployment paused", "completed": "Deployed", "cancelled": "Deployment cancelled", "failed": "Deployment failed" }
+      "run": {
+        "queued": "Run queued",
+        "running": "Running",
+        "paused": "Run paused",
+        "completed": "Run completed",
+        "cancelled": "Run cancelled",
+        "failed": "Run failed"
+      },
+      "build": {
+        "queued": "Build queued",
+        "running": "Building",
+        "paused": "Build paused",
+        "completed": "Built",
+        "cancelled": "Build cancelled",
+        "failed": "Build failed"
+      },
+      "deploy": {
+        "queued": "Deployment queued",
+        "running": "Deploying",
+        "paused": "Deployment paused",
+        "completed": "Deployed",
+        "cancelled": "Deployment cancelled",
+        "failed": "Deployment failed"
+      }
     },
     "managedByTools": "Managed by Tools",
     "notManaged": "Running outside Tools",
@@ -658,20 +709,111 @@
     "authentication": "Sign in with an authorized Firebase account before reading or publishing question data."
   },
   "screenshotManager": {
-    "nav": "Screenshots", "eyebrow": "Visual QA", "title": "Screenshot projects",
+    "nav": "Screenshots",
+    "eyebrow": "Visual QA",
+    "title": "Screenshot projects",
     "pageDescription": "Collect, describe, and map web and app screens by route.",
-    "newProject": "New project", "projects": "Projects", "projectsDescription": "Saved in the GetGo Tools data folder.",
-    "name": "Name", "description": "Description", "route": "Route", "create": "Create project", "save": "Save changes",
-    "paste": "Add screenshot", "pasteScreenshot": "Read clipboard image", "addScreenshot": "Add screenshot",
+    "newProject": "New project",
+    "projects": "Projects",
+    "projectsDescription": "Saved in the GetGo Tools data folder.",
+    "name": "Name",
+    "description": "Description",
+    "route": "Route",
+    "create": "Create project",
+    "save": "Save changes",
+    "paste": "Add screenshot",
+    "pasteScreenshot": "Read clipboard image",
+    "addScreenshot": "Add screenshot",
     "pasteHint": "Add a name, route, and description for the parsed screenshot shown above.",
-    "defaultScreenshotName": "New screen", "editScreenshot": "Edit screenshot information", "openFolder": "Open folder",
-    "viewMode": "Screenshot view", "gallery": "Gallery", "galleryAndPreview": "Gallery & preview", "screenshotList": "Screenshots", "previewImage": "Preview", "routeMap": "Route map", "loading": "Loading screen capture projects",
-    "noDescription": "No description", "noProjects": "No projects yet", "noProjectsDescription": "Create a project to start collecting screens.",
-    "noScreenshots": "No screenshots yet", "noScreenshotsDescription": "Copy a screenshot and paste it into this project.",
-    "noRoutes": "No routes yet", "noRoutesDescription": "Screens appear here after their route is saved.",
-    "selectProject": "Select a project", "selectProjectDescription": "Choose a project from the list or create a new one."
-    ,"project": "Project", "screenshots": "Screenshots", "lastUpdated": "Last updated", "backToProjects": "Back to projects",
-    "actions": "Actions", "captureActions": "Capture", "viewActions": "View", "projectActions": "Project", "dataActions": "Data", "portrait": "Portrait", "landscape": "Landscape", "analysis": "Analysis", "clearScreenshots": "Clear screenshots", "clearScreenshotsOnlyConfirm": "Delete all screenshots and page layout structure data? Page names and routes will be kept.", "screenshotsCleared": "Screenshots cleared", "screenshotsClearedDescription": "Page names and routes were kept.", "clearAllData": "Delete all data", "clearAllDataConfirm": "Delete all screenshots, page records, layout structure data, and preview browser data?", "pasteShortcut": "Take a screenshot, then press Command+V to add it.", "clipboardMissing": "The clipboard does not contain an image.", "clipboardPreview": "Clipboard screenshot preview", "deletePage": "Delete page", "deletePageConfirm": "Delete the page record for {route} and all of its screenshots?", "pageDeleted": "Page deleted", "projectConfig": "Project settings", "previewConfig": "Web preview", "baseUrl": "Web URL", "openInPreview": "Open route in preview", "deleteScreenshot": "Delete screenshot", "deleteScreenshotConfirm": "Move ‘{name}’ to Trash?", "more": "More", "clearData": "Clear data", "clearScreenshotsConfirm": "Clear all screenshots and all data stored by the preview browser?", "dataCleared": "Data cleared", "dataClearedDescription": "Screenshots and preview browser data were cleared.", "useAutoFit": "Use auto-fit size", "useDefaultSize": "Use default size", "previewSizeChanged": "Preview size changed", "autoFitSize": "Auto-fit size", "defaultSize": "Default size", "continueCapture": "Continue capture", "noMissingScreenshots": "All screenshot slots are already captured", "automaticCapture": "Capture all", "stopAutomaticCapture": "Stop {completed}/{total}", "automaticCaptureComplete": "Automatic capture complete", "automaticCaptureCompleteDescription": "All page, orientation, and theme slots were updated.", "automaticCaptureSkipped": "Finished with {count} capture slots skipped because their pages did not become ready.", "automaticCaptureCancelled": "Automatic capture stopped",
-    "devicePreview": { "tab": "Device preview", "device": "Device preset", "width": "Width", "height": "Height", "rotate": "Rotate device", "address": "Local web address", "back": "Back", "forward": "Forward", "reload": "Reload", "capture": "Capture and save", "localOnly": "Enter a localhost, 127.0.0.1, or ::1 web address.", "navigationUnavailable": "The preview app does not expose in-app route navigation.", "automationUnavailable": "The preview app does not support automatic theme switching. Refresh GetGo Web and try again.", "orientationChangeFailed": "The preview did not switch orientation.", "captured": "Screenshot saved", "untitled": "Untitled page", "pageInfo": "Current page" }
+    "defaultScreenshotName": "New screen",
+    "editScreenshot": "Edit screenshot information",
+    "openFolder": "Open folder",
+    "viewMode": "Screenshot view",
+    "gallery": "Gallery",
+    "galleryAndPreview": "Gallery & preview",
+    "screenshotList": "Screenshots",
+    "previewImage": "Preview",
+    "routeMap": "Route map",
+    "loading": "Loading screen capture projects",
+    "noDescription": "No description",
+    "noProjects": "No projects yet",
+    "noProjectsDescription": "Create a project to start collecting screens.",
+    "noScreenshots": "No screenshots yet",
+    "noScreenshotsDescription": "Copy a screenshot and paste it into this project.",
+    "noRoutes": "No routes yet",
+    "noRoutesDescription": "Screens appear here after their route is saved.",
+    "selectProject": "Select a project",
+    "selectProjectDescription": "Choose a project from the list or create a new one.",
+    "project": "Project",
+    "screenshots": "Screenshots",
+    "lastUpdated": "Last updated",
+    "backToProjects": "Back to projects",
+    "actions": "Actions",
+    "captureActions": "Capture",
+    "viewActions": "View",
+    "projectActions": "Project",
+    "dataActions": "Data",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+    "analysis": "Analysis",
+    "clearScreenshots": "Clear screenshots",
+    "clearScreenshotsOnlyConfirm": "Delete all screenshots and page layout structure data? Page names and routes will be kept.",
+    "screenshotsCleared": "Screenshots cleared",
+    "screenshotsClearedDescription": "Page names and routes were kept.",
+    "clearAllData": "Delete all data",
+    "clearAllDataConfirm": "Delete all screenshots, page records, layout structure data, and preview browser data?",
+    "pasteShortcut": "Take a screenshot, then press Command+V to add it.",
+    "clipboardMissing": "The clipboard does not contain an image.",
+    "clipboardPreview": "Clipboard screenshot preview",
+    "clearPage": "Clear",
+    "clearPageConfirm": "Clear all screenshots and layout data for {route}? The page name and route will be kept.",
+    "pageCleared": "Page data cleared",
+    "deletePage": "Delete",
+    "deletePageConfirm": "Delete the page record for {route} and all related data?",
+    "pageDeleted": "Page deleted",
+    "projectConfig": "Project settings",
+    "previewConfig": "Web preview",
+    "baseUrl": "Web URL",
+    "openInPreview": "Open route in preview",
+    "screenshotDeleted": "Screenshot deleted",
+    "deleteScreenshot": "Delete screenshot",
+    "deleteScreenshotConfirm": "Move ‘{name}’ to Trash?",
+    "more": "More",
+    "clearData": "Clear data",
+    "clearScreenshotsConfirm": "Clear all screenshots and all data stored by the preview browser?",
+    "dataCleared": "Data cleared",
+    "dataClearedDescription": "Screenshots and preview browser data were cleared.",
+    "useAutoFit": "Use auto-fit size",
+    "useDefaultSize": "Use default size",
+    "previewSizeChanged": "Preview size changed",
+    "autoFitSize": "Auto-fit size",
+    "defaultSize": "Default size",
+    "continueCapture": "Continue capture",
+    "noMissingScreenshots": "All screenshot slots are already captured",
+    "automaticCapture": "Capture all",
+    "stopAutomaticCapture": "Stop {completed}/{total}",
+    "automaticCaptureComplete": "Automatic capture complete",
+    "automaticCaptureCompleteDescription": "All page, orientation, and theme slots were updated.",
+    "automaticCaptureSkipped": "Finished with {count} capture slots skipped because their pages did not become ready.",
+    "automaticCaptureCancelled": "Automatic capture stopped",
+    "devicePreview": {
+      "tab": "Device preview",
+      "device": "Device preset",
+      "width": "Width",
+      "height": "Height",
+      "rotate": "Rotate device",
+      "address": "Local web address",
+      "back": "Back",
+      "forward": "Forward",
+      "reload": "Reload",
+      "capture": "Capture and save",
+      "localOnly": "Enter a localhost, 127.0.0.1, or ::1 web address.",
+      "navigationUnavailable": "The preview app does not expose in-app route navigation.",
+      "automationUnavailable": "The preview app does not support automatic theme switching. Refresh GetGo Web and try again.",
+      "orientationChangeFailed": "The preview did not switch orientation.",
+      "captured": "Screenshot saved",
+      "untitled": "Untitled page",
+      "pageInfo": "Current page"
+    }
   }
 }
