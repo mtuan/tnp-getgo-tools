@@ -20,6 +20,7 @@ function projectPages(project: ScreenshotProject): DesignPageRecord[] {
 
 export interface ProjectCaptureWorkspaceHandle {
   captureAll(onProgress: (progress: AutomaticCaptureProgress) => void, missingOnly?: boolean): Promise<{ skipped: number }>;
+  recaptureSelected(onProgress: (progress: AutomaticCaptureProgress) => void): Promise<{ skipped: number }>;
   cancelAutomaticCapture(): void;
 }
 
@@ -63,8 +64,12 @@ export const ProjectCaptureWorkspace = forwardRef<ProjectCaptureWorkspaceHandle,
       if (!devicePreviewRef.current) throw new Error(vi ? "Bản xem trước chưa sẵn sàng." : "The preview is not ready.");
       return devicePreviewRef.current.captureAll(pages.map(({ route, name, screenshots }) => ({ route, name, capturedVariants: Object.keys(screenshots) })), onProgress, missingOnly);
     },
+    recaptureSelected(onProgress) {
+      if (!devicePreviewRef.current || !selected) throw new Error(vi ? "Bản xem trước chưa sẵn sàng." : "The preview is not ready.");
+      return devicePreviewRef.current.captureAll([{ route: selected.route, name: selected.name, capturedVariants: Object.keys(selected.screenshots) }], onProgress, false);
+    },
     cancelAutomaticCapture() { devicePreviewRef.current?.cancelAutomaticCapture(); },
-  }), [pages, vi]);
+  }), [pages, selected, vi]);
   if (!selected) return <ui.Panel><ui.PanelBody><strong>{vi ? "Chưa có trang" : "No pages yet"}</strong><p>{vi ? "Thêm ảnh có tuyến đường để bắt đầu." : "Add a routed screenshot to begin."}</p></ui.PanelBody></ui.Panel>;
   return <div ref={workspaceRef} className="screenshot-capture-workspace project-capture-workspace" style={{ "--screenshot-preview-width": `${Math.round(project.previewConfig.width * scale)}px` } as CSSProperties}>
     <aside className="screenshot-capture-library"><ui.DataTable rows={pages} columns={columns} rowKey={page => page.id} ariaLabel={vi ? "Danh sách trang" : "Page list"} emptyText={vi ? "Chưa có trang" : "No pages"} selectedRowKey={selected.route} onRowClick={page => setSelectedRoute(page.route)} /></aside>

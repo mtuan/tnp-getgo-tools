@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Calendar, Camera, Check, Eraser, FileSearch, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, Settings, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, Camera, Check, Eraser, FileSearch, FolderOpen, Maximize2, Minimize2, Plus, RectangleHorizontal, RectangleVertical, RefreshCw, Settings, Square, Trash2 } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -246,6 +246,18 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       } else setError(cause instanceof Error ? cause.message : String(cause));
     } finally { setAutomaticCapture(null); }
   }
+  async function recaptureSelectedPage() {
+    if (!captureWorkspaceRef.current || busy || automaticCapture) return;
+    setError(null);
+    setAutomaticCapture({ completed: 0, total: 4, route: "", orientation: "portrait", theme: "light" });
+    try {
+      const result = await captureWorkspaceRef.current.recaptureSelected(setAutomaticCapture);
+      toast.show({ title: copy.recaptureComplete, description: result.skipped ? copy.automaticCaptureSkipped.replace("{count}", String(result.skipped)) : copy.recaptureCompleteDescription });
+    } catch (cause) {
+      if (cause instanceof Error && cause.message === "AUTOMATIC_CAPTURE_CANCELLED") toast.show({ title: copy.automaticCaptureCancelled });
+      else setError(cause instanceof Error ? cause.message : String(cause));
+    } finally { setAutomaticCapture(null); }
+  }
 
   const columns = useMemo<ui.DataColumn<ScreenshotProjectSummary>[]>(() => [
     { key: "name", title: copy.project, render: item => <span className="screenshot-project-cell"><strong>{item.name}</strong><small>{item.description || copy.noDescription}</small></span>, sortValue: item => item.name },
@@ -258,6 +270,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     { id: "capture-label", type: "label", label: copy.captureActions, onSelect: () => undefined },
     { id: "capture-all", label: automaticCapture ? copy.stopAutomaticCapture.replace("{completed}", String(automaticCapture.completed)).replace("{total}", String(automaticCapture.total)) : copy.automaticCapture, icon: automaticCapture ? Square : Camera, disabled: !automaticCapture && !project.pages.length, onSelect: () => automaticCapture ? captureWorkspaceRef.current?.cancelAutomaticCapture() : void startAutomaticCapture(false) },
     { id: "capture-missing", label: copy.continueCapture, icon: Camera, disabled: !!automaticCapture || !project.pages.length, onSelect: () => void startAutomaticCapture(true) },
+    { id: "recapture-page", label: copy.recapturePage, icon: RefreshCw, disabled: !!automaticCapture || !project.pages.length, onSelect: () => void recaptureSelectedPage() },
     { id: "portrait", label: copy.portrait, icon: RectangleVertical, trailingIcon: project.previewConfig.width < project.previewConfig.height ? Check : undefined, disabled: !!automaticCapture, onSelect: () => void setCaptureOrientation("portrait") },
     { id: "landscape", label: copy.landscape, icon: RectangleHorizontal, trailingIcon: project.previewConfig.width > project.previewConfig.height ? Check : undefined, disabled: !!automaticCapture, onSelect: () => void setCaptureOrientation("landscape") },
     { id: "view-label", type: "label", label: copy.viewActions, onSelect: () => undefined },
