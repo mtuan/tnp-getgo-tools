@@ -26,6 +26,7 @@ const api: DesktopApi = {
   clearScreenshots: (projectId) => ipcRenderer.invoke("screenshots:clear", projectId),
   clearPreviewBrowserData: () => ipcRenderer.invoke("screenshots:preview:clear-data") as Promise<void>,
   showScreenshotProjectFolder: (projectId) => ipcRenderer.invoke("screenshots:projects:show", projectId) as Promise<void>,
+  updatePageBreakdown: (projectId, input) => ipcRenderer.invoke("screenshots:breakdown:update", projectId, input),
   restartApp: () => ipcRenderer.invoke("app:restart") as Promise<void>,
   checkStartupEnvironment: (mockIssues) => ipcRenderer.invoke("startup-environment:check", mockIssues),
   openEnvironmentConfiguration: () => ipcRenderer.invoke("startup-environment:open-configuration") as Promise<void>,

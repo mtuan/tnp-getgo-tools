@@ -10,6 +10,27 @@ export interface ScreenshotRecord {
   createdAt: string;
   updatedAt: string;
   previewDataUrl?: string;
+  orientation: DesignOrientation;
+  theme: DesignTheme;
+}
+
+export type DesignOrientation = "portrait" | "landscape";
+export type DesignTheme = "light" | "dark";
+export type DesignVariant = `${DesignOrientation}-${DesignTheme}`;
+
+export interface PageBreakdown {
+  orientation: DesignOrientation;
+  summary: string;
+  definition: Record<string, unknown> | null;
+  updatedAt: string;
+}
+
+export interface DesignPageRecord {
+  id: string;
+  name: string;
+  route: string;
+  screenshots: Partial<Record<DesignVariant, ScreenshotRecord>>;
+  breakdowns: Partial<Record<DesignOrientation, PageBreakdown>>;
 }
 
 export interface ScreenshotProject {
@@ -20,7 +41,9 @@ export interface ScreenshotProject {
   createdAt: string;
   updatedAt: string;
   previewConfig: ScreenshotPreviewConfig;
+  instructions: string;
   screenshots: ScreenshotRecord[];
+  pageBreakdowns: Record<string, PageBreakdown>;
 }
 
 export interface ScreenshotPreviewConfig {
@@ -36,6 +59,7 @@ export interface ScreenshotProjectSummary {
   name: string;
   description: string;
   screenshotCount: number;
+  pageCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +67,7 @@ export interface ScreenshotProjectSummary {
 export interface ScreenshotProjectInput {
   name: string;
   description: string;
+  instructions: string;
   previewConfig: ScreenshotPreviewConfig;
 }
 
@@ -50,6 +75,15 @@ export interface ScreenshotMetadataInput {
   name: string;
   description: string;
   route: string;
+  orientation?: DesignOrientation;
+  theme?: DesignTheme;
+}
+
+export interface PageBreakdownInput {
+  route: string;
+  orientation: DesignOrientation;
+  summary: string;
+  definition: Record<string, unknown> | null;
 }
 
 export interface ClipboardScreenshot {
@@ -84,6 +118,7 @@ export interface ScreenshotManagerDesktopApi {
     screenshotId: string,
   ): Promise<ScreenshotProject>;
   clearScreenshots(projectId: string): Promise<ScreenshotProject>;
+  updatePageBreakdown(projectId: string, input: PageBreakdownInput): Promise<ScreenshotProject>;
   clearPreviewBrowserData(): Promise<void>;
   showScreenshotProjectFolder(projectId: string): Promise<void>;
 }

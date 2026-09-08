@@ -7,6 +7,9 @@ import type {
   ScreenshotProject,
   ScreenshotProjectInput,
   ScreenshotProjectSummary,
+  DesignOrientation,
+  DesignTheme,
+  PageBreakdownInput,
 } from "../domain/screenshot-project.js";
 
 const safeId = (value: string) => {
@@ -84,7 +87,17 @@ export class ScreenshotProjectService {
       !Array.isArray(data.screenshots)
     )
       throw new Error("The screenshot project is invalid.");
-    return { ...data, previewConfig: normalizePreviewConfig(data.previewConfig) };
+    return {
+      ...data,
+      instructions: typeof data.instructions === "string" ? data.instructions : "",
+      previewConfig: normalizePreviewConfig(data.previewConfig),
+      screenshots: data.screenshots.map(item => ({
+        ...item,
+        orientation: item.orientation === "landscape" ? "landscape" : item.width > item.height ? "landscape" : "portrait",
+        theme: item.theme === "dark" ? "dark" : "light",
+      })),
+      pageBreakdowns: (data as ScreenshotProject & { pageBreakdowns?: Record<string, unknown> }).pageBreakdowns ?? {},
+    } as ScreenshotProject;
   }
 
   async list(): Promise<ScreenshotProjectSummary[]> {
@@ -101,6 +114,7 @@ export class ScreenshotProjectService {
               name: project.name,
               description: project.description,
               screenshotCount: project.screenshots.length,
+              pageCount: new Set(project.screenshots.map(item => item.route)).size,
               createdAt: project.createdAt,
               updatedAt: project.updatedAt,
             };
@@ -121,10 +135,12 @@ export class ScreenshotProjectService {
       id: randomUUID(),
       name: cleanText(input?.name, "project name", true),
       description: cleanText(input?.description ?? "", "description"),
+      instructions: cleanText(input?.instructions ?? "", "instructions"),
       createdAt: now,
       updatedAt: now,
       previewConfig: normalizePreviewConfig(input?.previewConfig),
       screenshots: [],
+      pageBreakdowns: {},
     };
     await fs.mkdir(path.join(this.projectFolder(project.id), "screenshots"), {
       recursive: true,
@@ -138,6 +154,7 @@ export class ScreenshotProjectService {
     const project = await this.read(safeId(projectId));
     project.name = cleanText(input?.name, "project name", true);
     project.description = cleanText(input?.description ?? "", "description");
+    project.instructions = cleanText(input?.instructions ?? "", "instructions");
     project.previewConfig = normalizePreviewConfig(input?.previewConfig);
     project.updatedAt = new Date().toISOString();
     await this.write(project);
@@ -183,22 +200,31 @@ export class ScreenshotProjectService {
     const now = new Date().toISOString();
     const size = image.getSize();
     const fileName = `${id}.png`;
+    const orientation: DesignOrientation = metadata.orientation === "landscape" ? "landscape" : "portrait";
+    const theme: DesignTheme = metadata.theme === "dark" ? "dark" : "light";
+    const route = normalizeRoute(metadata?.route);
+    const existing = project.screenshots.find(item => item.route === route && item.orientation === orientation && item.theme === theme);
     await fs.writeFile(
       path.join(this.projectFolder(project.id), "screenshots", fileName),
       image.toPNG(),
     );
-    project.screenshots.push({
-      id,
+    if (existing) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeFileName(existing.fileName)));
+    const record = {
+      id: existing?.id ?? id,
       name: cleanText(metadata?.name, "screenshot name", true),
       description: cleanText(metadata?.description ?? "", "description"),
-      route: normalizeRoute(metadata?.route),
+      route,
       fileName,
-      mimeType: "image/png",
+      mimeType: "image/png" as const,
       width: size.width,
       height: size.height,
-      createdAt: now,
+      createdAt: existing?.createdAt ?? now,
       updatedAt: now,
-    });
+      orientation,
+      theme,
+    };
+    if (existing) project.screenshots.splice(project.screenshots.indexOf(existing), 1, record);
+    else project.screenshots.push(record);
     project.updatedAt = now;
     await this.write(project);
     return this.load(project.id);
@@ -220,6 +246,8 @@ export class ScreenshotProjectService {
       "description",
     );
     screenshot.route = normalizeRoute(metadata?.route);
+    screenshot.orientation = metadata.orientation === "landscape" ? "landscape" : screenshot.orientation;
+    screenshot.theme = metadata.theme === "dark" ? "dark" : metadata.theme === "light" ? "light" : screenshot.theme;
     screenshot.updatedAt = new Date().toISOString();
     project.updatedAt = screenshot.updatedAt;
     await this.write(project);
@@ -245,6 +273,22 @@ export class ScreenshotProjectService {
       await shell.trashItem(imagePath);
     }
     project.screenshots = [];
+    project.updatedAt = new Date().toISOString();
+    await this.write(project);
+    return this.load(project.id);
+  }
+
+  async updatePageBreakdown(projectId: string, input: PageBreakdownInput): Promise<ScreenshotProject> {
+    const project = await this.read(safeId(projectId)) as ScreenshotProject & { pageBreakdowns?: Record<string, unknown> };
+    const route = normalizeRoute(input.route);
+    const orientation: DesignOrientation = input.orientation === "landscape" ? "landscape" : "portrait";
+    project.pageBreakdowns ??= {};
+    project.pageBreakdowns[`${route}:${orientation}`] = {
+      orientation,
+      summary: cleanText(input.summary ?? "", "breakdown summary"),
+      definition: input.definition && typeof input.definition === "object" ? input.definition : null,
+      updatedAt: new Date().toISOString(),
+    };
     project.updatedAt = new Date().toISOString();
     await this.write(project);
     return this.load(project.id);

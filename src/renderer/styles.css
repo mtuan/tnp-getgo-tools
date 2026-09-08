@@ -162,6 +162,29 @@ html {
 .design-projects-page > .ui-page-header { margin-bottom: 0; }
 .design-project-cell { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .design-project-cell small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.design-page-variant { width: 72px; height: 72px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-subtle); }
+.design-page-variant img { object-fit: contain; }
+.design-page-missing { display: inline-flex; width: 72px; height: 72px; align-items: center; justify-content: center; gap: 4px; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius-sm); }
+.design-page-missing svg { width: 16px; height: 16px; }
+.route-screenshot-page { display: grid; gap: 16px; min-width: 0; }
+.route-screenshot-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.route-screenshot-slot { min-width: 0; margin: 0; }
+.route-screenshot-slot > div { display: grid; height: 156px; place-items: center; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-subtle); }
+.route-screenshot-slot .ui-image { width: 100%; height: 100%; }
+.route-screenshot-slot > div > span { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.route-screenshot-slot > div > span svg { width: 20px; height: 20px; }
+.route-screenshot-slot figcaption { padding-top: 7px; color: var(--muted); font-size: 12px; text-align: center; text-transform: capitalize; }
+@media (max-width: 900px) { .route-screenshot-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.crud-dialog.route-capture-drawer-portrait { width: min(520px, calc(100vw - 40px)); }
+.crud-dialog.route-capture-drawer-landscape { width: min(1200px, calc(100vw - 40px)); }
+.route-capture-drawer .crud-body { display: flex; padding: 0; overflow: hidden; }
+.route-capture-drawer .route-screenshot-page,
+.route-capture-drawer .route-capture-browser-panel { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 0; }
+.route-capture-drawer .route-capture-browser-panel { border: 0; border-radius: 0; }
+.route-capture-drawer .route-capture-browser-panel > .device-preview { min-height: 0; flex: 1; padding: 16px 20px 20px; }
+.route-capture-drawer .device-preview-stage { min-height: 0; flex: 1; }
+.route-capture-drawer .device-browser { right: auto; left: 50%; margin-left: calc(var(--device-preview-width) / -2); transform-origin: top center; }
+.route-capture-drawer .device-browser-bar { display: grid; min-height: 52px; flex: none; flex-direction: unset; }
 .design-simulator-panel { min-width: 0; height: calc(100vh - 214px); min-height: 680px; padding: 0; overflow: hidden; }
 .design-simulator-panel > .panel-content { height: 100%; }
 .design-simulator { display: grid; grid-template-columns: 250px minmax(0,1fr); height: 100%; min-width: 0; color: var(--text); background: var(--getgo-panel); }
@@ -211,12 +234,31 @@ html {
 .screenshot-capture-workspace { display: grid; grid-template-columns: minmax(0, 1fr) var(--screenshot-preview-width); align-items: start; gap: 22px; }
 .screenshot-capture-library { min-width: 0; }
 .screenshot-capture-library .ui-data-table-scroll { max-height: calc(100vh - 290px); overflow: auto; scrollbar-gutter: stable; }
+.screenshot-capture-library .ui-data-table thead { position: sticky; top: 0; z-index: 2; background: var(--getgo-panel); box-shadow: 0 1px var(--line); }
+.capture-mode-heading { display: grid; justify-items: center; gap: 1px; line-height: 1.1; }
+.capture-mode-heading strong { font-size: 11px; font-weight: 650; }
+.capture-mode-heading small { color: var(--muted); font-size: 10px; font-weight: 500; }
 .ui-image.screenshot-table-thumbnail { display: block; width: 40px; min-width: 40px; max-width: 40px; height: 32px; min-height: 32px; max-height: 32px; contain: size layout paint; overflow: hidden; border-radius: 4px; background: var(--soft); }
 .ui-image.screenshot-table-thumbnail .ui-image-element { width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
 .screenshot-table-title { display: block; overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
 .screenshot-table-route { display: block; overflow: hidden; max-width: 100%; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .screenshot-table-actions { display: flex; justify-content: flex-end; gap: 2px; }
 .screenshot-device-workspace { min-width: 0; }
+.project-capture-preview { display: grid; min-height: 0; gap: 12px; }
+.project-capture-workspace { min-height: 0; align-items: stretch; overflow: hidden; }
+.project-capture-workspace .screenshot-capture-library,
+.project-capture-workspace .ui-data-table,
+.project-capture-workspace .ui-data-table-scroll { min-height: 0; height: 100%; }
+.project-capture-workspace .screenshot-capture-library { overflow: hidden; }
+.project-capture-workspace .screenshot-capture-library .ui-data-table-scroll { max-height: none; overflow-x: hidden; overflow-y: auto; }
+.project-capture-preview .device-preview { min-height: 0; }
+.capture-slot-thumbnail { width: 54px; height: 42px; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); }
+.capture-slot-empty { color: var(--muted); }
+.project-capture-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
+.project-capture-toolbar > div:first-child { display: grid; min-width: 0; gap: 3px; }
+.project-capture-toolbar strong,
+.project-capture-toolbar code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-capture-toolbar code { color: var(--muted); font-size: 12px; }
 .screenshot-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
 .screenshot-card { display: grid; overflow: hidden; padding: 0; border: 1px solid var(--line); border-radius: 13px; color: var(--text); background: var(--getgo-panel); text-align: left; box-shadow: 0 1px 3px #0f172a12; transition: transform 150ms ease, box-shadow 150ms ease; }
 .screenshot-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #0f172a18; }

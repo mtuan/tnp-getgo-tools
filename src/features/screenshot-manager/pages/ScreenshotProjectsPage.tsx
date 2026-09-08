@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
-import { ArrowLeft, Calendar, Eye, FolderOpen, Image as ImageIcon, LayoutGrid, Maximize2, Minimize2, Network, Plus, Settings, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { ArrowLeft, Calendar, FolderOpen, LayoutGrid, Maximize2, Minimize2, Network, PanelsTopLeft, Plus, RectangleHorizontal, RectangleVertical, Settings, Trash2 } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
-import type { ClipboardScreenshot, ScreenshotMetadataInput, ScreenshotProject, ScreenshotProjectSummary, ScreenshotRecord } from "../domain/screenshot-project";
+import type { ClipboardScreenshot, DesignPageRecord, ScreenshotMetadataInput, ScreenshotProject, ScreenshotProjectSummary, ScreenshotRecord } from "../domain/screenshot-project";
 import { ScreenshotEditorDialog } from "../components/ScreenshotEditorDialog";
 import { ScreenshotRouteMap } from "../components/ScreenshotRouteMap";
-import { DevicePreview } from "../components/DevicePreview";
+import { DesignPageLibrary } from "../components/DesignPageLibrary";
+import { RouteScreenshotPage } from "../components/RouteScreenshotPage";
+import { ProjectCaptureWorkspace } from "../components/ProjectCaptureWorkspace";
 
-type DetailTab = "gallery" | "map";
+type DetailTab = "pages" | "capture" | "map";
 const previewPresets = [
   { value: "iphone-se", label: "iPhone SE · 375 × 667", width: 375, height: 667 },
   { value: "iphone-15", label: "iPhone 15 · 393 × 852", width: 393, height: 852 },
@@ -18,13 +20,18 @@ const previewPresets = [
   { value: "desktop", label: "Desktop · 1280 × 800", width: 1280, height: 800 },
   { value: "custom", label: "Custom", width: 393, height: 852 },
 ];
+const captureSizes = {
+  portrait: { devicePreset: "iphone-15", width: 393, height: 852 },
+  landscape: { devicePreset: "desktop", width: 1440, height: 900 },
+} as const;
 const parseRoute = (route: string) => {
-  const match = /^\/screenshots\/([^/]+)(?:\/(gallery|map|preview))?\/?$/.exec(route.split("?")[0]);
-  if (!match) return { projectId: null, tab: "gallery" as DetailTab };
-  try { return { projectId: decodeURIComponent(match[1]), tab: match[2] === "map" ? "map" as const : "gallery" as const }; }
-  catch { return { projectId: null, tab: "gallery" as DetailTab }; }
+  const match = /^\/screenshots\/([^/]+)(?:\/(pages|capture|gallery|map|preview))?(?:\/([^/]+))?\/?$/.exec(route.split("?")[0]);
+  if (!match) return { projectId: null, tab: "pages" as DetailTab, pageRoute: null as string | null };
+  try { return { projectId: decodeURIComponent(match[1]), tab: match[2] === "map" ? "map" as const : ["capture", "gallery", "preview"].includes(match[2] ?? "") ? "capture" as const : "pages" as const, pageRoute: match[2] === "pages" && match[3] ? decodeURIComponent(match[3]) : null }; }
+  catch { return { projectId: null, tab: "pages" as DetailTab, pageRoute: null as string | null }; }
 };
 const detailRoute = (projectId: string, tab: DetailTab) => `/screenshots/${encodeURIComponent(projectId)}/${tab}`;
+const pageRoute = (projectId: string, route: string) => `${detailRoute(projectId, "pages")}/${encodeURIComponent(route)}`;
 const formatDate = (value: string, locale: "en" | "vi") => new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 
 export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: { locale: "en" | "vi"; initialRoute: string; onRouteChange(route: string): void }) {
@@ -39,9 +46,8 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   const [configuring, setConfiguring] = useState(false);
   const [editor, setEditor] = useState<ScreenshotRecord | "paste" | null>(null);
   const [clipboard, setClipboard] = useState<ClipboardScreenshot>();
-  const [previewRequest, setPreviewRequest] = useState<{ route: string; key: number }>();
-  const [previewScale, setPreviewScale] = useState(1);
   const [previewResetKey, setPreviewResetKey] = useState(0);
+  const [capturePage, setCapturePage] = useState<DesignPageRecord | null>(null);
   const [projectValues, setProjectValues] = useState<ui.FormValues>({ name: "", description: "", baseUrl: "http://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 });
   const toast = ui.useToast();
 
@@ -58,7 +64,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     setError(null); setClipboard(image); setEditor("paste");
   }, [copy.clipboardMissing]);
   useEffect(() => {
-    if (!project || route.tab !== "gallery" || editor) return;
+    if (!project || route.tab !== "capture" || editor) return;
     const paste = (event: ClipboardEvent) => {
       if ((event.target as HTMLElement | null)?.closest("input, textarea, [contenteditable=true]")) return;
       event.preventDefault(); void openPaste();
@@ -70,13 +76,14 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   const projectFields = useMemo<ui.FormSchema[]>(() => [
     { name: "name", type: "text", label: copy.name, required: true, maxLength: 120 },
     { name: "description", type: "textarea", label: copy.description, rows: 4, maxLength: 500 },
+    { name: "instructions", type: "textarea", label: locale === "vi" ? "Hướng dẫn thiết kế dùng chung" : "Shared design instructions", rows: 8 },
     { section: copy.previewConfig, fields: [
       { name: "baseUrl", type: "url", label: copy.baseUrl, required: true, placeholder: "http://localhost:5173" },
       { name: "devicePreset", type: "select", label: copy.devicePreview.device, options: previewPresets, presentation: "dropdown" },
       [{ name: "width", type: "number", label: copy.devicePreview.width, required: true, min: 240, max: 2560 }, { name: "height", type: "number", label: copy.devicePreview.height, required: true, min: 320, max: 2560 }],
     ] },
-  ], [copy]);
-  const projectInput = () => ({ name: String(projectValues.name), description: String(projectValues.description ?? ""), previewConfig: { baseUrl: String(projectValues.baseUrl), devicePreset: String(projectValues.devicePreset), width: Number(projectValues.width), height: Number(projectValues.height), sizeMode: project?.previewConfig.sizeMode ?? "fit" as const } });
+  ], [copy, locale]);
+  const projectInput = () => ({ name: String(projectValues.name), description: String(projectValues.description ?? ""), instructions: String(projectValues.instructions ?? ""), previewConfig: { baseUrl: String(projectValues.baseUrl), devicePreset: String(projectValues.devicePreset), width: Number(projectValues.width), height: Number(projectValues.height), sizeMode: project?.previewConfig.sizeMode ?? "fit" as const } });
   const changeProjectValue = (name: string, value: unknown) => {
     setProjectValues(current => {
       if (name !== "devicePreset") return { ...current, [name]: value };
@@ -90,7 +97,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     setBusy(true); setError(null);
     try {
       const created = await window.getgo.createScreenshotProject(projectInput());
-      setCreating(false); setProjectValues({ name: "", description: "", baseUrl: "http://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 }); onRouteChange(detailRoute(created.id, "gallery"));
+      setCreating(false); setProjectValues({ name: "", description: "", instructions: "", baseUrl: "http://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 }); onRouteChange(detailRoute(created.id, "pages"));
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
@@ -106,7 +113,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   }
   const openProjectConfig = () => {
     if (!project) return;
-    setProjectValues({ name: project.name, description: project.description, baseUrl: project.previewConfig.baseUrl, devicePreset: project.previewConfig.devicePreset, width: project.previewConfig.width, height: project.previewConfig.height });
+    setProjectValues({ name: project.name, description: project.description, instructions: project.instructions, baseUrl: project.previewConfig.baseUrl, devicePreset: project.previewConfig.devicePreset, width: project.previewConfig.width, height: project.previewConfig.height });
     setConfiguring(true);
   };
   async function saveScreenshot(input: ScreenshotMetadataInput) {
@@ -117,15 +124,6 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       const next = editor === "paste" ? await window.getgo.addScreenshot(project.id, clipboard!.previewDataUrl, input) : await window.getgo.updateScreenshot(project.id, editor.id, input);
       setProject(next); setProjects(await window.getgo.listScreenshotProjects()); setEditor(null); setClipboard(undefined);
     } finally { setBusy(false); }
-  }
-  async function deleteScreenshot(record: ScreenshotRecord) {
-    if (!project || !window.confirm(copy.deleteScreenshotConfirm.replace("{name}", record.name))) return;
-    setBusy(true); setError(null);
-    try {
-      const next = await window.getgo.deleteScreenshot(project.id, record.id);
-      setProject(next); setProjects(await window.getgo.listScreenshotProjects());
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setBusy(false); }
   }
   async function clearData() {
     if (!project || !window.confirm(copy.clearScreenshotsConfirm)) return;
@@ -149,47 +147,61 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
       const next = await window.getgo.updateScreenshotProject(project.id, {
         name: project.name,
         description: project.description,
+        instructions: project.instructions,
         previewConfig: { ...project.previewConfig, sizeMode },
       });
-      setPreviewScale(1);
       setProject(next);
       toast.show({ title: copy.previewSizeChanged, description: sizeMode === "fit" ? copy.autoFitSize : copy.defaultSize });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
+  async function setCaptureOrientation(orientation: "portrait" | "landscape") {
+    if (!project || busy) return;
+    const size = captureSizes[orientation];
+    if (project.previewConfig.width === size.width && project.previewConfig.height === size.height) return;
+    setBusy(true); setError(null);
+    try {
+      setProject(await window.getgo.updateScreenshotProject(project.id, {
+        name: project.name,
+        description: project.description,
+        instructions: project.instructions,
+        previewConfig: { ...project.previewConfig, ...size, sizeMode: "fit" },
+      }));
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
 
   const columns = useMemo<ui.DataColumn<ScreenshotProjectSummary>[]>(() => [
     { key: "name", title: copy.project, render: item => <span className="screenshot-project-cell"><strong>{item.name}</strong><small>{item.description || copy.noDescription}</small></span>, sortValue: item => item.name },
-    { key: "screenshots", title: copy.screenshots, width: 150, align: "center", render: item => item.screenshotCount, sortValue: item => item.screenshotCount },
+    { key: "pages", title: locale === "vi" ? "Trang" : "Pages", width: 120, align: "center", render: item => item.pageCount, sortValue: item => item.pageCount },
     { key: "updated", title: copy.lastUpdated, width: 220, render: item => <span className="screenshot-date"><Calendar size={15} />{formatDate(item.updatedAt, locale)}</span>, sortValue: item => item.updatedAt },
   ], [copy, locale]);
-  const screenshotColumns = useMemo<ui.DataColumn<ScreenshotRecord>[]>(() => [
-    { key: "preview", title: copy.previewImage, width: 56, render: record => <ui.Image className="screenshot-table-thumbnail" src={record.previewDataUrl} alt="" fallback={<ImageIcon />} /> },
-    { key: "title", title: copy.name, render: record => <strong className="screenshot-table-title">{record.name}</strong>, sortValue: record => record.name },
-    { key: "route", title: copy.route, width: "38%", render: record => <code className="screenshot-table-route">{record.route}</code>, sortValue: record => record.route },
-    { key: "actions", title: "", width: 84, role: "actions", render: record => <span className="screenshot-table-actions"><ui.TableActionButton variant="icon" icon={<Eye />} aria-label={copy.openInPreview} title={copy.openInPreview} onClick={event => { event.stopPropagation(); setPreviewRequest({ route: record.route, key: Date.now() }); }} /><ui.TableActionButton variant="icon" color="danger" icon={<Trash2 />} disabled={busy} aria-label={copy.deleteScreenshot} title={copy.deleteScreenshot} onClick={event => { event.stopPropagation(); void deleteScreenshot(record); }} /></span> },
-  ], [busy, copy, project]);
   if (loading) return <ui.PageLoading label={copy.loading} />;
   const closeEditor = () => { setEditor(null); setClipboard(undefined); };
 
   return <div className="screenshot-manager-page">
     {!project ? <>
-      <ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<ui.Button icon={<Plus />} variant="primary" onClick={() => setCreating(true)}>{copy.newProject}</ui.Button>} />
+      <ui.PageHeader eyebrow={locale === "vi" ? "Xưởng thiết kế" : "Design studio"} title={locale === "vi" ? "Dự án thiết kế" : "Design projects"} description={locale === "vi" ? "Quản lý ảnh tham chiếu và định nghĩa theo từng trang." : "Manage reference captures and definitions by page."} actions={<ui.Button icon={<Plus />} variant="primary" onClick={() => setCreating(true)}>{copy.newProject}</ui.Button>} />
       {error && <ui.ErrorFrame message={error} />}
-      <ui.Panel title={copy.projects} description={copy.projectsDescription}><ui.DataTable rows={projects} columns={columns} rowKey={item => item.id} ariaLabel={copy.projects} emptyText={copy.noProjects} defaultSort={{ key: "updated", direction: "desc" }} onRowClick={item => onRouteChange(detailRoute(item.id, "gallery"))} /></ui.Panel>
+      <ui.Panel title={copy.projects} description={copy.projectsDescription}><ui.DataTable rows={projects} columns={columns} rowKey={item => item.id} ariaLabel={copy.projects} emptyText={copy.noProjects} defaultSort={{ key: "updated", direction: "desc" }} onRowClick={item => onRouteChange(detailRoute(item.id, "pages"))} /></ui.Panel>
+    </> : route.pageRoute ? <>
+      <ui.PageHeader eyebrow={locale === "vi" ? "Ảnh chụp theo tuyến đường" : "Route screenshots"} title={project.screenshots.find(item => item.route === route.pageRoute)?.name || route.pageRoute} description={route.pageRoute} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange(detailRoute(project.id, "pages"))} />} />
+      <RouteScreenshotPage locale={locale} project={project} pageRoute={route.pageRoute} resetKey={previewResetKey} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} />
     </> : <>
       <div className="screenshot-project-heading">
-        <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ControlGroup><ui.ActionMenu label={copy.more} disabled={busy} items={[{ id: "size-mode", label: project.previewConfig.sizeMode === "fit" ? copy.useDefaultSize : copy.useAutoFit, icon: project.previewConfig.sizeMode === "fit" ? Maximize2 : Minimize2, onSelect: () => void togglePreviewSizeMode() }, { id: "clear", label: copy.clearData, icon: Trash2, color: "danger", onSelect: () => void clearData() }]} /><ui.Button icon={<Settings />} onClick={openProjectConfig}>{copy.projectConfig}</ui.Button><ui.Button icon={<FolderOpen />} onClick={() => void window.getgo.showScreenshotProjectFolder(project.id)}>{copy.openFolder}</ui.Button></ui.ControlGroup>} />
-        <ui.Tabs<DetailTab> className="contest-detail-tabs" variant="underline" ariaLabel={copy.viewMode} value={route.tab} onChange={tab => onRouteChange(detailRoute(project.id, tab))} items={[{ id: "gallery", label: copy.galleryAndPreview, icon: <LayoutGrid /> }, { id: "map", label: copy.routeMap, icon: <Network /> }]} />
+        <ui.PageHeader eyebrow={copy.eyebrow} title={project.name} description={project.description || copy.noDescription} leading={<ui.Button icon={<ArrowLeft />} variant="icon" aria-label={copy.backToProjects} title={copy.backToProjects} onClick={() => onRouteChange("/screenshots")} />} actions={<ui.ControlGroup>{route.tab === "capture" && <><ui.Button icon={<RectangleVertical />} variant={project.previewConfig.width < project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("portrait")}>{locale === "vi" ? "Dọc" : "Portrait"}</ui.Button><ui.Button icon={<RectangleHorizontal />} variant={project.previewConfig.width > project.previewConfig.height ? "primary" : "secondary"} disabled={busy} onClick={() => void setCaptureOrientation("landscape")}>{locale === "vi" ? "Ngang" : "Landscape"}</ui.Button></>}<ui.ActionMenu label={copy.more} disabled={busy} items={[{ id: "size-mode", label: project.previewConfig.sizeMode === "fit" ? copy.useDefaultSize : copy.useAutoFit, icon: project.previewConfig.sizeMode === "fit" ? Maximize2 : Minimize2, onSelect: () => void togglePreviewSizeMode() }, { id: "clear", label: copy.clearData, icon: Trash2, color: "danger", onSelect: () => void clearData() }]} /><ui.Button icon={<Settings />} onClick={openProjectConfig}>{copy.projectConfig}</ui.Button><ui.Button icon={<FolderOpen />} onClick={() => void window.getgo.showScreenshotProjectFolder(project.id)}>{copy.openFolder}</ui.Button></ui.ControlGroup>} />
+        <ui.Tabs<DetailTab> className="contest-detail-tabs" variant="underline" ariaLabel={copy.viewMode} value={route.tab} onChange={tab => onRouteChange(detailRoute(project.id, tab))} items={[{ id: "pages", label: locale === "vi" ? "Trang thiết kế" : "Design pages", icon: <PanelsTopLeft /> }, { id: "capture", label: locale === "vi" ? "Chụp màn hình" : "Capture", icon: <LayoutGrid /> }, { id: "map", label: copy.routeMap, icon: <Network /> }]} />
       </div>
       {error && <ui.ErrorFrame message={error} />}
       <ui.TabPanels<DetailTab> value={route.tab} items={[
-        { id: "gallery", content: <div className="screenshot-capture-workspace" style={{ "--screenshot-preview-width": `${Math.round(project.previewConfig.width * (project.previewConfig.sizeMode === "fit" ? previewScale : 1))}px` } as CSSProperties}><aside className="screenshot-capture-library"><ui.DataTable rows={project.screenshots} columns={screenshotColumns} rowKey={record => record.id} ariaLabel={copy.screenshotList} emptyText={copy.noScreenshots} onRowClick={record => setEditor(record)} /></aside><div className="screenshot-device-workspace"><DevicePreview locale={locale} project={project} requestedRoute={previewRequest} resetKey={previewResetKey} onScaleChange={setPreviewScale} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} /></div></div> },
+        { id: "pages", content: <DesignPageLibrary locale={locale} project={project} onProjectChange={setProject} onOpenPage={page => onRouteChange(pageRoute(project.id, page.route))} onCapturePage={setCapturePage} /> },
+        { id: "capture", content: <ProjectCaptureWorkspace locale={locale} project={project} resetKey={previewResetKey} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} /> },
         { id: "map", content: <ScreenshotRouteMap screenshots={project.screenshots} emptyTitle={copy.noRoutes} emptyDescription={copy.noRoutesDescription} onOpen={setEditor} /> },
       ]} />
     </>}
     {creating && <ui.DialogFrame presentation="modal" title={copy.newProject} busy={busy} error={error} submitLabel={copy.create} onClose={() => setCreating(false)} onSubmit={create}><ui.Form fields={projectFields} values={projectValues} onChange={changeProjectValue} /></ui.DialogFrame>}
     {configuring && <ui.DialogFrame presentation="modal" title={copy.projectConfig} busy={busy} error={error} submitLabel={copy.save} onClose={() => setConfiguring(false)} onSubmit={saveProject}><ui.Form fields={projectFields} values={projectValues} onChange={changeProjectValue} /></ui.DialogFrame>}
     {editor && <ScreenshotEditorDialog record={editor === "paste" ? undefined : editor} clipboard={clipboard} copy={copy} busy={busy} onClose={closeEditor} onSave={saveScreenshot} />}
+    {project && capturePage && <ui.DialogFrame presentation="drawer" className={`route-capture-drawer route-capture-drawer-${project.previewConfig.width > project.previewConfig.height ? "landscape" : "portrait"}`} hideFooter title={`${locale === "vi" ? "Chụp" : "Capture"} · ${capturePage.name}`} busy={false} error={null} onClose={() => setCapturePage(null)} onSubmit={event => event.preventDefault()}><RouteScreenshotPage locale={locale} project={project} pageRoute={capturePage.route} resetKey={previewResetKey} showReferences={false} onProjectChange={next => { setProject(next); void window.getgo.listScreenshotProjects().then(setProjects); }} /></ui.DialogFrame>}
   </div>;
 }

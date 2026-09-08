@@ -36,6 +36,8 @@ export function ScreenshotEditorDialog({
     name: record?.name ?? copy.defaultScreenshotName,
     route: record?.route ?? "/",
     description: record?.description ?? "",
+    orientation: record?.orientation ?? ((clipboard?.width ?? 0) > (clipboard?.height ?? 0) ? "landscape" : "portrait"),
+    theme: record?.theme ?? "light",
   });
   const [errors, setErrors] = useState<ui.FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -62,6 +64,8 @@ export function ScreenshotEditorDialog({
         rows: 4,
         maxLength: 500,
       },
+      [{ name: "orientation", type: "select", label: "Orientation", options: [{ value: "portrait", label: "Portrait" }, { value: "landscape", label: "Landscape" }], presentation: "segmented" },
+        { name: "theme", type: "select", label: "Theme", options: [{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }], presentation: "segmented" }],
     ],
     [copy],
   );
@@ -76,6 +80,8 @@ export function ScreenshotEditorDialog({
         name: String(values.name),
         route: String(values.route),
         description: String(values.description ?? ""),
+        orientation: values.orientation === "landscape" ? "landscape" : "portrait",
+        theme: values.theme === "dark" ? "dark" : "light",
       });
     } catch (cause) {
       setSubmitError(cause instanceof Error ? cause.message : String(cause));

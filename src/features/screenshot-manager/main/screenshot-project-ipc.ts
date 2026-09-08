@@ -3,6 +3,7 @@ import path from "node:path";
 import type {
   ScreenshotMetadataInput,
   ScreenshotProjectInput,
+  PageBreakdownInput,
 } from "../domain/screenshot-project.js";
 import { ScreenshotProjectService } from "./screenshot-project-service.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
@@ -61,6 +62,9 @@ export function registerScreenshotProjectIpc(
   );
   ipcMain.handle("screenshots:clear", async (_event, projectId: string) =>
     (await service()).clear(projectId),
+  );
+  ipcMain.handle("screenshots:breakdown:update", async (_event, projectId: string, input: PageBreakdownInput) =>
+    (await service()).updatePageBreakdown(projectId, input),
   );
   ipcMain.handle("screenshots:preview:clear-data", async () => {
     const previewSession = session.fromPartition("persist:getgo-device-preview");

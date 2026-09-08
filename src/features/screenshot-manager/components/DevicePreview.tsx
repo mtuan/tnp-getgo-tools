@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, Camera, Globe2, Monitor, RefreshCw, Smartphone, Tablet } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { ArrowLeft, ArrowRight, Camera, Globe2, RefreshCw } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -15,17 +15,8 @@ interface DeviceWebview extends HTMLElement {
   goForward(): void;
   loadURL(url: string): Promise<void>;
   reload(): void;
+  executeJavaScript<T>(code: string): Promise<T>;
 }
-
-const devices = [
-  { id: "iphone-se", label: "iPhone SE", width: 375, height: 667, icon: Smartphone },
-  { id: "iphone-15", label: "iPhone 15", width: 393, height: 852, icon: Smartphone },
-  { id: "iphone-15-max", label: "iPhone 15 Pro Max", width: 430, height: 932, icon: Smartphone },
-  { id: "ipad-mini", label: "iPad mini", width: 768, height: 1024, icon: Tablet },
-  { id: "ipad-pro", label: "iPad Pro 12.9\"", width: 1024, height: 1366, icon: Tablet },
-  { id: "desktop", label: "Desktop", width: 1280, height: 800, icon: Monitor },
-  { id: "custom", label: "Custom", width: 390, height: 844, icon: Monitor },
-] as const;
 
 const normalizeLocalUrl = (value: string): string | null => {
   const candidate = /^[a-z]+:\/\//i.test(value.trim()) ? value.trim() : `http://${value.trim()}`;
@@ -43,7 +34,6 @@ const screenshotRoute = (value: string) => {
 
 export function DevicePreview({ locale, project, requestedRoute, resetKey, onProjectChange, onScaleChange }: { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; resetKey: number; onProjectChange(project: ScreenshotProject): void; onScaleChange(scale: number): void }) {
   const copy = (locale === "vi" ? vi : en).screenshotManager.devicePreview;
-  const selected = devices.find(device => device.id === project.previewConfig.devicePreset) ?? devices[devices.length - 1];
   const width = project.previewConfig.width;
   const height = project.previewConfig.height;
   const [draftUrl, setDraftUrl] = useState(project.previewConfig.baseUrl);
@@ -135,24 +125,31 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
     if (!webview) return;
     setCapturing(true); setError(null);
     try {
+      const detected = await webview.executeJavaScript<{ route?: string; name?: string; orientation?: "portrait" | "landscape"; theme?: "light" | "dark" }>(
+        `(() => window.__GETGO_DESIGN_CAPTURE__?.() ?? ({ route: location.pathname + location.search + location.hash, name: document.title, orientation: innerWidth > innerHeight ? "landscape" : "portrait", theme: document.documentElement.classList.contains("dark") || document.documentElement.dataset.theme === "dark" || getComputedStyle(document.documentElement).colorScheme === "dark" ? "dark" : "light" }))()`,
+      );
       const image = await webview.capturePage();
       const url = webview.getURL() || currentUrl;
-      const route = screenshotRoute(url);
-      const pageTitle = webview.getTitle().trim() || route;
+      const route = detected.route || screenshotRoute(url);
+      const pageTitle = detected.name?.trim() || webview.getTitle().trim() || route;
+      const orientation = detected.orientation || (width > height ? "landscape" : "portrait");
+      const theme = detected.theme === "dark" ? "dark" : "light";
       const next = await window.getgo.addScreenshot(project.id, image.toDataURL(), {
         name: pageTitle,
         route,
-        description: `${selected.label} · ${width} × ${height} · ${new URL(url).origin}`,
+        orientation,
+        theme,
+        description: `${orientation} · ${theme} · ${width} × ${height} · ${new URL(url).origin}`,
       });
       onProjectChange(next);
-      toast.show({ title: copy.captured, description: `${pageTitle} · ${route}` });
+      toast.show({ title: copy.captured, description: `${pageTitle} · ${orientation} · ${theme}` });
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setCapturing(false); }
   };
 
   return <div className="device-preview">
     {error && <ui.ErrorFrame message={error} />}
-    <div className="device-preview-stage" ref={stageRef} style={{ height: Math.round((height + 52) * scale) }}>
+    <div className="device-preview-stage" ref={stageRef} style={{ height: Math.round((height + 52) * scale), "--device-preview-width": `${width}px` } as CSSProperties}>
       <div className="device-browser" style={{ width, height: height + 52, transform: `scale(${scale})` }}>
         <form className="device-browser-bar" onSubmit={navigate}>
           <ui.Button variant="icon" icon={<ArrowLeft />} aria-label={copy.back} disabled={!ready || !navigation.back} onClick={() => webviewRef.current?.goBack()} />
