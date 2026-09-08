@@ -4,6 +4,7 @@ import type {
   ScreenshotMetadataInput,
   ScreenshotProjectInput,
   PageBreakdownInput,
+  CapturedDomSnapshot,
 } from "../domain/screenshot-project.js";
 import { ScreenshotProjectService } from "./screenshot-project-service.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
@@ -47,8 +48,8 @@ export function registerScreenshotProjectIpc(
   );
   ipcMain.handle(
     "screenshots:add",
-    async (_event, projectId: string, imageDataUrl: string, metadata: ScreenshotMetadataInput) =>
-      (await service()).add(projectId, imageDataUrl, metadata),
+    async (_event, projectId: string, imageDataUrl: string, metadata: ScreenshotMetadataInput, domSnapshot?: CapturedDomSnapshot) =>
+      (await service()).add(projectId, imageDataUrl, metadata, domSnapshot),
   );
   ipcMain.handle(
     "screenshots:update",

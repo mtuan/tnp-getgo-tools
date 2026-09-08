@@ -295,6 +295,7 @@ html {
 .screenshot-page-tree-panel > .ui-tree-view { min-height: 0; border-right: 0; }
 .screenshot-page-selection-detail { display: grid; gap: 4px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--soft); }
 .screenshot-page-selection-detail span { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.screenshot-page-selection-detail em { color: #b45309; font-size: 11px; font-style: normal; line-height: 1.45; }
 .screenshot-page-selection-detail code { color: #4f46e5; font-size: 10px; overflow-wrap: anywhere; }
 .project-capture-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
 .project-capture-toolbar > div:first-child { display: grid; min-width: 0; gap: 3px; }

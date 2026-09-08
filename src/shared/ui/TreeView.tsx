@@ -14,9 +14,10 @@ interface Props {
   items: TreeViewItem[];
   selectedId: string | null;
   onSelect(id: string): void;
+  selectBranches?: boolean;
 }
 
-export function TreeView({ ariaLabel, items, selectedId, onSelect }: Props) {
+export function TreeView({ ariaLabel, items, selectedId, onSelect, selectBranches = false }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const moveFocus = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -47,7 +48,7 @@ export function TreeView({ ariaLabel, items, selectedId, onSelect }: Props) {
               type="button"
               role="treeitem"
               aria-expanded={branch ? expanded : undefined}
-              aria-selected={!branch ? selectedId === item.id : undefined}
+              aria-selected={selectedId === item.id}
               className={selectedId === item.id ? "selected" : ""}
               style={{ paddingInlineStart: 10 + depth * 18 }}
               onClick={() => {
@@ -58,7 +59,7 @@ export function TreeView({ ariaLabel, items, selectedId, onSelect }: Props) {
                     else next.delete(item.id);
                     return next;
                   });
-                else onSelect(item.id);
+                if (!branch || selectBranches) onSelect(item.id);
               }}
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown") moveFocus(event, 1);

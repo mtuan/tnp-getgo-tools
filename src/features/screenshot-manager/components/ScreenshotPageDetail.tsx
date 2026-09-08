@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as ui from "../../../shared/ui";
-import type { DesignOrientation, ScreenshotAnalysisDocuments, ScreenshotPageAnalysis, ScreenshotProject, ScreenshotRecord } from "../domain/screenshot-project";
+import type { CapturedDomElement, DesignOrientation, ScreenshotAnalysisDocuments, ScreenshotPageAnalysis, ScreenshotProject, ScreenshotRecord } from "../domain/screenshot-project";
 
 type Region = { id: string; name?: string; semanticRole?: string; meaning?: string; portrait?: { bounds?: Record<string, unknown> }; landscape?: { bounds?: Record<string, unknown> }; childElementIds?: string[] };
 type Element = { id: string; parentRegionId: string; type?: string; content?: string; meaning?: string };
@@ -10,21 +10,46 @@ function pageStructure(page: ScreenshotPageAnalysis | undefined) {
   return { regions: structure?.regionTree ?? [], elements: structure?.elements ?? [] };
 }
 
-function highlightStyle(region: Region | undefined, orientation: DesignOrientation, regions: Region[]) {
+function highlightStyle(region: Region | undefined, orientation: DesignOrientation) {
   if (!region) return undefined;
-  const canonical = orientation === "portrait" ? { width: 393, height: 852 } : { width: 1440, height: 900 };
   const geometry = region[orientation]?.bounds ?? {};
-  if (geometry.rendered === false) return undefined;
-  const x = typeof geometry.x === "number" ? geometry.x : 0;
-  const y = typeof geometry.y === "number" ? geometry.y : 0;
-  const width = typeof geometry.width === "number" ? geometry.width : canonical.width;
-  let height = typeof geometry.height === "number" ? geometry.height : 0;
-  if (!height) {
-    const index = regions.indexOf(region);
-    const next = regions.slice(index + 1).map(item => item[orientation]?.bounds?.y).find(value => typeof value === "number") as number | undefined;
-    height = Math.max(56, (next ?? canonical.height - (orientation === "portrait" ? 60 : 0)) - y - 8);
+  if (geometry.measurementStatus !== "verified" || geometry.rendered === false) return undefined;
+  if (![geometry.x, geometry.y, geometry.width, geometry.height].every(value => typeof value === "number" && value >= 0 && value <= 1)) return undefined;
+  return { left: `${Number(geometry.x) * 100}%`, top: `${Number(geometry.y) * 100}%`, width: `${Number(geometry.width) * 100}%`, height: `${Number(geometry.height) * 100}%` };
+}
+
+function domHighlightStyle(element: CapturedDomElement | undefined) {
+  if (!element) return undefined;
+  const source = element.normalizedBounds;
+  const left = Math.max(0, source.x);
+  const top = Math.max(0, source.y);
+  const right = Math.min(1, source.x + source.width);
+  const bottom = Math.min(1, source.y + source.height);
+  if (![left, top, right, bottom].every(Number.isFinite) || right <= left || bottom <= top) return undefined;
+  return { left: `${left * 100}%`, top: `${top * 100}%`, width: `${(right - left) * 100}%`, height: `${(bottom - top) * 100}%` };
+}
+
+function domLabel(element: CapturedDomElement) {
+  return element.semantic?.label ?? "Unclassified element";
+}
+
+function domTree(snapshot: NonNullable<ScreenshotRecord["domSnapshot"]>): ui.TreeViewItem[] {
+  const byId = new Map(snapshot.elements.map(element => [element.id, element]));
+  const semanticElements = snapshot.elements.filter(element => element.semantic?.confidence !== undefined && element.semantic.confidence !== "unclassified");
+  const semanticIds = new Set(semanticElements.map(element => element.id));
+  const childrenByParent = new Map<string | null, CapturedDomElement[]>();
+  for (const element of semanticElements) {
+    let parentId = element.parentId;
+    while (parentId && !semanticIds.has(parentId)) parentId = byId.get(parentId)?.parentId ?? null;
+    const children = childrenByParent.get(parentId) ?? [];
+    children.push(element);
+    childrenByParent.set(parentId, children);
   }
-  return { left: `${x / canonical.width * 100}%`, top: `${y / canonical.height * 100}%`, width: `${width / canonical.width * 100}%`, height: `${height / canonical.height * 100}%` };
+  const make = (element: CapturedDomElement): ui.TreeViewItem => {
+    const children = (childrenByParent.get(element.id) ?? []).map(make);
+    return { id: `dom:${element.selector}`, label: domLabel(element), kind: children.length ? "folder" : "document", meta: element.semantic?.kind, children };
+  };
+  return (childrenByParent.get(null) ?? []).map(make);
 }
 
 export function ScreenshotPageDetail({ locale, project, route }: { locale: "en" | "vi"; project: ScreenshotProject; route: string }) {
@@ -37,26 +62,32 @@ export function ScreenshotPageDetail({ locale, project, route }: { locale: "en" 
   const analysis = documents?.pages.find(item => item.route === route);
   const screenshots = useMemo(() => project.screenshots.filter(item => item.route === route).sort((a, b) => `${a.orientation}-${a.theme}`.localeCompare(`${b.orientation}-${b.theme}`)), [project.screenshots, route]);
   const { regions, elements } = pageStructure(analysis);
+  const referenceScreenshot = screenshots.find(item => item.orientation === "portrait" && item.theme === "light" && item.domSnapshot) ?? screenshots.find(item => item.domSnapshot);
+  const hasCapturedDom = Boolean(referenceScreenshot?.domSnapshot?.elements.some(element => element.semantic?.confidence !== undefined && element.semantic.confidence !== "unclassified"));
+  const selectedSelector = selectedId?.startsWith("dom:") ? selectedId.slice(4) : null;
+  const selectedDomElement = selectedSelector ? referenceScreenshot?.domSnapshot?.elements.find(item => item.selector === selectedSelector) : undefined;
   const selectedRegion = selectedId?.startsWith("region:") ? regions.find(item => item.id === selectedId.slice(7)) : regions.find(region => region.id === elements.find(item => `element:${item.id}` === selectedId)?.parentRegionId);
-  const tree = [{ id: "page-root", label: vi ? "Khung trang" : "Page canvas", kind: "collection" as const, children: regions.map(region => ({ id: `branch:${region.id}`, label: region.name ?? region.id, kind: "folder" as const, meta: region.semanticRole, children: [{ id: `region:${region.id}`, label: vi ? "Vùng tổng thể" : "Region bounds", kind: "document" as const, meta: region.id }, ...elements.filter(element => element.parentRegionId === region.id).map(element => ({ id: `element:${element.id}`, label: element.content ?? element.id, kind: "file" as const, meta: element.type }))] })) }];
+  const documentedTree = [{ id: "page-root", label: vi ? "Cấu trúc đã mô tả" : "Documented structure", kind: "collection" as const, children: regions.map(region => ({ id: `branch:${region.id}`, label: region.name ?? region.id, kind: "folder" as const, meta: region.semanticRole, children: [{ id: `region:${region.id}`, label: vi ? "Vùng tổng thể" : "Region bounds", kind: "document" as const, meta: region.id }, ...elements.filter(element => element.parentRegionId === region.id).map(element => ({ id: `element:${element.id}`, label: element.content ?? element.id, kind: "file" as const, meta: element.type }))] })) }];
+  const tree = hasCapturedDom ? [{ id: "captured-dom-root", label: vi ? "DOM đã đo khi chụp" : "Measured capture DOM", kind: "collection" as const, children: domTree(referenceScreenshot!.domSnapshot!) }] : documentedTree;
   if (loading) return <ui.PageLoading label={vi ? "Đang tải cấu trúc trang" : "Loading page structure"} />;
   if (error) return <ui.ErrorFrame message={error} />;
   return <div className="screenshot-page-detail-workspace">
     <section className="screenshot-page-comparison" aria-label={vi ? "Ảnh chụp trang" : "Page screenshots"}>
       <div className="screenshot-page-track">
-        {screenshots.map((screenshot: ScreenshotRecord) => <figure className="screenshot-page-figure" key={screenshot.id}>
+        {screenshots.map((screenshot: ScreenshotRecord) => { const measuredElement = selectedSelector ? screenshot.domSnapshot?.elements.find(item => item.selector === selectedSelector) : undefined; const overlayStyle = selectedSelector ? domHighlightStyle(measuredElement) : highlightStyle(selectedRegion, screenshot.orientation); const overlayLabel = measuredElement ? domLabel(measuredElement) : selectedRegion?.name ?? selectedRegion?.id; return <figure className="screenshot-page-figure" key={screenshot.id}>
           <figcaption><strong>{screenshot.orientation === "portrait" ? (vi ? "Dọc" : "Portrait") : (vi ? "Ngang" : "Landscape")}</strong><span>{screenshot.theme === "dark" ? (vi ? "Tối" : "Dark") : (vi ? "Sáng" : "Light")}</span></figcaption>
           <div className="screenshot-page-image-wrap">
             <img src={screenshot.previewDataUrl} alt={`${screenshot.name} · ${screenshot.orientation} · ${screenshot.theme}`} />
-            {selectedRegion && <div className="screenshot-page-highlight" style={highlightStyle(selectedRegion, screenshot.orientation, regions)}><span>{selectedRegion.name ?? selectedRegion.id}</span></div>}
+            {overlayStyle && <div className="screenshot-page-highlight" style={overlayStyle}><span>{overlayLabel}</span></div>}
           </div>
-        </figure>)}
+        </figure>; })}
       </div>
     </section>
     <aside className="screenshot-page-tree-panel">
       <header><strong>{vi ? "Cấu trúc trang" : "Page layout"}</strong><span>{vi ? "Chọn vùng hoặc phần tử để đánh dấu" : "Select a region or element to highlight it"}</span></header>
-      {analysis ? <ui.TreeView ariaLabel={vi ? "Cây cấu trúc trang" : "Page layout tree"} items={tree} selectedId={selectedId} onSelect={setSelectedId} /> : <div className="screenshot-empty"><strong>{vi ? "Chưa có phân tích" : "No analysis"}</strong></div>}
-      {selectedRegion && <div className="screenshot-page-selection-detail"><strong>{selectedRegion.name ?? selectedRegion.id}</strong><span>{selectedRegion.meaning}</span><code>{selectedRegion.id}</code></div>}
+      {hasCapturedDom || analysis ? <ui.TreeView ariaLabel={vi ? "Cây cấu trúc trang" : "Page layout tree"} items={tree} selectedId={selectedId} onSelect={setSelectedId} selectBranches={hasCapturedDom} /> : <div className="screenshot-empty"><strong>{vi ? "Chưa có dữ liệu cấu trúc" : "No structure data"}</strong></div>}
+      {selectedDomElement && <div className="screenshot-page-selection-detail"><strong>{domLabel(selectedDomElement)}</strong>{selectedDomElement.semantic?.meaning && <span>{selectedDomElement.semantic.meaning}</span>}<span>{selectedDomElement.semantic?.kind}</span><span>{selectedDomElement.selector}</span><span>{`${Math.round(selectedDomElement.bounds.x)} × ${Math.round(selectedDomElement.bounds.y)} · ${Math.round(selectedDomElement.bounds.width)} × ${Math.round(selectedDomElement.bounds.height)} px`}</span><code>{selectedDomElement.positioning.display} · {selectedDomElement.positioning.position}</code></div>}
+      {selectedRegion && <div className="screenshot-page-selection-detail"><strong>{selectedRegion.name ?? selectedRegion.id}</strong><span>{selectedRegion.meaning}</span>{!highlightStyle(selectedRegion, "portrait") && !highlightStyle(selectedRegion, "landscape") && <em>{vi ? "Thiếu tọa độ đã xác minh từ ảnh tham chiếu; không hiển thị vùng đánh dấu." : "Verified reference-image bounds are missing; no highlight is shown."}</em>}<code>{selectedRegion.id}</code></div>}
     </aside>
   </div>;
 }

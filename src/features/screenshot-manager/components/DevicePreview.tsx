@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Camera, Globe2, RefreshCw } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
-import type { ScreenshotProject } from "../domain/screenshot-project";
+import type { CapturedDomSnapshot, ScreenshotProject } from "../domain/screenshot-project";
 
 interface DeviceWebview extends HTMLElement {
   capturePage(): Promise<{ toDataURL(): string }>;
@@ -127,10 +127,11 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
     if (!webview) return;
     setCapturing(true); setError(null);
     try {
-      const detected = await webview.executeJavaScript<{ route?: string; name?: string; orientation?: "portrait" | "landscape"; theme?: "light" | "dark" }>(
-        `(() => window.__GETGO_DESIGN_CAPTURE__?.() ?? ({ route: location.pathname + location.search + location.hash, name: document.title, orientation: innerWidth > innerHeight ? "landscape" : "portrait", theme: document.documentElement.classList.contains("dark") || document.documentElement.dataset.theme === "dark" || getComputedStyle(document.documentElement).colorScheme === "dark" ? "dark" : "light" }))()`,
+      const detected = await webview.executeJavaScript<{ route?: string; name?: string; orientation?: "portrait" | "landscape"; theme?: "light" | "dark"; domSnapshot?: CapturedDomSnapshot }>(
+        `(async () => { let freeze = document.getElementById("__getgo-capture-freeze"); if (!freeze) { freeze = document.createElement("style"); freeze.id = "__getgo-capture-freeze"; freeze.textContent = "*,*::before,*::after{animation-play-state:paused!important;transition:none!important;caret-color:transparent!important}html{scroll-behavior:auto!important}"; document.head.appendChild(freeze); } await document.fonts?.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); return window.__GETGO_DESIGN_CAPTURE__?.() ?? ({ route: location.pathname + location.search + location.hash, name: document.title, orientation: innerWidth > innerHeight ? "landscape" : "portrait", theme: document.documentElement.classList.contains("dark") || document.documentElement.dataset.theme === "dark" || getComputedStyle(document.documentElement).colorScheme === "dark" ? "dark" : "light" }); })()`,
       );
       const image = await webview.capturePage();
+      await webview.executeJavaScript(`document.getElementById("__getgo-capture-freeze")?.remove()`);
       const url = webview.getURL() || currentUrl;
       const route = detected.route || screenshotRoute(url);
       const pageTitle = detected.name?.trim() || webview.getTitle().trim() || route;
@@ -142,12 +143,12 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
         orientation,
         theme,
         description: `${orientation} · ${theme} · ${width} × ${height} · ${new URL(url).origin}`,
-      });
+      }, detected.domSnapshot);
       onProjectChange(next);
       onCaptured?.(route);
       toast.show({ title: copy.captured, description: `${pageTitle} · ${orientation} · ${theme}` });
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setCapturing(false); }
+    finally { void webview.executeJavaScript(`document.getElementById("__getgo-capture-freeze")?.remove()`); setCapturing(false); }
   };
 
   return <div className="device-preview">

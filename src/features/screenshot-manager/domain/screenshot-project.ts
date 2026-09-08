@@ -12,6 +12,44 @@ export interface ScreenshotRecord {
   previewDataUrl?: string;
   orientation: DesignOrientation;
   theme: DesignTheme;
+  snapshotFileName?: string;
+  domSnapshot?: CapturedDomSnapshot;
+}
+
+export interface CapturedDomElement {
+  id: string;
+  parentId: string | null;
+  tag: string;
+  role: string | null;
+  name: string | null;
+  text: string | null;
+  selector: string;
+  bounds: { x: number; y: number; width: number; height: number };
+  normalizedBounds: { x: number; y: number; width: number; height: number };
+  positioning: Record<string, string>;
+  box: Record<string, string>;
+  typography: Record<string, string>;
+  paint: Record<string, string>;
+  image: { src: string; naturalWidth: number; naturalHeight: number } | null;
+  attributes: Record<string, string>;
+  childIds: string[];
+  semantic?: {
+    id: string;
+    label: string;
+    kind: string;
+    meaning: string | null;
+    confidence: "explicit" | "derived" | "unclassified";
+  };
+}
+
+export interface CapturedDomSnapshot {
+  schemaVersion: 1;
+  capturedAt: string;
+  url: string;
+  title: string;
+  viewport: { width: number; height: number; devicePixelRatio: number; scrollX: number; scrollY: number };
+  rootIds: string[];
+  elements: CapturedDomElement[];
 }
 
 export type DesignOrientation = "portrait" | "landscape";
@@ -128,6 +166,7 @@ export interface ScreenshotManagerDesktopApi {
     projectId: string,
     imageDataUrl: string,
     metadata: ScreenshotMetadataInput,
+    domSnapshot?: CapturedDomSnapshot,
   ): Promise<ScreenshotProject>;
   updateScreenshot(
     projectId: string,

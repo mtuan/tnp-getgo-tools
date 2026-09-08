@@ -10,6 +10,7 @@ import type {
   DesignOrientation,
   DesignTheme,
   PageBreakdownInput,
+  CapturedDomSnapshot,
 } from "../domain/screenshot-project.js";
 
 const safeId = (value: string) => {
@@ -22,6 +23,19 @@ const safeFileName = (value: string) => {
   if (!/^[a-f0-9-]+\.png$/.test(value))
     throw new Error("Invalid screenshot file name.");
   return value;
+};
+
+const safeSnapshotFileName = (value: string) => {
+  if (!/^[a-f0-9-]+\.dom\.json$/.test(value)) throw new Error("Invalid screenshot snapshot file name.");
+  return value;
+};
+
+const validateDomSnapshot = (value: CapturedDomSnapshot | undefined): CapturedDomSnapshot | undefined => {
+  if (value === undefined) return undefined;
+  if (!value || value.schemaVersion !== 1 || !Array.isArray(value.elements) || value.elements.length > 5000 || !value.viewport || !Number.isFinite(value.viewport.width) || !Number.isFinite(value.viewport.height)) throw new Error("Invalid captured DOM snapshot.");
+  const serialized = JSON.stringify(value);
+  if (serialized.length > 20_000_000) throw new Error("Captured DOM snapshot is too large.");
+  return JSON.parse(serialized) as CapturedDomSnapshot;
 };
 
 const cleanText = (value: unknown, label: string, required = false) => {
@@ -166,16 +180,18 @@ export class ScreenshotProjectService {
     const screenshots = await Promise.all(
       project.screenshots.map(async (screenshot) => {
         try {
-          const bytes = await fs.readFile(
-            path.join(
+          const [bytes, domSnapshot] = await Promise.all([
+            fs.readFile(path.join(
               this.projectFolder(project.id),
               "screenshots",
               safeFileName(screenshot.fileName),
-            ),
-          );
+            )),
+            screenshot.snapshotFileName ? fs.readFile(path.join(this.projectFolder(project.id), "screenshots", safeSnapshotFileName(screenshot.snapshotFileName)), "utf8").then(source => JSON.parse(source) as CapturedDomSnapshot).catch(() => undefined) : Promise.resolve(undefined),
+          ]);
           return {
             ...screenshot,
             previewDataUrl: `data:${screenshot.mimeType};base64,${bytes.toString("base64")}`,
+            domSnapshot,
           };
         } catch {
           return screenshot;
@@ -205,6 +221,7 @@ export class ScreenshotProjectService {
     projectId: string,
     imageDataUrl: string,
     metadata: ScreenshotMetadataInput,
+    domSnapshotInput?: CapturedDomSnapshot,
   ): Promise<ScreenshotProject> {
     if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/png;base64,"))
       throw new Error("Invalid screenshot image data.");
@@ -216,6 +233,8 @@ export class ScreenshotProjectService {
     const now = new Date().toISOString();
     const size = image.getSize();
     const fileName = `${id}.png`;
+    const domSnapshot = validateDomSnapshot(domSnapshotInput);
+    const snapshotFileName = domSnapshot ? `${id}.dom.json` : undefined;
     const orientation: DesignOrientation = metadata.orientation === "landscape" ? "landscape" : "portrait";
     const theme: DesignTheme = metadata.theme === "dark" ? "dark" : "light";
     const route = normalizeRoute(metadata?.route);
@@ -224,7 +243,11 @@ export class ScreenshotProjectService {
       path.join(this.projectFolder(project.id), "screenshots", fileName),
       image.toPNG(),
     );
-    if (existing) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeFileName(existing.fileName)));
+    if (snapshotFileName) await fs.writeFile(path.join(this.projectFolder(project.id), "screenshots", snapshotFileName), `${JSON.stringify(domSnapshot, null, 2)}\n`, "utf8");
+    if (existing) {
+      await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeFileName(existing.fileName)));
+      if (existing.snapshotFileName) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeSnapshotFileName(existing.snapshotFileName)));
+    }
     const record = {
       id: existing?.id ?? id,
       name: cleanText(metadata?.name, "screenshot name", true),
@@ -238,6 +261,7 @@ export class ScreenshotProjectService {
       updatedAt: now,
       orientation,
       theme,
+      snapshotFileName,
     };
     if (existing) project.screenshots.splice(project.screenshots.indexOf(existing), 1, record);
     else project.screenshots.push(record);
@@ -277,6 +301,7 @@ export class ScreenshotProjectService {
     const [screenshot] = project.screenshots.splice(index, 1);
     const imagePath = path.join(this.projectFolder(project.id), "screenshots", safeFileName(screenshot.fileName));
     await shell.trashItem(imagePath);
+    if (screenshot.snapshotFileName) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeSnapshotFileName(screenshot.snapshotFileName)));
     project.updatedAt = new Date().toISOString();
     await this.write(project);
     return this.load(project.id);
@@ -287,6 +312,7 @@ export class ScreenshotProjectService {
     for (const screenshot of project.screenshots) {
       const imagePath = path.join(this.projectFolder(project.id), "screenshots", safeFileName(screenshot.fileName));
       await shell.trashItem(imagePath);
+      if (screenshot.snapshotFileName) await shell.trashItem(path.join(this.projectFolder(project.id), "screenshots", safeSnapshotFileName(screenshot.snapshotFileName)));
     }
     project.screenshots = [];
     project.updatedAt = new Date().toISOString();
