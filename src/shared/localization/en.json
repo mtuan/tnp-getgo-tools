@@ -658,7 +658,7 @@
     "authentication": "Sign in with an authorized Firebase account before reading or publishing question data."
   },
   "screenshotManager": {
-    "nav": "Screen captures", "eyebrow": "Visual QA", "title": "Screen capture projects",
+    "nav": "Screenshots", "eyebrow": "Visual QA", "title": "Screenshot projects",
     "pageDescription": "Collect, describe, and map web and app screens by route.",
     "newProject": "New project", "projects": "Projects", "projectsDescription": "Saved in the GetGo Tools data folder.",
     "name": "Name", "description": "Description", "route": "Route", "create": "Create project", "save": "Save changes",

@@ -556,7 +556,7 @@ export function App() {
                   : item.id === "image-pdf"
                     ? imagePdfCopy.nav
                     : item.id === "screenshots"
-                      ? settings.locale === "vi" ? "Thiết kế" : "Design"
+                      ? (settings.locale === "vi" ? vi : en).screenshotManager.nav
                     : item.id === "designs"
                       ? settings.locale === "vi" ? "Thiết kế" : "Design"
                     : item.id === "avatar-sets"
