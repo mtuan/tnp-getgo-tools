@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Camera, Globe2, RefreshCw } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
@@ -43,7 +43,20 @@ const clientNavigateScript = (route: string) => `(async () => {
   return true;
 })()`;
 
-export function DevicePreview({ locale, project, requestedRoute, resetKey, onProjectChange, onScaleChange, onCaptured }: { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; resetKey: number; onProjectChange(project: ScreenshotProject): void; onScaleChange(scale: number): void; onCaptured?(route: string): void }) {
+export interface AutomaticCaptureProgress {
+  completed: number;
+  total: number;
+  route: string;
+  orientation: "portrait" | "landscape";
+  theme: "light" | "dark";
+}
+
+export interface DevicePreviewHandle {
+  captureAll(pages: { route: string; name: string }[], onProgress: (progress: AutomaticCaptureProgress) => void): Promise<void>;
+  cancelAutomaticCapture(): void;
+}
+
+export const DevicePreview = forwardRef<DevicePreviewHandle, { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; resetKey: number; onProjectChange(project: ScreenshotProject): void; onOrientationChange(orientation: "portrait" | "landscape"): Promise<void>; onScaleChange(scale: number): void; onCaptured?(route: string): void }>(function DevicePreview({ locale, project, requestedRoute, resetKey, onProjectChange, onOrientationChange, onScaleChange, onCaptured }, ref) {
   const copy = (locale === "vi" ? vi : en).screenshotManager.devicePreview;
   const width = project.previewConfig.width;
   const height = project.previewConfig.height;
@@ -57,6 +70,8 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
   const [scale, setScale] = useState(1);
   const stageRef = useRef<HTMLDivElement>(null);
   const webviewRef = useRef<DeviceWebview | null>(null);
+  const automaticCaptureRef = useRef(false);
+  const automaticCaptureCancelledRef = useRef(false);
   const toast = ui.useToast();
 
   const updateNavigation = () => {
@@ -119,7 +134,7 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
     setCurrentUrl(project.previewConfig.baseUrl);
   }, [project.previewConfig.baseUrl]);
   useEffect(() => {
-    if (!requestedRoute || !ready) return;
+    if (!requestedRoute || !ready || automaticCaptureRef.current) return;
     const next = new URL(requestedRoute.route, `${project.previewConfig.baseUrl}/`).toString();
     setDraftUrl(next);
     setError(null);
@@ -147,9 +162,9 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
     }
     await webviewRef.current?.loadURL(next);
   };
-  const capture = async () => {
+  const captureCurrent = async (showToast: boolean, expectedName?: string) => {
     const webview = webviewRef.current;
-    if (!webview) return;
+    if (!webview) throw new Error(copy.navigationUnavailable);
     setCapturing(true); setError(null);
     try {
       const detected = await webview.executeJavaScript<{ route?: string; name?: string; orientation?: "portrait" | "landscape"; theme?: "light" | "dark"; domSnapshot?: CapturedDomSnapshot }>(
@@ -159,7 +174,7 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
       await webview.executeJavaScript(`document.getElementById("__getgo-capture-freeze")?.remove()`);
       const url = webview.getURL() || currentUrl;
       const route = detected.route || screenshotRoute(url);
-      const pageTitle = detected.name?.trim() || webview.getTitle().trim() || route;
+      const pageTitle = expectedName?.trim() || detected.name?.trim() || webview.getTitle().trim() || route;
       const orientation = detected.orientation || (width > height ? "landscape" : "portrait");
       const theme = detected.theme === "dark" ? "dark" : "light";
       const next = await window.getgo.addScreenshot(project.id, image.toDataURL(), {
@@ -171,10 +186,68 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
       }, detected.domSnapshot);
       onProjectChange(next);
       onCaptured?.(route);
-      toast.show({ title: copy.captured, description: `${pageTitle} · ${orientation} · ${theme}` });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+      if (showToast) toast.show({ title: copy.captured, description: `${pageTitle} · ${orientation} · ${theme}` });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      throw cause;
+    }
     finally { void webview.executeJavaScript(`document.getElementById("__getgo-capture-freeze")?.remove()`); setCapturing(false); }
   };
+
+  const waitForOrientation = async (orientation: "portrait" | "landscape") => {
+    const webview = webviewRef.current;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (automaticCaptureCancelledRef.current) throw new Error("AUTOMATIC_CAPTURE_CANCELLED");
+      await new Promise(resolve => window.setTimeout(resolve, 50));
+      const size = await webview?.executeJavaScript<{ width: number; height: number }>(`({ width: innerWidth, height: innerHeight })`);
+      if (size && (orientation === "portrait" ? size.width < size.height : size.width > size.height)) return;
+    }
+    throw new Error(copy.orientationChangeFailed);
+  };
+
+  useImperativeHandle(ref, () => ({
+    cancelAutomaticCapture() { automaticCaptureCancelledRef.current = true; },
+    async captureAll(pages, onProgress) {
+      const webview = webviewRef.current;
+      if (!webview || !ready) throw new Error(copy.navigationUnavailable);
+      automaticCaptureRef.current = true;
+      automaticCaptureCancelledRef.current = false;
+      const originalTheme = await webview.executeJavaScript<"light" | "dark">(
+        `document.documentElement.classList.contains("dark") ? "dark" : "light"`,
+      );
+      const total = pages.length * 4;
+      let completed = 0;
+      try {
+        for (const orientation of ["portrait", "landscape"] as const) {
+          await onOrientationChange(orientation);
+          await waitForOrientation(orientation);
+          await webview.executeJavaScript(`window.__GETGO_DESIGN_WAIT_READY__?.() ?? Promise.resolve(true)`);
+          for (const theme of ["light", "dark"] as const) {
+            if (automaticCaptureCancelledRef.current) throw new Error("AUTOMATIC_CAPTURE_CANCELLED");
+            const changed = await webview.executeJavaScript<boolean>(`window.__GETGO_DESIGN_SET_THEME__?.(${JSON.stringify(theme)}) ?? Promise.resolve(false)`);
+            if (!changed) throw new Error(copy.automationUnavailable);
+            for (const page of pages) {
+              const { route } = page;
+              if (automaticCaptureCancelledRef.current) throw new Error("AUTOMATIC_CAPTURE_CANCELLED");
+              const navigated = await webview.executeJavaScript<boolean>(clientNavigateScript(route));
+              if (!navigated) throw new Error(copy.navigationUnavailable);
+              await webview.executeJavaScript(`window.__GETGO_DESIGN_WAIT_READY__?.() ?? Promise.resolve(true)`);
+              await captureCurrent(false, page.name);
+              completed += 1;
+              onProgress({ completed, total, route, orientation, theme });
+            }
+          }
+        }
+      } finally {
+        automaticCaptureRef.current = false;
+        await webview.executeJavaScript(
+          `window.__GETGO_DESIGN_SET_THEME__?.(${JSON.stringify(originalTheme)}) ?? Promise.resolve(false)`,
+        ).catch(() => undefined);
+      }
+    },
+  }), [copy.automationUnavailable, copy.navigationUnavailable, copy.orientationChangeFailed, onOrientationChange, ready]);
+
+  const capture = async () => { await captureCurrent(true).catch(() => undefined); };
 
   return <div className="device-preview">
     {error && <ui.ErrorFrame message={error} onDismiss={() => setError(null)} />}
@@ -191,4 +264,4 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
       </div>
     </div>
   </div>;
-}
+});

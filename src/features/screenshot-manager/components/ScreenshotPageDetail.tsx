@@ -42,7 +42,7 @@ function findDomElement(screenshot: ScreenshotRecord | undefined, key: string | 
 }
 
 function domTree(screenshots: ScreenshotRecord[]): ui.TreeViewItem[] {
-  type MergedNode = { element: CapturedDomElement; parentKey: string | null; childKeys: string[]; variants: Set<string> };
+  type MergedNode = { element: CapturedDomElement; parentKey: string | null; childKeys: string[] };
   const nodes = new Map<string, MergedNode>();
   const rootKeys: string[] = [];
   for (const screenshot of screenshots) {
@@ -59,10 +59,9 @@ function domTree(screenshots: ScreenshotRecord[]): ui.TreeViewItem[] {
       const parentKey = parent ? domElementKey(parent) : null;
       const existing = nodes.get(key);
       if (existing) {
-        existing.variants.add(screenshot.orientation);
         if (!existing.parentKey && parentKey) existing.parentKey = parentKey;
       } else {
-        nodes.set(key, { element, parentKey, childKeys: [], variants: new Set([screenshot.orientation]) });
+        nodes.set(key, { element, parentKey, childKeys: [] });
       }
     }
   }
@@ -75,8 +74,7 @@ function domTree(screenshots: ScreenshotRecord[]): ui.TreeViewItem[] {
   const make = (key: string): ui.TreeViewItem => {
     const node = nodes.get(key)!;
     const children = node.childKeys.map(make);
-    const availability = node.variants.size === 1 ? (node.variants.has("portrait") ? "portrait only" : "landscape only") : "portrait + landscape";
-    return { id: `dom:${encodeURIComponent(key)}`, label: domLabel(node.element), kind: children.length ? "folder" : "document", meta: `${node.element.semantic?.kind ?? "element"} · ${availability}`, children };
+    return { id: `dom:${encodeURIComponent(key)}`, label: domLabel(node.element), kind: children.length ? "folder" : "document", children };
   };
   return rootKeys.map(make);
 }
