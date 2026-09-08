@@ -32,6 +32,17 @@ const screenshotRoute = (value: string) => {
   return `${url.pathname}${url.search}${url.hash}` || "/";
 };
 
+const clientNavigateScript = (route: string) => `(async () => {
+  const route = ${JSON.stringify(route)};
+  if (window.__GETGO_DESIGN_NAVIGATE__) return await window.__GETGO_DESIGN_NAVIGATE__(route);
+  const target = new URL(route, location.href);
+  if (target.origin !== location.origin) return false;
+  const next = target.pathname + target.search + target.hash;
+  history.pushState(history.state, "", next);
+  window.dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+  return true;
+})()`;
+
 export function DevicePreview({ locale, project, requestedRoute, resetKey, onProjectChange, onScaleChange, onCaptured }: { locale: "en" | "vi"; project: ScreenshotProject; requestedRoute?: { route: string; key: number }; resetKey: number; onProjectChange(project: ScreenshotProject): void; onScaleChange(scale: number): void; onCaptured?(route: string): void }) {
   const copy = (locale === "vi" ? vi : en).screenshotManager.devicePreview;
   const width = project.previewConfig.width;
@@ -108,19 +119,33 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
     setCurrentUrl(project.previewConfig.baseUrl);
   }, [project.previewConfig.baseUrl]);
   useEffect(() => {
-    if (!requestedRoute) return;
+    if (!requestedRoute || !ready) return;
     const next = new URL(requestedRoute.route, `${project.previewConfig.baseUrl}/`).toString();
     setDraftUrl(next);
-    setCurrentUrl(next);
-  }, [project.previewConfig.baseUrl, requestedRoute?.key, requestedRoute?.route]);
+    setError(null);
+    let cancelled = false;
+    void webviewRef.current?.executeJavaScript<boolean>(clientNavigateScript(requestedRoute.route)).then(navigated => {
+      if (!cancelled && !navigated) setError(copy.navigationUnavailable);
+    }).catch(cause => {
+      if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+    });
+    return () => { cancelled = true; };
+  }, [copy.navigationUnavailable, project.previewConfig.baseUrl, ready, requestedRoute?.key, requestedRoute?.route]);
   useEffect(() => {
     if (resetKey > 0 && ready) webviewRef.current?.reload();
   }, [ready, resetKey]);
-  const navigate = (event: FormEvent) => {
+  const navigate = async (event: FormEvent) => {
     event.preventDefault();
     const next = normalizeLocalUrl(draftUrl);
     if (!next) { setError(copy.localOnly); return; }
-    setError(null); setCurrentUrl(next);
+    setError(null);
+    const current = webviewRef.current?.getURL();
+    if (current && new URL(current).origin === new URL(next).origin) {
+      const route = screenshotRoute(next);
+      const navigated = await webviewRef.current?.executeJavaScript<boolean>(clientNavigateScript(route));
+      if (navigated) return;
+    }
+    await webviewRef.current?.loadURL(next);
   };
   const capture = async () => {
     const webview = webviewRef.current;
@@ -152,17 +177,17 @@ export function DevicePreview({ locale, project, requestedRoute, resetKey, onPro
   };
 
   return <div className="device-preview">
-    {error && <ui.ErrorFrame message={error} />}
+    {error && <ui.ErrorFrame message={error} onDismiss={() => setError(null)} />}
     <div className="device-preview-stage" ref={stageRef} style={{ height: Math.ceil((height + 52) * scale), "--device-preview-width": `${width}px` } as CSSProperties}>
       <div className="device-browser" style={{ width, height: height + 52, transform: `scale(${scale})` }}>
-        <form className="device-browser-bar" onSubmit={navigate}>
+        <form className="device-browser-bar" onSubmit={event => void navigate(event)}>
           <ui.Button variant="icon" icon={<ArrowLeft />} aria-label={copy.back} disabled={!ready || !navigation.back} onClick={() => webviewRef.current?.goBack()} />
           <ui.Button variant="icon" icon={<ArrowRight />} aria-label={copy.forward} disabled={!ready || !navigation.forward} onClick={() => webviewRef.current?.goForward()} />
           <ui.Button variant="icon" icon={<RefreshCw />} aria-label={copy.reload} disabled={!ready} onClick={() => webviewRef.current?.reload()} />
           <ui.Input leftIcon={<Globe2 />} value={draftUrl} aria-label={copy.address} onChange={event => setDraftUrl(event.target.value)} />
           <ui.Button variant="primary" icon={<Camera />} loading={capturing} disabled={!ready || loading} aria-label={copy.capture} title={copy.capture} onClick={() => void capture()} />
         </form>
-        <webview ref={element => { webviewRef.current = element as DeviceWebview | null; }} className="device-browser-webview" src={currentUrl} partition="persist:getgo-device-preview" />
+        <webview ref={element => { webviewRef.current = element as DeviceWebview | null; }} className="device-browser-webview" src={project.previewConfig.baseUrl} partition="persist:getgo-device-preview" />
       </div>
     </div>
   </div>;

@@ -33,23 +33,52 @@ function domLabel(element: CapturedDomElement) {
   return element.semantic?.label ?? "Unclassified element";
 }
 
-function domTree(snapshot: NonNullable<ScreenshotRecord["domSnapshot"]>): ui.TreeViewItem[] {
-  const byId = new Map(snapshot.elements.map(element => [element.id, element]));
-  const semanticElements = snapshot.elements.filter(element => element.semantic?.confidence !== undefined && element.semantic.confidence !== "unclassified");
-  const semanticIds = new Set(semanticElements.map(element => element.id));
-  const childrenByParent = new Map<string | null, CapturedDomElement[]>();
-  for (const element of semanticElements) {
-    let parentId = element.parentId;
-    while (parentId && !semanticIds.has(parentId)) parentId = byId.get(parentId)?.parentId ?? null;
-    const children = childrenByParent.get(parentId) ?? [];
-    children.push(element);
-    childrenByParent.set(parentId, children);
+function domElementKey(element: CapturedDomElement) {
+  return element.semantic?.confidence === "explicit" ? `semantic:${element.semantic.id}` : `selector:${element.selector}`;
+}
+
+function findDomElement(screenshot: ScreenshotRecord | undefined, key: string | null) {
+  return key ? screenshot?.domSnapshot?.elements.find(element => domElementKey(element) === key) : undefined;
+}
+
+function domTree(screenshots: ScreenshotRecord[]): ui.TreeViewItem[] {
+  type MergedNode = { element: CapturedDomElement; parentKey: string | null; childKeys: string[]; variants: Set<string> };
+  const nodes = new Map<string, MergedNode>();
+  const rootKeys: string[] = [];
+  for (const screenshot of screenshots) {
+    const snapshot = screenshot.domSnapshot;
+    if (!snapshot) continue;
+    const byId = new Map(snapshot.elements.map(element => [element.id, element]));
+    const semanticElements = snapshot.elements.filter(element => element.semantic?.confidence !== undefined && element.semantic.confidence !== "unclassified");
+    const semanticIds = new Set(semanticElements.map(element => element.id));
+    for (const element of semanticElements) {
+      const key = domElementKey(element);
+      let parentId = element.parentId;
+      while (parentId && !semanticIds.has(parentId)) parentId = byId.get(parentId)?.parentId ?? null;
+      const parent = parentId ? byId.get(parentId) : undefined;
+      const parentKey = parent ? domElementKey(parent) : null;
+      const existing = nodes.get(key);
+      if (existing) {
+        existing.variants.add(screenshot.orientation);
+        if (!existing.parentKey && parentKey) existing.parentKey = parentKey;
+      } else {
+        nodes.set(key, { element, parentKey, childKeys: [], variants: new Set([screenshot.orientation]) });
+      }
+    }
   }
-  const make = (element: CapturedDomElement): ui.TreeViewItem => {
-    const children = (childrenByParent.get(element.id) ?? []).map(make);
-    return { id: `dom:${element.selector}`, label: domLabel(element), kind: children.length ? "folder" : "document", meta: element.semantic?.kind, children };
+  for (const [key, node] of nodes) {
+    const parent = node.parentKey ? nodes.get(node.parentKey) : undefined;
+    if (parent) {
+      if (!parent.childKeys.includes(key)) parent.childKeys.push(key);
+    } else if (!rootKeys.includes(key)) rootKeys.push(key);
+  }
+  const make = (key: string): ui.TreeViewItem => {
+    const node = nodes.get(key)!;
+    const children = node.childKeys.map(make);
+    const availability = node.variants.size === 1 ? (node.variants.has("portrait") ? "portrait only" : "landscape only") : "portrait + landscape";
+    return { id: `dom:${encodeURIComponent(key)}`, label: domLabel(node.element), kind: children.length ? "folder" : "document", meta: `${node.element.semantic?.kind ?? "element"} · ${availability}`, children };
   };
-  return (childrenByParent.get(null) ?? []).map(make);
+  return rootKeys.map(make);
 }
 
 export function ScreenshotPageDetail({ locale, project, route }: { locale: "en" | "vi"; project: ScreenshotProject; route: string }) {
@@ -63,18 +92,18 @@ export function ScreenshotPageDetail({ locale, project, route }: { locale: "en" 
   const screenshots = useMemo(() => project.screenshots.filter(item => item.route === route).sort((a, b) => `${a.orientation}-${a.theme}`.localeCompare(`${b.orientation}-${b.theme}`)), [project.screenshots, route]);
   const { regions, elements } = pageStructure(analysis);
   const referenceScreenshot = screenshots.find(item => item.orientation === "portrait" && item.theme === "light" && item.domSnapshot) ?? screenshots.find(item => item.domSnapshot);
-  const hasCapturedDom = Boolean(referenceScreenshot?.domSnapshot?.elements.some(element => element.semantic?.confidence !== undefined && element.semantic.confidence !== "unclassified"));
-  const selectedSelector = selectedId?.startsWith("dom:") ? selectedId.slice(4) : null;
-  const selectedDomElement = selectedSelector ? referenceScreenshot?.domSnapshot?.elements.find(item => item.selector === selectedSelector) : undefined;
+  const hasCapturedDom = screenshots.some(screenshot => screenshot.domSnapshot?.elements.some(element => element.semantic?.confidence !== undefined && element.semantic.confidence !== "unclassified"));
+  const selectedDomKey = selectedId?.startsWith("dom:") ? decodeURIComponent(selectedId.slice(4)) : null;
+  const selectedDomElement = findDomElement(referenceScreenshot, selectedDomKey) ?? screenshots.map(screenshot => findDomElement(screenshot, selectedDomKey)).find(Boolean);
   const selectedRegion = selectedId?.startsWith("region:") ? regions.find(item => item.id === selectedId.slice(7)) : regions.find(region => region.id === elements.find(item => `element:${item.id}` === selectedId)?.parentRegionId);
   const documentedTree = [{ id: "page-root", label: vi ? "Cấu trúc đã mô tả" : "Documented structure", kind: "collection" as const, children: regions.map(region => ({ id: `branch:${region.id}`, label: region.name ?? region.id, kind: "folder" as const, meta: region.semanticRole, children: [{ id: `region:${region.id}`, label: vi ? "Vùng tổng thể" : "Region bounds", kind: "document" as const, meta: region.id }, ...elements.filter(element => element.parentRegionId === region.id).map(element => ({ id: `element:${element.id}`, label: element.content ?? element.id, kind: "file" as const, meta: element.type }))] })) }];
-  const tree = hasCapturedDom ? [{ id: "captured-dom-root", label: vi ? "DOM đã đo khi chụp" : "Measured capture DOM", kind: "collection" as const, children: domTree(referenceScreenshot!.domSnapshot!) }] : documentedTree;
+  const tree = hasCapturedDom ? [{ id: "captured-dom-root", label: vi ? "Cấu trúc trang đã đo" : "Measured page structure", kind: "collection" as const, children: domTree(screenshots) }] : documentedTree;
   if (loading) return <ui.PageLoading label={vi ? "Đang tải cấu trúc trang" : "Loading page structure"} />;
   if (error) return <ui.ErrorFrame message={error} />;
   return <div className="screenshot-page-detail-workspace">
     <section className="screenshot-page-comparison" aria-label={vi ? "Ảnh chụp trang" : "Page screenshots"}>
       <div className="screenshot-page-track">
-        {screenshots.map((screenshot: ScreenshotRecord) => { const measuredElement = selectedSelector ? screenshot.domSnapshot?.elements.find(item => item.selector === selectedSelector) : undefined; const overlayStyle = selectedSelector ? domHighlightStyle(measuredElement) : highlightStyle(selectedRegion, screenshot.orientation); const overlayLabel = measuredElement ? domLabel(measuredElement) : selectedRegion?.name ?? selectedRegion?.id; return <figure className="screenshot-page-figure" key={screenshot.id}>
+        {screenshots.map((screenshot: ScreenshotRecord) => { const measuredElement = findDomElement(screenshot, selectedDomKey); const overlayStyle = selectedDomKey ? domHighlightStyle(measuredElement) : highlightStyle(selectedRegion, screenshot.orientation); const overlayLabel = measuredElement ? domLabel(measuredElement) : selectedRegion?.name ?? selectedRegion?.id; return <figure className="screenshot-page-figure" key={screenshot.id}>
           <figcaption><strong>{screenshot.orientation === "portrait" ? (vi ? "Dọc" : "Portrait") : (vi ? "Ngang" : "Landscape")}</strong><span>{screenshot.theme === "dark" ? (vi ? "Tối" : "Dark") : (vi ? "Sáng" : "Light")}</span></figcaption>
           <div className="screenshot-page-image-wrap">
             <img src={screenshot.previewDataUrl} alt={`${screenshot.name} · ${screenshot.orientation} · ${screenshot.theme}`} />
