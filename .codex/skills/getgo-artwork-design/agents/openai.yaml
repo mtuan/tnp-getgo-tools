@@ -1,4 +1,0 @@
-interface:
-  display_name: "GetGo Artwork Design"
-  short_description: "Create screenshot-driven GetGo artwork and reconstruction kits"
-  default_prompt: "Use the selected GetGo screenshot project to create an artwork design with four visual variants, transparent assets, canonical JSON, and reconstructed HTML."

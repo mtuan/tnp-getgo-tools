@@ -36,6 +36,9 @@ Read [references/art-direction.md](references/art-direction.md) before prompting
 - Do not bake sun, moon, stars, night sky, sunrise, sunset, or other time-of-day signals into shared backgrounds. If explicitly required, generate the object as a separate matte-backed cut asset so themes can assemble it independently.
 - Keep text, controls, functional icons, focus rings, validation, navigation, and live data code-native. Artwork is decorative and must not intercept input or cover required content.
 - Maintain one coherent, premium illustration language across pages: friendly characters, intentional composition, clean silhouettes, controlled detail, and strong readable whitespace. Reject generic clip-art collages and ornamental clutter.
+- Keep every illustrated object physically and contextually plausible. Place books, pencils, bags, signs, and classroom objects on believable supports or in a character's hands; never hang, grow, float, or balance them in trees or foliage unless the administrator explicitly requests fantasy behavior. Reject accidental tangencies and attachments that make unrelated objects appear fused together.
+- Treat vertically scrolling pages as edge-framed documents by default. Prefer one full-width, top-anchored header artwork layer (for example sky, canopy, or leaves) and one full-width, bottom-anchored footer artwork layer (for example ground, grass, flowers, or insects), with the scrollable content flowing in a calm region between them. Do not generate one viewport-height poster background for a page whose content height can vary.
+- Anchor the header to the document's top and the footer to the document's content bottom. Do not use fixed or sticky viewport decoration unless the existing application shell explicitly owns and reserves that space; decorative artwork must never cover content, controls, bottom navigation, safe areas, or focus targets.
 - Establish a style lock before generating the set: approved reference images, medium/texture, palette roles, outline weight, lighting, character model sheet, proportions, eye treatment, and recurring botanical vocabulary. Repeat that lock in every built-in generation/edit prompt.
 - Generate the first approved canonical character or scene asset, then provide it as a reference input to later built-in calls that must preserve identity. State `change only ...; keep ... unchanged` for edits. Reject identity drift rather than accepting a merely similar replacement.
 
@@ -87,6 +90,8 @@ Never call the work complete when any item below is true:
 - HTML uses a screenshot as the whole page, rasterizes functional UI, uses canvas, embeds base64, fetches remote dependencies, or omits semantic controls;
 - the responsive page lacks a visible theme toggle, fails automatic portrait/landscape recomposition on resize, or reloads to switch modes;
 - artwork covers content, intercepts pointer input, breaks focus order, or becomes unreadable at short viewport heights or 200% zoom;
+- an ordinary scrolling page is implemented as a fixed-height illustrated poster instead of separate top and bottom edge framing, or its footer floats above the actual content end;
+- an object floats, hangs from, grows from, or is fused to an implausible surface without explicit fantasy direction;
 - demos were not rendered from the reconstruction and visually inspected at canonical sizes;
 - any accepted image was produced through an API-key, SDK, CLI, repository generator, or unrecorded generation path instead of built-in `image_gen`;
 - characters, palette, medium, line weight, lighting, or botanical vocabulary visibly drift between assets or orientations;
