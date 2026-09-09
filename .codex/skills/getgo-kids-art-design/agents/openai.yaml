@@ -1,0 +1,4 @@
+interface:
+  display_name: "GetGo Kids Art Design"
+  short_description: "Create polished kids-friendly page artwork kits"
+  default_prompt: "Use $getgo-kids-art-design to create a kids-friendly design package for this GetGo page."
