@@ -1,26 +1,35 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "status": "pending-render",
   "checks": {
     "requiredFiles": "pending",
     "canonicalDimensions": "pending",
-    "sourceContentParity": "passed",
-    "semanticControlParity": "passed",
+    "sourceContentParity": "passed-by-source-inspection",
+    "semanticControlParity": "passed-by-source-inspection",
+    "sourceLayoutOverlayComparison": "pending-render",
+    "regionGeometryParity": "pending-render",
+    "spacingAlignmentParity": "pending-render",
+    "typographyComponentPresentationParity": "pending-render",
     "localOnlyHtml": "pending",
-    "orientationRecomposition": "passed",
-    "lightDarkAssetParity": "passed",
-    "lightDarkGeometryParity": "passed",
+    "artworkOnlyOrientationRecomposition": "passed-by-source-inspection",
+    "lightDarkAssetParity": "passed-by-source-inspection",
+    "lightDarkGeometryParity": "pending-render",
     "darkOverlayBehavior": "passed-by-source-inspection",
     "themeNeutralBackgrounds": "passed-by-visual-inspection",
+    "decorationNonInterference": "pending-render",
+    "naturalObjectPlacement": "passed-by-visual-inspection",
     "crossAssetStyleConsistency": "passed-by-visual-inspection",
     "builtInOnlyGeneration": "passed",
-    "cutAssetMatte": "passed",
-    "transparentEdit": "rejected-no-alpha",
+    "matteAlphaInspection": "passed-final-alpha-0-255",
     "keyboardAndFocus": "pending-runtime",
     "responsiveResize": "pending-runtime",
     "shortViewport": "pending-runtime",
+    "tallScrollingContent": "pending-runtime",
     "zoom200": "pending-runtime",
     "visualComparisons": "pending-render"
   },
-  "notes": ["The failed transparent fox edit was not copied into the package or referenced by HTML."]
+  "notes": [
+    "The first transparent header attempt was rejected because it contained an opaque checkerboard.",
+    "The old full-page poster backgrounds and unused fox matte asset were removed from the final package."
+  ]
 }

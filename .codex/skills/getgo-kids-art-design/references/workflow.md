@@ -2,11 +2,20 @@
 
 ## 1. Establish evidence and page invariants
 
-Resolve the Screenshot Manager record for the page name or URL. Load its captures and managed analysis/content, plus administrator Markdown instructions. Inventory exact content, controls, actions, ordering, responsive behavior, states, and safe interaction regions. Create an explicit input allowlist in `generation-manifest.json`.
+Resolve the Screenshot Manager record for the page name or URL. Load its captures and managed analysis/content, plus administrator Markdown instructions. Create a layout-lock inventory for every source orientation: region bounds, content width, ordering, alignment, gaps, section and row heights, typography hierarchy, control and card presentation, navigation placement, responsive transformations, states, and safe decoration regions. Create an explicit input allowlist in `generation-manifest.json`.
+
+Unless the administrator explicitly names a UI change, mark every inventoried layout and presentation property immutable. The purpose of this workflow is to add artwork, not propose a new page design.
 
 ## 2. Write one scene brief and two composition plans
 
-Define page purpose, focal character or motif, shared palette and medium, content-safe zones, background/middle/foreground layers, and asset inventory. Determine whether the page scrolls or can grow with dynamic/localized content. For a scrolling page, plan a full-width top edge asset and a full-width bottom edge asset for each orientation, plus only genuinely necessary isolated characters or props. Do not plan a viewport-height poster background. Then specify distinct portrait and landscape framing. They must feel like two camera framings of the same illustrated world, not unrelated themes and not one stretched image.
+Define page purpose, focal character or motif, shared palette and medium, content-safe zones, background/middle/foreground layers, and asset inventory without changing the layout-lock inventory. Classify the page:
+
+- `fullscreen-fixed`: use an orientation-specific full-page background behind the unchanged layout, for pages such as login and registration.
+- `vertical-scroll`: use a full-width top edge asset and full-width bottom edge asset for each orientation, plus only necessary isolated accents, for pages such as profile and explore. Do not plan a viewport-height poster background.
+
+Specify distinct portrait and landscape artwork framing around the source layouts. They must feel like two camera framings of the same illustrated world, while all UI geometry continues to match its corresponding capture.
+
+Inventory optional decoration anchors already available in the layout, such as whitespace beside a category heading or an unused card corner. Each decoration must have a maximum box, absolute anchor, z-index, and no-layout-impact rule. If no safe space exists, omit the decoration rather than moving content.
 
 Write a short scene-logic inventory before prompting: for every non-natural prop, name its support or holder and reject any composition that violates it. Example: `book — held by character or resting on desk; pencil — in hand, cup, bag, or on desk; never attached to foliage`. Do not invent fantasy physics unless the administrator requested it.
 
@@ -16,7 +25,7 @@ Create a reusable style-lock block containing the approved reference roles, medi
 
 ## 3. Generate and evaluate light demos
 
-Use `$imagegen` in default built-in mode. Generate portrait-light and landscape-light concepts using exact page content for spatial evaluation while keeping functional UI separable. On scrolling pages, the concept must demonstrate that top and bottom edge art remain coherent when the middle content region grows; the bottom scenery belongs at the document end, not the initial viewport edge. Generate the second orientation with the approved first composition and canonical character asset as style/identity references, while explicitly requesting a new aspect-ratio composition rather than a crop. Reject malformed copy, fake controls, incoherent anatomy, implausibly supported or fused objects, identity or palette drift, cluttered content zones, aspect-ratio stretching, and baked time-of-day cues. Iterate the weaker composition with one targeted edit rather than accepting a merely attractive image.
+Use `$imagegen` in default built-in mode. Generate artwork concepts against the captured page as an immutable layout reference. State explicitly in every concept prompt: `Do not redesign, move, resize, regroup, or restyle any UI; add artwork only in the named background and decoration regions.` On scrolling pages, the concept must demonstrate that top and bottom edge art remain coherent when the middle content region grows; the bottom scenery belongs at the document end, not the initial viewport edge. Generate the second orientation with the approved first artwork and canonical character asset as style/identity references, while requesting a new aspect-ratio artwork composition around the unchanged orientation layout. Reject any concept with altered UI geometry or presentation, malformed copy, fake controls, incoherent anatomy, implausibly supported or fused objects, identity or palette drift, cluttered content zones, aspect-ratio stretching, and baked time-of-day cues.
 
 ## 4. Produce reusable artwork
 
@@ -27,12 +36,13 @@ Use one built-in `image_gen` call for each distinct asset. For related assets, i
 Use this prompt shape for each asset:
 
 ```text
-Role: <fixed-page background | character | edge scenery | header | footer>
+Role: <fullscreen background | character | edge scenery | header | footer | section decoration>
 Page purpose: <purpose>
 Style: <project art direction and shared identity>
 Style lock: <exact shared medium, texture, palette, line, lighting, anatomy, eyes, foliage>
 Reference inputs: <canonical character/scene and role, when continuity is required>
 Composition: <orientation, anchor, content-safe zone, complete silhouette>
+Layout lock: preserve all captured UI bounds, spacing, alignment, typography, component presentation, and responsive behavior; this asset must not require a layout change
 Scene logic: <each prop and its believable support/holder; no unintended floating or attachment>
 Scroll behavior: <document-top header | document-bottom footer | isolated asset; never viewport-fixed unless reserved>
 Palette/lighting: <theme-neutral canonical light artwork>
@@ -51,6 +61,8 @@ Use local relative assets and ordinary HTML/CSS. Build content with headings, fo
 
 Create one shared component/layout model. Four fixed files lock viewport and theme for comparison. `responsive.html` uses CSS media/container queries to recompose between portrait and landscape and includes a visible, keyboard-operable light/dark toggle. Dark state applies the overlay and tokens without changing artwork files or element geometry within an orientation.
 
+Reconstruct the captured UI first and compare its geometry before adding any artwork. Add backgrounds and decorations as non-participating layers (`position: absolute` or equivalent) so they cannot affect intrinsic size, flex/grid allocation, wrapping, or document flow. Preserve existing UI surfaces and tokens unless a minimal contrast adjustment is required for readability over the new artwork; such an adjustment must not change geometry or component presentation.
+
 Do not use canvas, remote fonts/libraries, embedded base64, or a full-page demo PNG as reconstruction content.
 
 ## 6. Render demos from HTML
@@ -63,6 +75,6 @@ For scrolling pages, also test at least one content height taller than the viewp
 
 ## 7. Validate and iterate
 
-Run `node scripts/validate-package.mjs <page-folder>`. Visually compare all four HTML variants with demos and source page content. Check safe areas, crop/anchor intent, contrast, control order, asset edges/mattes, overflow, and interaction blocking.
+Run `node scripts/validate-package.mjs <page-folder>`. Overlay each reconstructed variant with its corresponding source capture before evaluating the artwork. Check region bounds, widths, heights, spacing, alignment, typography hierarchy, component presentation, control order, and responsive behavior. Then check safe areas, artwork crop/anchor intent, contrast, decoration restraint, asset edges/mattes, overflow, and interaction blocking.
 
 Fix shared layout or source artwork when evidence shows a systemic problem. Do not accumulate page-local offsets to conceal a wrong composition. Reject any asset with impossible object placement or accidental fusion. Finish only after every artifact exists and `validation-report.json` truthfully records passed checks and unavailable runtime checks.

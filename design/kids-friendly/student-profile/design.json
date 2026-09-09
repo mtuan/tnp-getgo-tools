@@ -1,75 +1,142 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "page": {
     "slug": "student-profile",
     "name": "GetGo: Hồ sơ",
     "route": "/student/profile",
-    "purpose": "Manage student profile and visual preferences."
+    "purpose": "Manage student profile and visual preferences.",
+    "heightBehavior": "vertical-scroll"
   },
   "viewports": {
     "portrait": { "width": 393, "height": 852 },
     "landscape": { "width": 1440, "height": 900 }
   },
+  "layoutLock": {
+    "source": "Screenshot Manager captures",
+    "immutable": [
+      "fixed top navigation",
+      "192px bounded profile-decoration header",
+      "overlapping avatar and identity",
+      "single centered settings rail",
+      "joined setting rows",
+      "portrait fixed bottom navigation",
+      "desktop top navigation"
+    ],
+    "portrait": {
+      "topNavigationHeight": 58,
+      "profileDecorationHeight": 192,
+      "contentInset": 24,
+      "avatarBox": 96,
+      "settingsColumns": 1,
+      "bottomNavigationHeight": 64
+    },
+    "landscape": {
+      "topNavigationHeight": 58,
+      "profileDecorationHeight": 192,
+      "contentRailMaxWidth": 980,
+      "settingsColumns": 1,
+      "mobileBottomNavigation": false
+    },
+    "administratorExceptions": []
+  },
   "artDirection": {
-    "scene": "Theme-neutral garden classroom with leafy canopy, books, pencils, meadow flowers and a winding learning path.",
-    "styleLock": "Polished watercolor/gouache storybook illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and controlled coral/yellow/purple accents; diffuse neutral light; consistent daisies and rounded leaves.",
-    "forbidden": ["sun", "moon", "stars", "night sky", "sunrise", "sunset", "baked UI", "raster text"],
-    "contentSafeZone": "Central 70% remains calm and low-detail."
+    "scene": "Theme-neutral storybook garden framing added around the unchanged student profile UI.",
+    "styleLock": "Polished watercolor/gouache storybook illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and restrained yellow accents; diffuse neutral light; consistent daisies and rounded leaves.",
+    "assetStrategy": "Separate full-width document-top header and document-bottom footer art for each orientation, plus one small botanical section accent.",
+    "forbidden": ["layout redesign", "sun", "moon", "stars", "night sky", "baked UI", "raster text", "floating props", "objects attached to foliage"]
   },
   "theme": {
     "canonicalArtwork": "light",
-    "darkDerivation": "Reuse identical artwork, crop and geometry; apply CSS overlay and dark semantic tokens.",
-    "darkOverlay": "rgba(15, 19, 48, 0.52)",
+    "darkDerivation": "Reuse identical artwork and geometry; apply CSS overlay and dark tokens.",
+    "darkOverlay": "rgba(0, 42, 34, 0.48)",
     "lightDarkGeometryParity": true,
     "lightDarkAssetParity": true
   },
   "tokens": {
-    "accent": { "light": "#08A878", "dark": "#50E0B2" },
-    "surface": { "light": "rgba(255,255,255,.92)", "dark": "rgba(21,34,48,.92)" },
-    "text": { "light": "#17324B", "dark": "#F8FBFF" },
-    "mutedText": { "light": "#58708A", "dark": "#C3D1DD" },
-    "radiusCard": 22,
+    "canvas": { "light": "#effcf5", "dark": "#00392f" },
+    "accent": { "light": "#00b982", "dark": "#00d89a" },
+    "surface": { "light": "rgba(255,255,255,.94)", "dark": "rgba(12,72,58,.94)" },
+    "text": { "light": "#12213a", "dark": "#f7fffc" },
+    "mutedText": { "light": "#62728b", "dark": "#9ab7ae" },
     "minimumTouchTarget": 44
   },
   "content": {
     "identity": ["Mai Thanh Ngọc (Charly)", "Lớp 3 · Nữ"],
-    "profile": [
-      { "title": "Chỉnh sửa hồ sơ", "description": "Cập nhật thông tin học sinh" },
-      { "title": "Đặt Mã PIN", "description": "Bảo mật tài khoản của bạn", "value": "Bật" }
-    ],
-    "appearance": [
-      { "title": "Ngôn ngữ", "description": "Chọn ngôn ngữ ưa thích của bạn", "value": "Tiếng Việt" },
-      { "title": "Màu chủ đạo", "description": "Lựa chọn màu chủ đạo cho ứng dụng", "value": "Xanh lục" },
-      { "title": "Chế độ Tối / Sáng", "description": "Chuyển đổi giữa chế độ tối và sáng", "value": "Sáng/Tối" }
-    ],
+    "profile": ["Chỉnh sửa hồ sơ", "Đặt Mã PIN"],
+    "appearance": ["Ngôn Ngữ", "Màu chủ đạo", "Chế độ Tối / Sáng"],
     "navigation": ["Học tập", "Hoạt động", "Bảng xếp hạng", "Hồ sơ"]
-  },
-  "compositions": {
-    "portrait": "Tall canopy and learning motifs at upper corners; garden/path footer; compact stacked identity and setting groups; fixed bottom navigation.",
-    "landscape": "Independent wide meadow continuation; broad calm center; desktop navigation; identity rail above two-column settings."
   },
   "assets": [
     {
-      "id": "garden-classroom-portrait",
-      "file": "assets/garden-classroom-portrait.png",
-      "role": "opaque-background",
-      "dimensions": [851, 1848],
+      "id": "profile-header-portrait",
+      "file": "assets/profile-header-portrait.png",
+      "role": "header",
+      "dimensions": [1860, 846],
       "orientations": ["portrait"],
-      "anchor": "center",
-      "focalPoint": [0.5, 0.45],
-      "cropBehavior": "cover",
+      "anchor": "document-top",
+      "focalPoint": [0.5, 0.42],
+      "cropBehavior": "cover inside the existing 192px profile-decoration window",
+      "maximumDisplayBox": "100vw x 192px",
+      "zIndex": 10,
+      "layoutParticipation": "none",
       "backgroundMode": "opaque-background"
     },
     {
-      "id": "garden-classroom-landscape",
-      "file": "assets/garden-classroom-landscape.png",
-      "role": "opaque-background",
-      "dimensions": [1586, 992],
+      "id": "profile-header-landscape",
+      "file": "assets/profile-header-landscape.png",
+      "role": "header",
+      "dimensions": [2222, 707],
       "orientations": ["landscape"],
-      "anchor": "center",
-      "focalPoint": [0.5, 0.46],
-      "cropBehavior": "cover",
+      "anchor": "document-top",
+      "focalPoint": [0.5, 0.36],
+      "cropBehavior": "cover inside the existing 192px profile-decoration window",
+      "maximumDisplayBox": "100vw x 192px",
+      "zIndex": 10,
+      "layoutParticipation": "none",
       "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "profile-footer-portrait",
+      "file": "assets/profile-footer-portrait.png",
+      "role": "footer",
+      "dimensions": [1862, 845],
+      "orientations": ["portrait"],
+      "anchor": "document-bottom",
+      "focalPoint": [0.5, 1],
+      "cropBehavior": "cover with upper pale-mint blend edge",
+      "maximumDisplayBox": "100vw x 170px",
+      "zIndex": 10,
+      "layoutParticipation": "none",
+      "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "profile-footer-landscape",
+      "file": "assets/profile-footer-landscape.png",
+      "role": "footer",
+      "dimensions": [1774, 887],
+      "orientations": ["landscape"],
+      "anchor": "document-bottom",
+      "focalPoint": [0.5, 1],
+      "cropBehavior": "cover with upper pale-mint blend edge",
+      "maximumDisplayBox": "100vw x 210px",
+      "zIndex": 10,
+      "layoutParticipation": "none",
+      "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "section-botanical-accent",
+      "file": "assets/section-botanical-accent.png",
+      "role": "section-decoration",
+      "dimensions": [1536, 1024],
+      "orientations": ["portrait", "landscape"],
+      "anchor": "existing-section-heading-trailing-space",
+      "focalPoint": [0.5, 0.5],
+      "cropBehavior": "contain",
+      "maximumDisplayBox": "62px x 40px",
+      "zIndex": 20,
+      "layoutParticipation": "none",
+      "backgroundMode": "transparent",
+      "sourceRemovalMatte": "#8B00FF"
     },
     {
       "id": "student-charly-avatar",
@@ -77,22 +144,13 @@
       "role": "student-avatar",
       "dimensions": [1254, 1254],
       "orientations": ["portrait", "landscape"],
-      "anchor": "center",
+      "anchor": "existing-avatar-box",
       "focalPoint": [0.5, 0.42],
-      "cropBehavior": "cover inside code-native avatar frame",
+      "cropBehavior": "cover",
+      "maximumDisplayBox": "96px x 96px",
+      "zIndex": 30,
+      "layoutParticipation": "existing-content",
       "backgroundMode": "opaque-background"
-    },
-    {
-      "id": "fox-guide-purple-matte",
-      "file": "assets/fox-guide-purple-matte.png",
-      "role": "cut-source-not-used-in-html",
-      "dimensions": [1148, 1371],
-      "orientations": ["portrait", "landscape"],
-      "anchor": "bottom-center",
-      "focalPoint": [0.5, 0.5],
-      "cropBehavior": "contain",
-      "backgroundMode": "removal-matte",
-      "removalMatte": "#8B00FF"
     }
   ]
 }
