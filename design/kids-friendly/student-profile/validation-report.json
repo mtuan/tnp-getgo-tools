@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "status": "pending-render",
+  "checks": {
+    "requiredFiles": "pending",
+    "canonicalDimensions": "pending",
+    "sourceContentParity": "passed",
+    "semanticControlParity": "passed",
+    "localOnlyHtml": "pending",
+    "orientationRecomposition": "passed",
+    "lightDarkAssetParity": "passed",
+    "lightDarkGeometryParity": "passed",
+    "darkOverlayBehavior": "passed-by-source-inspection",
+    "themeNeutralBackgrounds": "passed-by-visual-inspection",
+    "crossAssetStyleConsistency": "passed-by-visual-inspection",
+    "builtInOnlyGeneration": "passed",
+    "cutAssetMatte": "passed",
+    "transparentEdit": "rejected-no-alpha",
+    "keyboardAndFocus": "pending-runtime",
+    "responsiveResize": "pending-runtime",
+    "shortViewport": "pending-runtime",
+    "zoom200": "pending-runtime",
+    "visualComparisons": "pending-render"
+  },
+  "notes": ["The failed transparent fox edit was not copied into the package or referenced by HTML."]
+}

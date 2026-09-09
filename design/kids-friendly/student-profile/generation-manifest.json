@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "page": "student-profile",
+  "generationTool": "built-in-image_gen",
+  "credentialMode": "none",
+  "styleLock": "Polished watercolor/gouache storybook illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and controlled coral/yellow/purple accents; diffuse neutral light; consistent daisies, rounded leaves, eye construction and character proportions.",
+  "inputs": [
+    { "path": "../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/pages.json", "record": "/student/profile", "role": "structural-reference" },
+    { "path": "../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/general-rules.md", "role": "instruction" },
+    { "path": "../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/structure-library.json", "role": "structural-reference" },
+    { "path": "../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/3a67d324-bb9d-4f8d-9463-a3818e93319f.png", "role": "functional-reference", "variant": "portrait-light" },
+    { "path": "../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/d1de6015-9ad3-480c-8169-e2b0ed4b51b7.png", "role": "functional-reference", "variant": "portrait-dark" },
+    { "path": "../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/a1e7fb1e-c64d-4149-9c8e-a8b10b258e68.png", "role": "functional-reference", "variant": "landscape-light" },
+    { "path": "../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/2bccb344-4f9b-4b68-82ad-f7bdb577490d.png", "role": "functional-reference", "variant": "landscape-dark" },
+    { "path": "../../.codex/skills/getgo-kids-art-design/references/art-direction.md", "role": "instruction" },
+    { "path": "../../.codex/skills/getgo-kids-art-design/assets/style-references/meadow-portrait-style.png", "role": "style-reference" },
+    { "path": "../../.codex/skills/getgo-kids-art-design/assets/style-references/meadow-landscape-style.png", "role": "style-reference" },
+    { "path": "../../.codex/skills/getgo-kids-art-design/assets/style-references/login-portrait-style.png", "role": "style-reference", "limitations": "Style/finish only; sun and UI explicitly excluded." },
+    { "path": "../../.codex/skills/getgo-kids-art-design/assets/style-references/mascot-thinking.png", "role": "style-reference" }
+  ],
+  "outputs": [
+    { "file": "assets/garden-classroom-portrait.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted", "promptSummary": "Portrait theme-neutral garden classroom background; calm content-safe center; no characters, UI, text, logo, celestial or time-of-day cues." },
+    { "file": "assets/garden-classroom-landscape.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted", "promptSummary": "Independent landscape recomposition of the approved portrait scene; same palette, medium, botanical and classroom vocabulary; no crop/stretch or time-of-day cues." },
+    { "file": "assets/fox-guide-purple-matte.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted-as-cut-source", "removalMatte": "#8B00FF", "usedInHtml": false, "promptSummary": "One friendly orange fox holding one blue book on a uniform vivid-purple removal matte." },
+    { "source": "built-in generated image exec-da61764f-53ea-41a4-b2be-ba3edbcb0237.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "rejected", "reason": "The visible checkerboard was opaque RGB content; the file had no alpha channel and was not copied into the project." },
+    { "file": "assets/student-charly-avatar.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted", "promptSummary": "Square respectful Vietnamese primary-school student avatar matching the shared watercolor style; opaque pale-cyan background; no UI, text or time-of-day cues." }
+  ],
+  "darkMode": { "generatedSeparately": false, "method": "CSS overlay and semantic dark tokens over identical orientation artwork and geometry." }
+}

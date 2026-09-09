@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "page": {
+    "slug": "student-profile",
+    "name": "GetGo: Hồ sơ",
+    "route": "/student/profile",
+    "purpose": "Manage student profile and visual preferences."
+  },
+  "viewports": {
+    "portrait": { "width": 393, "height": 852 },
+    "landscape": { "width": 1440, "height": 900 }
+  },
+  "artDirection": {
+    "scene": "Theme-neutral garden classroom with leafy canopy, books, pencils, meadow flowers and a winding learning path.",
+    "styleLock": "Polished watercolor/gouache storybook illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and controlled coral/yellow/purple accents; diffuse neutral light; consistent daisies and rounded leaves.",
+    "forbidden": ["sun", "moon", "stars", "night sky", "sunrise", "sunset", "baked UI", "raster text"],
+    "contentSafeZone": "Central 70% remains calm and low-detail."
+  },
+  "theme": {
+    "canonicalArtwork": "light",
+    "darkDerivation": "Reuse identical artwork, crop and geometry; apply CSS overlay and dark semantic tokens.",
+    "darkOverlay": "rgba(15, 19, 48, 0.52)",
+    "lightDarkGeometryParity": true,
+    "lightDarkAssetParity": true
+  },
+  "tokens": {
+    "accent": { "light": "#08A878", "dark": "#50E0B2" },
+    "surface": { "light": "rgba(255,255,255,.92)", "dark": "rgba(21,34,48,.92)" },
+    "text": { "light": "#17324B", "dark": "#F8FBFF" },
+    "mutedText": { "light": "#58708A", "dark": "#C3D1DD" },
+    "radiusCard": 22,
+    "minimumTouchTarget": 44
+  },
+  "content": {
+    "identity": ["Mai Thanh Ngọc (Charly)", "Lớp 3 · Nữ"],
+    "profile": [
+      { "title": "Chỉnh sửa hồ sơ", "description": "Cập nhật thông tin học sinh" },
+      { "title": "Đặt Mã PIN", "description": "Bảo mật tài khoản của bạn", "value": "Bật" }
+    ],
+    "appearance": [
+      { "title": "Ngôn ngữ", "description": "Chọn ngôn ngữ ưa thích của bạn", "value": "Tiếng Việt" },
+      { "title": "Màu chủ đạo", "description": "Lựa chọn màu chủ đạo cho ứng dụng", "value": "Xanh lục" },
+      { "title": "Chế độ Tối / Sáng", "description": "Chuyển đổi giữa chế độ tối và sáng", "value": "Sáng/Tối" }
+    ],
+    "navigation": ["Học tập", "Hoạt động", "Bảng xếp hạng", "Hồ sơ"]
+  },
+  "compositions": {
+    "portrait": "Tall canopy and learning motifs at upper corners; garden/path footer; compact stacked identity and setting groups; fixed bottom navigation.",
+    "landscape": "Independent wide meadow continuation; broad calm center; desktop navigation; identity rail above two-column settings."
+  },
+  "assets": [
+    {
+      "id": "garden-classroom-portrait",
+      "file": "assets/garden-classroom-portrait.png",
+      "role": "opaque-background",
+      "dimensions": [851, 1848],
+      "orientations": ["portrait"],
+      "anchor": "center",
+      "focalPoint": [0.5, 0.45],
+      "cropBehavior": "cover",
+      "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "garden-classroom-landscape",
+      "file": "assets/garden-classroom-landscape.png",
+      "role": "opaque-background",
+      "dimensions": [1586, 992],
+      "orientations": ["landscape"],
+      "anchor": "center",
+      "focalPoint": [0.5, 0.46],
+      "cropBehavior": "cover",
+      "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "student-charly-avatar",
+      "file": "assets/student-charly-avatar.png",
+      "role": "student-avatar",
+      "dimensions": [1254, 1254],
+      "orientations": ["portrait", "landscape"],
+      "anchor": "center",
+      "focalPoint": [0.5, 0.42],
+      "cropBehavior": "cover inside code-native avatar frame",
+      "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "fox-guide-purple-matte",
+      "file": "assets/fox-guide-purple-matte.png",
+      "role": "cut-source-not-used-in-html",
+      "dimensions": [1148, 1371],
+      "orientations": ["portrait", "landscape"],
+      "anchor": "bottom-center",
+      "focalPoint": [0.5, 0.5],
+      "cropBehavior": "contain",
+      "backgroundMode": "removal-matte",
+      "removalMatte": "#8B00FF"
+    }
+  ]
+}
