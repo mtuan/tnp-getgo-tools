@@ -8,6 +8,7 @@
     "semanticControls": { "status": "passed", "evidence": "Navigation links, tab buttons, theme button, table, headings and tab panels remain semantic and selectable." },
     "regionGeometry": { "status": "passed", "evidence": "58px top shell, 980px landscape rail, 24px portrait inset and 64px portrait bottom-navigation reservation are declared and encoded." },
     "rankingRules": { "status": "passed", "evidence": "Ranks 1–3 use the podium, ranks 4–10 use the table, and rank 14 is appended once with its actual rank and a non-color-only Bạn marker." },
+    "podiumArtwork": { "status": "passed", "evidence": "Ranks 1–3 use separate gold, silver and bronze transparent crown assets in a dedicated row above visible initial avatars; crowns cannot overlap avatar, name, grade or score content." },
     "localOnlyHtml": { "status": "passed", "evidence": "No remote URLs, base64 images or canvas." },
     "orientationArtwork": { "status": "passed", "evidence": "Distinct approved portrait and landscape assets use exact 1170px and 2048px high-density export widths, scale proportionally inside the 390px and 1024px page canvases, and anchor toward their alpha-confirmed painted outer edges." },
     "themeParity": { "status": "passed", "evidence": "Light and dark files share DOM, assets and geometry; dark mode uses overlay and semantic tokens only." },

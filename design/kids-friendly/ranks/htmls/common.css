@@ -25,3 +25,10 @@ body{background:var(--canvas)}
 .bottom-nav{left:50%;right:auto;width:min(100%,1024px);transform:translateX(-50%)}
 .theme-toggle{right:max(16px,calc((100vw - 1024px)/2 + 16px))}
 @media (max-width:1024px){.page{box-shadow:none}}
+
+/* Podium artwork owns its own row so crowns never obscure avatars or labels. */
+.winner-crown{display:flex;height:42px;margin:0 auto 6px;align-items:flex-end;justify-content:center}
+.winner-crown img{display:block;width:54px;height:40px;object-fit:contain}
+.winner[data-rank="1"] .winner-crown img{width:62px;height:42px}
+.winner-avatar{position:relative;z-index:1}
+@media (max-width:520px){.winner-crown{height:36px;margin-bottom:5px}.winner-crown img{width:46px;height:34px}.winner[data-rank="1"] .winner-crown img{width:52px;height:36px}}
