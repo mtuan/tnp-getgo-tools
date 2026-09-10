@@ -7,6 +7,14 @@ const designs = [
       landscape: { light: 'student-profile/htmls/landscape-light.html', dark: 'student-profile/htmls/landscape-dark.html' },
     },
   },
+  {
+    id: 'login',
+    title: { en: 'Login', vi: 'Đăng nhập' },
+    files: {
+      portrait: { light: 'login/htmls/portrait-light.html', dark: 'login/htmls/portrait-dark.html' },
+      landscape: { light: 'login/htmls/landscape-light.html', dark: 'login/htmls/landscape-dark.html' },
+    },
+  },
 ];
 
 const translations = {

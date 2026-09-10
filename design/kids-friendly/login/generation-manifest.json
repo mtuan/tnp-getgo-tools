@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 2,
+  "page": "login",
+  "generationTool": "built-in-image_gen",
+  "credentialMode": "none",
+  "mode": "recreate-artwork-preserve-layout",
+  "styleLock": "Premium watercolor/gouache children's-book finish; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and restrained purple accents; diffuse neutral light; consistent blue-bird identity, daisies and rounded foliage.",
+  "layoutLock": "Preserve the captured top-left brand, invariant centered card width, card padding, brand hierarchy, stacked social buttons, two-column email actions, legal copy, and orientation behavior. Add background artwork only.",
+  "inputs": [
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/pages.json", "record": "/auth?app=getgo&returnUrl=%2F", "role": "structural-reference" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/4b6f82f7-5f55-4c08-a09f-bbeeba199145.png", "role": "functional-reference", "variant": "portrait-light" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/cfd449b1-8a76-4fa8-9c3a-848c34776c09.png", "role": "functional-reference", "variant": "landscape-light" },
+    { "path": "../../../.codex/skills/getgo-kids-art-design/references/art-direction.md", "role": "instruction" },
+    { "path": "../../../.codex/skills/getgo-kids-art-design/assets/style-references/login-portrait-style.png", "role": "style-reference", "allowedLesson": "watercolor finish and portrait edge framing only; sun explicitly excluded" },
+    { "path": "../../../.codex/skills/getgo-kids-art-design/assets/style-references/login-landscape-style.png", "role": "style-reference", "allowedLesson": "landscape balance only; sun and stars explicitly excluded" },
+    { "path": "../../../../tnp-getgo-web/public/icons/getgo-icon-blue.png", "role": "approved-reusable-asset" }
+  ],
+  "outputs": [
+    {
+      "file": "assets/login-background-portrait.png",
+      "source": "/Users/tuanma/.codex/generated_images/01a08674-9c5d-7900-a476-7593dc21ff38/exec-776f1fee-44db-4810-b65b-2cc08ce7e222.png",
+      "generationTool": "built-in-image_gen",
+      "credentialMode": "none",
+      "status": "accepted",
+      "backgroundMode": "opaque-background",
+      "promptSummary": "Portrait theme-neutral blue-bird meadow background with central login-card safe zone; no UI, text, celestial objects, or unsupported props."
+    },
+    {
+      "file": "assets/login-background-landscape.png",
+      "source": "/Users/tuanma/.codex/generated_images/01a08674-9c5d-7900-a476-7593dc21ff38/exec-71afb697-dbd5-41fb-9929-52c97dff7851.png",
+      "generationTool": "built-in-image_gen",
+      "credentialMode": "none",
+      "status": "accepted",
+      "backgroundMode": "opaque-background",
+      "promptSummary": "Landscape recomposition of the approved blue-bird meadow identity with fixed-width central login-card safe zone; no UI, text, or celestial objects."
+    },
+    {
+      "file": "assets/getgo-icon-blue.png",
+      "source": "../../../../tnp-getgo-web/public/icons/getgo-icon-blue.png",
+      "generationTool": "none",
+      "credentialMode": "none",
+      "status": "preserved-accepted",
+      "backgroundMode": "transparent"
+    }
+  ],
+  "darkMode": { "generatedSeparately": false, "method": "CSS rgba(0,32,27,.72) overlay and dark semantic tokens over identical orientation artwork and geometry." }
+}

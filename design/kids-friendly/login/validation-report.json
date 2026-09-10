@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2,
+  "page": "login",
+  "status": "source-validated",
+  "checks": {
+    "requiredFiles": { "status": "passed", "evidence": "Five HTML variants, CSS, JS, design record, generation manifest, validation report, and three declared assets exist." },
+    "sourceContentParity": { "status": "passed", "evidence": "Brand, tagline, three social actions, two email actions, and linked legal copy match the captured page content." },
+    "semanticControls": { "status": "passed", "evidence": "All actions are native buttons; terms and privacy are links; labels remain live selectable text." },
+    "layoutLock": { "status": "passed", "evidence": "Invariant centered card, stacked social actions, equal email columns, top-left brand and legal-copy hierarchy are encoded in shared CSS." },
+    "localOnlyHtml": { "status": "passed", "evidence": "HTML references only local CSS, JS, and PNG files; no remote URLs, canvas, base64, or screenshot-as-UI." },
+    "orientationRecomposition": { "status": "passed", "evidence": "Portrait and landscape use distinct artwork compositions selected by orientation while preserving card geometry." },
+    "lightDarkParity": { "status": "passed", "evidence": "Fixed light/dark variants share the same DOM, CSS, assets, positioning and crop; dark mode changes tokens and overlay only." },
+    "themeNeutralArtwork": { "status": "passed", "evidence": "Accepted artwork contains no sun, moon, stars, night sky, sunrise, or sunset signals." },
+    "artworkNonInterference": { "status": "passed", "evidence": "Background is a CSS layer behind semantic content and cannot intercept pointer input." },
+    "naturalSceneLogic": { "status": "passed", "evidence": "Bird feet rest visibly on connected branches; flowers and mushrooms grow from meadow soil; no props float or fuse with foliage." },
+    "styleConsistency": { "status": "passed", "evidence": "Both assets share the same bird identity, watercolor/gouache texture, palette, foliage, daisies, mushrooms and diffuse lighting." },
+    "generationProvenance": { "status": "passed", "evidence": "Both new raster backgrounds were produced with built-in image_gen and no credentials." },
+    "responsiveThemeToggle": { "status": "passed", "evidence": "Responsive source selects artwork through orientation CSS and provides a visible keyboard-operable theme toggle." },
+    "keyboardFocus": { "status": "not-requested" },
+    "resize": { "status": "not-requested" },
+    "shortViewport": { "status": "not-requested" },
+    "zoom200": { "status": "not-requested" },
+    "sourceLayoutPixelOverlay": { "status": "not-requested" },
+    "renderedComparisons": { "status": "not-requested" }
+  }
+}

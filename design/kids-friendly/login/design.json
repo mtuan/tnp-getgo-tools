@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 2,
+  "page": {
+    "slug": "login",
+    "name": "GetGo: Đăng nhập",
+    "route": "/auth?app=getgo&returnUrl=%2F",
+    "purpose": "Account authentication and account creation entry.",
+    "heightBehavior": "fullscreen-fixed"
+  },
+  "viewports": {
+    "portrait": { "width": 393, "height": 852 },
+    "landscape": { "width": 1440, "height": 900 }
+  },
+  "layoutLock": {
+    "source": "Screenshot Manager captures",
+    "immutable": [
+      "small GetGo brand at the page top-left",
+      "one fixed-width centered authentication card",
+      "centered brand lockup and tagline",
+      "three stacked social sign-in buttons",
+      "divider followed by two equal-width email actions",
+      "centered legal copy with live links"
+    ],
+    "portrait": { "cardMaxWidth": 361, "cardPadding": 32, "socialButtonMinHeight": 44, "emailColumns": 2 },
+    "landscape": { "cardMaxWidth": 450, "cardPadding": 32, "socialButtonMinHeight": 44, "emailColumns": 2 },
+    "administratorExceptions": []
+  },
+  "artDirection": {
+    "scene": "Theme-neutral storybook meadow framing a calm login-card safe zone, with one friendly blue bird naturally perched on a branch.",
+    "styleLock": "Premium watercolor/gouache children's-book finish; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and restrained purple accents; diffuse neutral light; consistent blue-bird identity, daisies and rounded foliage.",
+    "assetStrategy": "One distinct full-page opaque background per orientation behind the unchanged fixed-height login composition.",
+    "safeZone": "Portrait x 8-92%, y 18-86%; landscape x 35-65%, y 12-90%.",
+    "forbidden": ["baked UI", "raster text", "sun", "moon", "stars", "night cues", "floating props", "objects fused with foliage"]
+  },
+  "theme": {
+    "canonicalArtwork": "light",
+    "darkDerivation": "Reuse identical orientation artwork and geometry; apply CSS overlay and dark semantic tokens.",
+    "darkOverlay": "rgba(0,32,27,.72)",
+    "lightDarkGeometryParity": true,
+    "lightDarkAssetParity": true
+  },
+  "tokens": {
+    "canvas": "#dff7f2",
+    "surface": { "light": "rgba(255,255,255,.96)", "dark": "rgba(3,48,40,.94)" },
+    "text": { "light": "#10223b", "dark": "#f7fffc" },
+    "mutedText": { "light": "#60718b", "dark": "#b5cbc4" },
+    "minimumTouchTarget": 44
+  },
+  "content": {
+    "brand": ["GetGo", "Đăng nhập vào tài khoản của bạn"],
+    "socialActions": ["Đăng nhập bằng Google", "Đăng nhập bằng Facebook", "Đăng nhập bằng Apple ID"],
+    "emailActions": ["Đăng nhập bằng email", "Tạo tài khoản bằng email"],
+    "legal": "Khi tạo tài khoản, bạn đồng ý với Điều Khoản Dịch Vụ và Chính Sách Quyền Riêng Tư của chúng tôi."
+  },
+  "assets": [
+    {
+      "id": "login-background-portrait",
+      "file": "assets/login-background-portrait.png",
+      "role": "fullscreen-background",
+      "dimensions": [852, 1847],
+      "orientations": ["portrait"],
+      "anchor": "viewport-center",
+      "focalPoint": [0.5, 0.5],
+      "cropBehavior": "cover",
+      "maximumDisplayBox": "100vw x 100dvh",
+      "zIndex": -2,
+      "layoutParticipation": "none",
+      "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "login-background-landscape",
+      "file": "assets/login-background-landscape.png",
+      "role": "fullscreen-background",
+      "dimensions": [1586, 992],
+      "orientations": ["landscape"],
+      "anchor": "viewport-center",
+      "focalPoint": [0.5, 0.5],
+      "cropBehavior": "cover",
+      "maximumDisplayBox": "100vw x 100dvh",
+      "zIndex": -2,
+      "layoutParticipation": "none",
+      "backgroundMode": "opaque-background"
+    },
+    {
+      "id": "getgo-icon-blue",
+      "file": "assets/getgo-icon-blue.png",
+      "role": "brand-mark",
+      "dimensions": [1024, 1024],
+      "orientations": ["portrait", "landscape"],
+      "anchor": "existing-brand-lockups",
+      "focalPoint": [0.5, 0.5],
+      "cropBehavior": "contain",
+      "maximumDisplayBox": "40px x 40px",
+      "zIndex": 2,
+      "layoutParticipation": "existing-content",
+      "backgroundMode": "transparent"
+    }
+  ]
+}
