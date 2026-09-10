@@ -34,8 +34,8 @@ function alphaStats(png, startRow, endRow) {
 }
 
 for (const [name, expected] of Object.entries({
-  'portrait-light.png': [393, 852], 'portrait-dark.png': [393, 852],
-  'landscape-light.png': [1440, 900], 'landscape-dark.png': [1440, 900],
+  'portrait-light.png': [390, 844], 'portrait-dark.png': [390, 844],
+  'landscape-light.png': [1024, 768], 'landscape-dark.png': [1024, 768],
 })) {
   const file = path.join(root, 'demos', name);
   if (!fs.existsSync(file)) continue;
@@ -79,17 +79,46 @@ const designFile = path.join(root, 'design.json');
 if (fs.existsSync(designFile)) {
   const design = JSON.parse(fs.readFileSync(designFile, 'utf8'));
   const transparentRoles = /^(?:header|footer|.*(?:decoration|cut).*)$/i;
+  const canonicalSizes = {
+    portrait: { viewport: [390, 844], edgeWidth: 390 },
+    landscape: { viewport: [1024, 768], edgeWidth: 1024 },
+  };
   for (const asset of design.assets ?? []) {
+    const assetLabel = asset.id ?? asset.file;
+    const file = path.resolve(root, asset.file ?? '');
+    const intrinsicSize = fs.existsSync(file) ? pngSize(file) : null;
+    const declaredSize = asset.dimensions;
+    const relevantRole = asset.role === 'header' || asset.role === 'footer' || /^(?:fullscreen|full-page).*background$/i.test(asset.role ?? '');
+
+    if (intrinsicSize && (!Array.isArray(declaredSize) || declaredSize.length !== 2 || declaredSize[0] !== intrinsicSize[0] || declaredSize[1] !== intrinsicSize[1])) {
+      failures.push(`${assetLabel} declares ${Array.isArray(declaredSize) ? declaredSize.join('x') : 'no valid dimensions'} but its PNG is ${intrinsicSize.join('x')}`);
+    }
+
+    if (relevantRole) {
+      const orientations = asset.orientations ?? [];
+      if (orientations.length !== 1 || !canonicalSizes[orientations[0]]) {
+        failures.push(`${assetLabel} must declare exactly one supported orientation: portrait or landscape`);
+      } else if (!intrinsicSize) {
+        failures.push(`${assetLabel} must be an inspectable PNG to verify its canonical dimensions`);
+      } else {
+        const canonical = canonicalSizes[orientations[0]];
+        if (asset.role === 'header' || asset.role === 'footer') {
+          if (intrinsicSize[0] !== canonical.edgeWidth) failures.push(`${assetLabel} is ${intrinsicSize[0]}px wide; expected ${canonical.edgeWidth}px for ${orientations[0]} edge artwork`);
+        } else if (intrinsicSize[0] !== canonical.viewport[0] || intrinsicSize[1] !== canonical.viewport[1]) {
+          failures.push(`${assetLabel} is ${intrinsicSize.join('x')}; expected ${canonical.viewport.join('x')} for a ${orientations[0]} fullscreen background`);
+        }
+      }
+    }
+
     const requiresTransparency = transparentRoles.test(asset.role ?? '');
     const declaresTransparency = asset.backgroundMode === 'transparent';
     if (!requiresTransparency && !declaresTransparency) continue;
     if (asset.backgroundMode !== 'transparent') {
-      failures.push(`${asset.id ?? asset.file} must be a final transparent asset, not ${asset.backgroundMode ?? 'an undeclared background mode'}`);
+      failures.push(`${assetLabel} must be a final transparent asset, not ${asset.backgroundMode ?? 'an undeclared background mode'}`);
       continue;
     }
-    const file = path.join(root, asset.file ?? '');
     if (!fs.existsSync(file)) {
-      failures.push(`${asset.id ?? asset.file} references a missing asset`);
+      failures.push(`${assetLabel} references a missing asset`);
       continue;
     }
     try {
@@ -100,22 +129,22 @@ if (fs.existsSync(designFile)) {
         if (png.data[offset] === 0) transparentPixels += 1;
         else if (png.data[offset] < 255) partialPixels += 1;
       }
-      if (transparentPixels === 0) failures.push(`${asset.id ?? asset.file} declares transparency but has no fully transparent pixels`);
-      if (partialPixels === 0) failures.push(`${asset.id ?? asset.file} lacks partial-alpha anti-aliasing around its painted subject`);
+      if (transparentPixels === 0) failures.push(`${assetLabel} declares transparency but has no fully transparent pixels`);
+      if (partialPixels === 0) failures.push(`${assetLabel} lacks partial-alpha anti-aliasing around its painted subject`);
       if (asset.role === 'header' || asset.role === 'footer') {
         const bandHeight = Math.max(1, Math.ceil(png.height * 0.12));
         const isHeader = asset.role === 'header';
         const band = alphaStats(png, isHeader ? png.height - bandHeight : 0, isHeader ? png.height : bandHeight);
         const edge = alphaStats(png, isHeader ? png.height - 1 : 0, isHeader ? png.height : 1);
         if (band.transparent / band.total < 0.1) {
-          failures.push(`${asset.id ?? asset.file} lacks a transparent ${isHeader ? 'bottom' : 'top'} transition band`);
+          failures.push(`${assetLabel} lacks a transparent ${isHeader ? 'bottom' : 'top'} transition band`);
         }
         if (edge.transparent / edge.total < 0.8) {
-          failures.push(`${asset.id ?? asset.file} has an opaque rectangular seam on its ${isHeader ? 'bottom' : 'top'} boundary`);
+          failures.push(`${assetLabel} has an opaque rectangular seam on its ${isHeader ? 'bottom' : 'top'} boundary`);
         }
       }
     } catch (error) {
-      failures.push(`${asset.id ?? asset.file} cannot be inspected as PNG: ${error.message}`);
+      failures.push(`${assetLabel} cannot be inspected as PNG: ${error.message}`);
     }
   }
 }

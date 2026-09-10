@@ -1,6 +1,6 @@
 ---
 name: getgo-kids-art-design
-description: Create or continue polished kids-friendly GetGo page artwork packages from a page name or URL, GetGo Tools Screenshot Manager content, approved style images, and written art direction. Use when the result includes reusable background and cut assets, canonical design records, and five reconstructed HTML pages under tnp-getgo-tools/design/kids-friendly/<page-name>. Do not use for ordinary production UI implementation without an artwork package.
+description: Create or continue polished kids-friendly GetGo page artwork packages from a page name or URL, GetGo Tools Screenshot Manager content, approved style images, and written art direction. Use when the result includes reusable background and cut assets, canonical design records, and five reconstructed HTML pages under the page's tnp-getgo-tools/design/kids-friendly directory. Do not use for ordinary production UI implementation without an artwork package.
 ---
 
 # GetGo Kids Art Design
@@ -40,6 +40,17 @@ If the named page cannot be resolved but a URL or screenshot is available, use a
 ## Required design behavior
 
 Read [references/art-direction.md](references/art-direction.md) before prompting for or evaluating artwork.
+
+### Canonical design resolutions
+
+- Design and evaluate portrait variants at a `390 × 844` CSS-pixel viewport. The `390px` width is the canonical mobile design width because it represents current iPhones well and sits near the middle of the common `360–412px` Android/iPhone range.
+- Design and evaluate landscape variants at a `1024 × 768` CSS-pixel viewport. The page canvas is full-width below `1024px` and capped at `1024px` on wider viewports unless the captured source explicitly defines a narrower maximum.
+- Generate every orientation-specific fullscreen background at the exact canonical viewport resolution: portrait backgrounds are `390 × 844px`; landscape backgrounds are `1024 × 768px`. Do not generate a larger source and rely on `cover`, downscaling, or cropping to reach the required canvas.
+- Generate every orientation-specific full-width header and footer asset at the exact canonical width: `390px` for portrait and `1024px` for landscape. Its height is art-directed for the required edge composition and transparent transition; record the exact resulting height. Do not generate an oversized edge asset and scale it down in HTML.
+- The PNG's intrinsic pixel dimensions, its `design.json` `dimensions`, and the orientation declared by its asset record must agree. Shared assets follow the same size rules as page-local assets.
+- Treat these as canonical comparison viewports, not device detection rules. `responsive.html` must remain fluid and usable around them; do not hard-code page layout to one device model.
+- On capped scrolling pages, constrain header/footer edge artwork to the page canvas so `width: 100%` means the canvas width, not the browser viewport. The outside area retains the page's original background color and may use a subtle boundary shadow only when requested by the design.
+- Full-page-background experiences such as login and registration remain viewport-wide. Their background fills the entire page and must not show a max-width boundary, side shading, or shadow.
 
 - Apply a strict layout lock before adding art. Do not move, resize, regroup, restyle, replace, or reinterpret existing UI regions or controls. Do not convert lists into cards, cards into hero panels, horizontal rows into stacks, change container widths, invent new wrappers, enlarge typography, alter control shapes, or redistribute whitespace. Orientation-specific layout differences must come from the captured page's existing responsive behavior—not from the artwork concept.
 - Create portrait and landscape artwork framings around their corresponding captured layouts. The artwork may recompose for its aspect ratio, but the UI may not. Never stretch or squash artwork between orientations.
@@ -112,6 +123,7 @@ Never call the work complete when any item below is true:
 - shared scenery contains sun, moon, stars, or another baked time-of-day cue;
 - a cut asset contains a fake checkerboard, dirty fringe, unwanted object, text, watermark, clipped subject, or ambiguous background;
 - a final header, footer, or cut asset lacks real transparent pixels, retains a visible removal matte, or HTML references its matte source;
+- a portrait fullscreen background is not exactly `390 × 844px`, a landscape fullscreen background is not exactly `1024 × 768px`, or an orientation-specific header/footer does not have the required `390px`/`1024px` intrinsic width;
 - a header's bottom edge or footer's top edge forms an opaque rectangular seam instead of transitioning through transparent and partial-alpha pixels to the shared CSS background;
 - HTML uses a screenshot as the whole page, rasterizes functional UI, uses canvas, embeds base64, fetches remote dependencies, or omits semantic controls;
 - the responsive page lacks a visible theme toggle, fails automatic portrait/landscape recomposition on resize, or reloads to switch modes;

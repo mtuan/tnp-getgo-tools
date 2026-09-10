@@ -8,9 +8,18 @@ When explicitly requested, `demos/` contains `portrait-light.png`, `portrait-dar
 
 ## `design.json`
 
-Record schema version, page slug/name/route, sources, canonical viewport sizes, art direction, tokens, the shared solid page-background color, overlay color/opacity, safe zones, shared semantic content, the captured layout-lock measurements for each orientation, artwork composition rules, page height behavior (`fullscreen-fixed` or `vertical-scroll`), and proof that dark mode shares assets and geometry.
+Record schema version, page slug/name/route, sources, canonical viewport sizes (`390 × 844` CSS pixels for portrait and `1024 × 768` CSS pixels for landscape), art direction, tokens, the shared solid page-background color, overlay color/opacity, safe zones, shared semantic content, the captured layout-lock measurements for each orientation, artwork composition rules, page height behavior (`fullscreen-fixed` or `vertical-scroll`), and proof that dark mode shares assets and geometry.
 
 For every asset record stable ID, relative file, role, dimensions, orientation support, anchor, focal point, crop behavior, maximum display box, z-index, layout participation (`none` for decoration), and `backgroundMode` (`transparent`, `removal-matte`, or `opaque-background`). Final header, footer, and cut assets must use `backgroundMode: "transparent"`; `removal-matte` is valid only for a recorded intermediate source. Fullscreen fixed pages identify their full-page background. Vertical-scroll pages identify separate `header` and `footer` edge assets, their full-width behavior, and `document-top` / `document-bottom` anchors. Section decorations identify the existing region they accent without changing its bounds. Record `removalMatte`, normally `#8B00FF`, and the conversion parameters when applicable.
+
+Orientation-specific raster dimensions are mandatory, not suggested export targets:
+
+- portrait fullscreen background: exactly `390 × 844px`;
+- landscape fullscreen background: exactly `1024 × 768px`;
+- portrait header or footer: exactly `390px` wide, with an art-directed height;
+- landscape header or footer: exactly `1024px` wide, with an art-directed height.
+
+The file's intrinsic PNG dimensions must equal the `dimensions` value in its asset record. Do not satisfy these rules through CSS scaling, `cover`, runtime cropping, or a larger source file. Assets in a shared design-level folder follow the same contract.
 
 ## `generation-manifest.json`
 
