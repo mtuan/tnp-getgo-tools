@@ -16,7 +16,7 @@
     "lightDarkGeometryParity": "passed-by-source-inspection",
     "darkOverlayBehavior": "passed-by-source-inspection",
     "themeNeutralBackgrounds": "passed-by-visual-inspection",
-    "decorationNonInterference": "passed-by-source-inspection",
+    "decorationNonInterference": "passed-by-source-inspection: absolute capped wrappers, pointer-events none, and no artwork-owned flow spacing",
     "naturalObjectPlacement": "passed-by-visual-inspection",
     "crossAssetStyleConsistency": "passed-by-visual-inspection",
     "builtInOnlyGeneration": "passed",
@@ -32,5 +32,6 @@
     "The first transparent header attempt was rejected because it contained an opaque checkerboard.",
     "The old full-page poster backgrounds and unused fox matte asset were removed from the final package.",
     "All four header/footer assets now use real transparency over the shared CSS canvas; checkerboard attempts were rejected and three matte-backed outputs were converted with scripts/remove-solid-background.mjs."
+    ,"Header/footer wrappers now scale images to page width, preserve aspect ratio, cap visible height by orientation, bottom-anchor header crops, top-anchor footer crops, and do not participate in content flow."
   ]
 }

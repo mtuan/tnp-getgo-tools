@@ -5,7 +5,7 @@
   "credentialMode": "none",
   "mode": "recreate-artwork-preserve-layout",
   "styleLock": "Polished watercolor/gouache storybook illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and restrained yellow accents; diffuse neutral light; consistent daisies and rounded leaves.",
-  "layoutLock": "Preserve captured navigation, bounded header, overlapping identity, single settings rail, rows, typography hierarchy, spacing, component presentation, and responsive behavior. Add artwork only.",
+  "layoutLock": "Preserve captured navigation, single settings rail, rows, typography hierarchy, component presentation, and responsive behavior. Header/footer artwork is absolutely positioned background decoration with capped visible height and no document-flow spacing.",
   "inputs": [
     { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/pages.json", "record": "/student/profile", "role": "structural-reference" },
     { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/general-rules.md", "role": "instruction" },
