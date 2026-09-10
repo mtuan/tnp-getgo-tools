@@ -14,12 +14,12 @@ For every asset record stable ID, relative file, role, dimensions, orientation s
 
 Orientation-specific raster dimensions are mandatory, not suggested export targets:
 
-- portrait fullscreen background: exactly `390 × 844px`;
-- landscape fullscreen background: exactly `1024 × 768px`;
-- portrait header or footer: exactly `390px` wide, with an art-directed height;
-- landscape header or footer: exactly `1024px` wide, with an art-directed height.
+- portrait fullscreen background: exactly `1170 × 2532px` (3× density for a `390 × 844` CSS-pixel viewport);
+- landscape fullscreen background: exactly `2048 × 1536px` (2× density for a `1024 × 768` CSS-pixel viewport);
+- portrait header or footer: exactly `1170px` intrinsic width, displayed at `390px` logical width, with an art-directed proportional height;
+- landscape header or footer: exactly `2048px` intrinsic width, displayed at up to `1024px` logical width, with an art-directed proportional height.
 
-The file's intrinsic PNG dimensions must equal the `dimensions` value in its asset record. Do not satisfy these rules through CSS scaling, `cover`, runtime cropping, or a larger source file. Assets in a shared design-level folder follow the same contract.
+The file's intrinsic PNG dimensions must equal the `dimensions` value in its asset record. CSS must scale the high-density artwork down proportionally; never scale it beyond its canonical logical display size, change its aspect ratio, or use `cover` to repair an incorrectly composed asset. Assets in a shared design-level folder follow the same contract.
 
 ## `generation-manifest.json`
 

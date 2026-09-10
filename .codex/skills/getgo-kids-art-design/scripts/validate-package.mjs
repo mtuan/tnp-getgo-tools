@@ -80,8 +80,8 @@ if (fs.existsSync(designFile)) {
   const design = JSON.parse(fs.readFileSync(designFile, 'utf8'));
   const transparentRoles = /^(?:header|footer|.*(?:decoration|cut).*)$/i;
   const canonicalSizes = {
-    portrait: { viewport: [390, 844], edgeWidth: 390 },
-    landscape: { viewport: [1024, 768], edgeWidth: 1024 },
+    portrait: { viewport: [1170, 2532], edgeWidth: 1170 },
+    landscape: { viewport: [2048, 1536], edgeWidth: 2048 },
   };
   for (const asset of design.assets ?? []) {
     const assetLabel = asset.id ?? asset.file;
