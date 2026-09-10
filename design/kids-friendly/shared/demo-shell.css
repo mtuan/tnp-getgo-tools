@@ -1,0 +1,78 @@
+:root {
+  --kids-canvas: #effcf5;
+  --kids-page-mask: transparent;
+  --kids-bar-surface: #f7fffb;
+}
+
+:root[data-theme="dark"] {
+  --kids-canvas: #0d3c33;
+  --kids-page-mask: rgba(0, 32, 27, .72);
+  --kids-bar-surface: #003128;
+}
+
+body:has(.kids-bounded-page) { background: var(--kids-canvas); }
+
+.kids-bounded-page {
+  width: min(100%, 1024px);
+  margin-inline: auto;
+  background: var(--kids-canvas);
+  box-shadow: 0 0 30px rgba(19, 63, 49, .22);
+}
+
+.page.kids-bounded-page::before,
+.page.kids-fullscreen-page::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: var(--kids-page-mask);
+}
+
+.page.kids-bounded-page::before,
+.page.kids-fullscreen-page::before { z-index: 1; }
+
+.kids-bounded-page :is(.profile-banner, .header-art, .footer-art) {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.kids-bounded-page :is(.profile-banner, .header-art, .footer-art) picture,
+.kids-bounded-page :is(.profile-banner, .header-art, .footer-art) img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.kids-bounded-page :is(.profile-banner, .header-art, .footer-art) img {
+  position: static;
+  object-fit: contain;
+}
+
+.kids-bounded-page .topbar {
+  top: 0;
+  left: 50%;
+  right: auto;
+  width: min(100%, 1024px);
+  overflow: hidden;
+  padding-inline: max(16px, calc((min(100vw, 1024px) - 980px) / 2));
+  background: var(--kids-bar-surface);
+  transform: translateX(-50%);
+}
+
+.kids-bounded-page .bottom-nav {
+  bottom: 0;
+  left: 50%;
+  right: auto;
+  width: min(100%, 1024px);
+  overflow: hidden;
+  background: var(--kids-bar-surface);
+  transform: translateX(-50%);
+}
+
+@media (max-width: 1024px) {
+  .kids-bounded-page { box-shadow: none; }
+}

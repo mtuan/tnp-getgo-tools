@@ -15,8 +15,8 @@
     "assetStrategy": "Reuse the shared Profile garden header/footer assets for both orientations; add one ranks-specific transparent empty-state cutout.",
     "forbidden": ["layout redesign", "baked ranking data", "sun", "moon", "stars in scenery", "night sky", "raster text", "floating props", "objects attached to foliage"]
   },
-  "theme": { "canonicalArtwork": "light", "darkDerivation": "Reuse identical artwork and geometry; apply CSS overlay and dark tokens.", "darkOverlay": "rgba(0,32,27,.72)", "lightDarkGeometryParity": true, "lightDarkAssetParity": true },
-  "tokens": { "canvas": { "light": "#effcf5", "dark": "#effcf5 with overlay" }, "accent": { "light": "#00b982", "dark": "#00d89a" }, "surface": { "light": "rgba(255,255,255,.95)", "dark": "rgba(12,72,58,.95)" }, "text": { "light": "#12213a", "dark": "#f7fffc" }, "minimumTouchTarget": 44 },
+  "theme": { "canonicalArtwork": "light", "darkDerivation": "Reuse identical transparent artwork and geometry over one solid dark garden canvas, then apply one page-wide mask behind UI content.", "darkOverlay": "rgba(0,32,27,.55)", "lightDarkGeometryParity": true, "lightDarkAssetParity": true },
+  "tokens": { "canvas": { "light": "#effcf5", "dark": "#0d3c33" }, "accent": { "light": "#00b982", "dark": "#00d89a" }, "surface": { "light": "rgba(255,255,255,.95)", "dark": "rgba(12,72,58,.95)" }, "text": { "light": "#12213a", "dark": "#f7fffc" }, "minimumTouchTarget": 44 },
   "safeZones": { "portrait": "24px content inset between 58px topbar and reserved 64px bottom navigation", "landscape": "980px centered content rail below the 58px desktop navigation", "artwork": "Header/footer remain outside content stacking; empty artwork stays inside its centered state box." },
   "content": {
     "periods": ["Tất cả", "Tuần này"],

@@ -49,13 +49,13 @@
   },
   "theme": {
     "canonicalArtwork": "light",
-    "darkDerivation": "Reuse identical artwork and geometry; apply CSS overlay and dark tokens.",
-    "darkOverlay": "rgba(0, 42, 34, 0.48)",
+    "darkDerivation": "Reuse identical transparent artwork and geometry over one solid dark garden canvas, then apply one page-wide mask behind UI content.",
+    "darkOverlay": "rgba(0,32,27,.55)",
     "lightDarkGeometryParity": true,
     "lightDarkAssetParity": true
   },
   "tokens": {
-    "canvas": { "light": "#effcf5", "dark": "#effcf5", "darkTreatment": "same theme background under rgba(0,32,27,.72) overlay" },
+    "canvas": { "light": "#effcf5", "dark": "#0d3c33", "darkTreatment": "one solid theme canvas visible through transparent artwork" },
     "accent": { "light": "#00b982", "dark": "#00d89a" },
     "surface": { "light": "rgba(255,255,255,.94)", "dark": "rgba(12,72,58,.94)" },
     "text": { "light": "#12213a", "dark": "#f7fffc" },
