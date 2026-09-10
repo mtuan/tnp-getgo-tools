@@ -1,5 +1,13 @@
 const designs = [
   {
+    id: 'student-exam',
+    title: { en: 'Student exam', vi: 'Đề thi' },
+    files: {
+      portrait: { light: 'student-exam/htmls/portrait-light.html', dark: 'student-exam/htmls/portrait-dark.html' },
+      landscape: { light: 'student-exam/htmls/landscape-light.html', dark: 'student-exam/htmls/landscape-dark.html' },
+    },
+  },
+  {
     id: 'student-learning',
     title: { en: 'Student learning', vi: 'Học tập' },
     files: {

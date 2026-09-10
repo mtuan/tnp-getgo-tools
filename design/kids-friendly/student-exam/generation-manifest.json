@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 2,
+  "credentialMode": "none",
+  "inputs": [
+    { "id": "exam-route", "source": "tnp-getgo-web/src/routes/user/getgo/student/quiz-types/contests/exam/index.tsx", "role": "functional-reference" },
+    { "id": "quiz-component", "source": "tnp-getgo-web/src/apps/getgo/components/quiz/QuizComponent.tsx", "role": "structural-reference" },
+    { "id": "question-navigator", "source": "tnp-getgo-web/src/apps/getgo/components/quiz/QuestionNavigator.tsx", "role": "structural-reference" },
+    { "id": "shared-garden-art", "source": "../shared/assets/", "role": "approved-reusable-asset" },
+    { "id": "administrator-direction", "source": "current conversation", "role": "instruction" }
+  ],
+  "styleLock": {
+    "id": "getgo-storybook-garden-v1",
+    "medium": "watercolor and gouache with paper texture",
+    "palette": "natural teal, garden green, pale cream, restrained yellow",
+    "lighting": "diffuse neutral daylight",
+    "silhouette": "rounded and child-friendly"
+  },
+  "outputs": [
+    {
+      "id": "exam-adventure-accent",
+      "file": "assets/exam-adventure-accent.png",
+      "dimensions": [1448,1086],
+      "generationTool": "built-in-image_gen",
+      "credentialMode": "none",
+      "status": "accepted",
+      "densityStrategy": "shared-3x-max-display",
+      "prompt": "Transparent storybook watercolor exam emblem with a teal pencil resting on a cream checklist, two green checks, and one yellow star sticker; no text, UI, background, watermark, or night cues."
+    }
+  ],
+  "runtimeChecks": { "status": "not-requested" }
+}

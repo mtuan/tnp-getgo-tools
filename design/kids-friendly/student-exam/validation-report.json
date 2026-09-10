@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "page": "student-exam",
+  "status": "source-validated",
+  "checks": {
+    "requiredFiles": { "status": "passed" },
+    "canonicalDimensions": { "status": "passed" },
+    "sharedShell": { "status": "passed" },
+    "sourceStructure": { "status": "passed", "evidence": "Exam header, question cards, navigator, progress, timer, answer controls, and submit action follow the production render path." },
+    "allQuestionsMode": { "status": "passed", "evidence": "Default mode renders every question and retains desktop/mobile navigators." },
+    "singleQuestionMode": { "status": "passed", "evidence": "Active-only rendering retains both navigator panels and provides one synchronized Next question button below the active question panel." },
+    "fixedSurfaceOwnership": { "status": "passed", "evidence": "Mobile exam panel owns the bottom edge and content reserves space; artwork cannot cover it." },
+    "lightDarkParity": { "status": "passed" },
+    "semanticControls": { "status": "passed" },
+    "generationProvenance": { "status": "passed" },
+    "renderedComparisons": { "status": "not-requested" },
+    "keyboardFocus": { "status": "not-requested" },
+    "resize": { "status": "not-requested" },
+    "shortViewport": { "status": "not-requested" },
+    "zoom200": { "status": "not-requested" }
+  }
+}
