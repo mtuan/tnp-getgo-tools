@@ -50,10 +50,13 @@ button { border: 0; }
 .language-control select { min-height: 42px; padding: 0 9px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-weight: 700; cursor: pointer; }
 
 .preview-stage { display: grid; min-height: calc(100dvh - 78px); place-items: center; overflow: auto; padding: 38px; background-image: radial-gradient(circle at 1px 1px, #cbd8d3 1px, transparent 0); background-size: 22px 22px; }
-.device-shell { position: relative; overflow: hidden; background: #111b18; box-shadow: var(--shadow); transition: width .2s ease, height .2s ease, border-radius .2s ease; }
-.device-shell.portrait { width: 393px; height: 852px; padding: 14px 8px 16px; border: 2px solid #263b34; border-radius: 42px; }
-.device-shell.landscape { width: min(1180px, calc(100vw - 330px)); height: min(760px, calc(100dvh - 138px)); min-width: 700px; min-height: 480px; padding-top: 38px; border: 1px solid #aab9b4; border-radius: 14px; background: #e6ecea; }
-.device-shell iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.device-scaler { position: relative; flex: 0 0 auto; }
+.device-shell { position: absolute; top: 0; left: 0; overflow: hidden; transform: scale(var(--device-scale, 1)); transform-origin: top left; background: #111b18; box-shadow: var(--shadow); transition: border-radius .2s ease; }
+.device-shell.portrait { width: 413px; height: 886px; padding: 14px 8px 16px; border: 2px solid #263b34; border-radius: 42px; }
+.device-shell.landscape { width: 1442px; height: 940px; padding-top: 38px; border: 1px solid #aab9b4; border-radius: 14px; background: #e6ecea; }
+.device-shell iframe { display: block; border: 0; background: #fff; }
+.device-shell.portrait iframe { width: 393px; height: 852px; }
+.device-shell.landscape iframe { width: 1440px; height: 900px; }
 .device-shell.portrait iframe { border-radius: 29px; }
 .browser-chrome { position: absolute; inset: 0 0 auto; display: none; height: 38px; align-items: center; gap: 6px; padding: 0 12px; border-bottom: 1px solid #bdc9c5; background: #e6ecea; }
 .device-shell.landscape .browser-chrome { display: flex; }
@@ -70,7 +73,6 @@ button:focus-visible, select:focus-visible { outline: 3px solid var(--focus); ou
   .toolbar { align-items: flex-start; flex-direction: column; gap: 10px; }
   .toolbar-controls { width: 100%; margin-left: 0; }
   .preview-stage { min-height: calc(100dvh - 126px); padding: 24px; }
-  .device-shell.landscape { width: 800px; height: 520px; }
 }
 
 @media (max-width: 620px) {

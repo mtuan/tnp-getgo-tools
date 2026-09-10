@@ -25,6 +25,8 @@ const pageList = document.querySelector('#page-list');
 const title = document.querySelector('#selected-page-title');
 const frame = document.querySelector('#design-frame');
 const shell = document.querySelector('#device-shell');
+const scaler = document.querySelector('#device-scaler');
+const stage = document.querySelector('#preview-stage');
 const addressBar = document.querySelector('#address-bar');
 const languageSelect = document.querySelector('#language-select');
 
@@ -75,6 +77,16 @@ function render() {
   addressBar.textContent = `${design.id} / ${state.orientation} / ${state.theme}`;
   updatePressedState('[data-orientation]', state.orientation, 'orientation');
   updatePressedState('[data-theme]', state.theme, 'theme');
+  requestAnimationFrame(fitDevice);
+}
+
+function fitDevice() {
+  const availableWidth = Math.max(1, stage.clientWidth - 76);
+  const availableHeight = Math.max(1, stage.clientHeight - 76);
+  const scale = Math.min(1, availableWidth / shell.offsetWidth, availableHeight / shell.offsetHeight);
+  shell.style.setProperty('--device-scale', String(scale));
+  scaler.style.width = `${Math.round(shell.offsetWidth * scale)}px`;
+  scaler.style.height = `${Math.round(shell.offsetHeight * scale)}px`;
 }
 
 document.querySelectorAll('[data-orientation]').forEach(button => {
@@ -96,4 +108,6 @@ languageSelect.addEventListener('change', () => {
   render();
 });
 
+new ResizeObserver(fitDevice).observe(stage);
+window.addEventListener('resize', fitDevice);
 render();
