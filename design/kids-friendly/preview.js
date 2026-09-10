@@ -30,11 +30,19 @@ const translations = {
   vi: { gallery: 'Thư viện thiết kế', pages: 'Trang', preview: 'Xem trước', orientation: 'Hướng màn hình', portrait: 'Dọc', landscape: 'Ngang', theme: 'Giao diện', light: 'Sáng', dark: 'Tối', language: 'Ngôn ngữ' },
 };
 
+const query = new URLSearchParams(window.location.search);
+const requestedPage = query.get('page');
+const requestedOrientation = query.get('orientation');
+const requestedMode = query.get('mode');
+const requestedLanguage = query.get('lang');
+
 const state = {
-  designId: designs[0].id,
-  orientation: 'portrait',
-  theme: 'light',
-  language: navigator.language.toLowerCase().startsWith('vi') ? 'vi' : 'en',
+  designId: designs.some(design => design.id === requestedPage) ? requestedPage : designs[0].id,
+  orientation: ['portrait', 'landscape'].includes(requestedOrientation) ? requestedOrientation : 'portrait',
+  theme: ['light', 'dark'].includes(requestedMode) ? requestedMode : 'light',
+  language: ['en', 'vi'].includes(requestedLanguage)
+    ? requestedLanguage
+    : navigator.language.toLowerCase().startsWith('vi') ? 'vi' : 'en',
 };
 
 const pageList = document.querySelector('#page-list');
@@ -81,8 +89,18 @@ function renderTranslations() {
   languageSelect.value = state.language;
 }
 
+function syncUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('page', state.designId);
+  url.searchParams.set('orientation', state.orientation);
+  url.searchParams.set('mode', state.theme);
+  url.searchParams.set('lang', state.language);
+  window.history.replaceState(null, '', url);
+}
+
 function render() {
   const design = selectedDesign();
+  syncUrl();
   renderTranslations();
   renderPageList();
   title.textContent = design.title[state.language];
