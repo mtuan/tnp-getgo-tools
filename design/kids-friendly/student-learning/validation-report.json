@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "status": "source-validated",
+  "checks": {
+    "requiredFiles": "passed",
+    "canonicalViewports": "passed",
+    "canonicalEdgeAssetDimensions": "passed",
+    "sharedShell": "passed",
+    "semanticControls": "passed",
+    "localOnlyDependencies": "passed",
+    "lightDarkAssetParity": "passed",
+    "darkOverlay": "passed",
+    "quizInformationRequirements": "passed",
+    "completionThresholdSemantics": "passed",
+    "responsiveRecomposition": "passed",
+    "builtInImageGenerationProvenance": "passed",
+    "runtimeRenderedComparison": "not-requested",
+    "keyboardFocus": "not-requested",
+    "shortViewport": "not-requested",
+    "zoom200Percent": "not-requested"
+  },
+  "completionRuleEvidence": {
+    "minimumSubmittedExams": 3,
+    "minimumAverageAccuracyPercent": 70,
+    "completedExample": "5 submitted exams at 86%",
+    "insufficientAttemptsExample": "2 submitted exams at 68%",
+    "belowThresholdExample": "4 submitted exams at 62%"
+  }
+}

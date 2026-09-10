@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 2,
+  "page": {
+    "slug": "student-learning",
+    "name": "GetGo: Học tập",
+    "route": "/student/learning",
+    "purpose": "Choose an assigned quiz and understand recent study progress.",
+    "heightBehavior": "vertical-scroll"
+  },
+  "viewports": {
+    "portrait": { "width": 390, "height": 844 },
+    "landscape": { "width": 1024, "height": 768 }
+  },
+  "layoutLock": {
+    "source": "GetGo Web student learning route source and established student shell",
+    "immutable": [
+      "student application header and navigation",
+      "single active-topic header with switch-topic action",
+      "quiz-card list that opens the existing quiz action chooser",
+      "portrait bottom navigation and landscape desktop navigation",
+      "shared 1024px application content boundary"
+    ],
+    "administratorExceptions": [
+      "quiz cards may be redesigned while retaining quiz icon, name, last interaction, attempts, progress, score, and open behavior"
+    ]
+  },
+  "quizCompletionRule": {
+    "minimumSubmittedExams": 3,
+    "minimumAverageAccuracyPercent": 70,
+    "finishedWhen": "submittedExams >= 3 && averageAccuracyPercent >= 70",
+    "insufficientAttemptsState": "in-progress",
+    "belowPassingAverageState": "practice-more",
+    "neverInteractedState": "new"
+  },
+  "artDirection": {
+    "scene": "Theme-neutral storybook garden framing the existing learning page.",
+    "styleLock": "Polished watercolor/gouache children's-book illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and restrained yellow; diffuse neutral light; consistent daisies, rounded leaves and learning-path motifs.",
+    "assetStrategy": "Reuse the design-level garden header/footer for both orientations and add one shared 3x learning-trail accent.",
+    "forbidden": ["layout replacement", "baked UI", "raster text", "sun", "moon", "stars", "night cues", "fake completion"]
+  },
+  "theme": {
+    "canonicalArtwork": "light",
+    "darkDerivation": "Reuse identical artwork and geometry, with the shared CSS artwork mask and dark semantic tokens.",
+    "darkOverlay": "rgba(0,32,27,.72)",
+    "lightDarkGeometryParity": true,
+    "lightDarkAssetParity": true
+  },
+  "tokens": {
+    "canvas": { "light": "#effcf5", "dark": "#0d3c33" },
+    "minimumTouchTarget": 44,
+    "completion": "#00b982",
+    "developing": "#f2a91d",
+    "practiceMore": "#8769dd"
+  },
+  "content": {
+    "topic": "Hành trình kiến thức",
+    "quizCards": [
+      "Khám phá chữ cái",
+      "Thế giới động vật",
+      "Số học 1–100",
+      "Nhà khoa học nhí"
+    ],
+    "requiredSignals": ["quiz icon", "quiz name", "last interaction", "submitted exam count", "average score", "earned completion state"]
+  },
+  "assets": [
+    {
+      "id": "shared-garden-header-portrait",
+      "file": "../shared/assets/garden-header-portrait.png",
+      "role": "header",
+      "dimensions": [1170, 532],
+      "orientations": ["portrait"],
+      "anchor": "document-top",
+      "focalPoint": [0.5, 0],
+      "cropBehavior": "contain",
+      "maximumDisplayBox": "390px wide x auto height",
+      "zIndex": 0,
+      "layoutParticipation": "none",
+      "backgroundMode": "transparent"
+    },
+    {
+      "id": "shared-garden-header-landscape",
+      "file": "../shared/assets/garden-header-landscape.png",
+      "role": "header",
+      "dimensions": [2048, 682],
+      "orientations": ["landscape"],
+      "anchor": "document-top",
+      "focalPoint": [0.5, 0],
+      "cropBehavior": "contain",
+      "maximumDisplayBox": "1024px wide x auto height",
+      "zIndex": 0,
+      "layoutParticipation": "none",
+      "backgroundMode": "transparent"
+    },
+    {
+      "id": "shared-garden-footer-portrait",
+      "file": "../shared/assets/garden-footer-portrait.png",
+      "role": "footer",
+      "dimensions": [1170, 531],
+      "orientations": ["portrait"],
+      "anchor": "document-bottom",
+      "focalPoint": [0.5, 1],
+      "cropBehavior": "contain",
+      "maximumDisplayBox": "390px wide x auto height",
+      "zIndex": 0,
+      "layoutParticipation": "none",
+      "backgroundMode": "transparent"
+    },
+    {
+      "id": "shared-garden-footer-landscape",
+      "file": "../shared/assets/garden-footer-landscape.png",
+      "role": "footer",
+      "dimensions": [2048, 1024],
+      "orientations": ["landscape"],
+      "anchor": "document-bottom",
+      "focalPoint": [0.5, 1],
+      "cropBehavior": "contain",
+      "maximumDisplayBox": "1024px wide x auto height",
+      "zIndex": 0,
+      "layoutParticipation": "none",
+      "backgroundMode": "transparent"
+    },
+    {
+      "id": "learning-trail-accent",
+      "file": "assets/learning-trail-accent.png",
+      "role": "section-decoration",
+      "dimensions": [1536, 1024],
+      "orientations": ["portrait", "landscape"],
+      "anchor": "quiz-section-heading-trailing-space",
+      "focalPoint": [0.5, 0.5],
+      "cropBehavior": "contain",
+      "maximumDisplayBox": "72px x 54px",
+      "densityStrategy": "shared-3x-max-display",
+      "styleFamily": "getgo-storybook-garden-v1",
+      "zIndex": 2,
+      "layoutParticipation": "none",
+      "backgroundMode": "transparent"
+    }
+  ]
+}

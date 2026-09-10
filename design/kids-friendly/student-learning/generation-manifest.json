@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "credentialMode": "none",
+  "inputs": [
+    {
+      "id": "student-learning-route",
+      "source": "http://localhost:5173/student/learning",
+      "role": "functional-reference",
+      "note": "Administrator-supplied route; approved browser surface was unavailable, so route source was inspected."
+    },
+    {
+      "id": "student-learning-source",
+      "source": "tnp-getgo-web/src/routes/user/getgo/student/learning",
+      "role": "structural-reference"
+    },
+    {
+      "id": "shared-garden-art",
+      "source": "../shared/assets/",
+      "role": "approved-reusable-asset"
+    },
+    {
+      "id": "kids-art-skill",
+      "source": "tnp-getgo-tools/.codex/skills/getgo-kids-art-design/SKILL.md",
+      "role": "instruction"
+    }
+  ],
+  "styleLock": {
+    "id": "getgo-storybook-garden-v1",
+    "medium": "watercolor and gouache with subtle paper texture",
+    "palette": "natural greens, airy cyan, pale cream, restrained warm yellow",
+    "lighting": "diffuse neutral daylight",
+    "silhouette": "rounded, clean and child-friendly",
+    "botanicalVocabulary": "rounded leaves and small daisies"
+  },
+  "outputs": [
+    {
+      "id": "learning-trail-accent",
+      "file": "assets/learning-trail-accent.png",
+      "generationTool": "built-in-image_gen",
+      "credentialMode": "none",
+      "status": "accepted",
+      "dimensions": [1536, 1024],
+      "densityStrategy": "shared-3x-max-display",
+      "prompt": "Create one transparent watercolor/gouache learning-trail emblem: an open storybook, short curved dotted path, one small achievement star, and two rounded leaves. Centered, generous padding, no text/UI/logo/watermark/night cues, clean alpha, consistent with the GetGo storybook garden style."
+    }
+  ],
+  "reusedOutputs": [
+    "../shared/assets/garden-header-portrait.png",
+    "../shared/assets/garden-header-landscape.png",
+    "../shared/assets/garden-footer-portrait.png",
+    "../shared/assets/garden-footer-landscape.png"
+  ],
+  "runtimeChecks": {
+    "status": "not-requested",
+    "note": "No rendered demo was requested; the supplied route was treated as the functional reference."
+  }
+}
