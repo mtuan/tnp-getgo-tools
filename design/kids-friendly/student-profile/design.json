@@ -53,7 +53,7 @@
     "lightDarkAssetParity": true
   },
   "tokens": {
-    "canvas": { "light": "#effcf5", "dark": "#00392f" },
+    "canvas": { "light": "#effcf5", "dark": "#effcf5", "darkTreatment": "same theme background under rgba(0,32,27,.72) overlay" },
     "accent": { "light": "#00b982", "dark": "#00d89a" },
     "surface": { "light": "rgba(255,255,255,.94)", "dark": "rgba(12,72,58,.94)" },
     "text": { "light": "#12213a", "dark": "#f7fffc" },
@@ -71,29 +71,30 @@
       "id": "profile-header-portrait",
       "file": "assets/profile-header-portrait.png",
       "role": "header",
-      "dimensions": [1860, 846],
+      "dimensions": [1859, 846],
       "orientations": ["portrait"],
       "anchor": "document-top",
       "focalPoint": [0.5, 0.42],
-      "cropBehavior": "cover inside the existing 192px profile-decoration window",
-      "maximumDisplayBox": "100vw x 192px",
+      "cropBehavior": "full-width contain; transparent bottom seam reveals the shared canvas",
+      "maximumDisplayBox": "100vw x auto",
       "zIndex": 10,
       "layoutParticipation": "none",
-      "backgroundMode": "opaque-background"
+      "backgroundMode": "transparent"
     },
     {
       "id": "profile-header-landscape",
       "file": "assets/profile-header-landscape.png",
       "role": "header",
-      "dimensions": [2222, 707],
+      "dimensions": [2172, 724],
       "orientations": ["landscape"],
       "anchor": "document-top",
       "focalPoint": [0.5, 0.36],
-      "cropBehavior": "cover inside the existing 192px profile-decoration window",
-      "maximumDisplayBox": "100vw x 192px",
+      "cropBehavior": "full-width contain; transparent bottom seam reveals the shared canvas",
+      "maximumDisplayBox": "100vw x auto",
       "zIndex": 10,
       "layoutParticipation": "none",
-      "backgroundMode": "opaque-background"
+      "backgroundMode": "transparent",
+      "sourceRemovalMatte": "#8B00FF"
     },
     {
       "id": "profile-footer-portrait",
@@ -103,11 +104,12 @@
       "orientations": ["portrait"],
       "anchor": "document-bottom",
       "focalPoint": [0.5, 1],
-      "cropBehavior": "cover with upper pale-mint blend edge",
-      "maximumDisplayBox": "100vw x 170px",
+      "cropBehavior": "full-width contain; transparent top seam reveals the shared canvas",
+      "maximumDisplayBox": "100vw x auto",
       "zIndex": 10,
       "layoutParticipation": "none",
-      "backgroundMode": "opaque-background"
+      "backgroundMode": "transparent",
+      "sourceRemovalMatte": "#8B00FF"
     },
     {
       "id": "profile-footer-landscape",
@@ -117,11 +119,12 @@
       "orientations": ["landscape"],
       "anchor": "document-bottom",
       "focalPoint": [0.5, 1],
-      "cropBehavior": "cover with upper pale-mint blend edge",
-      "maximumDisplayBox": "100vw x 210px",
+      "cropBehavior": "full-width contain; transparent top seam reveals the shared canvas",
+      "maximumDisplayBox": "100vw x auto",
       "zIndex": 10,
       "layoutParticipation": "none",
-      "backgroundMode": "opaque-background"
+      "backgroundMode": "transparent",
+      "sourceRemovalMatte": "#8B00FF"
     },
     {
       "id": "section-botanical-accent",

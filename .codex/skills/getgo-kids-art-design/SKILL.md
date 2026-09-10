@@ -1,6 +1,6 @@
 ---
 name: getgo-kids-art-design
-description: Create or continue polished kids-friendly GetGo page artwork packages from a page name or URL, GetGo Tools Screenshot Manager content, approved style images, and written art direction. Use when the result includes portrait/landscape and light/dark demos, reusable background and cut assets, and five reconstructed HTML pages under tnp-getgo-tools/design/kids-friendly/<page-name>. Do not use for ordinary production UI implementation without an artwork package.
+description: Create or continue polished kids-friendly GetGo page artwork packages from a page name or URL, GetGo Tools Screenshot Manager content, approved style images, and written art direction. Use when the result includes reusable background and cut assets, canonical design records, and five reconstructed HTML pages under tnp-getgo-tools/design/kids-friendly/<page-name>. Do not use for ordinary production UI implementation without an artwork package.
 ---
 
 # GetGo Kids Art Design
@@ -16,6 +16,16 @@ For every new raster demo, background, character, scenery layer, or edit, load a
 - If built-in `image_gen` is unavailable or fails, stop image generation and report that exact blocker. Do not silently fall back to an API/CLI path.
 - Issue one built-in image-generation call per distinct asset or composition. Do not ask one image to serve as a sprite sheet or unrelated asset collection.
 - Inspect each result, reject failures, and copy only accepted project-bound outputs from Codex's generated-images location into the target page's `assets/` or `demos/` folder.
+
+## No runtime or browser probing
+
+Artwork-package generation is a file, image, and source-inspection workflow by default.
+
+- Do not inspect, discover, connect to, or launch an in-app browser, browser extension, Chrome, Chromium, Safari, Electron, Playwright, Puppeteer, or another rendering runtime.
+- Do not search the repository, operating system, applications, caches, or dependencies for an available browser or renderer.
+- Do not start GetGo Tools or GetGo Web, and do not run headless screenshot commands as a fallback.
+- Perform structural, semantic, asset, alpha/matte, provenance, and source-layout validation from the package files and approved source screenshots only.
+- Runtime rendering or interactive visual QA is a separate optional action. Perform it only when the administrator explicitly requests runtime rendering in the current request and identifies or approves the surface to use. Never escalate automatically from an unavailable surface to a different runtime.
 
 ## Resolve the request
 
@@ -33,7 +43,8 @@ Read [references/art-direction.md](references/art-direction.md) before prompting
 
 - Apply a strict layout lock before adding art. Do not move, resize, regroup, restyle, replace, or reinterpret existing UI regions or controls. Do not convert lists into cards, cards into hero panels, horizontal rows into stacks, change container widths, invent new wrappers, enlarge typography, alter control shapes, or redistribute whitespace. Orientation-specific layout differences must come from the captured page's existing responsive behavior—not from the artwork concept.
 - Create portrait and landscape artwork framings around their corresponding captured layouts. The artwork may recompose for its aspect ratio, but the UI may not. Never stretch or squash artwork between orientations.
-- Classify the page before generating assets: use a full-page background image only for a genuinely fullscreen, fixed-height page such as login or registration; use separate full-width header and footer images for vertically scrolling pages such as profile or explore.
+- Classify the page before generating assets: use a full-page background image only for a genuinely fullscreen, fixed-height page such as login or registration; use separate full-width transparent header and footer images for vertically scrolling pages such as profile or explore.
+- For scrolling pages, define one code-native solid page background color and place it behind the header image, variable-height middle, and footer image. The header's inward-facing bottom edge must taper into real alpha; the footer's inward-facing top edge must taper out of real alpha. Never bake the middle color, sky field, or an opaque color wash into either edge image. The two transparent assets and the CSS color must read as one continuous page at any content height.
 - Dark mode is not a separate illustration. Reuse the exact light artwork, placement, crop, DOM, and geometry, then add deterministic dark treatment in HTML/CSS using a documented overlay and dark UI tokens. Do not ask an image model to invent dark variants.
 - Do not bake sun, moon, stars, night sky, sunrise, sunset, or other time-of-day signals into shared backgrounds. If explicitly required, generate the object as a separate matte-backed cut asset so themes can assemble it independently.
 - Keep text, controls, functional icons, focus rings, validation, navigation, and live data code-native. Artwork is decorative and must not intercept input or cover required content.
@@ -52,11 +63,7 @@ Follow [references/workflow.md](references/workflow.md) and write exactly to:
 ```text
 tnp-getgo-tools/design/kids-friendly/<page-name>/
 ├── assets/
-├── demos/
-│   ├── portrait-light.png
-│   ├── portrait-dark.png
-│   ├── landscape-light.png
-│   └── landscape-dark.png
+├── demos/                   Optional pre-existing or explicitly requested rendered previews
 ├── htmls/
 │   ├── portrait-light.html
 │   ├── portrait-dark.html
@@ -70,40 +77,47 @@ tnp-getgo-tools/design/kids-friendly/<page-name>/
 
 Read [references/output-contract.md](references/output-contract.md) before writing files. Start HTML from bundled templates when useful; do not preserve template placeholder content.
 
-## Cut-asset contract
+## Transparent and matte-backed asset contract
 
-Generate one subject or cohesive layer per file. Request genuine PNG transparency first. If the generator does not reliably deliver clean alpha, do not fake transparency and do not ship a visible checkerboard. Regenerate the asset on one flat, fully opaque removal matte, preferably vivid purple `#8B00FF`, with:
+Generate one subject or cohesive layer per file. Header/footer edge scenery and cut assets must be truly transparent in the final package so the code-native page color can extend behind them. Request genuine PNG transparency first. If the generator does not reliably deliver clean alpha, do not fake transparency and do not ship a visible checkerboard. Regenerate on one flat, fully opaque removal matte, preferably vivid purple `#8B00FF`, with:
 
 - no purple in the subject;
 - no gradient, texture, cast shadow, glow, checkerboard, or extra objects in the matte;
 - generous padding and an uncropped silhouette;
 - the matte color recorded in `design.json` and `generation-manifest.json` as `removalMatte`.
 
-The HTML may use a truly transparent accepted asset. It must not pretend a matte-backed asset is transparent or hide its matte with blend modes, masks, or a matching page background. If conversion to alpha is outside the request, keep the matte-backed source in `assets/` and use only composed backgrounds or other clean assets in final HTML.
+Convert every accepted matte-backed PNG before assembling the final HTML:
+
+```bash
+node scripts/remove-solid-background.mjs <matte-input.png> <final-transparent.png> --matte '#8B00FF'
+```
+
+Run the command from this skill directory. Use distinct input and output paths. Inspect the converted PNG for removed background, retained interior detail, clean anti-aliased edges, and purple spill; adjust `--tolerance` and `--softness` only when inspection shows the defaults are unsuitable. The HTML may reference only the transparent output, never the matte source. Record the command parameters and input/output paths as a post-processing step in `generation-manifest.json`; record the final asset as `backgroundMode: "transparent"` in `design.json`. Preserve the matte source only when useful for provenance, and do not list it as a final reusable asset.
 
 ## Rejection gates
 
 Never call the work complete when any item below is true:
 
-- any of the four demo PNGs or five HTML files is missing;
+- any of the five HTML files is missing;
 - reconstructed UI geometry or presentation differs materially from the corresponding captured source without an explicit administrator request, including changed region positions, widths, heights, gaps, alignment, typography hierarchy, component shapes, grouping, or responsive behavior;
 - artwork generation introduces a new hero panel, card treatment, layout wrapper, navigation treatment, or other UI redesign;
 - portrait and landscape are the same artwork stretched, compressed, or trivially cropped;
 - dark mode was independently generated, changes scene geometry, or contains a separate night scene;
 - shared scenery contains sun, moon, stars, or another baked time-of-day cue;
 - a cut asset contains a fake checkerboard, dirty fringe, unwanted object, text, watermark, clipped subject, or ambiguous background;
+- a final header, footer, or cut asset lacks real transparent pixels, retains a visible removal matte, or HTML references its matte source;
+- a header's bottom edge or footer's top edge forms an opaque rectangular seam instead of transitioning through transparent and partial-alpha pixels to the shared CSS background;
 - HTML uses a screenshot as the whole page, rasterizes functional UI, uses canvas, embeds base64, fetches remote dependencies, or omits semantic controls;
 - the responsive page lacks a visible theme toggle, fails automatic portrait/landscape recomposition on resize, or reloads to switch modes;
 - artwork covers content, intercepts pointer input, breaks focus order, or becomes unreadable at short viewport heights or 200% zoom;
 - a decorative accent changes the size, position, wrapping, alignment, or interaction area of the section it decorates;
 - an ordinary scrolling page is implemented as a fixed-height illustrated poster instead of separate top and bottom edge framing, or its footer floats above the actual content end;
 - an object floats, hangs from, grows from, or is fused to an implausible surface without explicit fantasy direction;
-- demos were not rendered from the reconstruction and visually inspected at canonical sizes;
 - any accepted image was produced through an API-key, SDK, CLI, repository generator, or unrecorded generation path instead of built-in `image_gen`;
 - characters, palette, medium, line weight, lighting, or botanical vocabulary visibly drift between assets or orientations;
-- validation reports a failure, or visual/runtime inspection was unavailable and the limitation is not reported explicitly.
+- source/package validation reports a failure, or a runtime-render status is recorded as passed without an explicitly requested runtime check.
 
-Run `node scripts/validate-package.mjs <page-folder>` from this skill directory, inspect all four rendered demos against their HTML variants, and fix failures. Typechecks and tests support verification but never replace rendered visual QA. Do not build or deploy unless explicitly requested.
+Run `node scripts/validate-package.mjs <page-folder>` from this skill directory and fix source/package failures. Do not probe for or launch a renderer when the validator reports missing optional previews or when runtime checks are unavailable. Record runtime checks as `not-requested`, not `passed` or `blocked`. Do not build or deploy unless explicitly requested.
 
 ## Scope boundary
 

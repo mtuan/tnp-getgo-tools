@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GetGo Kids Design Preview</title>
+    <link rel="stylesheet" href="preview.css">
+  </head>
+  <body>
+    <main class="preview-app">
+      <aside class="sidebar" aria-labelledby="page-list-title">
+        <div class="sidebar-brand">
+          <span class="brand-mark" aria-hidden="true">G</span>
+          <div>
+            <strong>GetGo</strong>
+            <small data-i18n="gallery">Design gallery</small>
+          </div>
+        </div>
+        <h1 id="page-list-title" data-i18n="pages">Pages</h1>
+        <nav class="page-list" id="page-list" aria-label="Design pages"></nav>
+      </aside>
+
+      <section class="workspace">
+        <header class="toolbar">
+          <div class="page-heading">
+            <small data-i18n="preview">Preview</small>
+            <h2 id="selected-page-title">Student profile</h2>
+          </div>
+          <div class="toolbar-controls">
+            <fieldset class="segmented-control">
+              <legend class="sr-only" data-i18n="orientation">Orientation</legend>
+              <button class="segment is-active" type="button" data-orientation="portrait" aria-pressed="true">
+                <span class="portrait-icon" aria-hidden="true"></span>
+                <span data-i18n="portrait">Portrait</span>
+              </button>
+              <button class="segment" type="button" data-orientation="landscape" aria-pressed="false">
+                <span class="landscape-icon" aria-hidden="true"></span>
+                <span data-i18n="landscape">Landscape</span>
+              </button>
+            </fieldset>
+
+            <fieldset class="segmented-control">
+              <legend class="sr-only" data-i18n="theme">Theme</legend>
+              <button class="segment is-active" type="button" data-theme="light" aria-pressed="true">
+                <span aria-hidden="true">☀</span>
+                <span data-i18n="light">Light</span>
+              </button>
+              <button class="segment" type="button" data-theme="dark" aria-pressed="false">
+                <span aria-hidden="true">◐</span>
+                <span data-i18n="dark">Dark</span>
+              </button>
+            </fieldset>
+
+            <label class="language-control">
+              <span class="sr-only" data-i18n="language">Language</span>
+              <select id="language-select" aria-label="Language">
+                <option value="en">EN</option>
+                <option value="vi">VI</option>
+              </select>
+            </label>
+          </div>
+        </header>
+
+        <div class="preview-stage" id="preview-stage">
+          <div class="device-shell portrait" id="device-shell">
+            <div class="browser-chrome" aria-hidden="true">
+              <span></span><span></span><span></span>
+              <div class="address-bar" id="address-bar">student-profile</div>
+            </div>
+            <div class="phone-speaker" aria-hidden="true"></div>
+            <iframe id="design-frame" title="Student profile design preview"></iframe>
+            <div class="phone-home" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="preview.js"></script>
+  </body>
+</html>
