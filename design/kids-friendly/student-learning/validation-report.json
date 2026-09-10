@@ -11,6 +11,8 @@
     "lightDarkAssetParity": "passed",
     "darkOverlay": "passed",
     "quizInformationRequirements": "passed",
+    "missingProgressOmission": "passed",
+    "stateSpecificNextStep": "passed",
     "completionThresholdSemantics": "passed",
     "responsiveRecomposition": "passed",
     "builtInImageGenerationProvenance": "passed",

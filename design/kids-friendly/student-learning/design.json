@@ -60,7 +60,18 @@
       "Số học 1–100",
       "Nhà khoa học nhí"
     ],
-    "requiredSignals": ["quiz icon", "quiz name", "last interaction", "submitted exam count", "average score", "earned completion state"]
+    "requiredSignals": ["quiz icon", "quiz name", "last interaction when available", "submitted exam count when available", "average score when available", "earned completion state", "state-specific next step"],
+    "missingDataPresentation": "Omit unavailable metadata, score, and progress UI instead of rendering zero values, dashes, labels, or empty progress tracks.",
+    "cardInformationOrder": [
+      "quiz icon and name with score percentage aligned right",
+      "status tag followed by last interaction when available",
+      "natural-language progress summary with completed exam count and average score",
+      "state-specific next action"
+    ],
+    "portraitCardLayout": "Cards use intrinsic content height. Progress and next-action rows span the complete card width and align with the icon's left edge.",
+    "cardSeparator": "none",
+    "cardClickIndicator": "none",
+    "scoreAlignment": "The percentage is vertically centered against the quiz icon."
   },
   "assets": [
     {

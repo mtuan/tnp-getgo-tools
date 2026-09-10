@@ -16,26 +16,21 @@ const icons = {
 };
 
 const quizzes = [
-  { title: 'Khám phá chữ cái', icon: icons.letters, state: 'new', status: 'Mới', last: 'Chưa học lần nào', attempts: '0 bài thi', score: '—' },
-  { title: 'Thế giới động vật', icon: icons.animals, state: 'building', status: 'Đang học', last: 'Học hôm qua', attempts: '2 bài thi · cần thêm 1', score: '68%' },
-  { title: 'Số học 1–100', icon: icons.numbers, state: 'complete', status: 'Hoàn thành', last: 'Học 2 ngày trước', attempts: '5 bài thi · đạt yêu cầu', score: '86%' },
-  { title: 'Nhà khoa học nhí', icon: icons.science, state: 'practice', status: 'Luyện thêm', last: 'Học 1 tuần trước', attempts: '4 bài thi · dưới 70%', score: '62%' },
+  { title: 'Khám phá chữ cái', icon: icons.letters, state: 'new', status: 'Mới', next: 'Bắt đầu bài học đầu tiên' },
+  { title: 'Thế giới động vật', icon: icons.animals, state: 'building', status: 'Đang học', last: 'Hôm qua', completedExams: 2, score: 68, next: 'Làm thêm 1 bài thi để xác nhận kết quả' },
+  { title: 'Số học 1–100', icon: icons.numbers, state: 'complete', status: 'Hoàn thành', last: '2 ngày trước', completedExams: 5, score: 86, next: 'Xem kết quả hoặc tiếp tục luyện tập' },
+  { title: 'Nhà khoa học nhí', icon: icons.science, state: 'practice', status: 'Luyện thêm', last: '1 tuần trước', completedExams: 4, score: 62, next: 'Luyện tập thêm rồi làm lại bài thi' },
 ];
 
 const quizCard = quiz => `
   <button class="quiz-card" type="button" data-state="${quiz.state}" aria-label="Mở ${quiz.title}">
     <span class="quiz-icon">${quiz.icon}</span>
     <span class="quiz-main">
-      <span class="quiz-title-line"><strong class="quiz-title">${quiz.title}</strong><span class="status">${quiz.status}</span></span>
-      <span class="last-seen">${icons.clock}${quiz.last}</span>
-      <span class="metrics">
-        <span class="progress-copy">
-          <span class="progress-label"><span>Tiến độ học</span><strong>${quiz.attempts}</strong></span>
-          <span class="progress-track" aria-hidden="true"><span></span></span>
-        </span>
-        <span class="score"><strong>${quiz.score}</strong><small>điểm TB</small></span>
-      </span>
+      <span class="quiz-title-line"><strong class="quiz-title">${quiz.title}</strong>${quiz.score != null ? `<strong class="score">${quiz.score}%</strong>` : ''}</span>
+      <span class="quiz-meta"><span class="status">${quiz.status}</span>${quiz.last ? `<span class="last-seen">${icons.clock}${quiz.last}</span>` : ''}</span>
     </span>
+    ${quiz.score != null ? `<span class="progress-summary"><span>Tiến độ:</span> đã hoàn thành <strong>${quiz.completedExams} bài thi</strong>, điểm trung bình <strong>${quiz.score}%</strong></span>` : ''}
+    <span class="next-step"><span class="next-label">Tiếp theo:</span><strong>${quiz.next}</strong></span>
   </button>`;
 
 document.querySelector('#app').innerHTML = `
