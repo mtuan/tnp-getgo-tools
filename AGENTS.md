@@ -2,6 +2,7 @@
 
 This desktop repository follows the same engineering principles as `tnp-getgo-web`, adapted for Electron and local quiz repositories.
 
+- Maintain Tools-owned Codex skills only under `.codex/skills`. Never create or update them in a user-private or machine-global skill directory. Do not duplicate a cross-project skill; establish an explicit repository-owned shared source when both Tools and Web genuinely own it.
 - For UI work, read and follow `.agents/ui-ux/AGENTS.md` and the task-specific files it links.
 - Read an existing shared component's implementation and TypeScript contract before using or extending it. Do not guess its behavior from its name.
 - Prefer shared schema-driven fields, modal primitives, tables, state components, and animation utilities over raw or page-specific controls.
