@@ -68,8 +68,8 @@
   },
   "assets": [
     {
-      "id": "profile-header-portrait",
-      "file": "assets/profile-header-portrait.png",
+      "id": "shared-garden-header-portrait",
+      "file": "../shared/assets/garden-header-portrait.png",
       "role": "header",
       "dimensions": [1859, 846],
       "orientations": ["portrait"],
@@ -82,8 +82,8 @@
       "backgroundMode": "transparent"
     },
     {
-      "id": "profile-header-landscape",
-      "file": "assets/profile-header-landscape.png",
+      "id": "shared-garden-header-landscape",
+      "file": "../shared/assets/garden-header-landscape.png",
       "role": "header",
       "dimensions": [2172, 724],
       "orientations": ["landscape"],
@@ -97,8 +97,8 @@
       "sourceRemovalMatte": "#8B00FF"
     },
     {
-      "id": "profile-footer-portrait",
-      "file": "assets/profile-footer-portrait.png",
+      "id": "shared-garden-footer-portrait",
+      "file": "../shared/assets/garden-footer-portrait.png",
       "role": "footer",
       "dimensions": [1862, 845],
       "orientations": ["portrait"],
@@ -112,8 +112,8 @@
       "sourceRemovalMatte": "#8B00FF"
     },
     {
-      "id": "profile-footer-landscape",
-      "file": "assets/profile-footer-landscape.png",
+      "id": "shared-garden-footer-landscape",
+      "file": "../shared/assets/garden-footer-landscape.png",
       "role": "footer",
       "dimensions": [1774, 887],
       "orientations": ["landscape"],

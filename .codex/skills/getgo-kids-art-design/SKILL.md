@@ -82,10 +82,10 @@ Read [references/output-contract.md](references/output-contract.md) before writi
 
 ## Transparent and matte-backed asset contract
 
-Generate one subject or cohesive layer per file. Header/footer edge scenery and cut assets must be truly transparent in the final package so the code-native page color can extend behind them. Request genuine PNG transparency first. If the generator does not reliably deliver clean alpha, do not fake transparency and do not ship a visible checkerboard. Regenerate on one flat, fully opaque removal matte, preferably vivid purple `#8B00FF`, with:
+Generate one subject or cohesive layer per file. Header/footer edge scenery and cut assets must be truly transparent in the final package so the code-native page color can extend behind them. Request genuine PNG transparency first. If the generator does not reliably deliver clean alpha, do not fake transparency and do not ship a visible checkerboard. Regenerate on one fully opaque removal matte, preferably vivid purple `#8B00FF`. Force the prompt to request an exactly uniform matte with no gradient or texture. A slightly graded or uneven purple result may still be accepted as an intermediate only when it remains clearly separable from the subject and edge-connected matte removal produces a clean final alpha asset. Require:
 
 - no purple in the subject;
-- no gradient, texture, cast shadow, glow, checkerboard, or extra objects in the matte;
+- no intentional gradient, texture, cast shadow, glow, checkerboard, or extra objects in the matte;
 - generous padding and an uncropped silhouette;
 - the matte color recorded in `design.json` and `generation-manifest.json` as `removalMatte`.
 
@@ -95,7 +95,7 @@ Convert every accepted matte-backed PNG before assembling the final HTML:
 node scripts/remove-solid-background.mjs <matte-input.png> <final-transparent.png> --matte '#8B00FF'
 ```
 
-Run the command from this skill directory. Use distinct input and output paths. Inspect the converted PNG for removed background, retained interior detail, clean anti-aliased edges, and purple spill; adjust `--tolerance` and `--softness` only when inspection shows the defaults are unsuitable. The HTML may reference only the transparent output, never the matte source. Record the command parameters and input/output paths as a post-processing step in `generation-manifest.json`; record the final asset as `backgroundMode: "transparent"` in `design.json`. Preserve the matte source only when useful for provenance, and do not list it as a final reusable asset.
+Run the command from this skill directory. Use distinct input and output paths. The converter removes matte-colored pixels connected to the image boundary, allowing bounded purple gradients without erasing isolated subject pixels. Inspect the converted PNG for removed background, retained interior detail, clean anti-aliased edges, and purple spill; adjust `--tolerance`, `--softness`, and `--edge-threshold` only when inspection shows the defaults are unsuitable. Increase `--edge-threshold` only enough to include the visible purple variation, and reject the source if matte color overlaps the subject or conversion damages it. The HTML may reference only the transparent output, never the matte source. Record all command parameters and input/output paths as a post-processing step in `generation-manifest.json`; record the final asset as `backgroundMode: "transparent"` in `design.json`. Preserve the matte source only when useful for provenance, and do not list it as a final reusable asset.
 
 ## Rejection gates
 

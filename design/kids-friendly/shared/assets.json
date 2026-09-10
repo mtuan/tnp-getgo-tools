@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    { "id": "garden-header-portrait", "file": "assets/garden-header-portrait.png", "role": "header", "dimensions": [1859, 846], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] },
+    { "id": "garden-header-landscape", "file": "assets/garden-header-landscape.png", "role": "header", "dimensions": [2172, 724], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] },
+    { "id": "garden-footer-portrait", "file": "assets/garden-footer-portrait.png", "role": "footer", "dimensions": [1862, 845], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] },
+    { "id": "garden-footer-landscape", "file": "assets/garden-footer-landscape.png", "role": "footer", "dimensions": [1774, 887], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] }
+  ]
+}

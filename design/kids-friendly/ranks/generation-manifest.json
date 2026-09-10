@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 2,
+  "page": "ranks",
+  "generationTool": "built-in-image_gen",
+  "credentialMode": "none",
+  "mode": "artwork-package-preserve-layout-with-requested-ranking-states",
+  "styleLock": "Polished watercolor/gouache storybook illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and restrained golden accents; diffuse neutral light; consistent daisies and rounded leaves.",
+  "layoutLock": "Preserve captured student navigation, content rail, tabs, empty-state centering, portrait bottom navigation, desktop heading and responsive shell. Add only the administrator-requested empty artwork, podium and ranking rows.",
+  "inputs": [
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/pages.json", "record": "/student/ranks", "role": "structural-reference" },
+    { "path": "../../../../tnp-getgo-web/src/routes/user/getgo/student/ranks/index.tsx", "role": "functional-reference" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/68222065-500f-4c53-bb03-f95ea4bffd2d.png", "role": "functional-reference", "variant": "portrait-light" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/a14520d7-b8cc-4b50-8fbd-b077260baf27.png", "role": "functional-reference", "variant": "portrait-dark" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/73f9ccb9-6462-4a02-8973-118ad28f998f.png", "role": "functional-reference", "variant": "landscape-light" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/fe16ae0c-6319-42dc-9975-5adfcd5f6202.png", "role": "functional-reference", "variant": "landscape-dark" },
+    { "path": "../../../.codex/skills/getgo-kids-art-design/references/art-direction.md", "role": "instruction" },
+    { "path": "../shared/assets/garden-header-portrait.png", "role": "approved-reusable-asset" },
+    { "path": "../shared/assets/garden-footer-portrait.png", "role": "approved-reusable-asset" },
+    { "path": "../shared/assets/garden-header-landscape.png", "role": "approved-reusable-asset" },
+    { "path": "../shared/assets/garden-footer-landscape.png", "role": "approved-reusable-asset" }
+  ],
+  "prompts": [
+    { "id": "empty-alpha-1", "summary": "Golden trophy on a grounded stump with leaves, daisies and butterfly; requested genuine transparent PNG.", "result": "rejected-painted-checkerboard" },
+    { "id": "empty-purple-matte-1", "summary": "Same centered empty-state trophy composition; force a fully opaque uniform #8B00FF removal matte with no purple in the subject.", "result": "accepted-intermediate-slightly-graded-purple" },
+    { "id": "empty-alpha-2", "summary": "Simplified trophy and botanical cutout with strict real-alpha output.", "result": "rejected-painted-checkerboard" }
+  ],
+  "outputs": [
+    { "source": "exec-498a510b-1ca7-4d27-8901-8c91c98666c0.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "rejected", "reason": "Painted checkerboard instead of transparency; not copied into the package." },
+    { "file": "assets/empty-trophy-purple-matte.png", "source": "exec-cbcd2e61-6700-40ca-a52b-e5bb7d1871e7.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted-intermediate", "backgroundMode": "removal-matte", "removalMatte": "#8B00FF", "reason": "Purple was mildly graded but remained separable from the subject and passed edge-connected conversion." },
+    { "file": "assets/empty-trophy.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted", "backgroundMode": "transparent", "postProcessing": { "tool": "scripts/remove-solid-background.mjs", "input": "assets/empty-trophy-purple-matte.png", "output": "assets/empty-trophy.png", "matte": "#8B00FF", "tolerance": 24, "softness": 56, "edgeThreshold": 120 }, "inspection": "Composite over #effcf5 preserves the complete trophy, stump, flowers, leaves and butterfly with no visible purple field." },
+    { "source": "exec-55474376-a50e-444f-9cc7-ff2a1c52b357.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "rejected", "reason": "Painted checkerboard instead of transparency; not copied into the package." }
+  ],
+  "sharedAssetPromotion": { "from": "student-profile/assets/profile-{header,footer}-{portrait,landscape}.png", "to": "../shared/assets/garden-{header,footer}-{portrait,landscape}.png", "originalConsumerUpdated": true, "pixelsChanged": false },
+  "darkMode": { "generatedSeparately": false, "method": "CSS overlay and dark semantic tokens over identical orientation artwork and geometry." }
+}

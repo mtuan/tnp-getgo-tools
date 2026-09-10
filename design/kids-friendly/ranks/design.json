@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 2,
+  "page": { "slug": "ranks", "name": "GetGo: Bảng xếp hạng", "route": "/student/ranks", "purpose": "Show all-time and weekly student rankings or an intentional empty state.", "heightBehavior": "vertical-scroll" },
+  "viewports": { "portrait": { "width": 393, "height": 852 }, "landscape": { "width": 1440, "height": 900 } },
+  "layoutLock": {
+    "source": "Screenshot Manager captures and the production ranks renderer",
+    "immutable": ["58px student navigation", "single centered content rail", "two-tab period strip", "portrait fixed bottom navigation", "desktop top navigation", "theme-shared geometry"],
+    "portrait": { "topNavigationHeight": 58, "contentInset": 24, "headingHidden": true, "bottomNavigationHeight": 64, "tabs": "full available rail width" },
+    "landscape": { "topNavigationHeight": 58, "contentRailMaxWidth": 980, "headingVisible": true, "mobileBottomNavigation": false, "tabs": "full content rail width" },
+    "administratorExceptions": ["Add centered empty-state artwork", "Add top-three podium and ranks 4–10 table", "Keep the current student's actual rank visible after the top 10 when needed"]
+  },
+  "artDirection": {
+    "scene": "Theme-neutral storybook garden framing around the unchanged ranks shell, with a trophy garden cutout for the empty state.",
+    "styleLock": "Polished watercolor/gouache storybook illustration; subtle paper texture; rounded clean silhouettes; natural greens, airy cyan, pale cream and restrained golden accents; diffuse neutral light; consistent daisies and rounded leaves.",
+    "assetStrategy": "Reuse the shared Profile garden header/footer assets for both orientations; add one ranks-specific transparent empty-state cutout.",
+    "forbidden": ["layout redesign", "baked ranking data", "sun", "moon", "stars in scenery", "night sky", "raster text", "floating props", "objects attached to foliage"]
+  },
+  "theme": { "canonicalArtwork": "light", "darkDerivation": "Reuse identical artwork and geometry; apply CSS overlay and dark tokens.", "darkOverlay": "rgba(0,32,27,.72)", "lightDarkGeometryParity": true, "lightDarkAssetParity": true },
+  "tokens": { "canvas": { "light": "#effcf5", "dark": "#effcf5 with overlay" }, "accent": { "light": "#00b982", "dark": "#00d89a" }, "surface": { "light": "rgba(255,255,255,.95)", "dark": "rgba(12,72,58,.95)" }, "text": { "light": "#12213a", "dark": "#f7fffc" }, "minimumTouchTarget": 44 },
+  "safeZones": { "portrait": "24px content inset between 58px topbar and reserved 64px bottom navigation", "landscape": "980px centered content rail below the 58px desktop navigation", "artwork": "Header/footer remain outside content stacking; empty artwork stays inside its centered state box." },
+  "content": {
+    "periods": ["Tất cả", "Tuần này"],
+    "emptyState": ["Bảng xếp hạng chưa khả dụng", "Hãy quay lại xem sau nhé."],
+    "populatedState": { "podiumRanks": [1, 2, 3], "tableRanks": [4, 5, 6, 7, 8, 9, 10], "currentStudentExampleRank": 14, "currentStudentRule": "Highlight in place at ranks 1–10; otherwise append one visually separated row with the actual rank." }
+  },
+  "assets": [
+    { "id": "shared-garden-header-portrait", "file": "../shared/assets/garden-header-portrait.png", "role": "header", "dimensions": [1859,846], "orientations": ["portrait"], "anchor": "document-top", "focalPoint": [0.5,0.42], "cropBehavior": "full-width contain", "maximumDisplayBox": "100vw x auto", "zIndex": 0, "layoutParticipation": "none", "backgroundMode": "transparent" },
+    { "id": "shared-garden-header-landscape", "file": "../shared/assets/garden-header-landscape.png", "role": "header", "dimensions": [2172,724], "orientations": ["landscape"], "anchor": "document-top", "focalPoint": [0.5,0.36], "cropBehavior": "full-width contain", "maximumDisplayBox": "100vw x auto", "zIndex": 0, "layoutParticipation": "none", "backgroundMode": "transparent" },
+    { "id": "shared-garden-footer-portrait", "file": "../shared/assets/garden-footer-portrait.png", "role": "footer", "dimensions": [1862,845], "orientations": ["portrait"], "anchor": "document-bottom", "focalPoint": [0.5,1], "cropBehavior": "full-width contain", "maximumDisplayBox": "100vw x auto", "zIndex": 0, "layoutParticipation": "none", "backgroundMode": "transparent" },
+    { "id": "shared-garden-footer-landscape", "file": "../shared/assets/garden-footer-landscape.png", "role": "footer", "dimensions": [1774,887], "orientations": ["landscape"], "anchor": "document-bottom", "focalPoint": [0.5,1], "cropBehavior": "full-width contain", "maximumDisplayBox": "100vw x auto", "zIndex": 0, "layoutParticipation": "none", "backgroundMode": "transparent" },
+    { "id": "ranks-empty-trophy", "file": "assets/empty-trophy.png", "role": "empty-state-artwork", "dimensions": [1536,1024], "orientations": ["portrait","landscape"], "anchor": "empty-state-center", "focalPoint": [0.5,0.5], "cropBehavior": "contain", "maximumDisplayBox": "320px x 275px", "zIndex": 2, "layoutParticipation": "existing-content", "backgroundMode": "transparent", "sourceRemovalMatte": "#8B00FF" }
+  ],
+  "removalMatte": "#8B00FF"
+}

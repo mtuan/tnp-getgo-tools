@@ -14,7 +14,7 @@ For every asset record stable ID, relative file, role, dimensions, orientation s
 
 ## `generation-manifest.json`
 
-Record every input with exact path or ID and role (`functional-reference`, `structural-reference`, `style-reference`, `instruction`, `edit-target`, or `approved-reusable-asset`). Record the shared style-lock block, canonical identity references, every prompt, output, revision decision, post-processing step, matte value, and acceptance/rejection status. A matte-removal step records `tool: "scripts/remove-solid-background.mjs"`, input/output paths, matte color, tolerance, and softness. Every generated raster output must record `generationTool: "built-in-image_gen"` and `credentialMode: "none"`. Never record or expose credential values. A style reference is evidence only, not permission to copy pixels.
+Record every input with exact path or ID and role (`functional-reference`, `structural-reference`, `style-reference`, `instruction`, `edit-target`, or `approved-reusable-asset`). Record the shared style-lock block, canonical identity references, every prompt, output, revision decision, post-processing step, matte value, and acceptance/rejection status. A matte-removal step records `tool: "scripts/remove-solid-background.mjs"`, input/output paths, matte color, tolerance, softness, and edge threshold. Every generated raster output must record `generationTool: "built-in-image_gen"` and `credentialMode: "none"`. Never record or expose credential values. A style reference is evidence only, not permission to copy pixels.
 
 ## HTML invariants
 

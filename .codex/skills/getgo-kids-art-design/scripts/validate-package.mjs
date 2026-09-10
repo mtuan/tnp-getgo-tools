@@ -80,7 +80,9 @@ if (fs.existsSync(designFile)) {
   const design = JSON.parse(fs.readFileSync(designFile, 'utf8'));
   const transparentRoles = /^(?:header|footer|.*(?:decoration|cut).*)$/i;
   for (const asset of design.assets ?? []) {
-    if (!transparentRoles.test(asset.role ?? '')) continue;
+    const requiresTransparency = transparentRoles.test(asset.role ?? '');
+    const declaresTransparency = asset.backgroundMode === 'transparent';
+    if (!requiresTransparency && !declaresTransparency) continue;
     if (asset.backgroundMode !== 'transparent') {
       failures.push(`${asset.id ?? asset.file} must be a final transparent asset, not ${asset.backgroundMode ?? 'an undeclared background mode'}`);
       continue;

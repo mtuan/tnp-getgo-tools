@@ -49,7 +49,7 @@ Layout lock: preserve all captured UI bounds, spacing, alignment, typography, co
 Scene logic: <each prop and its believable support/holder; no unintended floating or attachment>
 Scroll behavior: <document-top header | document-bottom footer | isolated asset; never viewport-fixed unless reserved>
 Palette/lighting: <theme-neutral canonical light artwork>
-Background: <real transparent PNG preferred | uniform solid #8B00FF removal matte for deterministic conversion; no other background colors>
+Background: <real transparent PNG preferred | force a uniform solid #8B00FF removal matte; a bounded purple variation is acceptable only after clean edge-connected conversion>
 Preserve: <approved identity and geometry>
 Edit invariant: change only <target>; keep <identity, proportions, palette, medium> unchanged
 Avoid: text, UI controls, logo, watermark, device frame, checkerboard,
@@ -58,7 +58,7 @@ Avoid: text, UI controls, logo, watermark, device frame, checkerboard,
        objects hanging from or fused with foliage
 ```
 
-When a generated header, footer, or cut asset uses the removal matte, convert it with `scripts/remove-solid-background.mjs` before HTML assembly. Keep the original and converted paths distinct, inspect the output at the edge and through any enclosed negative space, and use only the converted PNG as the package asset referenced by HTML. For a header, inspect the bottom boundary row and inward transition band; for a footer, inspect the top boundary row and inward transition band. Record the matte color, tolerance, softness, input, and output in the manifest post-processing history.
+When a generated header, footer, or cut asset uses the removal matte, convert it with `scripts/remove-solid-background.mjs` before HTML assembly. Keep the original and converted paths distinct, inspect the output at the edge and through any enclosed negative space, and use only the converted PNG as the package asset referenced by HTML. For a slightly graded matte, use the smallest `--edge-threshold` that removes all boundary-connected purple without damaging the subject. For a header, inspect the bottom boundary row and inward transition band; for a footer, inspect the top boundary row and inward transition band. Record the matte color, tolerance, softness, edge threshold, input, and output in the manifest post-processing history.
 
 ## 5. Reconstruct with semantic HTML
 

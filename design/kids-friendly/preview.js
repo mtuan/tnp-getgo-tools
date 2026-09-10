@@ -1,5 +1,13 @@
 const designs = [
   {
+    id: 'ranks',
+    title: { en: 'Leaderboard', vi: 'Bảng xếp hạng' },
+    files: {
+      portrait: { light: 'ranks/htmls/portrait-light.html', dark: 'ranks/htmls/portrait-dark.html' },
+      landscape: { light: 'ranks/htmls/landscape-light.html', dark: 'ranks/htmls/landscape-dark.html' },
+    },
+  },
+  {
     id: 'student-profile',
     title: { en: 'Student profile', vi: 'Hồ sơ học sinh' },
     files: {

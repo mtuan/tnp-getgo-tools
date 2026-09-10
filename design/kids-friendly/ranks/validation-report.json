@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 2,
+  "page": "ranks",
+  "status": "passed-source-and-package-validation",
+  "checks": {
+    "requiredFiles": { "status": "passed", "evidence": "Five HTML files, assets, design record, manifest and validation report exist." },
+    "sourceContentParity": { "status": "passed", "evidence": "Captured Vietnamese shell, tabs, navigation and empty-state copy are preserved; populated state follows the production rank renderer and administrator request." },
+    "semanticControls": { "status": "passed", "evidence": "Navigation links, tab buttons, theme button, table, headings and tab panels remain semantic and selectable." },
+    "regionGeometry": { "status": "passed", "evidence": "58px top shell, 980px landscape rail, 24px portrait inset and 64px portrait bottom-navigation reservation are declared and encoded." },
+    "rankingRules": { "status": "passed", "evidence": "Ranks 1–3 use the podium, ranks 4–10 use the table, and rank 14 is appended once with its actual rank and a non-color-only Bạn marker." },
+    "localOnlyHtml": { "status": "passed", "evidence": "No remote URLs, base64 images or canvas." },
+    "orientationArtwork": { "status": "passed", "evidence": "Distinct approved portrait and landscape header/footer assets are reused without stretching." },
+    "themeParity": { "status": "passed", "evidence": "Light and dark files share DOM, assets and geometry; dark mode uses overlay and semantic tokens only." },
+    "sharedAssetReuse": { "status": "passed", "evidence": "Profile assets were promoted to design/kids-friendly/shared/assets and both Profile and Ranks reference the same files." },
+    "matteAlpha": { "status": "passed", "evidence": "Edge-connected #8B00FF conversion at tolerance 24, softness 56 and edgeThreshold 120 produced 939374 fully transparent pixels and 765 partial-alpha pixels; inspected over #effcf5." },
+    "naturalPlacement": { "status": "passed", "evidence": "Trophy rests on the stump, plants grow from a grounded cluster, and butterfly perches on a flower." },
+    "generationProvenance": { "status": "passed", "evidence": "All generated attempts used built-in image_gen with no credentials; checkerboard attempts were rejected." },
+    "keyboardFocus": { "status": "not-requested" }, "resize": { "status": "not-requested" }, "shortViewport": { "status": "not-requested" }, "tallScrollingContent": { "status": "not-requested" }, "zoom200": { "status": "not-requested" }, "sourceLayoutPixelOverlay": { "status": "not-requested" }, "renderedComparisons": { "status": "not-requested" }
+  }
+}
