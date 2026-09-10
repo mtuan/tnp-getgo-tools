@@ -11,6 +11,7 @@
     "localOnlyHtml": { "status": "passed", "evidence": "HTML references only local CSS, JS, and PNG files; no remote URLs, canvas, base64, or screenshot-as-UI." },
     "orientationRecomposition": { "status": "passed", "evidence": "Portrait and landscape use distinct artwork compositions selected by orientation while preserving card geometry." },
     "lightDarkParity": { "status": "passed", "evidence": "Fixed light/dark variants share the same DOM, CSS, assets, positioning and crop; dark mode changes tokens and overlay only." },
+    "darkContentContrast": { "status": "passed", "evidence": "Dark mode defines explicit readable text, muted copy, neutral/provider/action button surfaces, borders, legal-link color, hover, focus, and disabled treatments above the artwork mask." },
     "themeNeutralArtwork": { "status": "passed", "evidence": "Accepted artwork contains no sun, moon, stars, night sky, sunrise, or sunset signals." },
     "artworkNonInterference": { "status": "passed", "evidence": "Background is a CSS layer behind semantic content and cannot intercept pointer input." },
     "naturalSceneLogic": { "status": "passed", "evidence": "Bird feet rest visibly on connected branches; flowers and mushrooms grow from meadow soil; no props float or fuse with foliage." },
