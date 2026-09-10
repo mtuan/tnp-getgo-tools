@@ -14,7 +14,7 @@ npm run design:generate -- \
   --prompt "Create a login choice page with Google, Facebook, Apple ID, email login, email registration, and legal links."
 ```
 
-The output contains `design.json`, `generation-manifest.json`, `validation-report.json`, `alpha-report.json`, isolated transparent PNG assets, and four HTML/rendered PNG demos: portrait/landscape in light/dark themes. A detailed run result is always written to `<design-project>/runs/<run-id>.json`.
+The output contains `design.json`, `generation-manifest.json`, `validation-report.json`, `alpha-report.json`, isolated transparent PNG assets, and one responsive `index.html` with page-specific `index.css` and `index.js`. Shared layout, behavior, and assets live at the design-family level. Optional rendered PNG comparisons may cover portrait/landscape in light/dark themes. A detailed run result is always written to `<design-project>/runs/<run-id>.json`.
 
 ## Page mode
 

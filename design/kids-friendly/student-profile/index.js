@@ -1,0 +1,30 @@
+const { icon } = KidsDesign;
+const icons = {
+  edit: icon('<path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>'),
+  key: icon('<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8m-2 2 2 2m-5 1 2 2"/>'),
+  globe: icon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>'),
+  palette: icon('<path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 0-4H12a2 2 0 0 1 0-4h4a5 5 0 0 0 5-5c0-3-4-5-9-5Z"/><circle cx="7.5" cy="10" r=".7"/><circle cx="9" cy="6.5" r=".7"/><circle cx="14" cy="6" r=".7"/>'),
+  sun: icon('<circle cx="12" cy="12" r="3.5"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  book: icon('<path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Zm16 0A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z"/>'),
+  activity: icon('<path d="M3 12h4l2-7 5 14 2-7h5"/>'),
+  trophy: icon('<path d="M8 4h8v4a4 4 0 0 1-8 0V4Zm4 8v5m-4 3h8M8 6H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4"/>'),
+  user: icon('<circle cx="12" cy="8" r="4"/><path d="M5 22a7 7 0 0 1 14 0"/>')
+};
+const chrome = KidsDesign.studentChrome({ title: 'Hồ sơ', current: 'profile', stars: 0, name: 'Mai Thanh Ngọc (Charly)', avatarImage: 'assets/student-charly-avatar.png' });
+document.querySelector('#app').innerHTML = `
+  ${chrome.topbar}
+  ${KidsDesign.gardenArt('header', 'profile-banner')}<div class="theme-controls"><button class="theme-control" type="button" aria-label="Ngôn ngữ">◎</button><button class="theme-control" type="button" aria-label="Màu chủ đạo">◉</button><button class="theme-control js-theme-toggle" type="button" aria-pressed="false" aria-label="Chuyển sang chế độ tối">◐</button></div>
+  <div class="content-rail kids-page-content"><section class="identity" aria-labelledby="student-name"><div class="avatar"><img src="assets/student-charly-avatar.png" alt="Ảnh đại diện của Mai Thanh Ngọc"></div><div class="identity-copy"><h1 id="student-name">Mai Thanh Ngọc (Charly)</h1><p>Lớp 3 · Nữ</p></div><button class="edit-profile" type="button" aria-label="Chỉnh sửa hồ sơ">${icons.edit}</button></section>
+    <div class="settings-rail"><section class="settings-section" aria-labelledby="profile-settings"><h2 class="section-title" id="profile-settings">Hồ sơ</h2><img class="section-decoration" src="assets/section-botanical-accent.png" alt="" aria-hidden="true"><div class="settings-card">
+      <button class="setting-row" type="button"><span class="row-icon">${icons.edit}</span><span class="row-copy"><strong>Chỉnh sửa hồ sơ</strong><small>Cập nhật thông tin học sinh</small></span><span></span><span class="chevron" aria-hidden="true">›</span></button>
+      <button class="setting-row" type="button"><span class="row-icon">${icons.key}</span><span class="row-copy"><strong>Đặt Mã PIN</strong><small>Bảo mật tài khoản của bạn</small></span><span class="row-value pill">Bật</span><span class="chevron" aria-hidden="true">›</span></button></div></section>
+    <section class="settings-section appearance" aria-labelledby="appearance-settings"><h2 class="section-title" id="appearance-settings">Giao diện</h2><img class="section-decoration" src="assets/section-botanical-accent.png" alt="" aria-hidden="true"><div class="settings-card">
+      <button class="setting-row" type="button"><span class="row-icon">${icons.globe}</span><span class="row-copy"><strong>Ngôn Ngữ</strong><small>Chọn ngôn ngữ ưa thích của bạn</small></span><span class="row-value">Tiếng Việt</span><span class="chevron" aria-hidden="true">›</span></button>
+      <button class="setting-row" type="button"><span class="row-icon">${icons.palette}</span><span class="row-copy"><strong>Màu chủ đạo</strong><small>Lựa chọn màu chủ đạo cho ứng dụng</small></span><span class="row-value">Xanh lục <i class="swatch" aria-hidden="true"></i></span><span class="chevron" aria-hidden="true">›</span></button>
+      <button class="setting-row js-theme-row" type="button"><span class="row-icon">${icons.sun}</span><span class="row-copy"><strong>Chế độ Tối / Sáng</strong><small>Chuyển đổi giữa chế độ tối và sáng</small></span><span class="row-value js-theme-value">Sáng</span><span class="chevron" aria-hidden="true">›</span></button></div></section></div></div>
+  ${KidsDesign.gardenArt('footer')}<div class="bottom-safe-space" aria-hidden="true"></div>
+  ${chrome.bottomNav}`;
+const themeToggle = document.querySelector('.js-theme-toggle');
+const themeRow = document.querySelector('.js-theme-row');
+const themeValue = document.querySelector('.js-theme-value');
+KidsDesign.bindTheme({ toggle: themeToggle, extraTriggers: [themeRow], onChange: dark => { themeValue.textContent = dark ? 'Tối' : 'Sáng'; } });

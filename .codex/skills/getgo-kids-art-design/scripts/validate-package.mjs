@@ -7,9 +7,8 @@ const root = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Usage: node validate-package.mjs <page-folder>');
 
 const required = [
-  'assets', 'htmls', 'design.json', 'generation-manifest.json', 'validation-report.json',
-  'htmls/portrait-light.html', 'htmls/portrait-dark.html',
-  'htmls/landscape-light.html', 'htmls/landscape-dark.html', 'htmls/responsive.html',
+  'assets', 'index.html', 'index.css', 'index.js',
+  'design.json', 'generation-manifest.json', 'validation-report.json',
 ];
 const failures = [];
 const htmlSources = new Map();
@@ -46,39 +45,35 @@ for (const [name, expected] of Object.entries({
 }
 
 const forbidden = [[/https?:\/\//i, 'remote URL'], [/data:image\//i, 'embedded base64 image'], [/<canvas\b/i, 'canvas']];
-for (const name of ['portrait-light.html', 'portrait-dark.html', 'landscape-light.html', 'landscape-dark.html', 'responsive.html']) {
-  const file = path.join(root, 'htmls', name);
-  if (!fs.existsSync(file)) continue;
-  const html = fs.readFileSync(file, 'utf8');
-  htmlSources.set(name, html);
-  for (const [pattern, label] of forbidden) if (pattern.test(html)) failures.push(`${name} contains ${label}`);
-  if (!/<main\b/i.test(html)) failures.push(`${name} lacks a semantic main element`);
-  const sharedShellIndex = html.search(/<link\b[^>]*href=["']\.\.\/\.\.\/shared\/demo-shell\.css["'][^>]*>/i);
-  if (sharedShellIndex < 0) failures.push(`${name} must synchronously load ../../shared/demo-shell.css`);
-  const pageStylesheetIndex = html.search(/<link\b[^>]*href=["']common\.css["'][^>]*>/i);
-  if (pageStylesheetIndex >= 0 && sharedShellIndex > pageStylesheetIndex) failures.push(`${name} must load the shared shell before common.css`);
-}
-
-if (!fs.existsSync(path.resolve(root, '../shared/demo-shell.css'))) failures.push('Missing design-level shared/demo-shell.css');
-const pageScript = path.join(root, 'htmls', 'common.js');
-if (fs.existsSync(pageScript) && /classList\.add\(\s*["']kids-(?:bounded|fullscreen)-page["']/i.test(fs.readFileSync(pageScript, 'utf8'))) {
-  failures.push('Shared page shell class must be present in HTML, not added by common.js');
-}
-
-const responsive = path.join(root, 'htmls', 'responsive.html');
-if (fs.existsSync(responsive)) {
-  const html = fs.readFileSync(responsive, 'utf8');
-  const localSources = [html];
+const entry = path.join(root, 'index.html');
+if (fs.existsSync(entry)) {
+  const html = fs.readFileSync(entry, 'utf8');
+  htmlSources.set('index.html', html);
+  for (const [pattern, label] of forbidden) if (pattern.test(html)) failures.push(`index.html contains ${label}`);
+  if (!/<main\b/i.test(html)) failures.push('index.html lacks a semantic main element');
+  const sharedStyleIndex = html.search(/<link\b[^>]*href=["']\.\.\/shared\/common\.css["'][^>]*>/i);
+  const pageStyleIndex = html.search(/<link\b[^>]*href=["']index\.css["'][^>]*>/i);
+  const sharedScriptIndex = html.search(/<script\b[^>]*src=["']\.\.\/shared\/common\.js["'][^>]*>/i);
+  const pageScriptIndex = html.search(/<script\b[^>]*src=["']index\.js["'][^>]*>/i);
+  if (sharedStyleIndex < 0 || pageStyleIndex < 0) failures.push('index.html must load ../shared/common.css and index.css');
+  if (sharedStyleIndex > pageStyleIndex) failures.push('index.html must load shared CSS before page CSS');
+  if (sharedScriptIndex < 0 || pageScriptIndex < 0) failures.push('index.html must load ../shared/common.js and index.js');
+  if (sharedScriptIndex > pageScriptIndex) failures.push('index.html must load shared JS before page JS');
+  const localSources = [html, fs.existsSync(path.join(root, 'index.css')) ? fs.readFileSync(path.join(root, 'index.css'), 'utf8') : '', fs.existsSync(path.join(root, 'index.js')) ? fs.readFileSync(path.join(root, 'index.js'), 'utf8') : ''];
   for (const match of html.matchAll(/(?:href|src)=["']([^"']+)["']/gi)) {
     if (/^(?:https?:|data:|\/)/i.test(match[1])) continue;
-    const dependency = path.resolve(path.dirname(responsive), match[1]);
+    const dependency = path.resolve(root, match[1]);
     if (fs.existsSync(dependency)) localSources.push(fs.readFileSync(dependency, 'utf8'));
   }
   const combined = localSources.join('\n');
-  if (!/prefers-color-scheme|data-theme/i.test(combined)) failures.push('responsive sources lack theme state');
+  if (!/prefers-color-scheme|data-theme|bindTheme/i.test(combined)) failures.push('responsive sources lack theme state');
   if (!/aria-pressed/i.test(combined)) failures.push('responsive sources lack an accessible theme toggle');
   if (!/@media[^{}]*(orientation|min-width|max-width)/is.test(combined)) failures.push('responsive sources lack responsive recomposition rules');
 }
+if (!fs.existsSync(path.resolve(root, '../shared/common.css'))) failures.push('Missing design-level shared/common.css');
+if (!fs.existsSync(path.resolve(root, '../shared/common.js'))) failures.push('Missing design-level shared/common.js');
+const pageScript = path.join(root, 'index.js');
+if (fs.existsSync(pageScript) && /classList\.add\(\s*["']kids-(?:bounded|fullscreen)-page["']/i.test(fs.readFileSync(pageScript, 'utf8'))) failures.push('Shared page shell class must be present in index.html, not added by index.js');
 
 for (const jsonName of ['design.json', 'generation-manifest.json', 'validation-report.json']) {
   const file = path.join(root, jsonName);

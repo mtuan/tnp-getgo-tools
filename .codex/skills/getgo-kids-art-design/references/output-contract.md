@@ -1,12 +1,14 @@
 # Page package contract
 
-The page folder is `tnp-getgo-tools/design/kids-friendly/<page-name>/` and contains `assets/`, `htmls/`, `design.json`, `generation-manifest.json`, and `validation-report.json`. A `demos/` directory is optional and exists only for preserved previews or runtime rendering explicitly requested by the administrator.
+The page folder is `tnp-getgo-tools/design/kids-friendly/<page-name>/` and contains `assets/`, `index.html`, `index.css`, `index.js`, `design.json`, `generation-manifest.json`, and `validation-report.json`. A `demos/` directory is optional and exists only for preserved previews or runtime rendering explicitly requested by the administrator.
 
 When explicitly requested, `demos/` contains `portrait-light.png`, `portrait-dark.png`, `landscape-light.png`, and `landscape-dark.png` rendered from the matching HTML through the administrator-approved surface. Otherwise omit the directory or mark preserved previews stale; never probe for a renderer to create it.
 
-`htmls/` contains `portrait-light.html`, `portrait-dark.html`, `landscape-light.html`, `landscape-dark.html`, and `responsive.html`. Supporting local `.css` or `.js` files may exist to prevent drift.
+`index.html` is the only page entrypoint. It is fluid across portrait and landscape and supports light and dark modes through CSS and shared theme behavior. `index.css` and `index.js` contain only code unique to that page.
 
-Every HTML variant synchronously links `../../shared/demo-shell.css` before its page stylesheet. Its semantic `main.page` also declares `kids-bounded-page` when `page.heightBehavior` is `vertical-scroll`, or `kids-fullscreen-page` when it is `fullscreen-fixed`. Do not add either class later with JavaScript.
+Every page synchronously links `../shared/common.css` before `index.css`, then loads `../shared/common.js` before `index.js`. Its semantic `main.page` declares `kids-bounded-page` when `page.heightBehavior` is `vertical-scroll`, or `kids-fullscreen-page` when it is `fullscreen-fixed`. Do not add either class later with JavaScript.
+
+Put reusable assets in `design/kids-friendly/shared/assets/` and reusable layout, theme, navigation, background, and decoration code in `shared/common.css` or `shared/common.js`. Do not copy shared code or assets into page folders. Add to a page's `assets/`, `index.css`, or `index.js` only when the resource is genuinely page-specific.
 
 ## `design.json`
 

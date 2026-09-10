@@ -10,6 +10,18 @@
   --kids-bar-surface: #003128;
 }
 
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  color: var(--ink);
+  background: var(--kids-canvas);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button, a, input { color: inherit; font: inherit; }
+button { border: 0; }
+
 body:has(.kids-bounded-page) { background: var(--kids-canvas); }
 
 .kids-bounded-page {
@@ -75,4 +87,49 @@ body:has(.kids-bounded-page) { background: var(--kids-canvas); }
 
 @media (max-width: 1024px) {
   .kids-bounded-page { box-shadow: none; }
+}
+
+/* Canonical bounded-page geometry, based on the student exam reference. */
+.kids-bounded-page {
+  --kids-footer-clearance: 64px;
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding-top: 58px;
+}
+
+.kids-bounded-page > .topbar {
+  z-index: 50;
+  top: 0;
+  height: 58px;
+  align-items: center;
+  border-bottom: 2px solid rgba(0, 185, 130, .18);
+}
+
+.kids-bounded-page > :is(.header-art, .profile-banner) {
+  top: 58px;
+  aspect-ratio: 1170 / 532;
+}
+
+.kids-bounded-page > .footer-art {
+  bottom: var(--kids-footer-clearance);
+  aspect-ratio: 1170 / 531;
+}
+
+.kids-bounded-page:has(> .mobile-exam-panel) {
+  --kids-footer-clearance: 134px;
+}
+
+.kids-bounded-page > .kids-page-content {
+  position: relative;
+  z-index: 2;
+  width: min(calc(100% - 28px), 980px);
+  margin-inline: auto;
+  padding: clamp(88px, 25vw, 126px) 0 196px;
+}
+
+@media (orientation: landscape) and (min-width: 700px) {
+  .kids-bounded-page > :is(.header-art, .profile-banner) { aspect-ratio: 2048 / 682; }
+  .kids-bounded-page > .footer-art { bottom: 0; aspect-ratio: 2048 / 1024; }
+  .kids-bounded-page > .kids-page-content { padding: 20px 0 70px; }
 }

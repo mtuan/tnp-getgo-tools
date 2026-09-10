@@ -1,0 +1,8 @@
+:root { color-scheme: light; --surface: #fffdf8; --text: #17213c; }
+:root[data-theme="dark"] { color-scheme: dark; --surface: #20243a; --text: #f8f6ff; }
+
+/* Add only page-specific layout and presentation here. */
+
+@media (orientation: landscape) and (min-width: 700px) {
+  /* Recompose the same semantic page for the wider viewport. */
+}

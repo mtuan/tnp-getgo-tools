@@ -1,6 +1,6 @@
 ---
 name: getgo-kids-art-design
-description: Create or continue polished kids-friendly GetGo page artwork packages from a page name or URL, GetGo Tools Screenshot Manager content, approved style images, and written art direction. Use when the result includes reusable background and cut assets, canonical design records, and five reconstructed HTML pages under the page's tnp-getgo-tools/design/kids-friendly directory. Do not use for ordinary production UI implementation without an artwork package.
+description: Create or continue polished kids-friendly GetGo page artwork packages from a page name or URL, GetGo Tools Screenshot Manager content, approved style images, and written art direction. Use when the result includes reusable artwork, canonical design records, and one responsive page entrypoint under tnp-getgo-tools/design/kids-friendly. Do not use for ordinary production UI implementation without an artwork package.
 ---
 
 # GetGo Kids Art Design
@@ -52,10 +52,10 @@ Read [references/art-direction.md](references/art-direction.md) before prompting
 - Create separate portrait and landscape versions of an isolated asset only when its composition, crop, pose, safe area, or maximum logical display size genuinely changes by orientation. Record that reason in `design.json` and the generation manifest. Different viewport density alone is not a reason to duplicate it.
 - Keep a generated asset family visually consistent: use the same style lock, reference image, palette, material treatment, lighting, outline weight, alpha/matte method, padding convention, and declared scale strategy across all backgrounds, edge art, crowns, characters, and decorations. Related variants must read as one set even when their orientation-specific compositions differ.
 - The PNG's intrinsic pixel dimensions, its `design.json` `dimensions`, and the orientation declared by its asset record must agree. Shared assets follow the same size rules as page-local assets.
-- Treat these as canonical comparison viewports, not device detection rules. `responsive.html` must remain fluid and usable around them; do not hard-code page layout to one device model.
+- Treat these as canonical comparison viewports, not device detection rules. `index.html` must remain fluid and usable around them; do not hard-code page layout to one device model.
 - On capped scrolling pages, constrain header/footer edge artwork to the page canvas so `width: 100%` means the canvas width, not the browser viewport. The outside area retains the page's original background color and may use a subtle boundary shadow only when requested by the design.
 - Full-page-background experiences such as login and registration remain viewport-wide. Their background fills the entire page and must not show a max-width boundary, side shading, or shadow.
-- Every demo variant must synchronously load the design-level shared shell stylesheet at `../../shared/demo-shell.css`; do not defer shared layout/theme classes to JavaScript or duplicate the shell contract in page CSS. Use `page kids-bounded-page` for capped scrolling pages and `page kids-fullscreen-page` for fullscreen-background pages.
+- Every page must synchronously load `../shared/common.css` before `index.css` and `../shared/common.js` before `index.js`. Shared files own the shell, themes, repeated student chrome, background/decorative layers, and other cross-page behavior. Page files contain only page-specific presentation and behavior. Use `page kids-bounded-page` for capped scrolling pages and `page kids-fullscreen-page` for fullscreen-background pages.
 - The shared shell owns the light/dark canvas, page-wide artwork mask, 1024px boundary, edge-art containment, and fixed application-bar edge alignment. Page CSS may define page-specific content, tokens, artwork aspect ratios, and reserved bar heights, but must not override the shared mask or independently reposition the bounded shell.
 - Use one canonical dark artwork mask for every page: `rgba(0, 32, 27, .72)`. Apply it once above decorative artwork/backgrounds and below all semantic UI content. Reuse identical artwork and geometry in light/dark modes; never add page-local mask opacity.
 - Treat the mask as artwork treatment only: every semantic panel, card, button, label, link, icon, badge, and focus ring must render above it and define an intentional dark-theme style. Do not allow the mask to dim UI content, and do not rely on inherited light-mode colors for dark surfaces.
@@ -91,12 +91,9 @@ Follow [references/workflow.md](references/workflow.md) and write exactly to:
 tnp-getgo-tools/design/kids-friendly/<page-name>/
 ├── assets/
 ├── demos/                   Optional pre-existing or explicitly requested rendered previews
-├── htmls/
-│   ├── portrait-light.html
-│   ├── portrait-dark.html
-│   ├── landscape-light.html
-│   ├── landscape-dark.html
-│   └── responsive.html
+├── index.html               One responsive semantic entrypoint
+├── index.css                Page-specific styles only
+├── index.js                 Page-specific behavior only
 ├── design.json
 ├── generation-manifest.json
 └── validation-report.json
@@ -125,7 +122,7 @@ Run the command from this skill directory. Use distinct input and output paths. 
 
 Never call the work complete when any item below is true:
 
-- any of the five HTML files is missing;
+- `index.html`, `index.css`, or `index.js` is missing;
 - reconstructed UI geometry or presentation differs materially from the corresponding captured source without an explicit administrator request, including changed region positions, widths, heights, gaps, alignment, typography hierarchy, component shapes, grouping, or responsive behavior;
 - artwork generation introduces a new hero panel, card treatment, layout wrapper, navigation treatment, or other UI redesign;
 - portrait and landscape are the same artwork stretched, compressed, or trivially cropped;
@@ -135,7 +132,7 @@ Never call the work complete when any item below is true:
 - a final header, footer, or cut asset lacks real transparent pixels, retains a visible removal matte, or HTML references its matte source;
 - a portrait fullscreen background is not exactly `1170 × 2532px`, a landscape fullscreen background is not exactly `2048 × 1536px`, or an orientation-specific header/footer does not have the required `1170px`/`2048px` intrinsic export width;
 - a reusable isolated asset is exported below 3× its largest declared CSS display box, is stretched beyond its intrinsic resolution, or is duplicated by orientation without a recorded composition/crop/size reason;
-- any HTML variant omits `../../shared/demo-shell.css`, assigns the wrong shared page class for its height behavior, defers that class to JavaScript, or overrides the canonical `rgba(0, 32, 27, .72)` dark mask locally;
+- `index.html` omits the shared CSS/JS, loads them after page-specific files, assigns the wrong shared page class for its height behavior, defers that class to JavaScript, or overrides the canonical `rgba(0, 32, 27, .72)` dark mask locally;
 - the dark artwork mask covers or dims semantic UI, or any panel, text role, link, badge, icon, focus ring, or button/state lacks an intentional readable dark-theme treatment;
 - a header's bottom edge or footer's top edge forms an opaque rectangular seam instead of transitioning through transparent and partial-alpha pixels to the shared CSS background;
 - HTML uses a screenshot as the whole page, rasterizes functional UI, uses canvas, embeds base64, fetches remote dependencies, or omits semantic controls;

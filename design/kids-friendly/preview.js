@@ -2,42 +2,27 @@ const designs = [
   {
     id: 'student-exam',
     title: { en: 'Student exam', vi: 'Đề thi' },
-    files: {
-      portrait: { light: 'student-exam/htmls/portrait-light.html', dark: 'student-exam/htmls/portrait-dark.html' },
-      landscape: { light: 'student-exam/htmls/landscape-light.html', dark: 'student-exam/htmls/landscape-dark.html' },
-    },
+    file: 'student-exam/index.html',
   },
   {
     id: 'student-learning',
     title: { en: 'Student learning', vi: 'Học tập' },
-    files: {
-      portrait: { light: 'student-learning/htmls/portrait-light.html', dark: 'student-learning/htmls/portrait-dark.html' },
-      landscape: { light: 'student-learning/htmls/landscape-light.html', dark: 'student-learning/htmls/landscape-dark.html' },
-    },
+    file: 'student-learning/index.html',
   },
   {
     id: 'ranks',
     title: { en: 'Leaderboard', vi: 'Bảng xếp hạng' },
-    files: {
-      portrait: { light: 'ranks/htmls/portrait-light.html', dark: 'ranks/htmls/portrait-dark.html' },
-      landscape: { light: 'ranks/htmls/landscape-light.html', dark: 'ranks/htmls/landscape-dark.html' },
-    },
+    file: 'ranks/index.html',
   },
   {
     id: 'student-profile',
     title: { en: 'Student profile', vi: 'Hồ sơ học sinh' },
-    files: {
-      portrait: { light: 'student-profile/htmls/portrait-light.html', dark: 'student-profile/htmls/portrait-dark.html' },
-      landscape: { light: 'student-profile/htmls/landscape-light.html', dark: 'student-profile/htmls/landscape-dark.html' },
-    },
+    file: 'student-profile/index.html',
   },
   {
     id: 'login',
     title: { en: 'Login', vi: 'Đăng nhập' },
-    files: {
-      portrait: { light: 'login/htmls/portrait-light.html', dark: 'login/htmls/portrait-dark.html' },
-      landscape: { light: 'login/htmls/landscape-light.html', dark: 'login/htmls/landscape-dark.html' },
-    },
+    file: 'login/index.html',
   },
 ];
 
@@ -121,7 +106,7 @@ function render() {
   renderPageList();
   title.textContent = design.title[state.language];
   frame.title = `${design.title[state.language]} — ${translations[state.language][state.orientation]}, ${translations[state.language][state.theme]}`;
-  frame.src = design.files[state.orientation][state.theme];
+  frame.src = `${design.file}?mode=${state.theme}&lang=${state.language}`;
   shell.classList.toggle('portrait', state.orientation === 'portrait');
   shell.classList.toggle('landscape', state.orientation === 'landscape');
   addressBar.textContent = `${design.id} / ${state.orientation} / ${state.theme}`;

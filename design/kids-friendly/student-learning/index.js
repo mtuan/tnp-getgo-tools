@@ -1,6 +1,4 @@
-const root = document.documentElement;
-const fixedTheme = root.dataset.theme;
-const icon = paths => `<svg aria-hidden="true" viewBox="0 0 24 24">${paths}</svg>`;
+const { icon } = KidsDesign;
 const icons = {
   topic: icon('<path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Zm16 0A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z"/>'),
   switch: icon('<path d="m16 3 4 4-4 4M20 7H4m4 14-4-4 4-4M4 17h16"/>'),
@@ -21,6 +19,7 @@ const quizzes = [
   { title: 'Số học 1–100', icon: icons.numbers, state: 'complete', status: 'Hoàn thành', last: '2 ngày trước', completedExams: 5, score: 86, next: 'Xem kết quả hoặc tiếp tục luyện tập' },
   { title: 'Nhà khoa học nhí', icon: icons.science, state: 'practice', status: 'Luyện thêm', last: '1 tuần trước', completedExams: 4, score: 62, next: 'Luyện tập thêm rồi làm lại bài thi' },
 ];
+const chrome = KidsDesign.studentChrome({ title: 'Học tập', current: 'learning', name: 'Minh Anh', avatar: 'MA' });
 
 const quizCard = quiz => `
   <button class="quiz-card" type="button" data-state="${quiz.state}" aria-label="Mở ${quiz.title}">
@@ -34,37 +33,20 @@ const quizCard = quiz => `
   </button>`;
 
 document.querySelector('#app').innerHTML = `
-  <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">G</span><span>Học tập</span><span class="desktop-brand">GetGo Local</span></div>
-    <nav class="desktop-nav" aria-label="Điều hướng học sinh"><a href="#learning" aria-current="page">Học tập</a><a href="#activities">Hoạt động</a><a href="#ranking">Bảng xếp hạng</a><a href="#profile">Hồ sơ</a></nav>
-    <div class="top-actions"><span class="stars">★ 438</span><div class="account"><span class="account-avatar">MA</span><span class="account-copy"><strong>Minh Anh</strong><small>★ 438 ngôi sao</small></span><span>⌄</span></div></div>
-  </header>
-  <div class="header-art" aria-hidden="true"><picture><source media="(orientation: landscape) and (min-width: 700px)" srcset="../../shared/assets/garden-header-landscape.png"><img src="../../shared/assets/garden-header-portrait.png" alt=""></picture></div>
-  <div class="content">
+  ${chrome.topbar}
+  ${KidsDesign.gardenArt('header')}
+  <div class="content kids-page-content">
     <section class="topic-header" aria-labelledby="topic-title">
       <span class="topic-icon">${icons.topic}</span><span class="topic-copy"><h1 id="topic-title">Hành trình kiến thức</h1><p>GetGo · Lớp 3 · 4 bài học</p></span>
       <button class="switch-topic" type="button" aria-label="Đổi chủ đề">${icons.switch}</button>
     </section>
     <section aria-labelledby="quiz-heading">
-      <div class="section-heading"><h2 id="quiz-heading">Bài học của em</h2><img class="learning-accent" src="../assets/learning-trail-accent.png" alt=""></div>
+      <div class="section-heading"><h2 id="quiz-heading">Bài học của em</h2><img class="learning-accent" src="assets/learning-trail-accent.png" alt=""></div>
       <div class="quiz-list">${quizzes.map(quizCard).join('')}</div>
     </section>
   </div>
-  <div class="footer-art" aria-hidden="true"><picture><source media="(orientation: landscape) and (min-width: 700px)" srcset="../../shared/assets/garden-footer-landscape.png"><img src="../../shared/assets/garden-footer-portrait.png" alt=""></picture></div>
+  ${KidsDesign.gardenArt('footer')}
   <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Chuyển sang chế độ tối">◐</button>
-  <nav class="bottom-nav" aria-label="Điều hướng học sinh"><a href="#learning" aria-current="page">${icons.book}<span>Học tập</span></a><a href="#activities">${icons.activity}<span>Hoạt động</span></a><a href="#ranking">${icons.trophy}<span>Bảng xếp hạng</span></a><a href="#profile">${icons.user}<span>Hồ sơ</span></a></nav>`;
+  ${chrome.bottomNav}`;
 
-const themeToggle = document.querySelector('.theme-toggle');
-function setTheme(dark) {
-  root.dataset.theme = dark ? 'dark' : 'light';
-  themeToggle.setAttribute('aria-pressed', String(dark));
-  themeToggle.setAttribute('aria-label', dark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối');
-}
-
-if (root.dataset.mode === 'responsive') {
-  setTheme(matchMedia('(prefers-color-scheme: dark)').matches);
-  themeToggle.addEventListener('click', () => setTheme(root.dataset.theme !== 'dark'));
-} else {
-  setTheme(fixedTheme === 'dark');
-  themeToggle.disabled = true;
-}
+KidsDesign.bindTheme({ toggle: document.querySelector('.theme-toggle') });
