@@ -129,7 +129,7 @@ body:has(.kids-bounded-page) { background: var(--kids-canvas); }
 }
 
 @media (orientation: landscape) and (min-width: 700px) {
-  .kids-bounded-page > :is(.header-art, .profile-banner) { aspect-ratio: 2048 / 682; }
-  .kids-bounded-page > .footer-art { bottom: 0; aspect-ratio: 2048 / 1024; }
-  .kids-bounded-page > .kids-page-content { padding: 20px 0 70px; }
+  .kids-bounded-page > :is(.header-art, .profile-banner) { aspect-ratio: 2048 / 487; }
+  .kids-bounded-page > .footer-art { bottom: 0; aspect-ratio: 2048 / 839; }
+  .kids-bounded-page > .kids-page-content { padding: clamp(88px, 25vw, 126px) 0 70px; }
 }

@@ -17,7 +17,7 @@
 .footer-art{aspect-ratio:1170/531}
 .header-art img,.footer-art img{position:static;width:100%;height:100%;object-fit:contain}
 .header-art::after,.footer-art::after{position:absolute;inset:0;content:"";pointer-events:none;background:var(--art-overlay,transparent)}
-@media (orientation:landscape) and (min-width:700px){.header-art{height:auto;aspect-ratio:2048/682}.footer-art{height:auto;aspect-ratio:2048/1024}}
+@media (orientation:landscape) and (min-width:700px){.header-art{height:auto;aspect-ratio:2048/487}.footer-art{height:auto;aspect-ratio:2048/839}}
 
 .theme-toggle{right:max(16px,calc((100vw - 1024px)/2 + 16px))}
 

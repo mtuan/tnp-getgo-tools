@@ -96,8 +96,8 @@ button { border: 0; }
 @media (orientation: landscape) and (min-width: 700px) {
   .desktop-brand, .desktop-nav, .account { display: flex; }
   .brand > span:nth-child(2), .bottom-nav, .stars { display: none; }
-  .header-art { aspect-ratio: 2048 / 682; }
-  .footer-art { bottom: 0; aspect-ratio: 2048 / 1024; }
+  .header-art { aspect-ratio: 2048 / 487; }
+  .footer-art { bottom: 0; aspect-ratio: 2048 / 839; }
   .content { padding: 24px 0 80px; }
   .topic-header { grid-template-columns: 58px minmax(0, 1fr) auto; }
   .topic-icon { width: 58px; height: 58px; }

@@ -96,8 +96,8 @@ button { border: 0; }
 @media (orientation: landscape) and (min-width: 700px) {
   .desktop-brand, .desktop-nav, .account { display: flex; }
   .brand > span:nth-child(2), .bottom-nav, .stars { display: none; }
-  .profile-banner { aspect-ratio: 2048 / 682; }
-  .footer-art { bottom: 0; aspect-ratio: 2048 / 1024; }
+  .profile-banner { aspect-ratio: 2048 / 487; }
+  .footer-art { bottom: 0; aspect-ratio: 2048 / 839; }
   .identity { grid-template-columns: 96px minmax(0, 1fr); width: 520px; }
   .identity-copy h1 { font-size: 18px; }
   .edit-profile { position: absolute; left: 310px; top: 31px; width: 40px; height: 40px; }

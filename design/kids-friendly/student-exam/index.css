@@ -89,9 +89,8 @@ button { border: 0; }
 button:focus-visible { outline: 3px solid #7567f1; outline-offset: 2px; }
 
 @media (orientation:landscape) and (min-width:700px) {
-  .header-art { aspect-ratio: 2048/682; }
-  .footer-art { aspect-ratio: 2048/1024; }
-  .content { padding: 20px 0 70px; }
+  .header-art { aspect-ratio: 2048/487; }
+  .footer-art { aspect-ratio: 2048/839; }
   .exam-heading { grid-template-columns: 52px minmax(0,1fr) auto; }
   .heading-icon { width: 52px; height: 52px; }
   .heading-copy h1 { font-size: 21px; }

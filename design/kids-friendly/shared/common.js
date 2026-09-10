@@ -27,7 +27,7 @@
   }
 
   function gardenArt(position, className = `${position}-art`) {
-    return `<div class="${className}" aria-hidden="true"><picture><source media="(orientation: landscape) and (min-width: 700px)" srcset="../shared/assets/garden-${position}-landscape.png"><img src="../shared/assets/garden-${position}-portrait.png" alt=""></picture></div>`;
+    return `<div class="${className}" aria-hidden="true"><picture><source media="(orientation: landscape) and (min-width: 700px)" srcset="../shared/assets/garden-${position}-landscape-trimmed.png"><img src="../shared/assets/garden-${position}-portrait.png" alt=""></picture></div>`;
   }
 
   function bindTheme({ toggle, extraTriggers = [], onChange } = {}) {
