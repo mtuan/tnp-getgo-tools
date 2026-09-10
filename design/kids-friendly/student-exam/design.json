@@ -44,7 +44,7 @@
     "questionHeading": "Plain question index text; no colored number badge before the label."
   },
   "artDirection": {
-    "scene": "Low-clutter garden-framed exam surface with a small pencil-and-checklist accent.",
+    "scene": "Garden-framed exam surface using the same shared artwork treatment as other bounded student pages, with a small pencil-and-checklist accent.",
     "styleLock": "Premium watercolor/gouache children's-book finish; rounded silhouettes; natural teal, green, cream and restrained yellow; diffuse neutral light.",
     "assetStrategy": "Reuse shared transparent garden edge artwork and add one shared-3x-max-display exam accent.",
     "forbidden": ["artwork covering questions", "baked UI", "raster text", "time-of-day cues", "duplicate navigator"]

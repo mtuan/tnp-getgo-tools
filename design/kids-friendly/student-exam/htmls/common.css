@@ -36,8 +36,8 @@ button { border: 0; }
 .timer { padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--accent-deep); background: var(--surface-soft); font-size: 12px; font-weight: 800; }
 .exit { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 10px; color: var(--muted); background: transparent; cursor: pointer; }
 .exit svg { width: 21px; fill: none; stroke: currentColor; stroke-width: 2; }
-.header-art { top: 58px; aspect-ratio: 1170/532; opacity: .58; }
-.footer-art { bottom: 0; aspect-ratio: 1170/531; opacity: .55; }
+.header-art { top: 58px; aspect-ratio: 1170/532; }
+.footer-art { bottom: 0; aspect-ratio: 1170/531; }
 .content { position: relative; z-index: 2; width: min(calc(100% - 28px),980px); margin: 0 auto; padding: 20px 0 196px; }
 .exam-heading { display: grid; grid-template-columns: 48px minmax(0,1fr) 134px; align-items: center; gap: 11px; margin-bottom: 14px; }
 .heading-icon { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #7fd6ba; border-radius: 14px; color: var(--accent-deep); background: rgba(214,251,237,.9); }
