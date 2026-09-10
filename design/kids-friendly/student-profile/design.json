@@ -50,7 +50,7 @@
   "theme": {
     "canonicalArtwork": "light",
     "darkDerivation": "Reuse identical transparent artwork and geometry over one solid dark garden canvas, then apply one page-wide mask behind UI content.",
-    "darkOverlay": "rgba(0,32,27,.55)",
+    "darkOverlay": "rgba(0,32,27,.72)",
     "lightDarkGeometryParity": true,
     "lightDarkAssetParity": true
   },

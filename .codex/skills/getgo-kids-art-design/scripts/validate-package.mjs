@@ -12,6 +12,7 @@ const required = [
   'htmls/landscape-light.html', 'htmls/landscape-dark.html', 'htmls/responsive.html',
 ];
 const failures = [];
+const htmlSources = new Map();
 for (const relative of required) if (!fs.existsSync(path.join(root, relative))) failures.push(`Missing ${relative}`);
 
 function pngSize(file) {
@@ -49,8 +50,19 @@ for (const name of ['portrait-light.html', 'portrait-dark.html', 'landscape-ligh
   const file = path.join(root, 'htmls', name);
   if (!fs.existsSync(file)) continue;
   const html = fs.readFileSync(file, 'utf8');
+  htmlSources.set(name, html);
   for (const [pattern, label] of forbidden) if (pattern.test(html)) failures.push(`${name} contains ${label}`);
   if (!/<main\b/i.test(html)) failures.push(`${name} lacks a semantic main element`);
+  const sharedShellIndex = html.search(/<link\b[^>]*href=["']\.\.\/\.\.\/shared\/demo-shell\.css["'][^>]*>/i);
+  if (sharedShellIndex < 0) failures.push(`${name} must synchronously load ../../shared/demo-shell.css`);
+  const pageStylesheetIndex = html.search(/<link\b[^>]*href=["']common\.css["'][^>]*>/i);
+  if (pageStylesheetIndex >= 0 && sharedShellIndex > pageStylesheetIndex) failures.push(`${name} must load the shared shell before common.css`);
+}
+
+if (!fs.existsSync(path.resolve(root, '../shared/demo-shell.css'))) failures.push('Missing design-level shared/demo-shell.css');
+const pageScript = path.join(root, 'htmls', 'common.js');
+if (fs.existsSync(pageScript) && /classList\.add\(\s*["']kids-(?:bounded|fullscreen)-page["']/i.test(fs.readFileSync(pageScript, 'utf8'))) {
+  failures.push('Shared page shell class must be present in HTML, not added by common.js');
 }
 
 const responsive = path.join(root, 'htmls', 'responsive.html');
@@ -78,6 +90,21 @@ for (const jsonName of ['design.json', 'generation-manifest.json', 'validation-r
 const designFile = path.join(root, 'design.json');
 if (fs.existsSync(designFile)) {
   const design = JSON.parse(fs.readFileSync(designFile, 'utf8'));
+  const expectedShellClass = design.page?.heightBehavior === 'fullscreen-fixed' ? 'kids-fullscreen-page'
+    : design.page?.heightBehavior === 'vertical-scroll' ? 'kids-bounded-page' : null;
+  if (!expectedShellClass) {
+    failures.push('design.json page.heightBehavior must be fullscreen-fixed or vertical-scroll');
+  } else {
+    for (const [name, html] of htmlSources) {
+      const mainClass = html.match(/<main\b[^>]*class=["']([^"']*)["'][^>]*>/i)?.[1]?.split(/\s+/) ?? [];
+      if (!mainClass.includes('page') || !mainClass.includes(expectedShellClass)) {
+        failures.push(`${name} main must declare class="page ${expectedShellClass}"`);
+      }
+    }
+  }
+  if ((design.theme?.darkOverlay ?? '').replace(/\s+/g, '') !== 'rgba(0,32,27,.72)') {
+    failures.push('design.json theme.darkOverlay must be rgba(0, 32, 27, .72)');
+  }
   const transparentRoles = /^(?:header|footer|.*(?:decoration|cut).*)$/i;
   const canonicalSizes = {
     portrait: { viewport: [1170, 2532], edgeWidth: 1170 },

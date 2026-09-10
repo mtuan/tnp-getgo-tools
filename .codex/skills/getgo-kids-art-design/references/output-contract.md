@@ -6,6 +6,8 @@ When explicitly requested, `demos/` contains `portrait-light.png`, `portrait-dar
 
 `htmls/` contains `portrait-light.html`, `portrait-dark.html`, `landscape-light.html`, `landscape-dark.html`, and `responsive.html`. Supporting local `.css` or `.js` files may exist to prevent drift.
 
+Every HTML variant synchronously links `../../shared/demo-shell.css` before its page stylesheet. Its semantic `main.page` also declares `kids-bounded-page` when `page.heightBehavior` is `vertical-scroll`, or `kids-fullscreen-page` when it is `fullscreen-fixed`. Do not add either class later with JavaScript.
+
 ## `design.json`
 
 Record schema version, page slug/name/route, sources, canonical viewport sizes (`390 × 844` CSS pixels for portrait and `1024 × 768` CSS pixels for landscape), art direction, tokens, the shared solid page-background color, overlay color/opacity, safe zones, shared semantic content, the captured layout-lock measurements for each orientation, artwork composition rules, page height behavior (`fullscreen-fixed` or `vertical-scroll`), and proof that dark mode shares assets and geometry.
@@ -21,6 +23,10 @@ Orientation-specific raster dimensions are mandatory, not suggested export targe
 
 The file's intrinsic PNG dimensions must equal the `dimensions` value in its asset record. CSS must scale the high-density artwork down proportionally; never scale it beyond its canonical logical display size, change its aspect ratio, or use `cover` to repair an incorrectly composed asset. Assets in a shared design-level folder follow the same contract.
 
+For an isolated asset used in both orientations, `maximumDisplayBox` describes the largest CSS box across portrait and landscape and the shared PNG must provide at least 3× that width and height. Record `densityStrategy: "shared-3x-max-display"`. Do not create a second orientation file merely because landscape edge artwork uses 2× exports. If separate isolated variants are necessary because their pose, crop, composition, safe area, or logical display box changes, record `densityStrategy: "orientation-specific"` and `orientationVariantReason` on each asset.
+
+Every related asset record also identifies the common style-lock ID or family ID used to keep palette, medium, lighting, outline treatment, subject identity, padding, and transparency processing consistent across the set.
+
 ## `generation-manifest.json`
 
 Record every input with exact path or ID and role (`functional-reference`, `structural-reference`, `style-reference`, `instruction`, `edit-target`, or `approved-reusable-asset`). Record the shared style-lock block, canonical identity references, every prompt, output, revision decision, post-processing step, matte value, and acceptance/rejection status. A matte-removal step records `tool: "scripts/remove-solid-background.mjs"`, input/output paths, matte color, tolerance, softness, and edge threshold. Every generated raster output must record `generationTool: "built-in-image_gen"` and `credentialMode: "none"`. Never record or expose credential values. A style reference is evidence only, not permission to copy pixels.
@@ -30,6 +36,9 @@ Record every input with exact path or ID and role (`functional-reference`, `stru
 - Content and controls remain semantic, selectable, and keyboard accessible.
 - UI regions, bounds, ordering, alignment, spacing, typography hierarchy, component shapes, presentation, and responsive behavior match the corresponding captured source unless an administrator-requested exception is recorded.
 - Fixed light/dark files for one orientation use the same element tree, bounds, crop, assets, and stacking. Theme changes use tokens and a dark overlay only.
+- All packages use the shared dark artwork mask `rgba(0, 32, 27, .72)`, applied once by the shared shell above decorative artwork and below semantic content. Page CSS cannot redefine its opacity or stacking.
+- The shared shell owns the 1024px scrolling-page boundary, edge-art width containment, theme canvas, and fixed application-bar alignment. Capped pages retain the original canvas color outside the boundary; fullscreen-background pages fill the viewport and show no side marker.
+- Fixed top and bottom application surfaces terminate exactly at `top: 0` and `bottom: 0`. The gallery preview clips any device-frame overscan outside the canonical visible viewport instead of adding gaps inside the page.
 - Responsive HTML has an obvious theme toggle, honors initial `prefers-color-scheme`, and recomposes automatically by viewport aspect/width.
 - On scrolling pages, one solid code-native page background covers the entire document behind both edge assets and the expandable middle. Transparent header artwork is anchored to the document top and transitions to alpha at its bottom edge; transparent footer artwork follows the content bottom and transitions from alpha at its top edge. Neither is viewport-fixed or sticky unless the recorded shell contract reserves its space. Do not conceal opaque image bounds with separately matched colors.
 - Dependencies and artwork are local. No remote URLs, base64 images, canvas reconstruction, full-page screenshot backgrounds, or generated text embedded in artwork.
