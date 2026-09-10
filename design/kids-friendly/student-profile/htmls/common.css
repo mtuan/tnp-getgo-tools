@@ -46,13 +46,11 @@ button { border: 0; }
 .account-copy { line-height: 1.12; }
 .account-copy strong { display: block; font-size: 13px; }
 .account-copy small { color: #e98c00; font-size: 12px; font-weight: 700; }
-.profile-banner, .footer-art { position: absolute; z-index: 1; left: 0; width: 100%; height: 150px; overflow: hidden; pointer-events: none; }
-.profile-banner { top: 58px; }
-.footer-art { bottom: 64px; }
+.profile-banner, .footer-art { position: absolute; z-index: 1; left: 0; width: 100%; overflow: visible; pointer-events: none; }
+.profile-banner { top: 58px; aspect-ratio: 1859 / 846; }
+.footer-art { bottom: 64px; aspect-ratio: 1862 / 845; }
 .profile-banner picture, .footer-art picture { display: block; width: 100%; height: 100%; }
-.profile-banner img, .footer-art img { position: absolute; left: 0; display: block; width: 100%; height: auto; }
-.profile-banner img { bottom: 0; }
-.footer-art img { top: 0; }
+.profile-banner img, .footer-art img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .profile-banner::after, .footer-art::after { position: absolute; inset: 0; content: ""; pointer-events: none; background: var(--art-overlay); }
 .theme-controls { position: absolute; z-index: 3; top: 74px; right: max(24px, calc((100vw - 980px) / 2)); display: flex; gap: 14px; }
 .theme-control { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; color: #32677a; background: rgba(189, 245, 222, .76); font-size: 18px; cursor: pointer; }
@@ -100,8 +98,8 @@ button { border: 0; }
 @media (orientation: landscape) and (min-width: 700px) {
   .desktop-brand, .desktop-nav, .account { display: flex; }
   .brand > span:nth-child(2), .bottom-nav, .stars { display: none; }
-  .profile-banner { height: 180px; }
-  .footer-art { bottom: 0; height: 190px; }
+  .profile-banner { aspect-ratio: 2172 / 724; }
+  .footer-art { bottom: 0; aspect-ratio: 1774 / 887; }
   .identity { grid-template-columns: 96px minmax(0, 1fr); width: 520px; }
   .identity-copy h1 { font-size: 18px; }
   .edit-profile { position: absolute; left: 310px; top: 31px; width: 40px; height: 40px; }

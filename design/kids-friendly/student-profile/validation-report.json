@@ -32,6 +32,6 @@
     "The first transparent header attempt was rejected because it contained an opaque checkerboard.",
     "The old full-page poster backgrounds and unused fox matte asset were removed from the final package.",
     "All four header/footer assets now use real transparency over the shared CSS canvas; checkerboard attempts were rejected and three matte-backed outputs were converted with scripts/remove-solid-background.mjs."
-    ,"Header/footer wrappers now scale images to page width, preserve aspect ratio, cap visible height by orientation, bottom-anchor header crops, top-anchor footer crops, and do not participate in content flow."
+    ,"Header/footer wrappers scale images to page width, preserve aspect ratio, cap visible height by orientation, anchor toward each asset's alpha-confirmed painted outer edge, and do not participate in content flow."
   ]
 }
