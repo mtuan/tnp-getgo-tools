@@ -47,8 +47,8 @@ button { border: 0; }
 .account-copy strong { display: block; font-size: 13px; }
 .account-copy small { color: #e98c00; font-size: 12px; font-weight: 700; }
 .profile-banner, .footer-art { position: absolute; z-index: 1; left: 0; width: 100%; overflow: visible; pointer-events: none; }
-.profile-banner { top: 58px; aspect-ratio: 1859 / 846; }
-.footer-art { bottom: 64px; aspect-ratio: 1862 / 845; }
+.profile-banner { top: 58px; aspect-ratio: 1170 / 532; }
+.footer-art { bottom: 64px; aspect-ratio: 1170 / 531; }
 .profile-banner picture, .footer-art picture { display: block; width: 100%; height: 100%; }
 .profile-banner img, .footer-art img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .profile-banner::after, .footer-art::after { position: absolute; inset: 0; content: ""; pointer-events: none; background: var(--art-overlay); }
@@ -98,8 +98,8 @@ button { border: 0; }
 @media (orientation: landscape) and (min-width: 700px) {
   .desktop-brand, .desktop-nav, .account { display: flex; }
   .brand > span:nth-child(2), .bottom-nav, .stars { display: none; }
-  .profile-banner { aspect-ratio: 2172 / 724; }
-  .footer-art { bottom: 0; aspect-ratio: 1774 / 887; }
+  .profile-banner { aspect-ratio: 2048 / 682; }
+  .footer-art { bottom: 0; aspect-ratio: 2048 / 1024; }
   .identity { grid-template-columns: 96px minmax(0, 1fr); width: 520px; }
   .identity-copy h1 { font-size: 18px; }
   .edit-profile { position: absolute; left: 310px; top: 31px; width: 40px; height: 40px; }

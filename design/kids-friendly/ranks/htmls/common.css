@@ -13,10 +13,10 @@
 
 /* Preserve the complete transparent garden compositions instead of cropping them into strips. */
 .header-art,.footer-art{height:auto;overflow:visible}
-.header-art{aspect-ratio:1859/846}
-.footer-art{aspect-ratio:1862/845}
+.header-art{aspect-ratio:1170/532}
+.footer-art{aspect-ratio:1170/531}
 .header-art img,.footer-art img{position:static;width:100%;height:100%;object-fit:contain}
-@media (orientation:landscape) and (min-width:700px){.header-art{height:auto;aspect-ratio:2172/724}.footer-art{height:auto;aspect-ratio:1774/887}}
+@media (orientation:landscape) and (min-width:700px){.header-art{height:auto;aspect-ratio:2048/682}.footer-art{height:auto;aspect-ratio:2048/1024}}
 
 /* Demo canvas: full-width up to the application's 1024px content boundary. */
 body{background:var(--canvas)}

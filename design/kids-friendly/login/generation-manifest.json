@@ -18,20 +18,22 @@
   "outputs": [
     {
       "file": "assets/login-background-portrait.png",
-      "source": "/Users/tuanma/.codex/generated_images/01a08674-9c5d-7900-a476-7593dc21ff38/exec-776f1fee-44db-4810-b65b-2cc08ce7e222.png",
+      "source": "/Users/tuanma/.codex/generated_images/01a0896d-9587-7a13-94a4-4be115342a06/exec-47aee6c0-57a2-4655-9479-ec616a374a47.png",
       "generationTool": "built-in-image_gen",
       "credentialMode": "none",
       "status": "accepted",
       "backgroundMode": "opaque-background",
+      "postProcessing": { "tool": "sips", "operation": "center-crop to canonical aspect ratio, then high-quality resample", "outputDimensions": [1170, 2532] },
       "promptSummary": "Portrait theme-neutral blue-bird meadow background with central login-card safe zone; no UI, text, celestial objects, or unsupported props."
     },
     {
       "file": "assets/login-background-landscape.png",
-      "source": "/Users/tuanma/.codex/generated_images/01a08674-9c5d-7900-a476-7593dc21ff38/exec-71afb697-dbd5-41fb-9929-52c97dff7851.png",
+      "source": "/Users/tuanma/.codex/generated_images/01a0896d-9587-7a13-94a4-4be115342a06/exec-c0a68480-1612-45e2-a6b1-a515085020b5.png",
       "generationTool": "built-in-image_gen",
       "credentialMode": "none",
       "status": "accepted",
       "backgroundMode": "opaque-background",
+      "postProcessing": { "tool": "sips", "operation": "high-quality resample at unchanged 4:3 aspect ratio", "outputDimensions": [2048, 1536] },
       "promptSummary": "Landscape recomposition of the approved blue-bird meadow identity with fixed-width central login-card safe zone; no UI, text, or celestial objects."
     },
     {

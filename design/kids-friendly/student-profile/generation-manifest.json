@@ -34,5 +34,15 @@
     { "file": "assets/garden-classroom-landscape.png", "reason": "Full-page poster background violated vertical-scroll edge-art strategy." },
     { "file": "assets/fox-guide-purple-matte.png", "reason": "Unused prop asset and outside the restrained layout-preserving composition." }
   ],
+  "highDensityNormalization": {
+    "tool": "sips",
+    "method": "proportional high-quality resample of accepted transparent sources without recomposition",
+    "outputs": {
+      "../shared/assets/garden-header-portrait.png": [1170, 532],
+      "../shared/assets/garden-footer-portrait.png": [1170, 531],
+      "../shared/assets/garden-header-landscape.png": [2048, 682],
+      "../shared/assets/garden-footer-landscape.png": [2048, 1024]
+    }
+  },
   "darkMode": { "generatedSeparately": false, "method": "CSS overlay and dark semantic tokens over identical orientation artwork and geometry." }
 }

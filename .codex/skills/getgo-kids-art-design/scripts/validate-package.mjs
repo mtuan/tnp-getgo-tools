@@ -83,6 +83,12 @@ if (fs.existsSync(designFile)) {
     portrait: { viewport: [1170, 2532], edgeWidth: 1170 },
     landscape: { viewport: [2048, 1536], edgeWidth: 2048 },
   };
+  for (const [orientation, expected] of Object.entries({ portrait: [390, 844], landscape: [1024, 768] })) {
+    const viewport = design.viewports?.[orientation];
+    if (viewport?.width !== expected[0] || viewport?.height !== expected[1]) {
+      failures.push(`design.json ${orientation} viewport is ${viewport ? `${viewport.width}x${viewport.height}` : 'missing'}; expected ${expected.join('x')} CSS pixels`);
+    }
+  }
   for (const asset of design.assets ?? []) {
     const assetLabel = asset.id ?? asset.file;
     const file = path.resolve(root, asset.file ?? '');

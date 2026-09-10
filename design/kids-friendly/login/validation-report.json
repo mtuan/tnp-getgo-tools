@@ -4,6 +4,7 @@
   "status": "source-validated",
   "checks": {
     "requiredFiles": { "status": "passed", "evidence": "Five HTML variants, CSS, JS, design record, generation manifest, validation report, and three declared assets exist." },
+    "canonicalDimensions": { "status": "passed", "evidence": "Portrait and landscape viewports are 390x844 and 1024x768 CSS pixels; fullscreen raster backgrounds are exact 3x/2x exports at 1170x2532 and 2048x1536." },
     "sourceContentParity": { "status": "passed", "evidence": "Brand, tagline, three social actions, two email actions, and linked legal copy match the captured page content." },
     "semanticControls": { "status": "passed", "evidence": "All actions are native buttons; terms and privacy are links; labels remain live selectable text." },
     "layoutLock": { "status": "passed", "evidence": "Invariant centered card, stacked social actions, equal email columns, top-left brand and legal-copy hierarchy are encoded in shared CSS." },

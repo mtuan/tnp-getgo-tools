@@ -3,7 +3,7 @@
   "status": "passed-source-package-validation",
   "checks": {
     "requiredFiles": "passed",
-    "canonicalDimensions": "passed-by-file-inspection",
+    "canonicalDimensions": "passed-by-file-inspection: 390x844 and 1024x768 CSS viewports; shared portrait edges are 1170px wide and landscape edges are 2048px wide",
     "sourceContentParity": "passed-by-source-inspection",
     "semanticControlParity": "passed-by-source-inspection",
     "sourceLayoutOverlayComparison": "not-requested",
@@ -32,6 +32,7 @@
     "The first transparent header attempt was rejected because it contained an opaque checkerboard.",
     "The old full-page poster backgrounds and unused fox matte asset were removed from the final package.",
     "All four header/footer assets now use real transparency over the shared CSS canvas; checkerboard attempts were rejected and three matte-backed outputs were converted with scripts/remove-solid-background.mjs."
-    ,"Header/footer wrappers scale images to page width, preserve aspect ratio, cap visible height by orientation, anchor toward each asset's alpha-confirmed painted outer edge, and do not participate in content flow."
+    ,"Header/footer wrappers scale high-density images down to page width, preserve aspect ratio, anchor toward each asset's alpha-confirmed painted outer edge, and do not participate in content flow."
+    ,"Legacy rendered demos at 393x852 and 1440x900 were preserved in demos-stale-393x852-1440x900 and are not claimed as current canonical renders."
   ]
 }

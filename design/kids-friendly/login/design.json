@@ -8,8 +8,8 @@
     "heightBehavior": "fullscreen-fixed"
   },
   "viewports": {
-    "portrait": { "width": 393, "height": 852 },
-    "landscape": { "width": 1440, "height": 900 }
+    "portrait": { "width": 390, "height": 844 },
+    "landscape": { "width": 1024, "height": 768 }
   },
   "layoutLock": {
     "source": "Screenshot Manager captures",
@@ -57,7 +57,7 @@
       "id": "login-background-portrait",
       "file": "assets/login-background-portrait.png",
       "role": "fullscreen-background",
-      "dimensions": [852, 1847],
+      "dimensions": [1170, 2532],
       "orientations": ["portrait"],
       "anchor": "viewport-center",
       "focalPoint": [0.5, 0.5],
@@ -71,7 +71,7 @@
       "id": "login-background-landscape",
       "file": "assets/login-background-landscape.png",
       "role": "fullscreen-background",
-      "dimensions": [1586, 992],
+      "dimensions": [2048, 1536],
       "orientations": ["landscape"],
       "anchor": "viewport-center",
       "focalPoint": [0.5, 0.5],

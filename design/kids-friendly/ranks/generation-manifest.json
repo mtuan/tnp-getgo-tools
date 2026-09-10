@@ -30,6 +30,6 @@
     { "file": "assets/empty-trophy.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted", "backgroundMode": "transparent", "postProcessing": { "tool": "scripts/remove-solid-background.mjs", "input": "assets/empty-trophy-purple-matte.png", "output": "assets/empty-trophy.png", "matte": "#8B00FF", "tolerance": 24, "softness": 56, "edgeThreshold": 120 }, "inspection": "Composite over #effcf5 preserves the complete trophy, stump, flowers, leaves and butterfly with no visible purple field." },
     { "source": "exec-55474376-a50e-444f-9cc7-ff2a1c52b357.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "rejected", "reason": "Painted checkerboard instead of transparency; not copied into the package." }
   ],
-  "sharedAssetPromotion": { "from": "student-profile/assets/profile-{header,footer}-{portrait,landscape}.png", "to": "../shared/assets/garden-{header,footer}-{portrait,landscape}.png", "originalConsumerUpdated": true, "pixelsChanged": false },
+  "sharedAssetPromotion": { "from": "student-profile/assets/profile-{header,footer}-{portrait,landscape}.png", "to": "../shared/assets/garden-{header,footer}-{portrait,landscape}.png", "originalConsumerUpdated": true, "pixelsChanged": true, "normalization": "Accepted shared alpha assets were proportionally resampled to 1170px portrait and 2048px landscape export widths." },
   "darkMode": { "generatedSeparately": false, "method": "CSS overlay and dark semantic tokens over identical orientation artwork and geometry." }
 }
