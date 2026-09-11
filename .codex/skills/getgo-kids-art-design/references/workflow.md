@@ -1,5 +1,11 @@
 # Production workflow
 
+## 0. Scaffold and register the page before all other work
+
+Resolve the target slug first. Create `design/kids-friendly/<page-name>/assets/` and a temporary semantic `index.html` that prominently says the page is under construction. Immediately add the page to `design/kids-friendly/preview.js` using the exact slug, a bilingual English/Vietnamese title, and `<page-name>/index.html`. Verify the registry entry through source inspection only. This happens before screenshot inspection, artwork planning, generation, or page reconstruction so the in-progress package is visible in the design gallery from the start.
+
+Replace the placeholder during HTML reconstruction. A finished package may not retain under-construction copy and may not remain absent from the gallery registry.
+
 ## 1. Establish evidence and page invariants
 
 Resolve the Screenshot Manager record for the page name or URL. Load its captures and managed analysis/content, plus administrator Markdown instructions. Create a layout-lock inventory for every source orientation: region bounds, content width, ordering, alignment, gaps, section and row heights, typography hierarchy, control and card presentation, navigation placement, responsive transformations, states, and safe decoration regions. Create an explicit input allowlist in `generation-manifest.json`.

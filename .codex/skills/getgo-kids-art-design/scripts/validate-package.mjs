@@ -14,6 +14,21 @@ const failures = [];
 const htmlSources = new Map();
 for (const relative of required) if (!fs.existsSync(path.join(root, relative))) failures.push(`Missing ${relative}`);
 
+const pageSlug = path.basename(root);
+const previewRegistry = path.resolve(root, '../preview.js');
+if (!fs.existsSync(previewRegistry)) {
+  failures.push('Missing design gallery registry ../preview.js');
+} else {
+  const registrySource = fs.readFileSync(previewRegistry, 'utf8');
+  const escapedSlug = pageSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!new RegExp(`id\\s*:\\s*['"]${escapedSlug}['"]`).test(registrySource)) {
+    failures.push(`preview.js does not register page id ${pageSlug}`);
+  }
+  if (!new RegExp(`file\\s*:\\s*['"]${escapedSlug}/index\\.html['"]`).test(registrySource)) {
+    failures.push(`preview.js does not register ${pageSlug}/index.html`);
+  }
+}
+
 function pngSize(file) {
   const data = fs.readFileSync(file);
   if (data.length < 24 || data.toString('ascii', 1, 4) !== 'PNG') return null;
@@ -49,6 +64,7 @@ const entry = path.join(root, 'index.html');
 if (fs.existsSync(entry)) {
   const html = fs.readFileSync(entry, 'utf8');
   htmlSources.set('index.html', html);
+  if (/under construction|đang xây dựng/i.test(html)) failures.push('index.html still contains the temporary under-construction placeholder');
   for (const [pattern, label] of forbidden) if (pattern.test(html)) failures.push(`index.html contains ${label}`);
   if (!/<main\b/i.test(html)) failures.push('index.html lacks a semantic main element');
   const sharedStyleIndex = html.search(/<link\b[^>]*href=["']\.\.\/shared\/common\.css["'][^>]*>/i);

@@ -7,6 +7,16 @@ description: Create or continue polished kids-friendly GetGo page artwork packag
 
 Turn an existing GetGo page into an implementation-ready, kids-friendly artwork package without redesigning the underlying page. A plausible image or compiling HTML is not success. Finish only when the complete package exists, renders correctly, preserves the captured layout, presentation, content, and behavior, and passes the rejection gates below.
 
+## Mandatory first step: make the page visible in the gallery
+
+Before inspecting screenshots, planning artwork, generating images, or reconstructing the page:
+
+1. Resolve the target slug, create `design/kids-friendly/<page-name>/` and its `assets/` directory, and write a temporary `index.html` that clearly labels the page as under construction. Keep this placeholder local-only and semantic; it is temporary and must be replaced by the completed responsive entrypoint.
+2. Register the page immediately in `design/kids-friendly/preview.js` with the exact slug, bilingual English/Vietnamese title, and `<page-name>/index.html` file path. Preserve the existing page order unless the administrator requests a specific position.
+3. Confirm from source inspection that the registry contains the exact slug and file path. Do not open or probe a browser for this check. Then proceed with the existing evidence, artwork, reconstruction, and validation workflow.
+
+Do not leave registration until package completion. The finished package is invalid if `preview.js` does not expose it in the design gallery or if the under-construction placeholder remains.
+
 ## Mandatory image-generation boundary
 
 For every new raster demo, background, character, scenery layer, or edit, load and follow the installed `$imagegen` skill and use its default built-in `image_gen` tool mode. This path does not require an `OPENAI_API_KEY`.
@@ -123,6 +133,7 @@ Run the command from this skill directory. Use distinct input and output paths. 
 Never call the work complete when any item below is true:
 
 - `index.html`, `index.css`, or `index.js` is missing;
+- the page slug and entrypoint are absent from `design/kids-friendly/preview.js`, or `index.html` still contains the under-construction placeholder;
 - reconstructed UI geometry or presentation differs materially from the corresponding captured source without an explicit administrator request, including changed region positions, widths, heights, gaps, alignment, typography hierarchy, component shapes, grouping, or responsive behavior;
 - artwork generation introduces a new hero panel, card treatment, layout wrapper, navigation treatment, or other UI redesign;
 - portrait and landscape are the same artwork stretched, compressed, or trivially cropped;

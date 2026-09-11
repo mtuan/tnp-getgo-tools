@@ -20,6 +20,11 @@ const designs = [
     file: 'student-profile/index.html',
   },
   {
+    id: 'parent-explore',
+    title: { en: 'Parent explore', vi: 'Phụ huynh · Khám phá' },
+    file: 'parent-explore/index.html',
+  },
+  {
     id: 'login',
     title: { en: 'Login', vi: 'Đăng nhập' },
     file: 'login/index.html',
