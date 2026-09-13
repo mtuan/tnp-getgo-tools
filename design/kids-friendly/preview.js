@@ -1,5 +1,10 @@
 const designs = [
   {
+    id: 'student-switch',
+    title: { en: 'Student switch', vi: 'Chọn học sinh' },
+    file: 'student-switch/index.html',
+  },
+  {
     id: 'student-exam',
     title: { en: 'Student exam', vi: 'Đề thi' },
     file: 'student-exam/index.html',

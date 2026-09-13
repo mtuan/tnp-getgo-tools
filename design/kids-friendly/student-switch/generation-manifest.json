@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2, "page": "student-switch", "generationTool": "built-in-image_gen", "credentialMode": "none", "mode": "artwork-package-preserve-layout",
+  "styleLock": "Polished watercolor/gouache storybook illustration, subtle paper texture, rounded clean silhouette, natural warm tawny and cream feathers, fresh moss greens, diffuse neutral light.",
+  "layoutLock": "Preserve the captured portal, close action, heading, profile order, portrait stack, landscape row and selection state.",
+  "inputs": [
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/analysis/pages.json", "record": "/student/switch", "role": "structural-reference" },
+    { "path": "../../../../tnp-getgo-web/src/routes/user/getgo/student/switch/index.tsx", "role": "functional-reference" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/e8327b23-409e-49fa-9e68-9248cc8c5692.png", "role": "functional-reference", "variant": "portrait-light" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/9f55b364-70f8-4639-8f2a-fdde5c2a26ca.png", "role": "functional-reference", "variant": "portrait-dark" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/5d770890-ed7f-4dac-a097-75f2e796344f.png", "role": "functional-reference", "variant": "landscape-light" },
+    { "path": "../../../../tnp-getgo-web/docs/screenshots/projects/06e7f38b-531f-4529-a480-ffa7632a5f96/screenshots/3eb9d9ac-71f2-4fff-9e00-2d0b5ad6a613.png", "role": "functional-reference", "variant": "landscape-dark" },
+    { "path": "../../../.codex/skills/getgo-kids-art-design/assets/style-references/meadow-portrait-style.png", "role": "style-reference" },
+    { "path": "../../../.codex/skills/getgo-kids-art-design/assets/style-references/meadow-landscape-style.png", "role": "style-reference" },
+    { "path": "../shared/assets/garden-header-portrait.png", "role": "approved-reusable-asset" }, { "path": "../shared/assets/garden-footer-portrait.png", "role": "approved-reusable-asset" }, { "path": "../shared/assets/garden-header-landscape-trimmed.png", "role": "approved-reusable-asset" }, { "path": "../shared/assets/garden-footer-landscape-trimmed.png", "role": "approved-reusable-asset" }
+  ],
+  "prompts": [
+    { "id": "owl-alpha-1", "summary": "Friendly tawny owl on mossy stump with real transparent background.", "result": "rejected-painted-checkerboard" },
+    { "id": "owl-purple-matte-1", "summary": "Same isolated owl on a uniform #8B00FF removal matte with no time-of-day cues.", "result": "accepted-intermediate" }
+  ],
+  "outputs": [
+    { "source": "exec-41a5f1fb-f390-4a32-ae10-cccda60370be.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "rejected", "reason": "Painted checkerboard instead of transparency." },
+    { "file": "assets/owl-guide-purple-matte.png", "source": "exec-844e3b46-339c-4408-b1d9-50aeb71c8a38.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted-intermediate", "backgroundMode": "removal-matte", "removalMatte": "#8B00FF" },
+    { "file": "assets/owl-guide.png", "generationTool": "built-in-image_gen", "credentialMode": "none", "status": "accepted", "backgroundMode": "transparent", "postProcessing": { "tool": "scripts/remove-solid-background.mjs", "matte": "#8B00FF", "tolerance": 24, "softness": 56, "edgeThreshold": 145 }, "inspection": "Alpha inspection reports 955409 fully transparent pixels; the complete owl and grounded stump remain visible." }
+  ],
+  "darkMode": { "generatedSeparately": false, "method": "Shared artwork, semantic dark tokens and the canonical page-wide mask." }
+}

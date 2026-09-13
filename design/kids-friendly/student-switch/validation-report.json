@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2, "page": "student-switch", "status": "passed-source-and-package-validation",
+  "checks": {
+    "requiredFiles": { "status": "passed", "evidence": "Responsive HTML, CSS, JS, artwork assets and package records exist." },
+    "sourceContentParity": { "status": "passed", "evidence": "Captured Vietnamese title, instruction, three profiles, grades, zero-star values and close control are preserved." },
+    "semanticControls": { "status": "passed", "evidence": "Profile choices, close, language and theme controls use semantic buttons with labels." },
+    "responsiveRecomposition": { "status": "passed", "evidence": "Portrait stacks full-width profile rows; landscape uses three equal cards." },
+    "themeParity": { "status": "passed", "evidence": "Light and dark modes share DOM, assets and geometry; dark uses semantic tokens and rgba(0,32,27,.72)." },
+    "localOnlyHtml": { "status": "passed", "evidence": "No remote URLs, base64 images or canvas." },
+    "generatedArtwork": { "status": "passed", "evidence": "The page-specific owl used built-in image_gen; a failed checkerboard output was rejected and the matte output was converted to alpha." },
+    "packageValidator": { "status": "passed", "evidence": "validate-package.mjs completed successfully for design/kids-friendly/student-switch." },
+    "keyboardFocus": { "status": "not-requested" }, "resize": { "status": "not-requested" }, "shortViewport": { "status": "not-requested" }, "tallScrollingContent": { "status": "not-requested" }, "zoom200": { "status": "not-requested" }, "sourceLayoutPixelOverlay": { "status": "not-requested" }, "renderedComparisons": { "status": "not-requested" }
+  }
+}

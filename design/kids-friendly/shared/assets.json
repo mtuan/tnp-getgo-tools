@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "assets": [
-    { "id": "garden-header-portrait", "file": "assets/garden-header-portrait.png", "role": "header", "dimensions": [1170, 532], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] },
-    { "id": "garden-header-landscape", "file": "assets/garden-header-landscape-trimmed.png", "role": "header", "dimensions": [2048, 487], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] },
-    { "id": "garden-footer-portrait", "file": "assets/garden-footer-portrait.png", "role": "footer", "dimensions": [1170, 531], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] },
-    { "id": "garden-footer-landscape", "file": "assets/garden-footer-landscape-trimmed.png", "role": "footer", "dimensions": [2048, 839], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks"] }
+    { "id": "garden-header-portrait", "file": "assets/garden-header-portrait.png", "role": "header", "dimensions": [1170, 532], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks", "student-switch"] },
+    { "id": "garden-header-landscape", "file": "assets/garden-header-landscape-trimmed.png", "role": "header", "dimensions": [2048, 487], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks", "student-switch"] },
+    { "id": "garden-footer-portrait", "file": "assets/garden-footer-portrait.png", "role": "footer", "dimensions": [1170, 531], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks", "student-switch"] },
+    { "id": "garden-footer-landscape", "file": "assets/garden-footer-landscape-trimmed.png", "role": "footer", "dimensions": [2048, 839], "backgroundMode": "transparent", "consumers": ["student-profile", "ranks", "student-switch"] }
   ]
 }
