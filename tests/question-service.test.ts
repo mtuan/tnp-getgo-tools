@@ -73,6 +73,18 @@ test("question service converts ordered multiple inputs into an editable dynamic
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /unit: "items"/)
 })
 
+test("question service converts multiple answers into an editable dynamic draft", () => {
+  const draft = questionService.createDynamicDraft({
+    question_no: 9,
+    text_en: "Enter every prime factor",
+    answer: { type: "multiple_answer", correct: ["2", "3", "5"] },
+  } as QuizQuestionRecord)
+
+  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /\(\) => \(\{\}\)/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /"type": "multiple_answer"/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /"correct": \[\s*"2",\s*"3",\s*"5"\s*\]/)
+})
+
 test("question service prefers the concise input map when metadata is inferred", () => {
   const draft = questionService.createDynamicDraft({
     question_no: 4,

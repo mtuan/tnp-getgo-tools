@@ -3,7 +3,7 @@ import { QUIZ_ANSWER_TYPES, type IQuizAnswer } from "@tnp/getgo-logics";
 import type { QuizQuestionRecord } from "../../../shared/domain/models.js";
 import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
 
-const quizAnswerTypes = new Set<string>(QUIZ_ANSWER_TYPES);
+const quizAnswerTypes = new Set<string>([...QUIZ_ANSWER_TYPES, "multiple_answer"]);
 
 export interface PublishedContestQuestion {
   question_no: number;
@@ -16,6 +16,7 @@ export interface PublishedContestQuestion {
     type: IQuizAnswer["type"];
     correct: string | number | string[];
     inputType?: "text" | "number" | "date";
+    orderRequired?: boolean;
     choices?: Record<string, string | number | Record<string, unknown>>;
     inputs?: Array<{
       question_en: string;
@@ -128,6 +129,8 @@ export function sanitizePublishedQuestion(
   )) {
     throw new Error(`Question ${questionNo} answer.correct is invalid.`);
   }
+  if (answer.type === "multiple_answer" && (!Array.isArray(correct) || correct.length === 0))
+    throw new Error(`Question ${questionNo} multiple answers requires at least one correct value.`);
   const result: PublishedQuestion = {
     question_no: questionNo,
     text_en: text(record.text_en, `Question ${questionNo} text_en`, true)!,
@@ -185,6 +188,11 @@ export function sanitizePublishedQuestion(
     if (!["text", "number", "date"].includes(String(answer.inputType)))
       throw new Error(`Question ${questionNo} answer.inputType is invalid.`);
     result.answer.inputType = answer.inputType as "text" | "number" | "date";
+  }
+  if (answer.orderRequired !== undefined) {
+    if (answer.type !== "multiple_answer" || typeof answer.orderRequired !== "boolean")
+      throw new Error(`Question ${questionNo} answer.orderRequired is invalid.`);
+    result.answer.orderRequired = answer.orderRequired;
   }
   if (answer.inputs !== undefined) {
     if (!Array.isArray(answer.inputs))

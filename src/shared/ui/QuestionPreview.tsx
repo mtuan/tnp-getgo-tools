@@ -135,6 +135,7 @@ export function QuestionPreview({
   const correct = Array.isArray(question.answer?.correct)
     ? question.answer.correct.map(String)
     : [String(question.answer?.correct ?? "")];
+  const isMultipleAnswer = question.answer?.type === "multiple_answer";
   const englishText = questionText(question.text_en);
   const vietnameseText = questionText(question.text_vn);
   const englishExplanation = questionText(question.explanation?.en);
@@ -175,6 +176,8 @@ export function QuestionPreview({
               </section>
             ))}
           </div>
+        ) : isMultipleAnswer ? (
+          <CorrectAnswerPreview value={correct.join("; ")} />
         ) : choices.length ? (
           <div className="question-preview-choices">
             {choices.map(([label, value]) => (

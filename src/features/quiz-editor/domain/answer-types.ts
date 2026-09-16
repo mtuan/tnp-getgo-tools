@@ -1,4 +1,4 @@
-export type StaticAnswerType = "input" | "multiple_input" | "choice"
+export type StaticAnswerType = "input" | "multiple_input" | "multiple_answer" | "choice"
 
 export interface AnswerTypeDefinition {
   id: StaticAnswerType
@@ -8,7 +8,8 @@ export interface AnswerTypeDefinition {
 /** Central extension point for the Static question answer editor. */
 export const answerTypeDefinitions: readonly AnswerTypeDefinition[] = [
   { id: "input", label: "Input" },
-  { id: "multiple_input", label: "Multiple inputs" },
+  { id: "multiple_input", label: "Nested questions" },
+  { id: "multiple_answer", label: "Multiple answers" },
   { id: "choice", label: "Choice" },
 ] as const
 
@@ -21,12 +22,12 @@ const answerTypePresentations = {
   numeric: "input",
   text: "input",
   multiple_input: "multiple_input",
-} as const satisfies Record<IQuizAnswer["type"], StaticAnswerType>;
+  multiple_answer: "multiple_answer",
+} as const satisfies Record<string, StaticAnswerType>;
 
 export function staticAnswerType(type: unknown, hasChoices = false): StaticAnswerType {
   const id = String(type ?? "")
   if (id in answerTypePresentations)
-    return answerTypePresentations[id as IQuizAnswer["type"]];
+    return answerTypePresentations[id as keyof typeof answerTypePresentations];
   return hasChoices ? "choice" : "input"
 }
-import type { IQuizAnswer } from "@tnp/getgo-logics";

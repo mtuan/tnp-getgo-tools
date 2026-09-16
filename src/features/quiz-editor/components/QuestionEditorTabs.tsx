@@ -26,9 +26,6 @@ interface Props {
 }
 
 export function QuestionEditorTabs(props: Props) {
-  const dynamicRecord = props.record.advancedDynamic
-    ? props.record
-    : questionService.createDynamicDraft(props.record);
   const editor = props.tab === "static" ? (
     <StaticQuestionEditor
       record={props.record}
@@ -44,7 +41,10 @@ export function QuestionEditorTabs(props: Props) {
       quizSharedCode={props.quizSharedCode}
       onChange={props.onChange}
     />
-  ) : <AdvancedQuestionEditor {...props} record={dynamicRecord} />;
+  ) : <AdvancedQuestionEditor
+    {...props}
+    record={props.record.advancedDynamic ? props.record : questionService.createDynamicDraft(props.record)}
+  />;
   return (
     <>
       <div className="question-editor-tabs-row"><Tabs<QuestionEditorTab>

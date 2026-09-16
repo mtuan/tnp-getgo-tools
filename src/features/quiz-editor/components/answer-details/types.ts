@@ -10,6 +10,7 @@ export interface EditableAnswer extends Record<string, unknown> {
   }>
   unit?: string
   inputType?: string
+  orderRequired?: boolean
   fixed?: boolean
   otherChoiceKey?: string
 }

@@ -98,9 +98,13 @@ class QuestionService {
           }
         : {}),
     };
-    const fields = QuizTsService.extractTemplateSourceFields(
-      dynamicBuilder.createStarterSource(sourceQuestion),
-    );
+    const starterSource = sourceQuestion.answer.type === "multiple_answer"
+      ? `QB.template(
+  () => ({}),
+  () => (${JSON.stringify(sourceQuestion, null, 2)}),
+)`
+      : dynamicBuilder.createStarterSource(sourceQuestion);
+    const fields = QuizTsService.extractTemplateSourceFields(starterSource);
     return {
       ...record,
       authoringMode: "advanced-dynamic",
