@@ -203,6 +203,15 @@ function fromManagerQuestion(
   if (stored.type !== "competition-question" || question.type === "alphabet")
     throw new Error("Question type does not match its stored v2 contract.");
   const dynamic = question.advancedDynamic;
+  const explanationSource = question.explanation && typeof question.explanation === "object" && !Array.isArray(question.explanation)
+    ? question.explanation as Record<string, unknown>
+    : undefined;
+  const explanation = explanationSource
+    ? {
+        en: typeof explanationSource.en === "string" ? explanationSource.en : "",
+        ...(typeof explanationSource.vi === "string" ? { vi: explanationSource.vi } : {}),
+      }
+    : undefined;
   return {
     ...stored,
     status: reviewStatus(question),
@@ -210,7 +219,7 @@ function fromManagerQuestion(
     text: { en: (question.text_en ?? "") as string | string[], ...(question.text_vn ? { vi: question.text_vn as string | string[] } : {}) },
     assets: Array.isArray(question.image_datas) ? question.image_datas.filter((value): value is string => typeof value === "string" && value.startsWith("asset:")) : [],
     answer: (question.answer ?? {}) as Record<string, unknown>,
-    explanation: question.explanation as { en: string; vi?: string } | undefined,
+    explanation,
     feedback: question.feedback,
     authoringMode: question.authoringMode === "reference"
       ? "reference"
@@ -348,7 +357,7 @@ export function ContentV2QuizManager(props: Props) {
           ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?", resources: [] }
           : quiz.type === "pronunciation"
             ? { schemaVersion: 2, id, type: "pronunciation-sound", order, status: "pending", title: "Bảng phát âm", letter: { text: "b", speech: "bờ" }, tones: [{ text: "", speech: "thanh ngang" }], sounds: [{ sound: { text: "a" }, forms: [{ text: "ba" }] }] }
-          : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "New question" }, assets: [], answer: { type: "input", correct: "" } };
+          : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "" }, assets: [], answer: { type: "input", correct: "" }, explanation: { en: "" } };
         await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
         return { question: toManagerQuestion(record), snapshot: await reloadFromFiles(quiz.topicId) };
       },

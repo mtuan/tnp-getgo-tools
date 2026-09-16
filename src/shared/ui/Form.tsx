@@ -32,7 +32,7 @@ interface FieldBase {
 }
 
 export type FormField =
-  | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string })
+  | (FieldBase & { type: "text" | "email" | "password" | "url" | "tel" | "search" | "date"; placeholder?: string; autoComplete?: string; transformInput?: (value: string) => string })
   | (FieldBase & { type: "textarea"; placeholder?: string; rows?: number; autoCompact?: boolean; maxLines?: number })
   | (FieldBase & { type: "code"; path: string; language?: "typescript" | "json"; minHeight?: number })
   | (FieldBase & { type: "image"; accept?: string; maxBytes?: number; previewSrc?: string })
@@ -347,7 +347,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
     const numericValue = typeof value === "number" ? value : Number(value)
     return <input name={field.name} type="number" min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={value === undefined || value === null || value === "" || !Number.isFinite(numericValue) ? "" : numericValue} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value === "" ? undefined : Number(event.target.value))} />
   }
-  return <input name={field.name} type={field.type} autoComplete={field.autoComplete} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, event.target.value)} />
+  return <input name={field.name} type={field.type} autoComplete={field.autoComplete} placeholder={field.placeholder} value={String(value ?? "")} disabled={disabled} readOnly={field.readOnly} autoFocus={autoFocus} onChange={event => onChange(field.name, field.transformInput?.(event.target.value) ?? event.target.value)} />
 }
 
 function Field({ field, values, errors, onChange, autoFocus }: { field: FormField; values: FormValues; errors: FormErrors; onChange(name: string, value: unknown): void; autoFocus: boolean }) {
