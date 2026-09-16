@@ -486,6 +486,8 @@
     "deployTestFlight": "Tải lên",
     "deployPlay": "Tải lên",
     "localhostTitle": "Web localhost",
+    "designServerTitle": "Máy chủ thiết kế",
+    "designServerEnvironment": "Thư viện thiết kế thân thiện với trẻ em",
     "staticDemo": "Trình mô phỏng tĩnh",
     "localhostDescription": "Chạy GetGo Web cục bộ bằng cấu hình Firebase Development. Dữ liệu kho mã không được quét lại.",
     "localhostAddress": "Địa chỉ cục bộ",
