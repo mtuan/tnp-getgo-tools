@@ -99,6 +99,7 @@ export function registerBackgroundJobsIpc(
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     return runtime(runtimeId).restart(target);
   });
+  ipcMain.handle("local-web:stop", (_event, runtimeId: unknown = "web") => runtime(runtimeId).stop());
   ipcMain.handle("native-project:open", (_event, platform: unknown, target: unknown, product: unknown = "web") => {
     if (!(platform === "ios" || platform === "android")) throw new Error("Invalid native platform.");
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");

@@ -28,11 +28,11 @@ export function DeploymentPage({
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
   const [deploymentState, setDeploymentState] = useState<DeploymentStateSnapshot | null>(null);
   const [localWeb, setLocalWeb] = useState<LocalWebRuntimeSnapshot | null>(null);
-  const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | null>(null);
-  const localWebActionRef = useRef<"start" | "restart" | null>(null);
+  const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | "stop" | null>(null);
+  const localWebActionRef = useRef<"start" | "restart" | "stop" | null>(null);
   const [localApp, setLocalApp] = useState<LocalWebRuntimeSnapshot | null>(null);
-  const [localAppAction, setLocalAppAction] = useState<"start" | "restart" | null>(null);
-  const localAppActionRef = useRef<"start" | "restart" | null>(null);
+  const [localAppAction, setLocalAppAction] = useState<"start" | "restart" | "stop" | null>(null);
+  const localAppActionRef = useRef<"start" | "restart" | "stop" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logSelection, setLogSelection] = useState<DeploymentComponent | "localhost" | null>(null);
   const environmentRef = useRef(environment);
@@ -110,7 +110,7 @@ export function DeploymentPage({
     }
   };
 
-  const controlLocalApp = async (action: "start" | "restart") => {
+  const controlLocalApp = async (action: "start" | "restart" | "stop") => {
     if (localAppActionRef.current) return;
     localAppActionRef.current = action;
     setLocalAppAction(action);
@@ -119,7 +119,9 @@ export function DeploymentPage({
     try {
       setLocalApp(action === "start"
         ? await window.getgo.startLocalWebRuntime("app", environment)
-        : await window.getgo.restartLocalWebRuntime("app", environment));
+        : action === "restart"
+          ? await window.getgo.restartLocalWebRuntime("app", environment)
+          : await window.getgo.stopLocalWebRuntime("app"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -132,7 +134,7 @@ export function DeploymentPage({
     else void executeRun(operation, component);
   };
 
-  const controlLocalWeb = async (action: "start" | "restart") => {
+  const controlLocalWeb = async (action: "start" | "restart" | "stop") => {
     if (localWebActionRef.current) return;
     localWebActionRef.current = action;
     setLocalWebAction(action);
@@ -141,7 +143,9 @@ export function DeploymentPage({
     try {
       setLocalWeb(action === "start"
         ? await window.getgo.startLocalWebRuntime()
-        : await window.getgo.restartLocalWebRuntime());
+        : action === "restart"
+          ? await window.getgo.restartLocalWebRuntime()
+          : await window.getgo.stopLocalWebRuntime());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -204,7 +208,7 @@ export function DeploymentPage({
     <div className="deployment-target-summary" aria-label={copy.selectedTarget}>
       <span>{copy.selectedTarget}</span>
       <strong>{environment}</strong>
-      <code>{product === "app" ? "com.tnpglobal.getgo / com.tnp.getgo" : environment === "development" ? "com.tnp.getgo.webapp.dev" : environment === "staging" ? "com.tnp.getgo.webapp.staging" : "com.tnp.getgo.webapp"}</code>
+      <code>{product === "app" ? "com.tnpglobal.getgo / com.tnp.getgo" : `${environment === "development" ? "com.tnp.getgo.webapp.dev" : environment === "staging" ? "com.tnp.getgo.webapp.staging" : "com.tnp.getgo.webapp"} / com.tnp.getgo`}</code>
       <small>{copy.targetAppliesToAll}</small>
     </div>
     {product === "web" ? <>

@@ -1,4 +1,4 @@
-import { ExternalLink, Eye, MonitorCog, Power, RotateCw } from "lucide-react";
+import { ExternalLink, Eye, MonitorCog, Power, RotateCw, Square } from "lucide-react";
 import type { AppSettings, LocalWebRuntimeSnapshot } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { LastDeploymentJobStatus } from "./LastDeploymentJobStatus";
@@ -8,10 +8,10 @@ import vi from "../../../shared/localization/vi.json";
 interface LocalRuntimeCardProps {
   locale: AppSettings["locale"];
   runtime: LocalWebRuntimeSnapshot | null;
-  action: "start" | "restart" | null;
+  action: "start" | "restart" | "stop" | null;
   title: string;
   environment: string;
-  onControl(action: "start" | "restart"): void;
+  onControl(action: "start" | "restart" | "stop"): void;
   onViewLogs(): void;
 }
 
@@ -38,7 +38,7 @@ export function LocalRuntimeCard({ locale, runtime, action, title, environment, 
         <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!runtime?.lastJob} onClick={onViewLogs} />
         <ui.Button icon={<ExternalLink />} aria-label={copy.openLocalhost} title={copy.openLocalhost} disabled={runtime?.status !== "online"} onClick={() => runtime && void window.getgo.openExternal(runtime.url)} />
         {runtime?.status === "online" || runtime?.managed
-          ? <ui.Button variant="solid" icon={<RotateCw />} loading={action === "restart"} disabled={action !== null} onClick={() => onControl("restart")}>{copy.restartLocalhost}</ui.Button>
+          ? <><ui.Button icon={<Square />} loading={action === "stop"} disabled={action !== null} onClick={() => onControl("stop")}>{copy.stopLocalhost}</ui.Button><ui.Button variant="solid" icon={<RotateCw />} loading={action === "restart"} disabled={action !== null} onClick={() => onControl("restart")}>{copy.restartLocalhost}</ui.Button></>
           : <ui.Button variant="solid" icon={<Power />} loading={action === "start"} disabled={action !== null} onClick={() => onControl("start")}>{copy.runLocalhost}</ui.Button>}
       </div>
     </ui.PanelBody>

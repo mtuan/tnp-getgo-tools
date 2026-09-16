@@ -271,6 +271,7 @@ const api: DesktopApi = {
   getLocalWebRuntime: (product) => ipcRenderer.invoke("local-web:state", product),
   startLocalWebRuntime: (product, target) => ipcRenderer.invoke("local-web:start", product, target),
   restartLocalWebRuntime: (product, target) => ipcRenderer.invoke("local-web:restart", product, target),
+  stopLocalWebRuntime: (product) => ipcRenderer.invoke("local-web:stop", product),
   cancelBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:cancel", jobId),
   pauseBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:pause", jobId),
   resumeBackgroundJob: (jobId) => ipcRenderer.invoke("jobs:resume", jobId),
