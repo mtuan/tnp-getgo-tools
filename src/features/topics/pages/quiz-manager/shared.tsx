@@ -148,11 +148,19 @@ export interface QuestionListItem {
   record: QuizQuestionRecord;
 }
 
-export function questionPrompt(value: unknown): string {
-  if (typeof value === "string") return value;
+function promptValue(value: unknown): string | undefined {
+  if (typeof value === "string") return value.trim() ? value : undefined;
   if (Array.isArray(value))
-    return value.filter((item) => typeof item === "string").join(" ");
-  return "Question content";
+    return value.filter((item) => typeof item === "string").join(" ").trim() || undefined;
+  return undefined;
+}
+
+export function questionPrompt(value: unknown): string {
+  return promptValue(value) ?? "Question content";
+}
+
+export function preferredQuestionPrompt(english: unknown, vietnamese: unknown): string {
+  return promptValue(english) ?? questionPrompt(vietnamese);
 }
 
 export function comparableQuestion(record: QuizQuestionRecord | null): unknown {

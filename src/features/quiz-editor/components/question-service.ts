@@ -110,12 +110,7 @@ class QuestionService {
           }
         : {}),
     };
-    const starterSource = sourceQuestion.answer.type === "multiple_answer"
-      ? `QB.template(
-  () => ({}),
-  () => (${JSON.stringify(sourceQuestion, null, 2)}),
-)`
-      : dynamicBuilder.createStarterSource(sourceQuestion);
+    const starterSource = dynamicBuilder.createStarterSource(sourceQuestion);
     const fields = QuizTsService.extractTemplateSourceFields(starterSource);
     return {
       ...record,

@@ -27,10 +27,12 @@
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@tnp/getgo-logics": "file:vendor/tnp-getgo-logics-0.7.13.tgz",
+    "@types/katex": "^0.16.8",
     "@vitejs/plugin-react": "^4.4.1",
     "dotenv": "^16.6.1",
     "heic-convert": "^2.1.0",
     "jspdf": "^3.0.4",
+    "katex": "^0.18.7",
     "lucide-react": "^0.577.0",
     "monaco-editor": "^0.56.0",
     "playwright-core": "^1.63.0",

@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 import { displayQuestionValue } from "../../features/quiz-editor/domain/question-value-display";
 import { QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder";
+import { MathText } from "./MathText";
 
 export type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 
@@ -101,7 +102,7 @@ function PreviewValue({
     (value.startsWith("asset:") || value.startsWith("data:image/"))
   )
     return <PreviewAsset manifestPath={manifestPath} value={value} alt={alt} />;
-  return <>{questionText(value)}</>;
+  return <MathText value={questionText(value)} />;
 }
 
 function CorrectAnswerPreview({ value, unit }: { value: unknown; unit?: unknown }) {
@@ -146,9 +147,9 @@ export function QuestionPreview({
   return (
     <div className="question-preview">
       <div className="question-preview-content">
-        {englishText.trim() && <p>{englishText}</p>}
+        {englishText.trim() && <p><MathText value={englishText} /></p>}
         {vietnameseText.trim() && (
-          <p className="question-preview-translation">{vietnameseText}</p>
+          <p className="question-preview-translation"><MathText value={vietnameseText} /></p>
         )}
         {question.image_datas?.map((image, index) => (
           <div
@@ -208,10 +209,10 @@ export function QuestionPreview({
         {hasExplanation && (
           <section className="question-preview-explanation">
             <strong>Explanation</strong>
-            {englishExplanation.trim() && <p>{englishExplanation}</p>}
+            {englishExplanation.trim() && <p><MathText value={englishExplanation} /></p>}
             {vietnameseExplanation.trim() && (
               <p className="question-preview-translation">
-                {vietnameseExplanation}
+                <MathText value={vietnameseExplanation} />
               </p>
             )}
           </section>
