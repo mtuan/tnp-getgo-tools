@@ -326,7 +326,7 @@ export function ContentV2QuizManager(props: Props) {
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, question.question_no);
         const stored = await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, summary.id);
         const compiledJs = question.authoringMode !== "reference" && question.advancedDynamic
-          ? (await questionService.buildDynamic(question)).compiledJs
+          ? await questionService.compileDynamicDraft(question)
           : undefined;
         const next = fromManagerQuestion(stored, question, compiledJs);
         await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next);

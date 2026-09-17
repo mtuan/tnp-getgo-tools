@@ -111,6 +111,13 @@ test("dynamic callback formatting never exposes Prettier's ASI guard", async () 
   assert.match(formatted, /^\(\{ answer \}\) => \{\n/)
 })
 
+test("incomplete dynamic code can be persisted as an uncompiled draft", async () => {
+  const draft = questionService.createDynamicDraft(question(true))
+  draft.advancedDynamic!.questionGeneratorTs = "({ value }) => {"
+
+  assert.equal(await questionService.compileDynamicDraft(draft), undefined)
+})
+
 test("shared editor context terminates an IIFE before callback expressions", () => {
   const context = quizSharedEditorContext("const QS = (() => ({ value: 1 }))()")
   assert.equal(context.endsWith(";\n\n"), true)

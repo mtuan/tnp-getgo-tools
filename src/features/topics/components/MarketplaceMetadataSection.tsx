@@ -56,6 +56,7 @@ function metadata(record: MarketplaceRecord): MarketplaceTopicMetadata {
       record.marketplace?.fullDescription ?? localizedText(record.description as LocalizedText),
     featured: record.marketplace?.featured === true,
     preview: record.marketplace?.preview === true,
+    experimental: record.marketplace?.experimental === true,
     subjects:
       record.marketplace?.subjects ??
       (topic.type === "competition" ? [topic.subject] : []),
@@ -162,6 +163,7 @@ export function MarketplaceMetadataSection({
         learningObjectivesEn: localizedLines(current.learningObjectives, "en"),
         learningObjectivesVi: localizedLines(current.learningObjectives, "vi"),
         preview: current.preview,
+        experimental: current.experimental,
         minimumAge: current.ageRange?.minimum,
         maximumAge: current.ageRange?.maximum,
         pricingType: !isTopic && !draft?.marketplace?.pricing
@@ -180,6 +182,13 @@ export function MarketplaceMetadataSection({
         helper: copy.fields.previewHelp,
         presentation: "row",
       },
+      ...(isTopic ? [{
+        type: "toggle",
+        name: "experimental",
+        label: copy.fields.experimental,
+        helper: copy.fields.experimentalHelp,
+        presentation: "row",
+      } as FormSchema] : []),
       ...(!isTopic ? [{
         type: "textarea",
         name: "shortDescription",

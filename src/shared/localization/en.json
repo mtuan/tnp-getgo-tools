@@ -180,6 +180,8 @@
       "featured": "Featured topic",
       "preview": "Available for guest preview",
       "previewHelp": "Show this topic on the guest preview page, or allow this quiz to be selected for a guest preview exam.",
+      "experimental": "Experimental",
+      "experimentalHelp": "Show this topic only in administrative tools and hide it from normal users.",
       "subjects": "Subjects",
       "languages": "Languages",
       "tags": "Tags",

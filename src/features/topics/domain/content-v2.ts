@@ -9,7 +9,7 @@ export { localizedText, type LocalizedText } from "../../../shared/domain/locali
 // existing target hashes schedule one corrective sync.
 export const contentV2QuizPublishContractVersion = 11;
 // Increment when topic documents or shared topic-asset publication changes.
-export const contentV2TopicPublishContractVersion = 1;
+export const contentV2TopicPublishContractVersion = 2;
 
 export {
   marketplaceTopicState,
@@ -62,6 +62,7 @@ export const marketplaceTopicMetadataSchema = z.object({
   fullDescription: z.string().default(""),
   featured: z.boolean().default(false),
   preview: z.boolean().default(false),
+  experimental: z.boolean().default(false),
   subjects: z.array(z.string()).default([]),
   languages: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
