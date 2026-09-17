@@ -32,7 +32,7 @@ export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
   repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
   url: "http://localhost:5173",
   healthPath: "/manifest.json",
-  command: () => ["run", "dev:getgo:dev", "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
+  command: target => ["run", target === "development" ? "dev:getgo:dev" : `dev:getgo:${target}`, "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
   warmCommand: ["run", "warm:dev", "--", "--url", "http://localhost:5173"],
 };
 
@@ -333,11 +333,12 @@ export class LocalWebRuntimeManager {
     const operationStartedAt = new Date().toISOString();
     this.startedAt = operationStartedAt;
     this.error = null;
-    const projectId = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_ID?.trim();
-    const projectNumber = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_NUMBER?.trim();
-    const apiKey = process.env.GETGO_FIREBASE_DEVELOPMENT_API_KEY?.trim();
+    const firebasePrefix = `GETGO_FIREBASE_${target.toUpperCase()}`;
+    const projectId = process.env[`${firebasePrefix}_PROJECT_ID`]?.trim();
+    const projectNumber = process.env[`${firebasePrefix}_PROJECT_NUMBER`]?.trim();
+    const apiKey = process.env[`${firebasePrefix}_API_KEY`]?.trim();
     if ((this.config.requiresFirebaseConfig ?? this.config.product === "web") && (!projectId || !projectNumber || !apiKey))
-      throw new Error("Development Firebase configuration is incomplete in GetGo Tools .env.");
+      throw new Error(`${target} Firebase configuration is incomplete in GetGo Tools .env.`);
     this.warmingUp = true;
     const command = this.config.command(target);
     const job: BackgroundJob = {

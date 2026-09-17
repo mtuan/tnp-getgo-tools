@@ -159,9 +159,9 @@ export function DeploymentPage({
     setError(null);
     try {
       setLocalWeb(action === "start"
-        ? await window.getgo.startLocalWebRuntime()
+        ? await window.getgo.startLocalWebRuntime("web", environment)
         : action === "restart"
-          ? await window.getgo.restartLocalWebRuntime()
+          ? await window.getgo.restartLocalWebRuntime("web", environment)
           : await window.getgo.stopLocalWebRuntime());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -252,7 +252,7 @@ export function DeploymentPage({
     </div>
     {product === "web" ? <>
       <div className="deployment-grid deployment-grid-web">
-        <LocalRuntimeCard locale={locale} runtime={localWeb} action={localWebAction} title={copy.localhostTitle} environment={copy.development} onControl={action => void controlLocalWeb(action)} onViewLogs={() => setLogSelection("localhost")} />
+        <LocalRuntimeCard locale={locale} runtime={localWeb} action={localWebAction} title={copy.localhostTitle} environment={localWeb?.managed || localWeb?.status === "online" ? localWeb.target ?? "development" : environment} onControl={action => void controlLocalWeb(action)} onViewLogs={() => setLogSelection("localhost")} />
         <LocalRuntimeCard locale={locale} runtime={localDesign} action={localDesignAction} title={copy.designServerTitle} environment={copy.designServerEnvironment} onControl={action => void controlLocalDesign(action)} onViewLogs={() => setLogSelection("design")} />
         <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>

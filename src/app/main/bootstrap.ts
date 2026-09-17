@@ -113,10 +113,19 @@ function createWindow(): void {
     webPreferences.sandbox = true;
   });
   const devUrl = process.env.VITE_DEV_SERVER_URL;
+  mainWindow.webContents.on("console-message", event => {
+    const { level, message, lineNumber, sourceId } = event;
+    if (level === "error" || message.startsWith("[GetGo Tools][Renderer startup]"))
+      startupLog("Renderer console", { level, message, line: lineNumber, sourceId });
+  });
   mainWindow.webContents.once("did-finish-load", () => {
     startupLog("Renderer finished loading");
   });
-  if (devUrl) void mainWindow.loadURL(devUrl);
+  // A rebuilt Vite dependency may retain a URL previously cached by Electron.
+  // Clear HTTP cache for development only; preserve cookies/auth/storage.
+  if (devUrl) void mainWindow.webContents.session.clearCache()
+    .then(() => mainWindow?.loadURL(devUrl))
+    .catch(cause => startupLog("Development renderer load failed", { message: String(cause) }));
   else
     void mainWindow.loadFile(
       path.join(currentDirectory, "../../renderer/index.html"),
