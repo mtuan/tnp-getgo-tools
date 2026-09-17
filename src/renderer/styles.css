@@ -8174,6 +8174,11 @@ button.danger svg {
   color: #334155;
   font-size: 12px;
 }
+.question-preview-explanation-text {
+  min-width: 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
 .question-preview-choices {
   display: grid;
   gap: 9px;
@@ -9654,4 +9659,56 @@ button.danger svg {
 }
 .avatar-set-grid figcaption {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px;
+}
+/* Quiz Markdown emitted by QB.md. Keep list geometry independent of CSS resets. */
+.getgo-markdown {
+  display: block;
+}
+
+.getgo-markdown > :first-child {
+  margin-block-start: 0 !important;
+}
+
+.getgo-markdown > :last-child {
+  margin-block-end: 0 !important;
+}
+
+.getgo-markdown p {
+  margin: 0;
+  white-space: normal;
+}
+
+.getgo-markdown p + p {
+  margin-top: 0.75em;
+}
+
+.getgo-markdown ol,
+.getgo-markdown ul {
+  display: block !important;
+  margin: 0.25em 0 !important;
+  padding-inline-start: 1.5em !important;
+}
+
+.getgo-markdown ol { list-style-type: decimal; }
+.getgo-markdown ul { list-style-type: disc; }
+
+.getgo-markdown li {
+  display: list-item !important;
+  margin: 0 !important;
+  padding-inline-start: 0.15em;
+  white-space: normal;
+}
+
+.getgo-markdown li + li {
+  margin-top: 0.25em !important;
+}
+
+.getgo-markdown li > p {
+  display: inline;
+  margin: 0 !important;
+}
+
+.getgo-markdown li > ol,
+.getgo-markdown li > ul {
+  margin-block: 0.2em 0 !important;
 }

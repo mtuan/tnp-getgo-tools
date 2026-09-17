@@ -209,11 +209,18 @@ export function QuestionPreview({
         {hasExplanation && (
           <section className="question-preview-explanation">
             <strong>Explanation</strong>
-            {englishExplanation.trim() && <p><MathText value={englishExplanation} /></p>}
+            {englishExplanation.trim() && (
+              <div className="question-preview-explanation-text">
+                <MathText value={englishExplanation} />
+              </div>
+            )}
             {vietnameseExplanation.trim() && (
-              <p className="question-preview-translation">
+              <div className={englishExplanation.trim()
+                ? "question-preview-explanation-text question-preview-translation"
+                : "question-preview-explanation-text"}
+              >
                 <MathText value={vietnameseExplanation} />
-              </p>
+              </div>
             )}
           </section>
         )}
