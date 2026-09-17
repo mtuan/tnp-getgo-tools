@@ -2,7 +2,6 @@ import type { CSSProperties, ReactNode } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import ReactMarkdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
 import { parseMathText } from "@tnp/getgo-logics/quiz-builder";
 
 function MarkdownChildren({ children }: { children: ReactNode }) {
@@ -15,7 +14,7 @@ function MarkdownChildren({ children }: { children: ReactNode }) {
 
 function MarkdownContent({ value }: { value: string }) {
   return <div className="getgo-markdown">
-    <ReactMarkdown remarkPlugins={[remarkBreaks]} components={{
+    <ReactMarkdown components={{
       p: ({ children, ...props }) => <p {...props}><MarkdownChildren>{children}</MarkdownChildren></p>,
       li: ({ children, ...props }) => <li {...props}><MarkdownChildren>{children}</MarkdownChildren></li>,
     }}>{value}</ReactMarkdown>
@@ -24,7 +23,9 @@ function MarkdownContent({ value }: { value: string }) {
 
 export function MathText({ value }: { value: unknown }) {
   return <>{parseMathText(value).map((segment, index) => {
-    if (segment.type === "text") return segment.value;
+    if (segment.type === "text") {
+      return <span className="getgo-text-preserve-lines" key={`text-${index}`}>{segment.value}</span>;
+    }
     if (segment.type === "markdown") {
       return <MarkdownContent key={`markdown-${index}`} value={segment.value.markdown} />;
     }

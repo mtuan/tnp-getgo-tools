@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { marketplaceSyncCandidateTopicIds, marketplaceSyncPlan, marketplaceSyncPlanStatus } from "../src/features/topics/domain/marketplace-sync-plan";
+import { marketplaceSyncCandidateTopicIds, marketplaceSyncPlan, marketplaceSyncPlanStatus, marketplaceTopicSyncWork } from "../src/features/topics/domain/marketplace-sync-plan";
 
 test("marketplace sync plan describes only changed remote documents", () => {
   const topic = (id: string, values: Record<string, unknown>) => ({
@@ -69,4 +69,69 @@ test("table sync status is derived from the same plan shown by the sync drawer",
   assert.equal(marketplaceSyncPlanStatus(plan, "quiz", "helix/changed"), "needs-sync");
   assert.equal(marketplaceSyncPlanStatus(plan, "quiz", "helix/current"), "current");
   assert.ok(plan.some((item) => item.kind === "quiz" && item.quiz.key === "helix/changed" && item.ready));
+});
+
+test("marketplace-only topic changes skip content publication and asset upload", () => {
+  const topic = {
+    id: "kids",
+    title: "Kids",
+    localHash: "content-current",
+    publishedHash: "content-current",
+    marketplaceLocalHash: "market-new",
+    marketplacePublishedHash: "market-old",
+    marketplace: { state: "listed", experimental: true },
+  };
+  const plan = marketplaceSyncPlan([topic] as never, []);
+
+  assert.deepEqual(marketplaceTopicSyncWork(topic as never, plan), {
+    uploadTopicAssets: false,
+    publishTopicDocument: false,
+  });
+});
+
+test("topic content changes still publish content and upload topic assets", () => {
+  const topic = {
+    id: "kids",
+    title: "Kids",
+    localHash: "content-new",
+    publishedHash: "content-old",
+    marketplaceLocalHash: "market-current",
+    marketplacePublishedHash: "market-current",
+    marketplace: { state: "listed" },
+  };
+  const plan = marketplaceSyncPlan([topic] as never, []);
+
+  assert.deepEqual(marketplaceTopicSyncWork(topic as never, plan), {
+    uploadTopicAssets: true,
+    publishTopicDocument: true,
+  });
+});
+
+test("quiz membership changes republish the topic document without uploading topic assets", () => {
+  const topic = {
+    id: "kids",
+    title: "Kids",
+    localHash: "content-current",
+    publishedHash: "content-current",
+    marketplaceLocalHash: "market-current",
+    marketplacePublishedHash: "market-current",
+    marketplace: { state: "listed" },
+  };
+  const quizzes = [{
+    key: "kids/new",
+    id: "new",
+    topicId: "kids",
+    title: "New",
+    localHash: "quiz-new",
+    publishedHash: null,
+    questionCount: 1,
+    reviewedQuestionCount: 1,
+    marketplace: { state: "listed" },
+  }];
+  const plan = marketplaceSyncPlan([topic] as never, quizzes as never);
+
+  assert.deepEqual(marketplaceTopicSyncWork(topic as never, plan), {
+    uploadTopicAssets: false,
+    publishTopicDocument: true,
+  });
 });

@@ -9665,6 +9665,10 @@ button.danger svg {
   display: block;
 }
 
+.getgo-text-preserve-lines {
+  white-space: pre-wrap;
+}
+
 .getgo-markdown > :first-child {
   margin-block-start: 0 !important;
 }
@@ -9675,11 +9679,11 @@ button.danger svg {
 
 .getgo-markdown p {
   margin: 0;
-  white-space: normal;
+  white-space: pre-wrap;
 }
 
 .getgo-markdown p + p {
-  margin-top: 0.75em;
+  margin-top: 1lh;
 }
 
 .getgo-markdown ol,
@@ -9696,7 +9700,7 @@ button.danger svg {
   display: list-item !important;
   margin: 0 !important;
   padding-inline-start: 0.15em;
-  white-space: normal;
+  white-space: pre-wrap;
 }
 
 .getgo-markdown li + li {

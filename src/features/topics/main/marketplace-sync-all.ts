@@ -1,7 +1,7 @@
 import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic } from "../../../features/topics/domain/content-v2.js";
 import type { MarketplaceSyncJobItem } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
-import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan.js";
+import { marketplaceSyncPlan, marketplaceTopicSyncWork } from "../domain/marketplace-sync-plan.js";
 import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2TopicFolder, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
@@ -117,18 +117,32 @@ export async function syncAllMarketplaceTopics(
       await control.advance(`Synchronized quiz · ${summary.title}`);
     }
     const reviewedQuizIds = reviewedTopicQuizzes(next.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
-    const topicAssets = await loadContentV2TopicAssets(root, topic);
-    await control.report(`Topic assets discovered · ${topicSummary.title} · ${topicAssets.length} files`);
-    await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
-    await control.report(`Publishing topic document · ${topicSummary.title}`);
-    const topicResult = await publishing.publishContentV2Topic(topic, topicSummary.localHash, reviewedQuizIds);
-    await recordContentV2Published(topicSummary.filePath, topicResult.contentHash, topicResult.publishedAt);
+    const syncWork = marketplaceTopicSyncWork(topicSummary, topicPlan);
+    if (syncWork.uploadTopicAssets) {
+      const topicAssets = await loadContentV2TopicAssets(root, topic);
+      await control.report(`Topic assets discovered · ${topicSummary.title} · ${topicAssets.length} files`);
+      await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
+    } else {
+      await control.report(`Topic assets unchanged · ${topicSummary.title} · upload skipped`);
+    }
+    const topicResult = syncWork.publishTopicDocument
+      ? await (async () => {
+          await control.report(`Publishing topic document · ${topicSummary.title}`);
+          const result = await publishing.publishContentV2Topic(topic, topicSummary.localHash, reviewedQuizIds);
+          await recordContentV2Published(topicSummary.filePath, result.contentHash, result.publishedAt);
+          return result;
+        })()
+      : undefined;
+    if (!topicResult)
+      await control.report(`Topic content unchanged · ${topicSummary.title} · document publish skipped`);
     const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
     const marketResult = await syncMarketplaceTopic(publishing, topic, marketplaceHash, state);
     const saved = await saveContentV2Topic(root, {
       ...topic,
-      publishedHash: topicResult.contentHash,
-      publishedAt: topicResult.publishedAt,
+      ...(topicResult ? {
+        publishedHash: topicResult.contentHash,
+        publishedAt: topicResult.publishedAt,
+      } : {}),
       marketplace: syncedMarketplaceMetadata(topic.marketplace, state, marketResult),
     });
     const previousTopicState = await readContentV2TopicPublishState(topicSummary.filePath);
@@ -140,14 +154,14 @@ export async function syncAllMarketplaceTopics(
           publishContractVersion: topic.type === "kid-learning" ? contentV2TopicPublishContractVersion : undefined,
           environment: target.environment,
           projectId: target.projectId,
-          contentHash: topicResult.contentHash,
+          contentHash: topicResult?.contentHash ?? topicSummary.publishedHash,
           marketplaceContentHash: marketResult.contentHash,
           publishedAt: marketResult.publishedAt,
         },
       },
     });
     next = { ...next,
-      topics: next.topics.map((item) => item.id === topicId ? { ...item, publishedHash: topicResult.contentHash, publishedAt: topicResult.publishedAt, marketplace: saved.marketplace, marketplaceLocalHash: marketplaceHash, marketplacePublishedHash: marketResult.contentHash, marketplacePublishedAt: marketResult.publishedAt } : item),
+      topics: next.topics.map((item) => item.id === topicId ? { ...item, publishedHash: topicResult?.contentHash ?? item.publishedHash, publishedAt: topicResult?.publishedAt ?? item.publishedAt, marketplace: saved.marketplace, marketplaceLocalHash: marketplaceHash, marketplacePublishedHash: marketResult.contentHash, marketplacePublishedAt: marketResult.publishedAt } : item),
       quizzes: next.quizzes.map((item) => { if (removedQuizKeys.has(item.key)) return { ...item, publishedHash: null, publishedAt: null }; const result = quizResults.get(item.key); return result ? { ...item, publishedHash: result.contentHash, publishedAt: result.publishedAt } : item; }),
     };
     if (topicPlan.some((item) => item.kind === "topic"))
