@@ -153,6 +153,14 @@ test("marketplace topic publishing preserves the guest preview flag", () => {
   assert.equal(published.preview, true);
 });
 
+test("marketplace topic publishing preserves the experimental flag", () => {
+  const published = sanitizeMarketplaceTopic({
+    ...alphabetTopic,
+    marketplace: { listed: true, experimental: true },
+  });
+  assert.equal(published.experimental, true);
+});
+
 const alphabetTopic = {
   schemaVersion: 2 as const,
   id: "kid-learning",

@@ -45,6 +45,47 @@ function answerExpression(value: unknown): string {
     : null;
   if (choices && Object.keys(choices).length)
     return `QB.answer.choice(${sourceLiteral(answer.correct)}, ${sourceLiteral(choices)})`;
+  if (answer.type === "multiple_answer" && Array.isArray(answer.correct)) {
+    const inputType = answer.inputType === "text" ? "text" : "number";
+    const correct = answer.correct.map((value) => {
+      if (inputType !== "number" || typeof value !== "string" || value.trim() === "")
+        return value;
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : value;
+    });
+    const inferredInputType = correct.every((value) => typeof value === "number")
+      ? "number"
+      : "text";
+    const options = {
+      ...(inputType !== inferredInputType ? { inputType } : {}),
+      ...(answer.orderRequired === true ? { orderRequired: true } : {}),
+    };
+    const optionsArgument = Object.keys(options).length
+      ? `, ${sourceLiteral(options)}`
+      : "";
+    return `QB.answer.multiple(${sourceLiteral(correct)}${optionsArgument})`;
+  }
+  if (
+    answer.type === "multiple_input"
+    && Array.isArray(answer.correct)
+    && Array.isArray(answer.inputs)
+    && answer.inputs.length >= 2
+  ) {
+    const correct = answer.correct;
+    const parts = answer.inputs.map((input, index) => {
+      const part = input && typeof input === "object"
+        ? input as Record<string, unknown>
+        : {};
+      return {
+        question_en: String(part.question_en ?? ""),
+        ...(part.question_vn ? { question_vn: part.question_vn } : {}),
+        correct: correct[index] ?? "",
+        ...(part.inputType ? { inputType: part.inputType } : {}),
+        ...(part.unit ? { unit: part.unit } : {}),
+      };
+    });
+    return `QB.answer.nested(${sourceLiteral(parts)})`;
+  }
   const inputType = ["text", "number", "date"].includes(String(answer.inputType))
     ? String(answer.inputType)
     : undefined;

@@ -8,7 +8,7 @@ import { questionContainsImages } from "../../../../features/quiz-editor/domain/
 import { questionIsVerified, questionStatus, withQuestionStatus } from "../../../../features/quiz-editor/domain/question-status";
 import type { DataColumn } from "../../../../shared/ui/DataTable";
 import { TableActionButton } from "../../../../shared/ui/TableActionButton";
-import { questionPrompt, type QuestionListItem } from "./shared";
+import { preferredQuestionPrompt, type QuestionListItem } from "./shared";
 import { renderActiveQuestion } from "./ActiveQuestionPage";
 import { renderQuizOverview } from "./QuizOverviewPage";
 
@@ -88,7 +88,7 @@ export function renderQuizPage(context: QuizPageContext) {
         ? `References question ${record.reference.questionNo}`
         : record.type === "pronunciation-sound"
           ? record.title ?? `Pronunciation ${record.letter?.text ?? record.question_no}`
-        : questionPrompt(record.text_en ?? record.text_vn),
+        : preferredQuestionPrompt(record.text_en, record.text_vn),
       dynamic: record.authoringMode === "reference"
         || questionHasDynamicParams(record.advancedDynamic),
       hasImages: questionContainsImages(record),
@@ -195,12 +195,6 @@ export function renderQuizPage(context: QuizPageContext) {
         title: "Question",
         width: 100,
         render: (item) => <strong>#{item.number}</strong>,
-      },
-      {
-        key: "category",
-        title: "Category",
-        width: "24%",
-        render: (item) => item.category,
       },
       {
         key: "prompt",

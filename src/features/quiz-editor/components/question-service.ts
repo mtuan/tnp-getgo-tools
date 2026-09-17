@@ -75,6 +75,18 @@ class QuestionService {
     );
   }
 
+  async compileDynamicDraft(
+    record: ContestQuizQuestionRecord,
+  ): Promise<string | undefined> {
+    try {
+      return (await this.buildDynamic(record)).compiledJs;
+    } catch {
+      // Incomplete TypeScript is a valid authoring draft. Omitting compiledJs
+      // also prevents publishing from using an older successful compilation.
+      return undefined;
+    }
+  }
+
   createDynamicDraft(
     record: ContestQuizQuestionRecord,
   ): ContestQuizQuestionRecord {
@@ -98,9 +110,8 @@ class QuestionService {
           }
         : {}),
     };
-    const fields = QuizTsService.extractTemplateSourceFields(
-      dynamicBuilder.createStarterSource(sourceQuestion),
-    );
+    const starterSource = dynamicBuilder.createStarterSource(sourceQuestion);
+    const fields = QuizTsService.extractTemplateSourceFields(starterSource);
     return {
       ...record,
       authoringMode: "advanced-dynamic",

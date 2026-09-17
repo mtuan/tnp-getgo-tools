@@ -196,6 +196,15 @@ test("publishing rejects answer types without a shared cross-mode contract", () 
   );
 });
 
+test("publishes multiple-answer values through the shared contract", () => {
+  const question = sanitizePublishedQuestion({
+    question_no: 1,
+    text_en: "Enter all prime factors",
+    answer: { type: "multiple_answer", correct: ["2", "3", "5"], inputType: "number", orderRequired: true },
+  });
+  assert.deepEqual(question.answer, { type: "multiple_answer", correct: ["2", "3", "5"], inputType: "number", orderRequired: true });
+});
+
 test("AI and review changes do not affect hashes, but dynamic code changes do", () => {
   const base = {
     question_no: 1,

@@ -9,7 +9,7 @@ import { spawnCommand } from "../../../shared/main/spawn-command.js";
 import { stopWindowsProcessTree } from "./stop-windows-process-tree.js";
 
 export interface LocalWebRuntimeConfig {
-  id: "web" | "app";
+  id: "web" | "app" | "design";
   product: DeploymentProduct;
   displayName: string;
   repositoryName: string;
@@ -20,6 +20,7 @@ export interface LocalWebRuntimeConfig {
   command(target: WebDeploymentTarget): string[];
   executable?: string;
   warmCommand?: string[];
+  requiresFirebaseConfig?: boolean;
 }
 
 export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
@@ -44,6 +45,19 @@ export const getGoAppRuntimeConfig: LocalWebRuntimeConfig = {
   repositoryEnvironmentVariable: "GETGO_APP_ROOT",
   url: "http://localhost:8081",
   command: () => ["run", "web", "--", "--port", "8081"],
+};
+
+export const getGoDesignRuntimeConfig: LocalWebRuntimeConfig = {
+  id: "design",
+  product: "web",
+  displayName: "GetGo Design Server",
+  repositoryName: "@tnp/getgo-tools",
+  repositoryDirectory: "tnp-getgo-tools",
+  repositoryEnvironmentVariable: "GETGO_TOOLS_ROOT",
+  url: "http://127.0.0.1:8766",
+  command: () => ["-m", "http.server", "8766", "--bind", "127.0.0.1", "--directory", "design/kids-friendly"],
+  executable: process.platform === "win32" ? "python" : "python3",
+  requiresFirebaseConfig: false,
 };
 
 const execFileAsync = promisify(execFile);
@@ -322,7 +336,7 @@ export class LocalWebRuntimeManager {
     const projectId = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_ID?.trim();
     const projectNumber = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_NUMBER?.trim();
     const apiKey = process.env.GETGO_FIREBASE_DEVELOPMENT_API_KEY?.trim();
-    if (this.config.product === "web" && (!projectId || !projectNumber || !apiKey))
+    if ((this.config.requiresFirebaseConfig ?? this.config.product === "web") && (!projectId || !projectNumber || !apiKey))
       throw new Error("Development Firebase configuration is incomplete in GetGo Tools .env.");
     this.warmingUp = true;
     const command = this.config.command(target);
@@ -360,7 +374,7 @@ export class LocalWebRuntimeManager {
         detached: process.platform !== "win32",
         env: {
           ...process.env,
-          ...(this.config.product === "web" ? {
+          ...((this.config.requiresFirebaseConfig ?? this.config.product === "web") ? {
             VITE_FIREBASE_API_KEY: apiKey!,
             VITE_FIREBASE_PROJECT_ID: projectId!,
             VITE_FIREBASE_MESSAGING_SENDER_ID: projectNumber!,

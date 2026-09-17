@@ -11,6 +11,11 @@ export type MarketplaceSyncPlanItem =
 
 export type MarketplaceSyncPlanStatus = "current" | "needs-sync" | "needs-review";
 
+export interface MarketplaceTopicSyncWork {
+  uploadTopicAssets: boolean;
+  publishTopicDocument: boolean;
+}
+
 export function marketplaceSyncPlanStatus(
   plan: MarketplaceSyncPlanItem[],
   kind: MarketplaceSyncPlanItem["kind"],
@@ -25,6 +30,26 @@ export function marketplaceSyncPlanStatus(
 
 function changed(local: string | undefined, published: string | null | undefined) {
   return local !== published;
+}
+
+/**
+ * Resolve the content work required while synchronizing one marketplace topic.
+ * Marketplace-only metadata changes must not republish the topic payload or
+ * re-upload its assets. Creating/removing a quiz changes the topic's quizIds,
+ * while an ordinary quiz update does not.
+ */
+export function marketplaceTopicSyncWork(
+  topic: ContentV2TopicSummary,
+  plan: MarketplaceSyncPlanItem[],
+): MarketplaceTopicSyncWork {
+  const topicContentChanged = changed(topic.localHash, topic.publishedHash);
+  const quizMembershipChanged = plan.some(
+    (item) => item.kind === "quiz" && item.action !== "update",
+  );
+  return {
+    uploadTopicAssets: topicContentChanged,
+    publishTopicDocument: topicContentChanged || quizMembershipChanged,
+  };
 }
 
 function quizReady(topicState: string, quiz: ContentV2QuizSummary) {

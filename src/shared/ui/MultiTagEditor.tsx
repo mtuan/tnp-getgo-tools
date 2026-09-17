@@ -32,7 +32,7 @@ export function MultiTagEditor({ value, ariaLabel, placeholder = "Add an item…
 
   const add = (input = draft) => {
     const known = new Set(value.map(keyOf))
-    const additions = input.split(/[\n,]+/u).map(clean).filter(item => item && !known.has(keyOf(item)))
+    const additions = input.split(/[\n,;]+/u).map(clean).filter(item => item && !known.has(keyOf(item)))
     additions.forEach(item => known.add(keyOf(item)))
     if (additions.length) onValueChange([...value, ...additions])
     setDraft("")
@@ -47,7 +47,7 @@ export function MultiTagEditor({ value, ariaLabel, placeholder = "Add an item…
     setEditDraft("")
   }
   const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" || event.key === ",") { event.preventDefault(); add() }
+    if (event.key === "Enter" || event.key === "," || event.key === ";") { event.preventDefault(); add() }
     else if (event.key === "Backspace" && !draft && value.length) onValueChange(value.slice(0, -1))
   }
 
@@ -75,7 +75,7 @@ export function MultiTagEditor({ value, ariaLabel, placeholder = "Add an item…
       <span className="ui-multi-tag ui-multi-tag-add">
         <input className="ui-multi-tag-input" value={draft} disabled={disabled} autoFocus={autoFocus} aria-label={ariaLabel} placeholder={placeholder} onChange={event => setDraft(event.target.value)} onKeyDown={onInputKeyDown} onBlur={() => add()} onPaste={event => {
           const text = event.clipboardData.getData("text")
-          if (!/[\n,]/u.test(text)) return
+          if (!/[\n,;]/u.test(text)) return
           event.preventDefault()
           add(`${draft}${text}`)
         }} />

@@ -45,9 +45,7 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
 }
 
 export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, embedded = false, onDirtyChange }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; onDirtyChange?(dirty: boolean): void }) {
-  const gradeMappings = useMemo(() => contest.settings.grades.map(item => ({ name: String(item.gradeName ?? ""), grades: Array.isArray(item.grades) ? item.grades.filter(value => typeof value === "number") as number[] : [] })).filter(item => item.name), [contest])
-  const initialGrade = quiz?.grade ?? gradeMappings[0]?.name ?? ""
-  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", grade: initialGrade, round: quiz?.round ?? String(contest.settings.rounds[0]?.roundCode ?? ""), year: quiz?.year ?? "", status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] }), [contest.settings.rounds, initialGrade, quiz])
+  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] }), [quiz])
   const [input, setInput] = useState<QuizCrudInput>(() => initialInput)
   const [savedInput, setSavedInput] = useState<QuizCrudInput>(() => initialInput)
   const [busy, setBusy] = useState(false)
@@ -70,34 +68,28 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
     return () => { active = false }
   }, [contest.id, contest.settingsPath, input.icon])
   const fields = useMemo<FormSchema[]>(() => [
-    { type: "text", name: "id", label: "Quiz ID", required: true, readOnly: Boolean(quiz), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
+    { type: "text", name: "id", label: "Quiz ID", required: true, readOnly: Boolean(quiz), transformInput: value => value.toLowerCase().replace(/[^a-z0-9_-]/g, ""), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
     { type: "text", name: "title", label: "Title", required: true },
     { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a 4–6 character text monogram." },
     { type: "select", name: "type", label: "Quiz type", required: true, presentation: "segmented", options: [{ value: "contest", label: "Contest" }, { value: "alphabet", label: "Alphabet" }, { value: "pronunciation", label: "Vietnamese pronunciation" }] },
     ...(input.type === "alphabet" ? [{ type: "select", name: "language", label: "Language", required: true, presentation: "segmented", options: [{ value: "en", label: "English" }, { value: "vi", label: "Vietnamese" }] } as FormSchema] : []),
-    ...(input.type === "contest" ? [
-      { type: "select", name: "grade", label: "Grade", required: true, options: gradeMappings.map(item => ({ value: item.name, label: `${item.name} · ${item.grades.map(grade => grade === 0 ? "K" : grade).join(", ")}` })) } as FormSchema,
-      [{ type: "number", name: "year", label: "Year", min: 1900, max: 2100, step: 1, rules: { validate: value => !Number.isInteger(Number(value)) ? "Year must be a whole number." : Number(value) < 1900 || Number(value) > 2100 ? "Year must be between 1900 and 2100." : null } }, { type: "select", name: "round", label: "Round", options: contest.settings.rounds.map(item => ({ value: String(item.roundCode ?? ""), label: String(item.roundName ?? item.roundCode ?? "") })).filter(item => item.value) }] as FormSchema,
-    ] : []),
-  ], [contest, gradeMappings, iconPreview, input.type, quiz])
-  const values: FormValues = { ...input, year: input.year ? Number(input.year) : undefined, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0]) }
+  ], [iconPreview, input.type, quiz])
+  const values: FormValues = { ...input, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0]) }
   const change = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     setInput(current => {
       if (name === "type") {
         const type = value as QuizCrudInput["type"]
         return type === "contest"
-          ? { ...current, type, grade: current.grade || initialGrade, round: current.round || String(contest.settings.rounds[0]?.roundCode ?? ""), year: current.year || "" }
+          ? { ...current, type }
           : { ...current, type, language: type === "pronunciation" ? "vi" : current.language ?? "en", grade: null, round: null, year: null }
       }
       if (name === "language") return { ...current, language: value === "vi" ? "vi" : "en" }
-      if (name === "grade") return { ...current, grade: String(value) }
-      if (name === "year") return { ...current, year: value === undefined ? null : String(value) }
       if (name === "quizBuilderApiVersion") return { ...current, quizBuilderApiVersion: Number(value) }
       return { ...current, [name]: value } as QuizCrudInput
     })
   }
-  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized = { ...input, id: input.id.trim().toLowerCase(), title: input.title.trim(), icon: typeof input.icon === "string" ? input.icon.trim() || undefined : input.icon, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : input.type === "pronunciation" ? "vi" : undefined, grade: input.type === "contest" ? input.grade?.trim() || null : null, round: input.type === "contest" ? input.round?.trim() || null : null, year: input.type === "contest" ? input.year?.trim() || null : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
+  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized = { ...input, id: input.id.trim(), title: input.title.trim(), icon: typeof input.icon === "string" ? input.icon.trim() || undefined : input.icon, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : input.type === "pronunciation" ? "vi" : undefined, grade: input.type === "contest" ? input.grade : null, round: input.type === "contest" ? input.round : null, year: input.type === "contest" ? input.year : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
   const editor = <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "quiz-info-form" : undefined} hideFooter={embedded} onReset={() => { setInput(structuredClone(savedInput)); setFieldErrors({}); setError(null) }} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}

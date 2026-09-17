@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 import { displayQuestionValue } from "../../features/quiz-editor/domain/question-value-display";
 import { QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder";
+import { MathText } from "./MathText";
 
 export type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 
@@ -101,7 +102,7 @@ function PreviewValue({
     (value.startsWith("asset:") || value.startsWith("data:image/"))
   )
     return <PreviewAsset manifestPath={manifestPath} value={value} alt={alt} />;
-  return <>{questionText(value)}</>;
+  return <MathText value={questionText(value)} />;
 }
 
 function CorrectAnswerPreview({ value, unit }: { value: unknown; unit?: unknown }) {
@@ -135,6 +136,7 @@ export function QuestionPreview({
   const correct = Array.isArray(question.answer?.correct)
     ? question.answer.correct.map(String)
     : [String(question.answer?.correct ?? "")];
+  const isMultipleAnswer = question.answer?.type === "multiple_answer";
   const englishText = questionText(question.text_en);
   const vietnameseText = questionText(question.text_vn);
   const englishExplanation = questionText(question.explanation?.en);
@@ -145,9 +147,9 @@ export function QuestionPreview({
   return (
     <div className="question-preview">
       <div className="question-preview-content">
-        {englishText.trim() && <p>{englishText}</p>}
+        {englishText.trim() && <p><MathText value={englishText} /></p>}
         {vietnameseText.trim() && (
-          <p className="question-preview-translation">{vietnameseText}</p>
+          <p className="question-preview-translation"><MathText value={vietnameseText} /></p>
         )}
         {question.image_datas?.map((image, index) => (
           <div
@@ -175,6 +177,8 @@ export function QuestionPreview({
               </section>
             ))}
           </div>
+        ) : isMultipleAnswer ? (
+          <CorrectAnswerPreview value={correct.join("; ")} />
         ) : choices.length ? (
           <div className="question-preview-choices">
             {choices.map(([label, value]) => (
@@ -205,11 +209,18 @@ export function QuestionPreview({
         {hasExplanation && (
           <section className="question-preview-explanation">
             <strong>Explanation</strong>
-            {englishExplanation.trim() && <p>{englishExplanation}</p>}
+            {englishExplanation.trim() && (
+              <div className="question-preview-explanation-text">
+                <MathText value={englishExplanation} />
+              </div>
+            )}
             {vietnameseExplanation.trim() && (
-              <p className="question-preview-translation">
-                {vietnameseExplanation}
-              </p>
+              <div className={englishExplanation.trim()
+                ? "question-preview-explanation-text question-preview-translation"
+                : "question-preview-explanation-text"}
+              >
+                <MathText value={vietnameseExplanation} />
+              </div>
             )}
           </section>
         )}

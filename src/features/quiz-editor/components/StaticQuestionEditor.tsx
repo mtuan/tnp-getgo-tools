@@ -142,6 +142,16 @@ export function StaticQuestionEditor({
                         { question_en: "", inputType: "number" },
                       ],
                 }
+            : value === "multiple_answer"
+              ? {
+                  ...answer,
+                  type: "multiple_answer",
+                  correct: Array.isArray(answer.correct) ? answer.correct : firstCorrect ? [firstCorrect] : [],
+                  choices: undefined,
+                  inputs: undefined,
+                  inputType: "number",
+                  orderRequired: false,
+                }
             : {
                 ...answer,
                 type: "input",
@@ -243,7 +253,9 @@ export function StaticQuestionEditor({
             answerType === "input"
               ? "Configure the accepted value and input control."
               : answerType === "multiple_input"
-                ? "Configure each question part and its corresponding input answer."
+                ? "Configure each nested question and its corresponding input answer."
+              : answerType === "multiple_answer"
+                ? "Enter every required answer, separated by semicolons."
               : "Configure options and mark one or more correct choices."
           }
         >

@@ -585,7 +585,7 @@ export interface AiMigrationJobsSnapshot {
   jobs: AiMigrationJob[];
 }
 
-export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct;
+export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "design";
 export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
 export type DeploymentOperation = "run" | "build" | "deploy";

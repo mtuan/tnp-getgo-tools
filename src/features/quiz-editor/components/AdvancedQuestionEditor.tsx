@@ -380,17 +380,14 @@ export function AdvancedQuestionEditor({
     const sharedContext = quizSharedEditorContext(quizSharedCode);
     const paramsGeneratorTs = editorDynamic?.paramsGeneratorTs.trim();
     const parameterContext = paramsGeneratorTs
-      ? `${sharedContext ? "" : "export {};\n"}const __getgoParamsGeneratorForEditor = (${paramsGeneratorTs});\ndeclare global {\n  type __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;\n}\n`
+      ? `(() => {\nconst __getgoParamsGeneratorForEditor = (${paramsGeneratorTs});\ntype __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;\nreturn (`
       : "";
-    const editorContext = `${sharedContext}${parameterContext}`;
-    const extraLib = editorContext
+    const parameterContextSuffix = parameterContext ? `\n);\n})()` : "";
+    const extraLib = sharedContext
       ? {
-          content: editorContext,
-          // A fresh URI forces Monaco to recompute ReturnType inference. The
-          // replacement group removes the previous question's global alias so
-          // its __GetGoParams declaration cannot leak across navigation.
-          filePath: `file://${path.replaceAll("\\", "/")}.editor-context.ts`,
-          replaceGroup: "active-question-context",
+          content: sharedContext,
+          filePath: `file://${path.replaceAll("\\", "/")}.shared-context.ts`,
+          replaceGroup: "active-quiz-shared-context",
         }
       : undefined;
     return {
@@ -401,6 +398,12 @@ export function AdvancedQuestionEditor({
       editableLineRange,
       editableCode,
       extraLib,
+      modelContext: id === "question" || id === "explanation"
+        ? parameterContext
+        : "",
+      modelContextSuffix: id === "question" || id === "explanation"
+        ? parameterContextSuffix
+        : "",
       onBlur: id === "params"
         ? () => synchronizeDependentSignatures("params-blur")
         : undefined,
@@ -482,6 +485,8 @@ export function AdvancedQuestionEditor({
                   }}
                   editableLineRange={field.editableLineRange}
                   extraLib={field.extraLib}
+                  modelContext={field.modelContext}
+                  modelContextSuffix={field.modelContextSuffix}
                   relativeLineNumbers
                   formatOnMount={formatDynamicCodeExpression}
                   onChange={(value) => updateField(

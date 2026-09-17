@@ -66,11 +66,23 @@ test("question service converts ordered multiple inputs into an editable dynamic
   } as QuizQuestionRecord)
 
   assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/)
-  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.inputs\(\[/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.nested\(\[/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_en: "Next term"/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_vn: "Số hạng thứ 31"/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /correct: 91/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /unit: "items"/)
+})
+
+test("question service converts multiple answers into an editable dynamic draft", () => {
+  const draft = questionService.createDynamicDraft({
+    question_no: 9,
+    text_en: "Enter every prime factor",
+    answer: { type: "multiple_answer", correct: ["2", "3", "5"] },
+  } as QuizQuestionRecord)
+
+  assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.multiple\(\[\s*2,\s*3,\s*5\s*\]\)/)
+  assert.doesNotMatch(draft.advancedDynamic?.questionGeneratorTs ?? "", /type:\s*["']multiple_answer/)
 })
 
 test("question service prefers the concise input map when metadata is inferred", () => {
@@ -88,7 +100,7 @@ test("question service prefers the concise input map when metadata is inferred",
   } as QuizQuestionRecord)
 
   const source = draft.advancedDynamic?.questionGeneratorTs ?? ""
-  assert.match(source, /QB\.answer\.inputs\(\{/)
+  assert.match(source, /QB\.answer\.nested\(\{/)
   assert.match(source, /"1, 4, 7, 10, 13, ____": 16/)
   assert.doesNotMatch(source, /question_en:/)
 })
@@ -97,6 +109,13 @@ test("dynamic callback formatting never exposes Prettier's ASI guard", async () 
   const formatted = await formatDynamicCodeExpression("({ answer }) => { return { answer } }")
   assert.equal(formatted.startsWith(";"), false)
   assert.match(formatted, /^\(\{ answer \}\) => \{\n/)
+})
+
+test("incomplete dynamic code can be persisted as an uncompiled draft", async () => {
+  const draft = questionService.createDynamicDraft(question(true))
+  draft.advancedDynamic!.questionGeneratorTs = "({ value }) => {"
+
+  assert.equal(await questionService.compileDynamicDraft(draft), undefined)
 })
 
 test("shared editor context terminates an IIFE before callback expressions", () => {
