@@ -216,7 +216,7 @@ isContest,
                   }
                   renderIdentity={(row, _depth, toggle) => row.kind === "topic"
                     ? <TopicQuizTreeIdentity toggle={toggle} topicId={row.contest.id} reference={row.contest.settings.book.icon} title={row.contest.title} description={row.contest.description || row.contest.id} kind="topic" count={row.summary.quizCount} />
-                    : <TopicQuizTreeIdentity toggle={toggle} topicId={row.quiz.contest} reference={row.quiz.icon} title={row.quiz.title} description={row.quiz.id} kind="quiz" />}
+                    : <TopicQuizTreeIdentity toggle={toggle} topicId={row.quiz.contest} reference={row.quiz.icon} title={row.quiz.title} description={row.quiz.id} kind="quiz" dynamic={row.quiz.dynamic} />}
                 />
               );
               })()}

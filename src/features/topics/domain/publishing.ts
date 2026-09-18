@@ -57,7 +57,7 @@ export type PublishedQuestion =
   PublishedContestQuestion | PublishedAlphabetQuestion | PublishedPronunciationQuestion;
 
 export function hashPublishedQuiz(
-  metadata: { title: string; icon?: string; grade: string | null; round: string | null; year: string | null },
+  metadata: { title: string; icon?: string; grade: string | null; round: string | null; year: string | null; supportedLanguages?: Array<"en" | "vi"> },
   questionHash: string,
 ): string {
   return createHash("sha256").update(JSON.stringify({
@@ -66,6 +66,7 @@ export function hashPublishedQuiz(
     grade: metadata.grade,
     round: metadata.round,
     year: metadata.year,
+    supportedLanguages: metadata.supportedLanguages ?? ["en", "vi"],
     questionHash,
   })).digest("hex");
 }

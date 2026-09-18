@@ -27,6 +27,7 @@ export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unk
     seen.add(question.question_no)
   }
   const contentHash = hashPublishedQuiz({ ...quiz, icon: legacyContentIcon(quiz.icon) }, hashPublishedQuestions(questions))
+  const supportedLanguages = quiz.supportedLanguages ?? ["en", "vi"]
   return {
     quiz: {
       contestId: quiz.contest,
@@ -36,6 +37,8 @@ export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unk
       grade: quiz.grade,
       round: quiz.round,
       year: quiz.year,
+      supportedLanguages,
+      supportsMultilingual: supportedLanguages.includes("en") && supportedLanguages.includes("vi"),
       questionCount: questions.length,
       contentHash,
     },

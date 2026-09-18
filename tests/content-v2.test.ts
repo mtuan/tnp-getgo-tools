@@ -8,6 +8,7 @@ import {
   contentV2QuizPublishContractVersion,
   contentV2TopicPublishContractVersion,
   contentV2QuestionSchema,
+  competitionPaperQuizSchema,
   contentV2TopicSchema,
   hashContentV2,
   sanitizeContentV2Topic,
@@ -54,6 +55,29 @@ test("content v2 contest text supports bilingual values and legacy strings", () 
   assert.deepEqual(topic.subjects, ["mathematics"]);
   assert.deepEqual(topic.grades, [3]);
   assert.equal(localizedText("Legacy title", "vi"), "Legacy title");
+});
+
+test("content v2 competition quizzes persist supported languages and default legacy quizzes to both", () => {
+  const base = {
+    schemaVersion: 2,
+    id: "pot-4-1",
+    topicId: "archimedes-maths-3e2",
+    type: "competition-paper",
+    title: "Phiếu Ôn Tập số 4.1",
+    description: "",
+    sharedCode: "",
+    status: "pending",
+    order: 0,
+    grade: "3",
+    round: "main",
+    year: "2026",
+  } as const;
+
+  assert.deepEqual(competitionPaperQuizSchema.parse(base).supportedLanguages, ["en", "vi"]);
+  assert.deepEqual(
+    competitionPaperQuizSchema.parse({ ...base, supportedLanguages: ["vi"] }).supportedLanguages,
+    ["vi"],
+  );
 });
 
 test("content v2 text icons use an extensible object and accept legacy strings", () => {

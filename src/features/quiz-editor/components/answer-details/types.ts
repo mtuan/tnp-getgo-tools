@@ -20,4 +20,5 @@ export interface AnswerDetailsProps {
   onChange(answer: EditableAnswer): void
   manifestPath?: string
   questionNo?: string | number
+  supportedLanguages?: Array<"en" | "vi">
 }

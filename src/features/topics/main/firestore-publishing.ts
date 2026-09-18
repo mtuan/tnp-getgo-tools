@@ -155,6 +155,10 @@ export function createContentV2QuizPublishPreview(
     && question.authoringMode === "advanced-dynamic"
     && !question.dynamic?.compiledJs?.trim()
   ));
+  const supportsDynamic = questions.some((question) => (
+    question.type === "competition-question"
+    && question.authoringMode === "advanced-dynamic"
+  ));
   if (missingCompiledQuestion) {
     throw new Error(
       `Question ${missingCompiledQuestion.id} has not been compiled. Save it successfully before publishing.`,
@@ -165,7 +169,7 @@ export function createContentV2QuizPublishPreview(
       marketplaceQuizDocument: {
         operation: "upsert",
         path: marketplaceQuizPath(topicId, quiz.id),
-        data: sanitizeMarketplaceQuiz(quiz, topicAccess, questions.length),
+        data: sanitizeMarketplaceQuiz(quiz, topicAccess, questions.length, supportsDynamic),
       },
       quizDocument: {
         operation: "upsert",
@@ -176,6 +180,8 @@ export function createContentV2QuizPublishPreview(
           access,
           questionsCodeFormat: "getgo.questions.v1",
           questionsCode: buildContentV2QuestionsCode(questions),
+          dynamic: supportsDynamic,
+          supportsDynamic,
           contentHash,
           publishedAt: "<generated at publish time>",
         },
@@ -325,6 +331,8 @@ export class FirestorePublishingService {
             grade: local.quiz.grade,
             round: local.quiz.round,
             year: local.quiz.year,
+            supportedLanguages: local.quiz.supportedLanguages,
+            supportsMultilingual: local.quiz.supportsMultilingual,
             questionStorage: "subcollection",
             questionCount: local.quiz.questionCount,
             contentHash: local.quiz.contentHash,

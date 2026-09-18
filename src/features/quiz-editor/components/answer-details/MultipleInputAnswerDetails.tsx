@@ -16,24 +16,26 @@ const inputTypes = [
   { value: "date", label: "Date" },
 ]
 
-const columns: EditColumnDef<InputRow>[] = [
-  {
+export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguages = ["en", "vi"] }: AnswerDetailsProps) {
+  const showEnglish = supportedLanguages.includes("en")
+  const showVietnamese = supportedLanguages.includes("vi")
+  const columns: EditColumnDef<InputRow>[] = [{
     key: "text",
-    dataKey: "question_en",
+    dataKey: showEnglish ? "question_en" : "question_vn",
     title: "Text",
-    field: { name: "question_en", type: "text" },
+    field: { name: showEnglish ? "question_en" : "question_vn", type: "text" },
     renderEdit: ({ row, onChange }) => (
       <div className="multiple-input-text-cell">
-        <FormControl
+        {showEnglish && <FormControl
           field={{ name: "question_en", type: "text", placeholder: "English", required: true }}
           values={row}
           onChange={(_name, value) => onChange("question_en", value)}
-        />
-        <FormControl
-          field={{ name: "question_vn", type: "text", placeholder: "Vietnamese" }}
+        />}
+        {showVietnamese && <FormControl
+          field={{ name: "question_vn", type: "text", placeholder: "Vietnamese", required: !showEnglish }}
           values={row}
           onChange={(_name, value) => onChange("question_vn", value)}
-        />
+        />}
       </div>
     ),
   },
@@ -59,9 +61,7 @@ const columns: EditColumnDef<InputRow>[] = [
     ),
   },
   { key: "answer", dataKey: "correct", title: "Answer", width: 180, field: { name: "correct", type: "text", required: true } },
-]
-
-export function MultipleInputAnswerDetails({ answer, onChange }: AnswerDetailsProps) {
+  ]
   const correct = Array.isArray(answer.correct) ? answer.correct.map(String) : []
   const rows: InputRow[] = (answer.inputs ?? []).map((part, index) => ({
     question_en: part.question_en || "",

@@ -353,9 +353,13 @@ export async function loadContentV2WorkspaceFromFiles(
         reviewedQuestionCount: quizQuestions.filter(
           (item) => item.record.status === "reviewed",
         ).length,
+        dynamic: quizQuestions.some((item) =>
+          item.record.type === "competition-question"
+          && (item.record.authoringMode === "advanced-dynamic" || Boolean(item.record.dynamic)),
+        ),
         ...(quiz.type === "competition-paper"
-          ? { grade: quiz.grade, round: quiz.round, year: quiz.year }
-          : { language: quiz.language }),
+          ? { grade: quiz.grade, round: quiz.round, year: quiz.year, supportedLanguages: quiz.supportedLanguages }
+          : { language: quiz.language, supportedLanguages: [quiz.language] }),
       };
       quizzes.push(summary);
       topicQuizzes.push(summary);

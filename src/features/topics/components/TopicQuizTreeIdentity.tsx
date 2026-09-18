@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, ListOrdered } from "lucide-react";
+import { BookOpen, ListOrdered, Zap } from "lucide-react";
 import { FourLetterIcon, parseFourLetterIcon } from "../../../shared/ui/FourLetterIcon";
 import type { ContentIcon } from "../../../shared/domain/content-icon";
 
@@ -46,6 +46,7 @@ export function TopicQuizTreeIdentity({
   description,
   kind,
   count,
+  dynamic,
 }: {
   toggle: ReactNode;
   topicId: string;
@@ -54,12 +55,20 @@ export function TopicQuizTreeIdentity({
   description: string;
   kind: "topic" | "quiz";
   count?: number;
+  dynamic?: boolean;
 }) {
   return <div className="topics-tree-identity">
     {toggle}
     <TopicQuizIcon topicId={topicId} reference={reference} label={title} kind={kind} />
-    <div><strong>{title}{count === undefined ? "" : ` (${count})`}</strong><span>{description}</span></div>
+    <div><QuizTitle title={title} count={count} dynamic={dynamic} /><span>{description}</span></div>
   </div>;
+}
+
+export function QuizTitle({ title, count, dynamic }: { title: string; count?: number; dynamic?: boolean }) {
+  return <strong className="quiz-title-with-state">
+    <span>{title}{count === undefined ? "" : ` (${count})`}</span>
+    {dynamic && <Zap aria-label="Dynamic quiz" />}
+  </strong>;
 }
 
 export { TopicQuizIcon };

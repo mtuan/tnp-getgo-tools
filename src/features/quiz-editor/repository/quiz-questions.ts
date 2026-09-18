@@ -707,8 +707,17 @@ export async function createQuizQuestion(
     : 1;
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as {
     type?: unknown;
+    language?: unknown;
+    supportedLanguages?: unknown;
   };
   const alphabet = manifest.type === "alphabet";
+  const supportedLanguages = Array.isArray(manifest.supportedLanguages)
+    ? manifest.supportedLanguages.filter((value): value is "en" | "vi" => value === "en" || value === "vi")
+    : manifest.type === "pronunciation"
+      ? ["vi"]
+      : manifest.type === "alphabet"
+        ? [manifest.language === "vi" ? "vi" : "en"]
+        : ["en", "vi"];
   const created = await saveQuizQuestion(
     manifestPath,
     normalizeQuestion(
@@ -726,7 +735,7 @@ export async function createQuizQuestion(
             question_no: questionNo,
             category: "",
             text_en: "",
-            text_vn: "",
+            ...(supportedLanguages.includes("vi") ? { text_vn: "" } : {}),
             answer: { type: "input", correct: "" },
           },
       questionNo - 1,

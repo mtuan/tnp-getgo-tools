@@ -120,11 +120,15 @@ export function QuestionPreview({
   question,
   params,
   manifestPath,
+  supportedLanguages = ["en", "vi"],
 }: {
   question: RuntimeQuestion;
   params?: Record<string, unknown>;
   manifestPath: string;
+  supportedLanguages?: Array<"en" | "vi">;
 }) {
+  const showEnglish = supportedLanguages.includes("en");
+  const showVietnamese = supportedLanguages.includes("vi");
   const indexedPartText = (value: unknown, index: number) => {
     const text = questionText(value).replace(/^\s*(?:[a-z]|\d+)[.)]\s*/i, "");
     return `${String.fromCharCode(97 + index)}. ${text}`;
@@ -142,14 +146,14 @@ export function QuestionPreview({
   const englishExplanation = questionText(question.explanation?.en);
   const vietnameseExplanation = questionText(question.explanation?.vi);
   const hasExplanation =
-    englishExplanation.trim().length > 0 ||
-    vietnameseExplanation.trim().length > 0;
+    (showEnglish && englishExplanation.trim().length > 0) ||
+    (showVietnamese && vietnameseExplanation.trim().length > 0);
   return (
     <div className="question-preview">
       <div className="question-preview-content">
-        {englishText.trim() && <p><MathText value={englishText} /></p>}
-        {vietnameseText.trim() && (
-          <p className="question-preview-translation"><MathText value={vietnameseText} /></p>
+        {showEnglish && englishText.trim() && <p><MathText value={englishText} /></p>}
+        {showVietnamese && vietnameseText.trim() && (
+          <p className={showEnglish ? "question-preview-translation" : undefined}><MathText value={vietnameseText} /></p>
         )}
         {question.image_datas?.map((image, index) => (
           <div
@@ -167,9 +171,9 @@ export function QuestionPreview({
           <div className="question-preview-multiple-inputs">
             {inputParts.map((part, index) => (
               <section className="question-preview-input-part" key={index}>
-                <p>{indexedPartText(part.question_en, index)}</p>
-                {questionText(part.question_vn).trim() && (
-                  <p className="question-preview-translation">
+                {showEnglish && questionText(part.question_en).trim() && <p>{indexedPartText(part.question_en, index)}</p>}
+                {showVietnamese && questionText(part.question_vn).trim() && (
+                  <p className={showEnglish ? "question-preview-translation" : undefined}>
                     {indexedPartText(part.question_vn, index)}
                   </p>
                 )}
@@ -209,13 +213,13 @@ export function QuestionPreview({
         {hasExplanation && (
           <section className="question-preview-explanation">
             <strong>Explanation</strong>
-            {englishExplanation.trim() && (
+            {showEnglish && englishExplanation.trim() && (
               <div className="question-preview-explanation-text">
                 <MathText value={englishExplanation} />
               </div>
             )}
-            {vietnameseExplanation.trim() && (
-              <div className={englishExplanation.trim()
+            {showVietnamese && vietnameseExplanation.trim() && (
+              <div className={showEnglish && englishExplanation.trim()
                 ? "question-preview-explanation-text question-preview-translation"
                 : "question-preview-explanation-text"}
               >

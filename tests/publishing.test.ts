@@ -67,6 +67,8 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
   assert.equal(preview.firestore.quizDocument.data.access, "free");
   assert.equal(preview.firestore.marketplaceQuizDocument.data.access, "free");
   assert.equal(preview.firestore.marketplaceQuizDocument.data.questionCount, 0);
+  assert.equal(preview.firestore.marketplaceQuizDocument.data.supportsDynamic, false);
+  assert.equal(preview.firestore.quizDocument.data.supportsDynamic, false);
   assert.equal(
     (preview.firestore.marketplaceQuizDocument.data.marketplace as { preview?: boolean }).preview,
     true,
@@ -148,6 +150,47 @@ test("publishing rejects advanced dynamic questions without compiled JavaScript"
     ),
     /Question q1 has not been compiled/,
   );
+});
+
+test("content v2 publishing marks quizzes that support dynamic questions", () => {
+  const preview = createContentV2QuizPublishPreview(
+    "competition",
+    {
+      schemaVersion: 2,
+      id: "quiz-1",
+      topicId: "competition",
+      type: "competition-paper",
+      title: "Quiz 1",
+      description: "",
+      sharedCode: "",
+      status: "reviewed",
+      order: 0,
+      grade: "1",
+      round: "main",
+      year: "2026",
+    },
+    "free",
+    [{
+      schemaVersion: 2,
+      id: "q1",
+      order: 0,
+      status: "reviewed",
+      type: "competition-question",
+      text: { en: "Value?" },
+      assets: [],
+      answer: { type: "input", correct: "4" },
+      authoringMode: "advanced-dynamic",
+      dynamic: { ...dynamic, compiledJs: "return 4;" },
+    }],
+    {},
+    [],
+    "b".repeat(64),
+  );
+
+  assert.equal(preview.firestore.marketplaceQuizDocument.data.supportsDynamic, true);
+  assert.equal(preview.firestore.marketplaceQuizDocument.data.dynamic, true);
+  assert.equal(preview.firestore.quizDocument.data.supportsDynamic, true);
+  assert.equal(preview.firestore.quizDocument.data.dynamic, true);
 });
 
 test("publishes only allowlisted runtime question fields and dynamic fragments", () => {

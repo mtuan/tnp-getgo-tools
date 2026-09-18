@@ -4303,6 +4303,25 @@ tbody tr:hover {
   min-width: 0;
   flex-direction: column;
 }
+.quiz-title-with-state {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+.quiz-title-with-state > span {
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quiz-title-with-state > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: #eab308;
+}
 .manager-list-icon {
   display: grid !important;
   flex: 0 0 40px;

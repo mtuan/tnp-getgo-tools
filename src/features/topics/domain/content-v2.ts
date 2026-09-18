@@ -7,7 +7,7 @@ export { localizedText, type LocalizedText } from "../../../shared/domain/locali
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 11;
+export const contentV2QuizPublishContractVersion = 12;
 // Increment when topic documents or shared topic-asset publication changes.
 export const contentV2TopicPublishContractVersion = 2;
 
@@ -95,6 +95,7 @@ export function sanitizeMarketplaceQuiz(
   record: ContentV2Quiz,
   inheritedAccess: MarketplaceContentAccess,
   questionCount?: number,
+  supportsDynamic?: boolean,
 ): Record<string, unknown> {
   const {
     sharedCode: _sharedCode,
@@ -107,6 +108,7 @@ export function sanitizeMarketplaceQuiz(
     ...summary,
     access: marketplaceContentAccess(record.marketplace, inheritedAccess),
     ...(questionCount === undefined ? {} : { questionCount }),
+    ...(supportsDynamic === undefined ? {} : { dynamic: supportsDynamic, supportsDynamic }),
   };
 }
 
@@ -228,6 +230,7 @@ const quizSpeechSettingsSchema = z.object({
 export const competitionPaperQuizSchema = z.object({
   ...baseQuiz,
   type: z.literal("competition-paper"),
+  supportedLanguages: z.array(z.enum(["en", "vi"])).min(1).default(["en", "vi"]),
   grade: z.string().min(1),
   round: z.string().min(1),
   year: z.string().min(1),

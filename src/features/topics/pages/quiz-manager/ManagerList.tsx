@@ -4,7 +4,7 @@ import { StatusBadge } from "../../../../shared/ui/StatusBadge";
 import { marketplaceStateLabel } from "../../../../renderer/topic-status";
 import { marketplaceSyncPlanStatus } from "../../domain/marketplace-sync-plan";
 import { contentV2QuizReviewStatus, quizReviewStatus } from "./shared";
-import { TopicQuizIcon as ManagerListIcon } from "../../components/TopicQuizTreeIdentity";
+import { QuizTitle, TopicQuizIcon as ManagerListIcon } from "../../components/TopicQuizTreeIdentity";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import { MarketplacePreviewCell } from "../../components/MarketplacePreviewCell";
 import { renderTopicTree } from "./TopicTree";
@@ -131,7 +131,7 @@ export function renderManagerList(context: ManagerListContext) {
                                   kind="quiz"
                                 />
                                 <div>
-                                  <strong>{quiz.title}</strong>
+                                  <QuizTitle title={quiz.title} dynamic={contentQuiz?.dynamic} />
                                   <span>{quiz.id}</span>
                                 </div>
                               </div>
@@ -210,7 +210,7 @@ export function renderManagerList(context: ManagerListContext) {
                                     kind="quiz"
                                   />
                                   <div>
-                                    <strong>{quiz.title}</strong>
+                                    <QuizTitle title={quiz.title} dynamic={quiz.dynamic} />
                                     <span>{quiz.id}</span>
                                   </div>
                                 </div>
