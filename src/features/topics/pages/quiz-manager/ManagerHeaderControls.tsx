@@ -173,6 +173,7 @@ export function ManagerHeaderControls(context: Context) {
   return <>
     <ui.ControlGroup className="manager-topic-header-controls">
       <ManagerSearchInput
+        key={isContest ? `topic:${selectedContest?.id ?? "unknown"}` : "topics"}
         label={isContest ? "Search quizzes" : "Search topics"}
         placeholder={isContest ? "Search quizzes…" : "Search topics…"}
       />

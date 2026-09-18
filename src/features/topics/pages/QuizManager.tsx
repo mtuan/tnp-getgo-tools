@@ -300,6 +300,13 @@ export function QuizManager({
     setTopicGrades,
     setTopicSubjects,
   } = useTopicListFilters(snapshot.contentV2.topics, locale);
+  useEffect(() => {
+    if (routeMode !== "topics" || page.kind !== "contest") return;
+    // Grade/subject filters belong to the topic list. Entering a selected
+    // topic retains that topic route while clearing the preceding list state.
+    setTopicGrades([]);
+    setTopicSubjects([]);
+  }, [page, routeMode, setTopicGrades, setTopicSubjects]);
   const visibleContests = useMemo(
     () => contests.filter((contest) => routeMode !== "topics" || topicMatches(contest.id)),
     [contests, routeMode, topicMatches],

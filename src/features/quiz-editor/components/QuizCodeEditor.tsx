@@ -16,6 +16,9 @@ const editorExtraLibs = new Map<string, {
   replaceGroup?: string
   disposable: monaco.IDisposable
 }>()
+// Monaco bundles TypeScript's `ModuleDetectionKind.Force` but does not expose
+// that enum through its public registration module.
+const FORCE_MODULE_DETECTION = 3
 let qsProbeSequence = 0
 
 async function probeQsExtraLib(editorPath: string, extraLib: EditorExtraLib): Promise<void> {
@@ -95,7 +98,10 @@ function retainEditorExtraLib(extraLib: EditorExtraLib): () => void {
 }
 
 function configureMonaco() {
-  monacoTypeScript.typescriptDefaults.setCompilerOptions({ allowNonTsExtensions: true, strict: true, strictNullChecks: false, noEmit: true, target: monacoTypeScript.ScriptTarget.ESNext, moduleResolution: monacoTypeScript.ModuleResolutionKind.NodeJs, module: monacoTypeScript.ModuleKind.ESNext, lib: ["es2022", "dom"] })
+  // Every editor model belongs to one question fragment. Force module scope so
+  // declarations in a cached/open model cannot shadow globals (especially QB)
+  // or leak into another question's IntelliSense project.
+  monacoTypeScript.typescriptDefaults.setCompilerOptions({ allowNonTsExtensions: true, strict: true, strictNullChecks: false, noEmit: true, target: monacoTypeScript.ScriptTarget.ESNext, moduleResolution: monacoTypeScript.ModuleResolutionKind.NodeJs, module: monacoTypeScript.ModuleKind.ESNext, moduleDetection: FORCE_MODULE_DETECTION, lib: ["es2022", "dom"] })
   monacoTypeScript.typescriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false, diagnosticCodesToIgnore: [7006, 7031] })
   for (const library of quizBuilderTypes.libraries) monacoTypeScript.typescriptDefaults.addExtraLib(library.content, library.filePath)
 }
