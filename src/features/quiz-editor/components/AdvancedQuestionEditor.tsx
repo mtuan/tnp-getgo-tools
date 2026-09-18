@@ -29,6 +29,18 @@ import * as ui from "../../../shared/ui";
 type AdvancedDynamic = NonNullable<ContestQuizQuestionRecord["advancedDynamic"]>;
 
 const SIGNATURE_PROBE_QUESTION = "({}) => {\n  return {} as never\n}";
+const GENERATOR_RUNTIME_REVISION = "replace-digit-iterable-v1";
+
+function generatorSourceKey(record: ContestQuizQuestionRecord): string {
+  const dynamic = record.advancedDynamic;
+  return [
+    GENERATOR_RUNTIME_REVISION,
+    dynamic?.paramsGeneratorTs ?? "",
+    dynamic?.questionGeneratorTs ?? "",
+    dynamic?.explanationGeneratorTs ?? "",
+    dynamic?.originParamsTs ?? "",
+  ].join("\u0000");
+}
 
 function synchronizeGeneratorFields(dynamic: AdvancedDynamic): {
   dynamic: AdvancedDynamic;
@@ -106,6 +118,7 @@ export function AdvancedQuestionEditor({
   onFeedbackSave(value: Omit<Feedback, "updatedAt"> | null): Promise<void>;
 }) {
   const [errors, setErrors] = useState<string[]>([]);
+  const [errorSourceKey, setErrorSourceKey] = useState<string | null>(null);
   const [preview, setPreview] = useState<{
     question: RuntimeQuestion;
     params: Record<string, unknown>;
@@ -169,6 +182,10 @@ export function AdvancedQuestionEditor({
     };
     latestRecordRef.current = next;
     pendingDynamicChangeRef.current = true;
+    // A generation error describes one exact source snapshot. Do not leave it
+    // visible while the editor is already showing a newer generator.
+    setErrors([]);
+    setErrorSourceKey(null);
     onChange(next);
   };
   const synchronizeDependentSignatures = (trigger = "unknown") => {
@@ -279,6 +296,7 @@ export function AdvancedQuestionEditor({
         params: generated.params ?? {},
       });
       setErrors([]);
+      setErrorSourceKey(null);
     } catch (cause) {
       console.error("[GetGo Tools][Question preview][generation failed]", {
         mode: original ? "original" : "random",
@@ -286,6 +304,7 @@ export function AdvancedQuestionEditor({
         cause,
       });
       setErrors([cause instanceof Error ? cause.message : String(cause)]);
+      setErrorSourceKey(generatorSourceKey(latestRecordRef.current));
     }
   };
   useEffect(() => {
@@ -317,6 +336,8 @@ export function AdvancedQuestionEditor({
   // the parent draft update is rendering so focus transitions never rebuild the
   // dependent editors from the previous parameter signature.
   const editorDynamic = latestRecordRef.current.advancedDynamic;
+  const currentGeneratorSourceKey = generatorSourceKey(latestRecordRef.current);
+  const currentErrors = errorSourceKey === currentGeneratorSourceKey ? errors : [];
   const editorFields = (
     [
       ["origin", "originParamsTs"],
@@ -548,10 +569,10 @@ export function AdvancedQuestionEditor({
               params={preview.params}
               manifestPath={manifestPath}
             />
-            {errors.length > 0 && (
+            {currentErrors.length > 0 && (
               <div className="question-editor-errors">
                 <strong>Type or generation error</strong>
-                {errors.map((error, index) => (
+                {currentErrors.map((error, index) => (
                   <span key={index}>{error}</span>
                 ))}
               </div>

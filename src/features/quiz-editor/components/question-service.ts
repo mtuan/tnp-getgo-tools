@@ -40,6 +40,58 @@ export interface GeneratedQuestion {
   params?: Record<string, unknown>;
 }
 
+const digitPlaces = [
+  "ones", "tens", "hundreds", "thousands", "ten-thousands",
+  "hundred-thousands", "millions", "ten-millions", "hundred-millions",
+  "billions", "ten-billions", "hundred-billions", "trillions",
+] as const;
+
+function replaceDigitArray(
+  value: readonly number[],
+  placeOrReplacements: unknown,
+  replacement?: unknown,
+): string {
+  if (value.length === 0 || value.some(digit => !Number.isInteger(digit) || digit < 0 || digit > 9))
+    throw new TypeError("QB.maths.replaceDigit expects a non-empty iterable of integer digits from 0 to 9");
+  const entries = placeOrReplacements && typeof placeOrReplacements === "object"
+    ? Object.entries(placeOrReplacements as Record<string, unknown>)
+    : [[replacement, placeOrReplacements]];
+  const positions = new Set<number>();
+  const replacements = entries.map(([character, place]) => {
+    if (typeof character !== "string" || Array.from(character).length !== 1)
+      throw new TypeError("QB.maths.replaceDigit replacement must be exactly one character");
+    const position = typeof place === "number" ? place : digitPlaces.indexOf(place as typeof digitPlaces[number]);
+    if (!Number.isInteger(position) || position < 0)
+      throw new TypeError("QB.maths.replaceDigit position must be a non-negative integer");
+    if (positions.has(position))
+      throw new TypeError("QB.maths.replaceDigit replacement positions must be unique");
+    positions.add(position);
+    return { character, position };
+  });
+  const digits = value.map(String);
+  const width = Math.max(digits.length, ...replacements.map(item => item.position + 1));
+  const result = digits.join("").padStart(width, "0").split("");
+  for (const { character, position } of replacements)
+    result[result.length - 1 - position] = character;
+  return result.join("");
+}
+
+function createAuthoringQuizBuilder(): QuizBuilder {
+  const builder = new QuizBuilder();
+  const maths = builder.maths as unknown as {
+    replaceDigit: (...args: unknown[]) => string;
+  };
+  const replaceDigit = maths.replaceDigit.bind(maths);
+  // Electron can retain a prior prebundled helper during an HMR session. Keep
+  // array replacement compatible at the authoring boundary; numeric calls and
+  // every other maths helper still use the canonical QuizBuilder method.
+  maths.replaceDigit = (value, placeOrReplacements, replacement) =>
+    Array.isArray(value)
+      ? replaceDigitArray(value, placeOrReplacements, replacement)
+      : replaceDigit(value, placeOrReplacements, replacement);
+  return builder;
+}
+
 async function sha256(source: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -51,7 +103,7 @@ async function sha256(source: string): Promise<string> {
 }
 
 const dynamicBuilder = createDynamicQuestionBuildService({
-  createBuilder: () => new QuizBuilder(),
+  createBuilder: createAuthoringQuizBuilder,
   serialize: (value) => QuizValueSerializer.serialize(value),
   deserialize: (value) => QuizValueSerializer.deserialize(value),
   hash: sha256,

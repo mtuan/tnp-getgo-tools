@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process"
 const toolsRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const vendorRoot = join(toolsRoot, "vendor")
 const installedRoot = join(toolsRoot, "node_modules/@tnp/getgo-logics")
+const viteDependencyCacheRoot = join(toolsRoot, "node_modules/.vite")
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm"
 
 async function isLogicsRepository(candidate) {
@@ -99,6 +100,15 @@ const archivePath = join(vendorRoot, basename(filename))
 console.log(`Installing ${basename(archivePath)} explicitly…`)
 run(npmExecutable, ["install", `./vendor/${basename(archivePath)}`, "--save"], toolsRoot)
 await verifyInstalledPackage(archivePath)
+
+// The package version is intentionally stable during local development. Vite
+// therefore cannot reliably distinguish a newly packed @tnp/getgo-logics from
+// an earlier archive with the same version, and may continue serving a stale
+// optimized QuizBuilder module. Remove only Vite's disposable dependency cache
+// after installing a fresh archive so the next Tools start always re-optimizes
+// against the package that was just verified above.
+await rm(viteDependencyCacheRoot, { recursive: true, force: true })
+console.log("Cleared Vite's dependency cache for the refreshed Logics package.")
 
 console.log("Syncing editor types and checking GetGo Tools…")
 run(npmExecutable, ["run", "sync:monaco-types"], toolsRoot)
