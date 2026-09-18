@@ -67,10 +67,11 @@ test("question service converts ordered multiple inputs into an editable dynamic
 
   assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.nested\(\[/)
-  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_en: "Next term"/)
-  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_vn: "Số hạng thứ 31"/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_en: QB\.fmt`Next term`/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /question_vn: QB\.fmt`Số hạng thứ 31`/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /correct: 91/)
   assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /unit: "items"/)
+  assert.doesNotMatch(draft.advancedDynamic?.questionGeneratorTs ?? "", /inputType:/)
 })
 
 test("question service converts multiple answers into an editable dynamic draft", () => {
@@ -116,6 +117,22 @@ test("incomplete dynamic code can be persisted as an uncompiled draft", async ()
   draft.advancedDynamic!.questionGeneratorTs = "({ value }) => {"
 
   assert.equal(await questionService.compileDynamicDraft(draft), undefined)
+})
+
+test("authoring runtime supports QB.maths.numbers before a vendored refresh", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ values: QB.maths.numbers({ length: 2, digits: [1, 2, 3], duplicate: false, where: value => value > 20 }) })",
+      questionGeneratorTs: "({ values }: __GetGoParams) => ({ question_no: 1, text_en: 'Numbers', answer: QB.answer.input(values.join(',')) })",
+      originParamsTs: "{ values: [12, 13, 21, 23, 31, 32] }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.equal(generated.question.answer.correct, "21,23,31,32")
 })
 
 test("shared editor context terminates an IIFE before callback expressions", () => {

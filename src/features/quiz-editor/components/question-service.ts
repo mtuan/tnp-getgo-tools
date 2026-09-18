@@ -80,6 +80,19 @@ function createAuthoringQuizBuilder(): QuizBuilder {
   const builder = new QuizBuilder();
   const maths = builder.maths as unknown as {
     replaceDigit: (...args: unknown[]) => string;
+    numbers?: (options: {
+      length: number;
+      odd?: boolean;
+      even?: boolean;
+      digits?: readonly number[];
+      duplicate?: boolean;
+      where?: (value: number) => boolean;
+    }) => number[];
+    numbersFromDigits: (
+      digits: readonly number[],
+      length: number,
+      options?: { reuse?: boolean },
+    ) => number[];
   };
   const replaceDigit = maths.replaceDigit.bind(maths);
   // Electron can retain a prior prebundled helper during an HMR session. Keep
@@ -89,6 +102,23 @@ function createAuthoringQuizBuilder(): QuizBuilder {
     Array.isArray(value)
       ? replaceDigitArray(value, placeOrReplacements, replacement)
       : replaceDigit(value, placeOrReplacements, replacement);
+  // Keep the authoring runtime usable before the next vendored Logics package
+  // refresh. Once the installed package exposes numbers(), its implementation
+  // is retained unchanged.
+  maths.numbers ??= (options) => {
+    if (options.odd === true && options.even === true)
+      throw new TypeError("QB.maths.numbers cannot require both odd and even numbers");
+    const values = maths.numbersFromDigits(
+      options.digits ?? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      options.length,
+      { reuse: options.duplicate !== false },
+    );
+    return values.filter((value) => {
+      if (options.odd === true && value % 2 === 0) return false;
+      if (options.even === true && value % 2 !== 0) return false;
+      return options.where?.(value) ?? true;
+    });
+  };
   return builder;
 }
 
