@@ -91,6 +91,8 @@ export async function syncAllMarketplaceTopics(
     for (const item of topicPlan) {
       if (item.kind !== "quiz") continue;
       const summary = item.quiz;
+      await control.report(`Synchronizing quiz · ${summary.title} · ${topicId}/${summary.id}`);
+      try {
       if (item.action === "remove") {
         await publishing.deleteContentV2TopicQuizzes(topicId, [summary.id]);
         await clearContentV2Published(summary.filePath);
@@ -115,6 +117,12 @@ export async function syncAllMarketplaceTopics(
       await writeContentV2QuizPublishState(summary.filePath, { schemaVersion: 1, targets: { ...previous.targets, [result.projectId]: { publishContractVersion: contentV2QuizPublishContractVersion, environment: result.environment, projectId: result.projectId, contentHash: result.contentHash, publishedAt: result.publishedAt, items: result.items } } });
       quizResults.set(summary.key, result);
       await control.advance(`Synchronized quiz · ${summary.title}`);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        const message = `Quiz synchronization failed · Topic “${topicSummary.title}” (${topicId}) · Quiz “${summary.title}” (${summary.id}) · ${reason}`;
+        await control.report(message);
+        throw new Error(message, { cause: error });
+      }
     }
     const reviewedQuizIds = reviewedTopicQuizzes(next.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
     const syncWork = marketplaceTopicSyncWork(topicSummary, topicPlan);

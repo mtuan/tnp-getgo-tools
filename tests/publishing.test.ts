@@ -148,7 +148,7 @@ test("publishing rejects advanced dynamic questions without compiled JavaScript"
       [],
       "b".repeat(64),
     ),
-    /Question q1 has not been compiled/,
+    /Topic competition · Quiz “Quiz 1” \(quiz-1\) · Question q1: dynamic\.compiledJs is missing/,
   );
 });
 

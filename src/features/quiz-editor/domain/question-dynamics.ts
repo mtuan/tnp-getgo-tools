@@ -58,6 +58,28 @@ export function quizSharedEditorContext(value: string): string {
   return composeQuizSharedEditorTypeContext(value)
 }
 
+/**
+ * Give every Monaco fragment its own hidden QuizBuilder binding. This avoids
+ * relying solely on Monaco's worker-global declaration, which can be detached
+ * when cached models are replaced or their surrounding signature is rewritten.
+ */
+export function dynamicEditorModelEnvelope(paramsGeneratorTs?: string): {
+  prefix: string
+  suffix: string
+} {
+  const paramsSource = paramsGeneratorTs?.trim()
+  return {
+    prefix: `(() => {
+const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;
+${paramsSource ? `const __getgoParamsGeneratorForEditor = (${paramsSource});
+type __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;
+` : ""}return (`,
+    suffix: `
+);
+})()`,
+  }
+}
+
 /** Present persisted origin data as a consistent, lockable callback field. */
 export function originParamsEditorSource(value: string): string {
   const source = value.trim() || "{}"

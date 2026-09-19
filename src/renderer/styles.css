@@ -8267,6 +8267,32 @@ button.danger svg {
   background: #fff5f5;
   border-top: 1px solid #ffc9c9;
 }
+.question-editor-error {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.question-editor-error details {
+  color: inherit;
+}
+.question-editor-error summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 600;
+}
+.question-editor-error pre {
+  max-height: 280px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  overflow: auto;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  border-radius: 6px;
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .ai-generator-panel {
   width: 100%;
   min-width: 0;

@@ -135,6 +135,26 @@ test("authoring runtime supports QB.maths.numbers before a vendored refresh", as
   assert.equal(generated.question.answer.correct, "21,23,31,32")
 })
 
+test("authoring runtime supports QB.maths.number before a vendored refresh", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ value: QB.maths.number({ length: 3, digits: [1, 2, 3], duplicate: false, odd: true, where: value => QB.maths.sumDigits(value) === 6 }) })",
+      questionGeneratorTs: "({ value }: __GetGoParams) => ({ question_no: 1, text_en: 'Number', answer: QB.answer.input(value) })",
+      originParamsTs: "{ value: 123 }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const generated = await questionService.generateDynamic(record)
+    const value = Number(generated.question.answer.correct)
+    assert.equal(value % 2, 1)
+    assert.equal(String(value).split("").reduce((sum, digit) => sum + Number(digit), 0), 6)
+  }
+})
+
 test("shared editor context terminates an IIFE before callback expressions", () => {
   const context = quizSharedEditorContext("const QS = (() => ({ value: 1 }))()")
   assert.equal(context.endsWith(";\n\n"), true)

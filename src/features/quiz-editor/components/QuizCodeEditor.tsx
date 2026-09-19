@@ -16,10 +16,100 @@ const editorExtraLibs = new Map<string, {
   replaceGroup?: string
   disposable: monaco.IDisposable
 }>()
+const quizBuilderExtraLibs = new Map<string, monaco.IDisposable>()
 // Monaco bundles TypeScript's `ModuleDetectionKind.Force` but does not expose
 // that enum through its public registration module.
 const FORCE_MODULE_DETECTION = 3
 let qsProbeSequence = 0
+
+function displayPartsText(parts: readonly { text: string }[] | undefined): string {
+  return parts?.map(part => part.text).join("") ?? ""
+}
+
+function diagnosticMessageText(message: unknown): string {
+  if (typeof message === "string") return message
+  if (!message || typeof message !== "object") return String(message)
+  const value = message as { messageText?: unknown; next?: unknown[] }
+  return [
+    diagnosticMessageText(value.messageText),
+    ...(value.next ?? []).map(diagnosticMessageText),
+  ].filter(Boolean).join(" ")
+}
+
+async function probeQuizBuilderIntellisense(
+  model: monaco.editor.ITextModel,
+  editorPath: string,
+  trigger: "mount" | "focus" | "edit",
+  userSourceOffset: number,
+): Promise<void> {
+  ensureQuizBuilderExtraLibs()
+  const source = model.getValue()
+  const userQbOffset = source.slice(userSourceOffset).search(/\bQB\b/)
+  const qbOffset = userQbOffset >= 0
+    ? userSourceOffset + userQbOffset
+    : source.search(/\bQB\b/)
+  const registered = monacoTypeScript.typescriptDefaults.getExtraLibs()
+  const missingQuizBuilderLibraries = quizBuilderTypes.libraries
+    .filter(library => registered[library.filePath]?.content !== library.content)
+    .map(library => library.filePath)
+
+  if (qbOffset < 0) {
+    console.warn("[GetGo Tools][Monaco QB IntelliSense][QB absent]", {
+      editorPath,
+      model: model.uri.toString(),
+      trigger,
+      registeredLibraryCount: quizBuilderTypes.libraries.length,
+      missingQuizBuilderLibraries,
+    })
+    return
+  }
+
+  try {
+    const factory = await monacoTypeScript.getTypeScriptWorker()
+    const worker = await factory(model.uri)
+    const quickInfo = await worker.getQuickInfoAtPosition(
+      model.uri.toString(),
+      qbOffset + 1,
+    )
+    const completions = await worker.getCompletionsAtPosition(
+      model.uri.toString(),
+      qbOffset + 3,
+    )
+    const diagnostics = await worker.getSemanticDiagnostics(model.uri.toString())
+    const resolvedType = displayPartsText(quickInfo?.displayParts)
+    const members = completions?.entries.map((entry: { name: string }) => entry.name) ?? []
+    const payload = {
+      editorPath,
+      model: model.uri.toString(),
+      trigger,
+      resolvedType,
+      resolvesToAny: /:\s*any\b/.test(resolvedType),
+      memberCount: members.length,
+      sampleMembers: members.slice(0, 20),
+      registeredLibraryCount: quizBuilderTypes.libraries.length,
+      missingQuizBuilderLibraries,
+      diagnostics: diagnostics.map(diagnostic => ({
+        code: diagnostic.code,
+        start: diagnostic.start,
+        length: diagnostic.length,
+        message: diagnosticMessageText(diagnostic.messageText),
+      })),
+    }
+    if (!quickInfo || payload.resolvesToAny || members.length === 0)
+      console.error("[GetGo Tools][Monaco QB IntelliSense][failed]", payload)
+    else
+      console.info("[GetGo Tools][Monaco QB IntelliSense][working]", payload)
+  } catch (cause) {
+    console.error("[GetGo Tools][Monaco QB IntelliSense][probe error]", {
+      editorPath,
+      model: model.uri.toString(),
+      trigger,
+      registeredLibraryCount: quizBuilderTypes.libraries.length,
+      missingQuizBuilderLibraries,
+      cause,
+    })
+  }
+}
 
 async function probeQsExtraLib(editorPath: string, extraLib: EditorExtraLib): Promise<void> {
   const probeUri = monaco.Uri.parse(`file:///__getgo_qs_probe_${qsProbeSequence += 1}.ts`)
@@ -97,13 +187,28 @@ function retainEditorExtraLib(extraLib: EditorExtraLib): () => void {
   }
 }
 
+function ensureQuizBuilderExtraLibs(): void {
+  const registered = monacoTypeScript.typescriptDefaults.getExtraLibs()
+  for (const library of quizBuilderTypes.libraries) {
+    if (registered[library.filePath]?.content === library.content) continue
+    quizBuilderExtraLibs.get(library.filePath)?.dispose()
+    quizBuilderExtraLibs.set(
+      library.filePath,
+      monacoTypeScript.typescriptDefaults.addExtraLib(
+        library.content,
+        library.filePath,
+      ),
+    )
+  }
+}
+
 function configureMonaco() {
   // Every editor model belongs to one question fragment. Force module scope so
   // declarations in a cached/open model cannot shadow globals (especially QB)
   // or leak into another question's IntelliSense project.
   monacoTypeScript.typescriptDefaults.setCompilerOptions({ allowNonTsExtensions: true, strict: true, strictNullChecks: false, noEmit: true, target: monacoTypeScript.ScriptTarget.ESNext, moduleResolution: monacoTypeScript.ModuleResolutionKind.NodeJs, module: monacoTypeScript.ModuleKind.ESNext, moduleDetection: FORCE_MODULE_DETECTION, lib: ["es2022", "dom"] })
   monacoTypeScript.typescriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false, diagnosticCodesToIgnore: [7006, 7031] })
-  for (const library of quizBuilderTypes.libraries) monacoTypeScript.typescriptDefaults.addExtraLib(library.content, library.filePath)
+  ensureQuizBuilderExtraLibs()
 }
 
 export interface EditorLineRange { startLineNumber: number; endLineNumber: number }
@@ -148,6 +253,7 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   const applyingExternalValueRef = useRef(false)
   const editableRef = useRef<EditorLineRange | undefined>(editableLineRange)
   const extraLibRef = useRef<{ key: string; release: () => void } | null>(null)
+  const qbProbeTimerRef = useRef<number | null>(null)
   const [height, setHeight] = useState(minHeight)
   const modelValue = `${normalizedModelContext}${value}${normalizedModelContextSuffix}`
   const modelVisibleRange = visibleLineRange
@@ -222,6 +328,13 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
       replacedOnMount,
     })
     if (mountedModel && replacedOnMount) mountedModel.setValue(modelValue)
+    if (mountedModel && language === "typescript")
+      void probeQuizBuilderIntellisense(
+        mountedModel,
+        path,
+        "mount",
+        normalizedModelContext.length,
+      )
     if (autoFocus && !readOnly) editor.focus()
     applyRanges(); window.requestAnimationFrame(applyRanges); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
     if (autoHeight) { const update = () => setHeight(Math.max(minHeight, editor.getContentHeight())); update(); editor.onDidContentSizeChange(update) }
@@ -238,11 +351,38 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
       blurRef.current?.()
     })
     editor.onDidFocusEditorText(() => {
+      // Monaco may recreate its TypeScript worker after model or tab changes.
+      // Reassert the canonical declaration files before serving completions.
+      ensureQuizBuilderExtraLibs()
       console.info("[GetGo Tools][Monaco focus][focus]", {
         path,
         valueLength: editor.getModel()?.getValueLength() ?? 0,
       })
+      const model = editor.getModel()
+      if (model && language === "typescript")
+        void probeQuizBuilderIntellisense(
+          model,
+          path,
+          "focus",
+          normalizedModelContext.length,
+        )
       focusRef.current?.()
+    })
+    editor.onDidChangeModelContent(() => {
+      if (language !== "typescript") return
+      if (qbProbeTimerRef.current !== null)
+        window.clearTimeout(qbProbeTimerRef.current)
+      qbProbeTimerRef.current = window.setTimeout(() => {
+        qbProbeTimerRef.current = null
+        const model = editor.getModel()
+        if (model)
+          void probeQuizBuilderIntellisense(
+            model,
+            path,
+            "edit",
+            normalizedModelContext.length,
+          )
+      }, 600)
     })
     if (formatOnMount) {
       const valueAtFormatStart = value
@@ -279,7 +419,11 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
         }
       }).catch(() => { /* Invalid drafts remain editable. */ })
     }
-  }, [applyRanges, autoFocus, autoHeight, formatOnMount, minHeight, modelValue, normalizedModelContext, normalizedModelContextSuffix, path, readOnly, value])
+  }, [applyRanges, autoFocus, autoHeight, formatOnMount, language, minHeight, modelValue, normalizedModelContext, normalizedModelContextSuffix, path, readOnly, value])
+  useEffect(() => () => {
+    if (qbProbeTimerRef.current !== null)
+      window.clearTimeout(qbProbeTimerRef.current)
+  }, [])
   useEffect(() => {
     const editor = editorRef.current
     const model = editor?.getModel()

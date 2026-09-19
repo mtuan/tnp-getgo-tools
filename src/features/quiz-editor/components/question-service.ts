@@ -76,18 +76,21 @@ function replaceDigitArray(
   return result.join("");
 }
 
+type AuthoringNumbersOptions = {
+  length: number;
+  odd?: boolean;
+  even?: boolean;
+  digits?: readonly number[];
+  duplicate?: boolean;
+  where?: (value: number) => boolean;
+};
+
 function createAuthoringQuizBuilder(): QuizBuilder {
   const builder = new QuizBuilder();
   const maths = builder.maths as unknown as {
     replaceDigit: (...args: unknown[]) => string;
-    numbers?: (options: {
-      length: number;
-      odd?: boolean;
-      even?: boolean;
-      digits?: readonly number[];
-      duplicate?: boolean;
-      where?: (value: number) => boolean;
-    }) => number[];
+    number?: (options: AuthoringNumbersOptions) => number;
+    numbers?: (options: AuthoringNumbersOptions) => number[];
     numbersFromDigits: (
       digits: readonly number[],
       length: number,
@@ -118,6 +121,12 @@ function createAuthoringQuizBuilder(): QuizBuilder {
       if (options.even === true && value % 2 !== 0) return false;
       return options.where?.(value) ?? true;
     });
+  };
+  maths.number ??= (options) => {
+    const values = maths.numbers!(options);
+    if (values.length === 0)
+      throw new RangeError("QB.maths.number could not find a number matching the supplied conditions");
+    return values[Math.floor(Math.random() * values.length)]!;
   };
   return builder;
 }

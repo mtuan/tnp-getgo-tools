@@ -17,11 +17,16 @@ import {
 } from "../../../shared/ui/QuestionPreview";
 import {
   DEFAULT_EXPLANATION_GENERATOR_TS,
+  dynamicEditorModelEnvelope,
   formatDynamicCodeExpression,
   originParamsEditorSource,
   originParamsValueFromEditor,
   quizSharedEditorContext,
 } from "../domain/question-dynamics";
+import {
+  generationErrorDetail,
+  type GenerationErrorDetail,
+} from "../domain/generation-error";
 import { questionService } from "./question-service";
 import { QuestionFeedback } from "./QuestionFeedback";
 import * as ui from "../../../shared/ui";
@@ -117,7 +122,7 @@ export function AdvancedQuestionEditor({
   onSave(): void;
   onFeedbackSave(value: Omit<Feedback, "updatedAt"> | null): Promise<void>;
 }) {
-  const [errors, setErrors] = useState<string[]>([]);
+  const [errors, setErrors] = useState<GenerationErrorDetail[]>([]);
   const [errorSourceKey, setErrorSourceKey] = useState<string | null>(null);
   const [preview, setPreview] = useState<{
     question: RuntimeQuestion;
@@ -303,7 +308,7 @@ export function AdvancedQuestionEditor({
         questionNo: String(latestRecordRef.current.question_no),
         cause,
       });
-      setErrors([cause instanceof Error ? cause.message : String(cause)]);
+      setErrors([generationErrorDetail(cause)]);
       setErrorSourceKey(generatorSourceKey(latestRecordRef.current));
     }
   };
@@ -400,10 +405,11 @@ export function AdvancedQuestionEditor({
       : value;
     const sharedContext = quizSharedEditorContext(quizSharedCode);
     const paramsGeneratorTs = editorDynamic?.paramsGeneratorTs.trim();
-    const parameterContext = paramsGeneratorTs
-      ? `(() => {\nconst __getgoParamsGeneratorForEditor = (${paramsGeneratorTs});\ntype __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;\nreturn (`
-      : "";
-    const parameterContextSuffix = parameterContext ? `\n);\n})()` : "";
+    const modelEnvelope = dynamicEditorModelEnvelope(
+      id === "question" || id === "explanation"
+        ? paramsGeneratorTs
+        : undefined,
+    );
     const extraLib = sharedContext
       ? {
           content: sharedContext,
@@ -419,12 +425,8 @@ export function AdvancedQuestionEditor({
       editableLineRange,
       editableCode,
       extraLib,
-      modelContext: id === "question" || id === "explanation"
-        ? parameterContext
-        : "",
-      modelContextSuffix: id === "question" || id === "explanation"
-        ? parameterContextSuffix
-        : "",
+      modelContext: modelEnvelope.prefix,
+      modelContextSuffix: modelEnvelope.suffix,
       onBlur: id === "params"
         ? () => synchronizeDependentSignatures("params-blur")
         : undefined,
@@ -440,7 +442,7 @@ export function AdvancedQuestionEditor({
           <DynamicQuestionAi
             record={record}
             context={context}
-            diagnostics={errors}
+            diagnostics={errors.map((error) => error.summary)}
             hasGeneratedExplanation={Boolean(
               text(preview.question.explanation?.en).trim() ||
               text(preview.question.explanation?.vi).trim(),
@@ -525,10 +527,18 @@ export function AdvancedQuestionEditor({
                           setErrors(
                             markers
                               .filter((marker) => marker.severity === 8)
-                              .map(
-                                (marker) =>
-                                  `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`,
-                              ),
+                              .map((marker) => {
+                                const location = `${marker.startLineNumber}:${marker.startColumn}`;
+                                return {
+                                  summary: `TypeScript [TS${marker.code}] ${location} — ${marker.message}`,
+                                  detail: [
+                                    "Name: TypeScript diagnostic",
+                                    `Code: TS${marker.code}`,
+                                    `Location: ${location}`,
+                                    `Message: ${marker.message}`,
+                                  ].join("\n"),
+                                };
+                              }),
                           )
                       : undefined
                   }
@@ -573,7 +583,13 @@ export function AdvancedQuestionEditor({
               <div className="question-editor-errors">
                 <strong>Type or generation error</strong>
                 {currentErrors.map((error, index) => (
-                  <span key={index}>{error}</span>
+                  <span key={index} className="question-editor-error">
+                    <span>{error.summary}</span>
+                    <details>
+                      <summary>Error details</summary>
+                      <pre>{error.detail}</pre>
+                    </details>
+                  </span>
                 ))}
               </div>
             )}

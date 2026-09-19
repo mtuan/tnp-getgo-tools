@@ -161,7 +161,7 @@ export function createContentV2QuizPublishPreview(
   ));
   if (missingCompiledQuestion) {
     throw new Error(
-      `Question ${missingCompiledQuestion.id} has not been compiled. Save it successfully before publishing.`,
+      `Topic ${topicId} · Quiz “${quiz.title}” (${quiz.id}) · Question ${missingCompiledQuestion.id}: dynamic.compiledJs is missing. The question was not saved after a successful dynamic-code compilation. Open and save this question successfully before publishing.`,
     );
   }
   return {

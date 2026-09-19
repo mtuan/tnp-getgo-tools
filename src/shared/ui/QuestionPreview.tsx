@@ -4,10 +4,34 @@ import type { RuntimeQuestion } from "../../features/quiz-editor/components/ques
 import { displayQuestionValue } from "../../features/quiz-editor/domain/question-value-display";
 import { QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder";
 import { MathText } from "./MathText";
+import { localizedPreviewText } from "./question-preview-language";
 
 export type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 
 export const questionText = displayQuestionValue;
+
+function LocalizedPreviewText({
+  textEn,
+  textVn,
+  supportedLanguages,
+}: {
+  textEn: unknown;
+  textVn: unknown;
+  supportedLanguages: Array<"en" | "vi">;
+}) {
+  const text = localizedPreviewText(textEn, textVn, supportedLanguages);
+  if (!text.primary) return null;
+  return (
+    <>
+      <p><MathText value={text.primary} /></p>
+      {text.secondary && (
+        <p className="question-preview-translation">
+          <MathText value={text.secondary} />
+        </p>
+      )}
+    </>
+  );
+}
 
 export function PreviewAsset({
   manifestPath,
@@ -127,11 +151,9 @@ export function QuestionPreview({
   manifestPath: string;
   supportedLanguages?: Array<"en" | "vi">;
 }) {
-  const showEnglish = supportedLanguages.includes("en");
-  const showVietnamese = supportedLanguages.includes("vi");
   const indexedPartText = (value: unknown, index: number) => {
     const text = questionText(value).replace(/^\s*(?:[a-z]|\d+)[.)]\s*/i, "");
-    return `${String.fromCharCode(97 + index)}. ${text}`;
+    return text.trim() ? `${String.fromCharCode(97 + index)}. ${text}` : "";
   };
   const choices = Object.entries(question.answer?.choices ?? {});
   const inputParts = question.answer?.type === "multiple_input" && Array.isArray(question.answer?.inputs)
@@ -141,8 +163,8 @@ export function QuestionPreview({
     ? question.answer.correct.map(String)
     : [String(question.answer?.correct ?? "")];
   const isMultipleAnswer = question.answer?.type === "multiple_answer";
-  const englishText = questionText(question.text_en);
-  const vietnameseText = questionText(question.text_vn);
+  const showEnglish = supportedLanguages.includes("en");
+  const showVietnamese = supportedLanguages.includes("vi");
   const englishExplanation = questionText(question.explanation?.en);
   const vietnameseExplanation = questionText(question.explanation?.vi);
   const hasExplanation =
@@ -151,10 +173,11 @@ export function QuestionPreview({
   return (
     <div className="question-preview">
       <div className="question-preview-content">
-        {showEnglish && englishText.trim() && <p><MathText value={englishText} /></p>}
-        {showVietnamese && vietnameseText.trim() && (
-          <p className={showEnglish ? "question-preview-translation" : undefined}><MathText value={vietnameseText} /></p>
-        )}
+        <LocalizedPreviewText
+          textEn={question.text_en}
+          textVn={question.text_vn}
+          supportedLanguages={supportedLanguages}
+        />
         {question.image_datas?.map((image, index) => (
           <div
             className="question-preview-image"
@@ -171,12 +194,11 @@ export function QuestionPreview({
           <div className="question-preview-multiple-inputs">
             {inputParts.map((part, index) => (
               <section className="question-preview-input-part" key={index}>
-                {showEnglish && questionText(part.question_en).trim() && <p>{indexedPartText(part.question_en, index)}</p>}
-                {showVietnamese && questionText(part.question_vn).trim() && (
-                  <p className={showEnglish ? "question-preview-translation" : undefined}>
-                    {indexedPartText(part.question_vn, index)}
-                  </p>
-                )}
+                <LocalizedPreviewText
+                  textEn={indexedPartText(part.question_en, index)}
+                  textVn={indexedPartText(part.question_vn, index)}
+                  supportedLanguages={supportedLanguages}
+                />
                 <CorrectAnswerPreview value={correct[index] ?? ""} unit={part.unit} />
               </section>
             ))}
