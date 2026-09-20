@@ -11,12 +11,18 @@ import { MarketplacePreviewCell } from "../../components/MarketplacePreviewCell"
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
+import {
+  orderByRecent,
+  quizActivityKey,
+  type TopicRecentActivity,
+} from "../../domain/recent-activity";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type TopicTreeContext = Record<string, any> & {
   snapshot: RepositoryViewData;
   visibleContests: ContestWithQuizzes[];
   treeTopicQuizzes: Record<string, QuizSummary[]>;
+  recentActivity: TopicRecentActivity;
 };
 
 export function renderTopicTree(context: TopicTreeContext) {
@@ -26,6 +32,7 @@ isContest,
     locale,
     managerApi,
     openQuiz,
+    recentActivity,
     setContestTab,
     setPage,
     snapshot,
@@ -63,8 +70,12 @@ isContest,
                           hasChildren: summary.quizCount > 0,
                           ...(treeTopicQuizzes[contest.id]
                             ? {
-                                children: snapshot.quizzes.filter(
-                                  (quiz) => quiz.contest === contest.id,
+                                children: orderByRecent(
+                                  snapshot.quizzes.filter(
+                                    (quiz) => quiz.contest === contest.id,
+                                  ),
+                                  recentActivity.quizzes,
+                                  (quiz) => quizActivityKey(quiz.contest, quiz.id),
                                 ).map(
                                   (quiz) => ({
                                     row: { kind: "quiz" as const, quiz },
