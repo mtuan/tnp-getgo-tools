@@ -14,6 +14,7 @@ import type {
 } from "../../../shared/domain/models";
 import { QuizManager, type QuizManagerApi } from "./QuizManager";
 import { questionService } from "../../quiz-editor/components/question-service";
+import { currentQuizBuilderApiVersion } from "../../../shared/domain/models";
 
 const defaultAlphabetQuizSpeechSettings = {
   letterRate: 0.75,
@@ -146,7 +147,7 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     reviewedQuestionCount: questions.filter((question) => question.status === "reviewed").length,
     dynamic: quiz.dynamic,
     migrationErrorCount: 0,
-    quizBuilderApiVersion: 1,
+    quizBuilderApiVersion: currentQuizBuilderApiVersion,
     modifiedAt: snapshot.loadedAt,
   }); });
   return { ...snapshot, contests, quizzes };
@@ -230,7 +231,7 @@ function fromManagerQuestion(
         : undefined,
     reference: question.authoringMode === "reference" ? question.reference : undefined,
     dynamic: question.authoringMode !== "reference" && dynamic
-      ? { paramsGeneratorTs: dynamic.paramsGeneratorTs, questionGeneratorTs: dynamic.questionGeneratorTs, originParamsTs: dynamic.originParamsTs, explanationGeneratorTs: dynamic.explanationGeneratorTs, ...(compiledJs ? { compiledJs } : {}) }
+      ? { paramsGeneratorTs: dynamic.paramsGeneratorTs, questionGeneratorTs: dynamic.questionGeneratorTs, originParamsTs: dynamic.originParamsTs, explanationGeneratorTs: dynamic.explanationGeneratorTs, ...(compiledJs ? { compiledJs, quizBuilderApiVersion: currentQuizBuilderApiVersion } : {}) }
       : undefined,
   };
 }

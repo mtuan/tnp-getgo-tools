@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { RotateCcw, Save } from "lucide-react"
-import { supportedQuizBuilderApiVersions, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../../../shared/domain/models"
+import { currentQuizBuilderApiVersion, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../../../shared/domain/models"
 import { Form, validateSchema, type FormErrors, type FormSchema, type FormValues } from "../../../shared/ui/Form"
 import { DialogFrame } from "../../../shared/ui/DialogFrame"
 import { AccordionSection } from "../../../shared/ui/Accordion"
@@ -45,7 +45,7 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
 }
 
 export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, embedded = false, onDirtyChange }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; onDirtyChange?(dirty: boolean): void }) {
-  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", supportedLanguages: quiz?.supportedLanguages ?? ["en", "vi"], grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] }), [quiz])
+  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", supportedLanguages: quiz?.supportedLanguages ?? ["en", "vi"], grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? currentQuizBuilderApiVersion }), [quiz])
   const [input, setInput] = useState<QuizCrudInput>(() => initialInput)
   const [savedInput, setSavedInput] = useState<QuizCrudInput>(() => initialInput)
   const [busy, setBusy] = useState(false)
@@ -75,7 +75,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
     ...(input.type === "contest" ? [{ type: "multi-select", name: "supportedLanguages", label: "Supported languages", required: true, options: [{ value: "vi", label: "Vietnamese" }, { value: "en", label: "English" }] } as FormSchema] : []),
     ...(input.type === "alphabet" ? [{ type: "select", name: "language", label: "Language", required: true, presentation: "segmented", options: [{ value: "en", label: "English" }, { value: "vi", label: "Vietnamese" }] } as FormSchema] : []),
   ], [iconPreview, input.type, quiz])
-  const values: FormValues = { ...input, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0]) }
+  const values: FormValues = { ...input, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? currentQuizBuilderApiVersion) }
   const change = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     setInput(current => {

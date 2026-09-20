@@ -10,7 +10,8 @@ import {
 } from "../src/features/topics/domain/publishing.js";
 import { recordPublishedHash } from "../src/features/topics/repository/quiz-publishing.js";
 import { loadContentV2Assets } from "../src/features/topics/repository/content-v2-repository.js";
-import { createContentV2QuizPublishPreview } from "../src/features/topics/main/firestore-publishing.js";
+import { contentV2QuizBuilderApiVersion, createContentV2QuizPublishPreview, createContentV2TopicPublishPreview } from "../src/features/topics/main/firestore-publishing.js";
+import { currentQuizBuilderApiVersion } from "../src/shared/domain/models.js";
 import {
   contentV2PublishedItems,
   diffContentV2PublishedItems,
@@ -70,6 +71,14 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
   assert.equal(preview.firestore.marketplaceQuizDocument.data.supportsDynamic, false);
   assert.equal(preview.firestore.quizDocument.data.supportsDynamic, false);
   assert.equal(
+    preview.firestore.quizDocument.data.quizBuilderApiVersion,
+    currentQuizBuilderApiVersion,
+  );
+  assert.equal(
+    preview.firestore.marketplaceQuizDocument.data.quizBuilderApiVersion,
+    currentQuizBuilderApiVersion,
+  );
+  assert.equal(
     (preview.firestore.marketplaceQuizDocument.data.marketplace as { preview?: boolean }).preview,
     true,
   );
@@ -91,6 +100,27 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
       hash: "a".repeat(64),
     },
   ]);
+});
+
+test("content v2 topic publishing records the QuizBuilder API version", () => {
+  const preview = createContentV2TopicPublishPreview({
+    schemaVersion: 2,
+    id: "mathematics",
+    type: "competition",
+    title: "Mathematics",
+    description: "",
+    subjects: ["mathematics"],
+    grades: [3],
+    status: "reviewed",
+    order: 0,
+    subject: "mathematics",
+    rounds: [],
+    gradeGroups: [],
+  }, "a".repeat(64), ["quiz-1"]);
+  assert.equal(
+    preview.firestore.topicDocument.data.quizBuilderApiVersion,
+    currentQuizBuilderApiVersion,
+  );
 });
 
 test("topic-owned assets are not assigned to a quiz publish state", async () => {
@@ -191,6 +221,41 @@ test("content v2 publishing marks quizzes that support dynamic questions", () =>
   assert.equal(preview.firestore.marketplaceQuizDocument.data.dynamic, true);
   assert.equal(preview.firestore.quizDocument.data.supportsDynamic, true);
   assert.equal(preview.firestore.quizDocument.data.dynamic, true);
+});
+
+test("content v2 quiz version follows the newest compiled question", () => {
+  const quiz = {
+    schemaVersion: 2 as const,
+    id: "quiz-1",
+    topicId: "competition",
+    type: "competition-paper" as const,
+    title: "Quiz 1",
+    description: "",
+    sharedCode: "",
+    status: "reviewed" as const,
+    order: 0,
+    supportedLanguages: ["en" as const],
+    grade: "1",
+    round: "main",
+    year: "2026",
+  };
+  const question = {
+    schemaVersion: 2 as const,
+    id: "q1",
+    order: 0,
+    status: "reviewed" as const,
+    type: "competition-question" as const,
+    text: { en: "Value?" },
+    assets: [],
+    answer: { type: "input", correct: "4" },
+    authoringMode: "advanced-dynamic" as const,
+    dynamic: {
+      ...dynamic,
+      compiledJs: "return 4;",
+      quizBuilderApiVersion: 4,
+    },
+  };
+  assert.equal(contentV2QuizBuilderApiVersion(quiz, [question]), 4);
 });
 
 test("publishes only allowlisted runtime question fields and dynamic fragments", () => {

@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 import { legacyContentIcon } from "../../../shared/domain/content-icon.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type {
-  ContestSettings,
-  QuizCrudInput,
-  QuizManifest,
+import {
+  currentQuizBuilderApiVersion,
+  type ContestSettings,
+  type QuizCrudInput,
+  type QuizManifest,
 } from "../../../shared/domain/models.js";
 import { contestSettingsSchema, quizManifestSchema } from "../../../features/topics/domain/schema.js";
 import { createQuizQuestion } from "../../quiz-editor/repository/quiz-questions.js";
@@ -166,7 +167,8 @@ export async function createQuizFiles(
       rawJsonSha256: "",
       quizTsSha256: createHash("sha256").update(quizSource).digest("hex"),
     },
-    quizBuilderApiVersion: input.quizBuilderApiVersion ?? 1,
+    quizBuilderApiVersion:
+      input.quizBuilderApiVersion ?? currentQuizBuilderApiVersion,
   };
   await fs.mkdir(directory);
   try {

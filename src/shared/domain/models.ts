@@ -444,6 +444,8 @@ export interface QuestionFeedbackSyncResult {
 }
 
 export const supportedQuizBuilderApiVersions = [1] as const;
+export const currentQuizBuilderApiVersion =
+  supportedQuizBuilderApiVersions.at(-1)!;
 
 export type SpeechLanguage = "en" | "vi";
 export interface SpeechLanguageSettings {
@@ -497,6 +499,7 @@ export interface PublishableQuiz {
   supportsMultilingual: boolean;
   questionCount: number;
   contentHash: string;
+  quizBuilderApiVersion: number;
 }
 
 export interface PublishResult {

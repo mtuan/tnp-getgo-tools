@@ -1,4 +1,4 @@
-import type { PublishResult, QuizSummary } from "../../../shared/domain/models.js";
+import { currentQuizBuilderApiVersion, type PublishResult, type QuizSummary } from "../../../shared/domain/models.js";
 import type { LocalPublishPayload } from "../repository/quiz-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { ContentV2Question, ContentV2Quiz, ContentV2Topic, MarketplaceContentAccess } from "../../../features/topics/domain/content-v2.js";
@@ -108,6 +108,21 @@ export function buildContentV2QuestionsCode(
   );
 }
 
+export function contentV2QuizBuilderApiVersion(
+  quiz: ContentV2Quiz,
+  questions: ContentV2Question[],
+): number {
+  return Math.max(
+    1,
+    quiz.sharedCode.trim() ? currentQuizBuilderApiVersion : 1,
+    ...questions.map((question) =>
+      question.type === "competition-question" && question.dynamic?.compiledJs
+        ? (question.dynamic.quizBuilderApiVersion ?? 1)
+        : 1,
+    ),
+  );
+}
+
 function contentV2QuizPath(topicId: string, quizId: string): string {
   return `${contentV2TopicPath(topicId)}/quizzes/${encodeURIComponent(quizId)}`;
 }
@@ -126,6 +141,7 @@ export function createContentV2TopicPublishPreview(
           ...sanitizeContentV2Topic(topic),
           catalogRef: marketplaceTopicPath(topic.id),
           quizIds,
+          quizBuilderApiVersion: currentQuizBuilderApiVersion,
           contentHash,
           publishedAt: "<generated at publish time>",
         },
@@ -159,6 +175,7 @@ export function createContentV2QuizPublishPreview(
     question.type === "competition-question"
     && question.authoringMode === "advanced-dynamic"
   ));
+  const quizBuilderApiVersion = contentV2QuizBuilderApiVersion(quiz, questions);
   if (missingCompiledQuestion) {
     throw new Error(
       `Topic ${topicId} · Quiz “${quiz.title}” (${quiz.id}) · Question ${missingCompiledQuestion.id}: dynamic.compiledJs is missing. The question was not saved after a successful dynamic-code compilation. Open and save this question successfully before publishing.`,
@@ -169,7 +186,10 @@ export function createContentV2QuizPublishPreview(
       marketplaceQuizDocument: {
         operation: "upsert",
         path: marketplaceQuizPath(topicId, quiz.id),
-        data: sanitizeMarketplaceQuiz(quiz, topicAccess, questions.length, supportsDynamic),
+        data: {
+          ...sanitizeMarketplaceQuiz(quiz, topicAccess, questions.length, supportsDynamic),
+          quizBuilderApiVersion,
+        },
       },
       quizDocument: {
         operation: "upsert",
@@ -182,6 +202,7 @@ export function createContentV2QuizPublishPreview(
           questionsCode: buildContentV2QuestionsCode(questions),
           dynamic: supportsDynamic,
           supportsDynamic,
+          quizBuilderApiVersion,
           contentHash,
           publishedAt: "<generated at publish time>",
         },
@@ -335,6 +356,7 @@ export class FirestorePublishingService {
             supportsMultilingual: local.quiz.supportsMultilingual,
             questionStorage: "subcollection",
             questionCount: local.quiz.questionCount,
+            quizBuilderApiVersion: local.quiz.quizBuilderApiVersion,
             contentHash: local.quiz.contentHash,
             publishedAt,
           }),
@@ -371,6 +393,7 @@ export class FirestorePublishingService {
       ...sanitizeContentV2Topic(topic),
       access: marketplaceContentAccess(topic.marketplace),
       quizIds,
+      quizBuilderApiVersion: currentQuizBuilderApiVersion,
       contentHash,
       publishedAt,
     });
@@ -446,6 +469,7 @@ export class FirestorePublishingService {
       publisherId: topic.publisherId,
       publisher: topic.publisher,
       ...topic.marketplace,
+      quizBuilderApiVersion: currentQuizBuilderApiVersion,
       contentHash,
       publishedAt,
     }) } }]);

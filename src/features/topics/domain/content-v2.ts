@@ -7,9 +7,9 @@ export { localizedText, type LocalizedText } from "../../../shared/domain/locali
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 12;
+export const contentV2QuizPublishContractVersion = 13;
 // Increment when topic documents or shared topic-asset publication changes.
-export const contentV2TopicPublishContractVersion = 2;
+export const contentV2TopicPublishContractVersion = 3;
 
 export {
   marketplaceTopicState,
@@ -301,6 +301,7 @@ export const competitionQuestionV2Schema = z.object({
       originParamsTs: z.string(),
       explanationGeneratorTs: z.string(),
       compiledJs: z.string().optional(),
+      quizBuilderApiVersion: z.number().int().positive().optional(),
     })
     .optional(),
   authoringMode: z.enum(["advanced-dynamic", "reference"]).optional(),
