@@ -5,6 +5,7 @@ import { displayQuestionValue } from "../../features/quiz-editor/domain/question
 import { QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder";
 import { MathText } from "./MathText";
 import { localizedPreviewText } from "./question-preview-language";
+import type { GenerationPerformance } from "../../features/quiz-editor/domain/generation-performance";
 
 export type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 
@@ -143,11 +144,13 @@ function CorrectAnswerPreview({ value, unit }: { value: unknown; unit?: unknown 
 export function QuestionPreview({
   question,
   params,
+  generationPerformance,
   manifestPath,
   supportedLanguages = ["en", "vi"],
 }: {
   question: RuntimeQuestion;
   params?: Record<string, unknown>;
+  generationPerformance?: GenerationPerformance;
   manifestPath: string;
   supportedLanguages?: Array<"en" | "vi">;
 }) {
@@ -252,9 +255,26 @@ export function QuestionPreview({
         )}
       </div>
       {params && (
-        <div className="question-preview-params">
-          <span>Generated parameters</span>
-          <code>{JSON.stringify(params)}</code>
+        <div className="question-preview-generation-meta">
+          <div className="question-preview-params">
+            <span>Generated parameters</span>
+            <code>{JSON.stringify(params)}</code>
+          </div>
+          {generationPerformance && (
+            <div className="question-preview-performance">
+              <span>Generation time</span>
+              <span>
+                <code>{generationPerformance.durationMs} ms</code>
+                <strong className={`is-${generationPerformance.speed}`}>
+                  {generationPerformance.speed === "fast"
+                    ? "Fast"
+                    : generationPerformance.speed === "normal"
+                      ? "Normal"
+                      : "Slow"}
+                </strong>
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

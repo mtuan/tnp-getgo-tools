@@ -27,6 +27,10 @@ import {
   generationErrorDetail,
   type GenerationErrorDetail,
 } from "../domain/generation-error";
+import {
+  generationPerformance,
+  type GenerationPerformance,
+} from "../domain/generation-performance";
 import { questionService } from "./question-service";
 import { QuestionFeedback } from "./QuestionFeedback";
 import * as ui from "../../../shared/ui";
@@ -131,6 +135,8 @@ export function AdvancedQuestionEditor({
     question: questionService.loadStatic(record).question,
     params: { __dynamic: true },
   }));
+  const [previewPerformance, setPreviewPerformance] =
+    useState<GenerationPerformance>();
   const generatedQuestionRef = useRef<string | number | null>(null);
   const latestRecordRef = useRef(record);
   const pendingDynamicChangeRef = useRef(false);
@@ -275,6 +281,7 @@ export function AdvancedQuestionEditor({
     }
   };
   const generate = async (original = false) => {
+    const startedAt = performance.now();
     try {
       console.info("[GetGo Tools][Question preview][generation requested]", {
         mode: original ? "original" : "random",
@@ -300,6 +307,7 @@ export function AdvancedQuestionEditor({
         question: generated.question,
         params: generated.params ?? {},
       });
+      setPreviewPerformance(generationPerformance(performance.now() - startedAt));
       setErrors([]);
       setErrorSourceKey(null);
     } catch (cause) {
@@ -308,7 +316,20 @@ export function AdvancedQuestionEditor({
         questionNo: String(latestRecordRef.current.question_no),
         cause,
       });
-      setErrors([generationErrorDetail(cause)]);
+      const latest = latestRecordRef.current;
+      let sourceContext;
+      if (latest.advancedDynamic) {
+        const source = QuizTsService.composeTemplateSource(latest.advancedDynamic);
+        try {
+          sourceContext = {
+            source,
+            sections: QuizTsService.getTemplateEditorSectionsRecovering(source),
+          };
+        } catch {
+          /* Keep the original error when even structural recovery is impossible. */
+        }
+      }
+      setErrors([generationErrorDetail(cause, sourceContext)]);
       setErrorSourceKey(generatorSourceKey(latestRecordRef.current));
     }
   };
@@ -577,6 +598,7 @@ export function AdvancedQuestionEditor({
             <QuestionPreview
               question={preview.question}
               params={preview.params}
+              generationPerformance={previewPerformance}
               manifestPath={manifestPath}
             />
             {currentErrors.length > 0 && (

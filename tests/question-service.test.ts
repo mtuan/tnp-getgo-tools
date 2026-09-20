@@ -155,6 +155,41 @@ test("authoring runtime supports QB.maths.number before a vendored refresh", asy
   }
 })
 
+test("authoring runtime supports odd and even QB.rnd.int options before a vendored refresh", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ start: QB.rnd.int(1, 5, { odd: true }), end: QB.rnd.int(31, 39, { even: true }) })",
+      questionGeneratorTs: "({ start, end }: __GetGoParams) => ({ question_no: 1, text_en: `${start}-${end}`, answer: QB.answer.input(start + end) })",
+      originParamsTs: "{ start: 1, end: 32 }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const generated = await questionService.generateDynamic(record)
+    assert.equal(Number(generated.params?.start) % 2, 1)
+    assert.equal(Number(generated.params?.end) % 2, 0)
+  }
+})
+
+test("authoring runtime supports bounded start-step-end sequences before a vendored refresh", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ values: QB.maths.sequence(1, 2, 8).toArray() })",
+      questionGeneratorTs: "({ values }: __GetGoParams) => { const seq = QB.maths.sequence(1, 1, 10); return { question_no: 1, text_en: seq.toText(), text_vn: seq.toText({ start: 3, end: 2 }), answer: QB.answer.input(values.at(-1)!) } }",
+      originParamsTs: "{ values: [1, 3, 5, 7] }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+  const generated = await questionService.generateDynamic(record)
+  assert.deepEqual(generated.params?.values, [1, 3, 5, 7])
+  assert.equal(generated.question.text_en, "1, 2, 3, 4, 5, ..., 9, 10")
+  assert.equal(generated.question.text_vn, "1, 2, 3, ..., 9, 10")
+})
+
 test("shared editor context terminates an IIFE before callback expressions", () => {
   const context = quizSharedEditorContext("const QS = (() => ({ value: 1 }))()")
   assert.equal(context.endsWith(";\n\n"), true)

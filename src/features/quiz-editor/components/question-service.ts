@@ -40,6 +40,18 @@ export interface GeneratedQuestion {
   params?: Record<string, unknown>;
 }
 
+type DynamicGenerationRequest = {
+  record: ContestQuizQuestionRecord;
+  original: boolean;
+  quizSharedCode: string;
+};
+
+type DynamicGenerationWorkerResponse =
+  | { ok: true; generated: GeneratedQuestion }
+  | { ok: false; error: { name: string; message: string; stack?: string } };
+
+const DYNAMIC_GENERATION_TIMEOUT_MS = 2_000;
+
 const digitPlaces = [
   "ones", "tens", "hundreds", "thousands", "ten-thousands",
   "hundred-thousands", "millions", "ten-millions", "hundred-millions",
@@ -87,8 +99,34 @@ type AuthoringNumbersOptions = {
 
 function createAuthoringQuizBuilder(): QuizBuilder {
   const builder = new QuizBuilder();
+  const random = builder.rnd as unknown as {
+    int(min: number, max: number, options?: { step?: number; odd?: boolean; even?: boolean }): number;
+  };
+  const randomInt = random.int.bind(random);
+  random.int = (min, max, options = {}) => {
+    if (options.odd === true && options.even === true)
+      throw new RangeError("Random integer cannot require both odd and even values");
+    const requiredParity = options.odd === true ? 1 : options.even === true ? 0 : undefined;
+    if (requiredParity === undefined) return randomInt(min, max, options);
+    const step = options.step ?? 1;
+    if (!Number.isInteger(step) || step <= 0)
+      return randomInt(min, max, options);
+    const stepCount = Math.floor((max - min) / step);
+    const minParity = Math.abs(min % 2);
+    if (step % 2 === 0) {
+      if (minParity !== requiredParity)
+        throw new RangeError(`Random integer stepped range does not contain an ${requiredParity ? "odd" : "even"} value`);
+      return randomInt(min, max, { step });
+    }
+    const firstIndex = minParity === requiredParity ? 0 : 1;
+    if (firstIndex > stepCount)
+      throw new RangeError(`Random integer range does not contain an ${requiredParity ? "odd" : "even"} value`);
+    const matchingCount = Math.floor((stepCount - firstIndex) / 2) + 1;
+    return min + ((firstIndex + randomInt(0, matchingCount - 1) * 2) * step);
+  };
   const maths = builder.maths as unknown as {
     replaceDigit: (...args: unknown[]) => string;
+    sequence: (...args: unknown[]) => unknown;
     number?: (options: AuthoringNumbersOptions) => number;
     numbers?: (options: AuthoringNumbersOptions) => number[];
     numbersFromDigits: (
@@ -98,6 +136,7 @@ function createAuthoringQuizBuilder(): QuizBuilder {
     ) => number[];
   };
   const replaceDigit = maths.replaceDigit.bind(maths);
+  const sequence = maths.sequence.bind(maths);
   // Electron can retain a prior prebundled helper during an HMR session. Keep
   // array replacement compatible at the authoring boundary; numeric calls and
   // every other maths helper still use the canonical QuizBuilder method.
@@ -105,6 +144,58 @@ function createAuthoringQuizBuilder(): QuizBuilder {
     Array.isArray(value)
       ? replaceDigitArray(value, placeOrReplacements, replacement)
       : replaceDigit(value, placeOrReplacements, replacement);
+  // Keep the authoring runtime aligned with the source Logics API before the
+  // next vendored package build. The current package already accepts the
+  // equivalent structured arithmetic definition.
+  maths.sequence = (...args) => {
+    if (args.length !== 3) return sequence(...args);
+    const [start, step, end] = args;
+    if (
+      typeof start !== "number"
+      || typeof step !== "number"
+      || typeof end !== "number"
+    ) return sequence(...args);
+    if (!Number.isFinite(end))
+      throw new RangeError("Sequence end must be a finite number");
+    if (step === 0) throw new RangeError("Sequence step cannot be 0");
+    if ((step > 0 && end < start) || (step < 0 && end > start))
+      throw new RangeError("Sequence step must move from start toward end");
+    const bounded = sequence({
+      start,
+      step,
+      count: Math.floor((end - start) / step) + 1,
+    }) as {
+      toArray(): number[];
+      toText(...args: unknown[]): string;
+    };
+    const toText = bounded.toText.bind(bounded);
+    bounded.toText = (...textArgs: unknown[]) => {
+      const options = textArgs[0];
+      if (
+        textArgs.length > 0
+        && (!options || typeof options !== "object" || Array.isArray(options))
+      ) return toText(...textArgs);
+      const textOptions = (options ?? {}) as {
+        start?: number;
+        end?: number;
+        ellipsis?: string;
+      };
+      const values = bounded.toArray();
+      const startCount = textOptions.start ?? 5;
+      const endCount = textOptions.end ?? 2;
+      if (!Number.isInteger(startCount) || startCount < 0)
+        throw new RangeError("Sequence text start count must be a non-negative integer");
+      if (!Number.isInteger(endCount) || endCount < 0)
+        throw new RangeError("Sequence text end count must be a non-negative integer");
+      if (values.length <= startCount + endCount) return values.join(", ");
+      return [
+        ...values.slice(0, startCount),
+        textOptions.ellipsis ?? "...",
+        ...(endCount === 0 ? [] : values.slice(-endCount)),
+      ].filter((value) => value !== "").join(", ");
+    };
+    return bounded;
+  };
   // Keep the authoring runtime usable before the next vendored Logics package
   // refresh. Once the installed package exposes numbers(), its implementation
   // is retained unchanged.
@@ -283,6 +374,53 @@ class QuestionService {
   }
 
   async generateDynamic(
+    record: ContestQuizQuestionRecord,
+    original = false,
+    quizSharedCode = "",
+  ): Promise<GeneratedQuestion> {
+    // Dynamic question code is an untrusted authoring draft. Run it outside
+    // the renderer so a non-terminating loop cannot freeze Monaco and the rest
+    // of GetGo Tools. Node-based unit tests do not expose Web Workers and use
+    // the same implementation directly.
+    if (typeof Worker === "undefined")
+      return this.generateDynamicInProcess(record, original, quizSharedCode);
+
+    return new Promise<GeneratedQuestion>((resolve, reject) => {
+      const worker = new Worker(
+        new URL("./dynamic-generation.worker.ts", import.meta.url),
+        { type: "module" },
+      );
+      const finish = () => {
+        window.clearTimeout(timeout);
+        worker.terminate();
+      };
+      const timeout = window.setTimeout(() => {
+        finish();
+        reject(new Error(
+          `Question generation exceeded ${DYNAMIC_GENERATION_TIMEOUT_MS / 1_000} seconds. Check the dynamic code for an infinite loop.`,
+        ));
+      }, DYNAMIC_GENERATION_TIMEOUT_MS);
+      worker.onmessage = (event: MessageEvent<DynamicGenerationWorkerResponse>) => {
+        finish();
+        if (event.data.ok) {
+          resolve(event.data.generated);
+          return;
+        }
+        const error = new Error(event.data.error.message);
+        error.name = event.data.error.name;
+        error.stack = event.data.error.stack;
+        reject(error);
+      };
+      worker.onerror = (event) => {
+        finish();
+        reject(new Error(event.message || "Dynamic question worker failed."));
+      };
+      const request: DynamicGenerationRequest = { record, original, quizSharedCode };
+      worker.postMessage(request);
+    });
+  }
+
+  async generateDynamicInProcess(
     record: ContestQuizQuestionRecord,
     original = false,
     quizSharedCode = "",
