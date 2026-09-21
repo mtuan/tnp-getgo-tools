@@ -9,6 +9,7 @@ import {
 import { staticAnswerType } from "../../../features/quiz-editor/domain/answer-types";
 import { DEFAULT_EXPLANATION_GENERATOR_TS } from "../../../features/quiz-editor/domain/question-dynamics";
 import type { ContestQuizQuestionRecord } from "../../../shared/domain/models";
+import { dynamicGenerationWorkerClient } from "./dynamic-generation-worker-client";
 
 export interface RuntimeQuestion extends Record<string, unknown> {
   question_no: number;
@@ -39,18 +40,6 @@ export interface GeneratedQuestion {
   question: RuntimeQuestion;
   params?: Record<string, unknown>;
 }
-
-type DynamicGenerationRequest = {
-  record: ContestQuizQuestionRecord;
-  original: boolean;
-  quizSharedCode: string;
-};
-
-type DynamicGenerationWorkerResponse =
-  | { ok: true; generated: GeneratedQuestion }
-  | { ok: false; error: { name: string; message: string; stack?: string } };
-
-const DYNAMIC_GENERATION_TIMEOUT_MS = 2_000;
 
 const digitPlaces = [
   "ones", "tens", "hundreds", "thousands", "ten-thousands",
@@ -239,6 +228,24 @@ const dynamicBuilder = createDynamicQuestionBuildService({
   hash: sha256,
 });
 
+const DYNAMIC_BUILD_CACHE_LIMIT = 50;
+const dynamicBuildCache = new Map<string, ReturnType<typeof dynamicBuilder.build>>();
+
+function cachedDynamicBuild(source: string): ReturnType<typeof dynamicBuilder.build> {
+  const cached = dynamicBuildCache.get(source);
+  if (cached) return cached;
+  if (dynamicBuildCache.size >= DYNAMIC_BUILD_CACHE_LIMIT) {
+    const oldest = dynamicBuildCache.keys().next().value;
+    if (oldest !== undefined) dynamicBuildCache.delete(oldest);
+  }
+  const build = dynamicBuilder.build(source).catch((error) => {
+    dynamicBuildCache.delete(source);
+    throw error;
+  });
+  dynamicBuildCache.set(source, build);
+  return build;
+}
+
 function shuffle<T>(values: T[]): T[] {
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -382,42 +389,9 @@ class QuestionService {
     // the renderer so a non-terminating loop cannot freeze Monaco and the rest
     // of GetGo Tools. Node-based unit tests do not expose Web Workers and use
     // the same implementation directly.
-    if (typeof Worker === "undefined")
+    if (typeof window === "undefined" || typeof Worker === "undefined")
       return this.generateDynamicInProcess(record, original, quizSharedCode);
-
-    return new Promise<GeneratedQuestion>((resolve, reject) => {
-      const worker = new Worker(
-        new URL("./dynamic-generation.worker.ts", import.meta.url),
-        { type: "module" },
-      );
-      const finish = () => {
-        window.clearTimeout(timeout);
-        worker.terminate();
-      };
-      const timeout = window.setTimeout(() => {
-        finish();
-        reject(new Error(
-          `Question generation exceeded ${DYNAMIC_GENERATION_TIMEOUT_MS / 1_000} seconds. Check the dynamic code for an infinite loop.`,
-        ));
-      }, DYNAMIC_GENERATION_TIMEOUT_MS);
-      worker.onmessage = (event: MessageEvent<DynamicGenerationWorkerResponse>) => {
-        finish();
-        if (event.data.ok) {
-          resolve(event.data.generated);
-          return;
-        }
-        const error = new Error(event.data.error.message);
-        error.name = event.data.error.name;
-        error.stack = event.data.error.stack;
-        reject(error);
-      };
-      worker.onerror = (event) => {
-        finish();
-        reject(new Error(event.message || "Dynamic question worker failed."));
-      };
-      const request: DynamicGenerationRequest = { record, original, quizSharedCode };
-      worker.postMessage(request);
-    });
+    return dynamicGenerationWorkerClient.generate({ record, original, quizSharedCode });
   }
 
   async generateDynamicInProcess(
@@ -428,9 +402,10 @@ class QuestionService {
     if (!record.advancedDynamic)
       throw new Error("This question does not contain a dynamic generator.");
     const source = QuizTsService.composeTemplateSource(record.advancedDynamic);
+    const build = await cachedDynamicBuild(source);
     const generated = original
-      ? await dynamicBuilder.generateOriginal(source, quizSharedCode)
-      : await dynamicBuilder.generate(source, quizSharedCode);
+      ? dynamicBuilder.generateOriginalCompiled(build.compiledJs, quizSharedCode)
+      : dynamicBuilder.generateCompiled(build.compiledJs, quizSharedCode);
     if (!generated) throw new Error("Question generation returned no result.");
     return generated as GeneratedQuestion;
   }

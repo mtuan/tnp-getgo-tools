@@ -27,5 +27,19 @@ export default defineConfig({
   build: {
     outDir: "../../dist/renderer",
     emptyOutDir: false,
+    reportCompressedSize: false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined
+          if (id.includes("monaco-editor") || id.includes("@monaco-editor")) return "monaco"
+          if (id.includes("@tnp/getgo-logics") || id.includes("@babel/parser") || id.includes("sucrase") || id.includes("mathjs") || id.includes("prettier")) return "quiz-authoring"
+          if (id.includes("jspdf") || id.includes("html2canvas") || id.includes("canvg")) return "pdf"
+          if (id.includes("katex") || id.includes("react-markdown") || id.includes("remark-")) return "rich-text"
+          if (id.includes("react") || id.includes("scheduler")) return "react"
+          return undefined
+        },
+      },
+    },
   },
 })

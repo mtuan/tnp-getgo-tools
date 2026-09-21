@@ -39,8 +39,6 @@ import { SummaryCard } from "../../shared/ui/SummaryCard";
 import { Select } from "../../shared/ui/Select";
 import { environmentOptions, featureNavigation, primaryNavigation, utilityNavigation, type NavigableView, type View } from "./navigation";
 import { useToast } from "../../shared/ui/Toast";
-import { FilesystemLegacyManager } from "../../features/topics/pages/FilesystemLegacyManager";
-import { FilesystemContentV2Manager } from "../../features/topics/pages/FilesystemContentV2Manager";
 import { StartupEnvironmentPage } from "../../features/settings/components/StartupEnvironmentPage";
 import { useStartupEnvironment } from "../../features/settings/components/useStartupEnvironment";
 import { SettingsPage } from "../../features/settings/components/SettingsPage";
@@ -68,6 +66,12 @@ const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages
 const AvatarSetsPage = lazy(() => import("../../features/avatar-sets/pages/AvatarSetsPage").then((module) => ({ default: module.AvatarSetsPage })));
 const ScreenshotProjectsPage = lazy(() => import("../../features/screenshot-manager/pages/ScreenshotProjectsPage").then((module) => ({ default: module.ScreenshotProjectsPage })));
 const DesignProjectsPage = lazy(() => import("../../features/design-projects/pages/DesignProjectsPage").then((module) => ({ default: module.DesignProjectsPage })));
+const FilesystemLegacyManager = lazy(() =>
+  import("../../features/topics/pages/FilesystemLegacyManager").then((module) => ({ default: module.FilesystemLegacyManager })),
+);
+const FilesystemContentV2Manager = lazy(() =>
+  import("../../features/topics/pages/FilesystemContentV2Manager").then((module) => ({ default: module.FilesystemContentV2Manager })),
+);
 
 const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
@@ -753,26 +757,30 @@ export function App() {
               </>
             )}
             {settings.repositoryPath && view === "quizzes" && (
-              <FilesystemLegacyManager
-                locale={settings.locale}
-                speechSettings={settings.speech}
-                initialRoute={routeRequest.route}
-                onRouteChange={setCurrentRoute}
-                onOpenJobs={() => goToRoute("/jobs")}
-                onBackActionChange={updateQuizBackAction}
-                onSpeechSettingsChange={changeSpeechSettings}
-              />
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <FilesystemLegacyManager
+                  locale={settings.locale}
+                  speechSettings={settings.speech}
+                  initialRoute={routeRequest.route}
+                  onRouteChange={setCurrentRoute}
+                  onOpenJobs={() => goToRoute("/jobs")}
+                  onBackActionChange={updateQuizBackAction}
+                  onSpeechSettingsChange={changeSpeechSettings}
+                />
+              </Suspense>
             )}
             {settings.repositoryPath && view === "topics" && (
-              <FilesystemContentV2Manager
-                locale={settings.locale}
-                speechSettings={settings.speech}
-                initialRoute={routeRequest.route}
-                onRouteChange={setCurrentRoute}
-                onOpenJobs={() => goToRoute("/jobs")}
-                onBackActionChange={updateQuizBackAction}
-                onSpeechSettingsChange={changeSpeechSettings}
-              />
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <FilesystemContentV2Manager
+                  locale={settings.locale}
+                  speechSettings={settings.speech}
+                  initialRoute={routeRequest.route}
+                  onRouteChange={setCurrentRoute}
+                  onOpenJobs={() => goToRoute("/jobs")}
+                  onBackActionChange={updateQuizBackAction}
+                  onSpeechSettingsChange={changeSpeechSettings}
+                />
+              </Suspense>
             )}
             {settings.repositoryPath && view === "feedbacks" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
