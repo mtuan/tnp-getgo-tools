@@ -26,6 +26,14 @@ function readDuration(watchHtml: string): number | undefined {
   return Number.isSafeInteger(duration) && duration > 0 ? duration : undefined;
 }
 
+function isPrivateIpv4(hostname: string): boolean {
+  const octets = hostname.split(".").map(Number);
+  if (octets.length !== 4 || octets.some(octet => !Number.isInteger(octet) || octet < 0 || octet > 255)) return false;
+  return octets[0] === 10
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+}
+
 async function resolveYoutubeUrl(requestedUrl: string) {
   try {
     const url = `https://www.youtube.com/watch?v=${videoIdFromUrl(requestedUrl)}`;
@@ -63,7 +71,7 @@ function assertAllowedExternalUrl(requestedUrl: unknown): URL {
   const firebasePaths = ["/project/tnp-getgo-dev/", "/project/tnp-getgo-stg/", "/project/tnp-getgo/"];
   const firebase = url.hostname === "console.firebase.google.com" && firebasePaths.some((prefix) => url.pathname.startsWith(prefix));
   const local = url.protocol === "http:"
-    && ["localhost", "127.0.0.1"].includes(url.hostname)
+    && (["localhost", "127.0.0.1"].includes(url.hostname) || isPrivateIpv4(url.hostname))
     && ["5173", "8081", "8766"].includes(url.port);
   if (!local && (url.protocol !== "https:" || (!hosts.has(url.hostname) && !firebase)))
     throw new Error("External URL is not allowed");

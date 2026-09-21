@@ -8026,6 +8026,85 @@ button.danger svg {
   flex-wrap: wrap;
   gap: 8px;
 }
+.ui-popover {
+  position: fixed;
+  z-index: 1200;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.2);
+  outline: none;
+}
+.ui-popover:focus-visible {
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.24), 0 18px 44px rgba(15, 23, 42, 0.2);
+}
+.local-network-access {
+  display: grid;
+  justify-items: center;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.local-network-qr {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+}
+.local-network-qr svg {
+  display: block;
+  width: 112px;
+  height: 112px;
+}
+.local-network-access strong {
+  color: var(--text);
+  font-size: 13px;
+}
+.local-network-access p {
+  margin: 5px 0 9px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.local-network-url {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 5px;
+  border-radius: 6px;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.local-network-url:hover {
+  background: var(--primary-soft);
+}
+.local-network-url:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.local-network-url code {
+  overflow-wrap: anywhere;
+  color: inherit;
+  font-size: 11px;
+}
+.local-network-url svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+.local-network-popover {
+  max-width: calc(100vw - 16px);
+}
+@media (prefers-color-scheme: dark) {
+  .ui-popover {
+    background: #0f172a;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  }
+}
 .deployment-active-progress {
   overflow: hidden;
   margin: 9px 0 0;

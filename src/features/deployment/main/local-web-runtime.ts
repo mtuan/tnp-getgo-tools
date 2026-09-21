@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
+import { resolveLocalNetworkUrl } from "./local-network-address.js";
 
 export interface LocalWebRuntimeConfig {
   id: "web" | "app" | "design";
@@ -19,6 +20,7 @@ export interface LocalWebRuntimeConfig {
   executable?: string;
   warmCommand?: string[];
   requiresFirebaseConfig?: boolean;
+  exposeToNetwork?: boolean;
 }
 
 export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
@@ -30,8 +32,9 @@ export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
   repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
   url: "http://localhost:5173",
   healthPath: "/manifest.json",
-  command: () => ["run", "dev:getgo:dev", "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
+  command: () => ["run", "dev:getgo:dev", "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"],
   warmCommand: ["run", "warm:dev", "--", "--url", "http://localhost:5173"],
+  exposeToNetwork: true,
 };
 
 export const getGoAppRuntimeConfig: LocalWebRuntimeConfig = {
@@ -310,6 +313,7 @@ export class LocalWebRuntimeManager {
     return {
       status: !this.warmingUp && (online || (managed && recentlyOnline)) ? "online" : managed ? "starting" : this.error ? "error" : "offline",
       url: this.config.url,
+      networkUrl: this.config.exposeToNetwork ? resolveLocalNetworkUrl(this.config.url) : undefined,
       managed,
       target: this.lastJob?.target ?? "development",
       pid,

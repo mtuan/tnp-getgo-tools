@@ -628,6 +628,7 @@ export interface DeploymentStateSnapshot {
 export interface LocalWebRuntimeSnapshot {
   status: "offline" | "starting" | "online" | "error";
   url: string;
+  networkUrl?: string;
   managed: boolean;
   target?: WebDeploymentTarget;
   pid?: number;
