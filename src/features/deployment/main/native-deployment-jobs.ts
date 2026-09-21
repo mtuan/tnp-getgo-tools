@@ -8,6 +8,11 @@ import { findRelatedRepository } from "../../../shared/main/repository-locator.j
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
+const firebaseEnvironmentNames: Record<WebDeploymentTarget, string> = {
+  development: "DEVELOPMENT",
+  staging: "STAGING",
+  production: "PRODUCTION",
+};
 
 interface Runtime { child: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> }
 
@@ -127,6 +132,22 @@ export class NativeDeploymentJobManager {
     throw new Error(`GetGo ${this.config.product === "web" ? "Web" : "App"} repository was not found. Set ${this.config.repositoryEnvironmentVariable} to its absolute path.`);
   }
 
+  private androidGoogleServicesPath(target: WebDeploymentTarget) {
+    const variable = `GETGO_ANDROID_${firebaseEnvironmentNames[target]}_GOOGLE_SERVICES_PATH`;
+    const configured = process.env[variable]?.trim();
+    return configured
+      ? (path.isAbsolute(configured) ? configured : path.resolve(this.toolsAppPath, configured))
+      : path.join(this.toolsAppPath, "configs", "native", target, "google-services.json");
+  }
+
+  private nativeEnvironment(platform: NativePlatform, target: WebDeploymentTarget) {
+    if (this.config.product !== "web" || platform !== "android") return process.env;
+    return {
+      ...process.env,
+      GETGO_ANDROID_GOOGLE_SERVICES_PATH: this.androidGoogleServicesPath(target),
+    };
+  }
+
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
 
   async start(operation: DeploymentOperation, platform: NativePlatform, target: WebDeploymentTarget) {
@@ -157,7 +178,7 @@ export class NativeDeploymentJobManager {
     const root = await this.repositoryRoot();
     const command = this.config.command(job.operation!, platform, job.target!);
     const child = spawn(npmExecutable, ["run", command.script, ...(command.args.length ? ["--", ...command.args] : [])], {
-      cwd: root, env: process.env, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
+      cwd: root, env: this.nativeEnvironment(platform, job.target!), detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
     });
     const runtime: Runtime = { child, cancelled: false, buffers: { stdout: "", stderr: "" } };
     this.runtimes.set(job.id, runtime);
@@ -218,7 +239,7 @@ export class NativeDeploymentJobManager {
     if (this.config.product === "app") throw new Error("Expo native projects are generated when the run command starts.");
     const root = await this.repositoryRoot();
     const child = spawn(npmExecutable, ["run", `native:open:${platform}`, "--", target], {
-      cwd: root, env: process.env, detached: true, stdio: "ignore",
+      cwd: root, env: this.nativeEnvironment(platform, target), detached: true, stdio: "ignore",
     });
     child.unref();
   }
