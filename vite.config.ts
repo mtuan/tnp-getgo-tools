@@ -18,6 +18,12 @@ export default defineConfig({
   // only those probes; do not expose or polyfill Electron's `process` global.
   define: browserEnvironmentDefines,
   optimizeDeps: { esbuildOptions: { define: browserEnvironmentDefines } },
+  worker: {
+    // The dynamic-question worker imports the shared authoring runtime, which
+    // Rollup splits into multiple chunks. ES workers support that split while
+    // Vite's IIFE worker default does not.
+    format: "es",
+  },
   build: {
     outDir: "../../dist/renderer",
     emptyOutDir: false,
