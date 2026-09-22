@@ -50,6 +50,9 @@
       }
     },
     "sync": "Sync",
+    "syncTopic": "Sync topic",
+    "topicSyncComplete": "Topic synchronized",
+    "topicSyncCompleteDescription": "The topic and its changed or unpublished quizzes were synchronized.",
     "syncing": "Syncing {completed}/{total}",
     "syncStarted": "Marketplace sync started",
     "syncStartedDescription": "Open Jobs to follow its progress.",

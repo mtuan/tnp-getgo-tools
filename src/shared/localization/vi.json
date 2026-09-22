@@ -50,6 +50,9 @@
       }
     },
     "sync": "Đồng bộ",
+    "syncTopic": "Đồng bộ chủ đề",
+    "topicSyncComplete": "Đã đồng bộ chủ đề",
+    "topicSyncCompleteDescription": "Đã đồng bộ chủ đề cùng các bài quiz mới hoặc đã thay đổi.",
     "syncing": "Đang đồng bộ {completed}/{total}",
     "syncStarted": "Đã bắt đầu đồng bộ kho nội dung",
     "syncStartedDescription": "Mở Tác vụ để theo dõi tiến độ.",

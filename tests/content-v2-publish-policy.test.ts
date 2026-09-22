@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   reviewedTopicQuizzes,
   shouldPublishContainingTopic,
+  shouldPublishContentV2Quiz,
   stalePublishedQuizIds,
 } from "../src/features/topics/domain/content-v2-publish-policy.js";
 import type { ContentV2QuizSummary } from "../src/shared/domain/models.js";
@@ -51,6 +52,22 @@ test("topic publishing selects quizzes with no unreviewed questions, including e
 test("quiz publishing creates its parent topic only when it is missing", () => {
   assert.equal(shouldPublishContainingTopic(false), true);
   assert.equal(shouldPublishContainingTopic(true), false);
+});
+
+test("topic sync publishes only missing, dirty, outdated, or contract-stale quizzes", () => {
+  const current = {
+    publishContractVersion: 4,
+    environment: "development",
+    projectId: "getgo-dev",
+    contentHash: "current-hash",
+    publishedAt: "2026-09-22T00:00:00.000Z",
+    items: {},
+  };
+  assert.equal(shouldPublishContentV2Quiz("current-hash", 4, current), false);
+  assert.equal(shouldPublishContentV2Quiz("new-hash", 4, current), true);
+  assert.equal(shouldPublishContentV2Quiz("current-hash", 5, current), true);
+  assert.equal(shouldPublishContentV2Quiz("current-hash", 4, { ...current, dirty: true }), true);
+  assert.equal(shouldPublishContentV2Quiz("current-hash", 4, undefined), true);
 });
 
 test("topic publishing removes only quizzes that no longer exist locally", () => {

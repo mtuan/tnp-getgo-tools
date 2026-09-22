@@ -160,11 +160,22 @@ export function ManagerHeaderControls(context: Context) {
       variant: "success",
     });
   });
+  const syncTopic = () => runButtonAction("sync-topic", async () => {
+    const topicId = selectedContest?.id;
+    if (!topicId) return;
+    await managerApi.publishContentV2Topic(topicId);
+    toast.show({
+      title: copy.topicSyncComplete,
+      description: copy.topicSyncCompleteDescription,
+      variant: "success",
+    });
+  });
   if (!topicMode) return null;
   const items = [
     { id: "create", label: isContest ? "Create quiz" : "Create topic", icon: Plus, onSelect: () => isContest ? setQuizDialog("create") : setContestDialog("create") },
     ...(!isContest && allLegacyQuizCount > 0 ? [{ id: "migrate-all", label: `Migrate all ${allLegacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateAllLegacyQuizzes() }] : []),
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
+    ...(isContest ? [{ id: "sync-topic", label: copy.syncTopic, icon: RefreshCw, onSelect: () => void syncTopic() }] : []),
     { id: "list-all", label: copy.listAll, icon: Eye, onSelect: () => void batch("listed") },
     ...(isContest ? [{ id: "list-review-all", label: copy.listAndReviewAll, icon: CheckCheck, onSelect: () => void listAndReviewAll() }] : []),
     ...((isContest || topicsView === "list") ? [{ id: "unlist-all", label: copy.unlistAll, icon: EyeOff, onSelect: () => void batch("unlisted") }] : []),

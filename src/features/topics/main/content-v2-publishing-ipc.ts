@@ -1,6 +1,6 @@
 import type { IpcMain } from "electron";
 import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
-import { reviewedTopicQuizzes, shouldPublishContainingTopic } from "../domain/content-v2-publish-policy.js";
+import { reviewedTopicQuizzes, shouldPublishContainingTopic, shouldPublishContentV2Quiz } from "../domain/content-v2-publish-policy.js";
 import { createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, type FirestorePublishingService } from "./firestore-publishing.js";
 import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
 import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
@@ -92,9 +92,11 @@ ipcMain.handle(
         ] as const)));
         const changedReviewedQuizzes = reviewedQuizzes.filter((quiz) => {
           const published = quizStates.get(quiz.key)?.targets[target.projectId];
-          return !published || published.dirty === true ||
-            published.publishContractVersion !== contentV2QuizPublishContractVersion ||
-            published.contentHash !== quiz.localHash;
+          return shouldPublishContentV2Quiz(
+            quiz.localHash,
+            contentV2QuizPublishContractVersion,
+            published,
+          );
         });
         const localQuizIds = content.quizzes.filter(
             (quiz) => quiz.topicId === topicId && marketplaceTopicState(quiz.marketplace) !== "unlisted",
