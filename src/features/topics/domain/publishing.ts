@@ -21,8 +21,10 @@ export interface PublishedContestQuestion {
     inputs?: Array<{
       question_en: string;
       question_vn?: string;
-      correct?: string;
+      type?: "input" | "multiple_answer";
+      correct?: string | string[];
       inputType?: "text" | "number" | "date";
+      orderRequired?: boolean;
       unit?: string;
     }>;
     unit?: string;
@@ -209,15 +211,27 @@ export function sanitizePublishedQuestion(
         throw new Error(`Question ${questionNo} input part ${index + 1} requires question_en.`);
       if (part.question_vn !== undefined && typeof part.question_vn !== "string")
         throw new Error(`Question ${questionNo} input part ${index + 1} question_vn is invalid.`);
+      const partType = part.type === undefined ? "input" : String(part.type);
+      if (!['input', 'multiple_answer'].includes(partType))
+        throw new Error(`Question ${questionNo} input part ${index + 1} type is invalid.`);
+      const partCorrect = part.correct ?? correct[index] ?? "";
+      if (partType === "multiple_answer" && (!Array.isArray(partCorrect) || !partCorrect.length || !partCorrect.every(value => typeof value === "string")))
+        throw new Error(`Question ${questionNo} input part ${index + 1} multiple answers require at least one correct value.`);
+      if (partType === "input" && typeof partCorrect !== "string" && typeof partCorrect !== "number")
+        throw new Error(`Question ${questionNo} input part ${index + 1} correct answer is invalid.`);
       if (part.inputType !== undefined && !["text", "number", "date"].includes(String(part.inputType)))
         throw new Error(`Question ${questionNo} input part ${index + 1} inputType is invalid.`);
+      if (part.orderRequired !== undefined && (partType !== "multiple_answer" || typeof part.orderRequired !== "boolean"))
+        throw new Error(`Question ${questionNo} input part ${index + 1} orderRequired is invalid.`);
       if (part.unit !== undefined && typeof part.unit !== "string")
         throw new Error(`Question ${questionNo} input part ${index + 1} unit is invalid.`);
       return {
         question_en: part.question_en,
         ...(typeof part.question_vn === "string" && part.question_vn ? { question_vn: part.question_vn } : {}),
-        correct: String(part.correct ?? correct[index] ?? ""),
+        ...(partType === "multiple_answer" ? { type: "multiple_answer" as const } : {}),
+        correct: Array.isArray(partCorrect) ? [...partCorrect] : String(partCorrect),
         ...(typeof part.inputType === "string" ? { inputType: part.inputType as "text" | "number" | "date" } : {}),
+        ...(partType === "multiple_answer" && part.orderRequired === true ? { orderRequired: true } : {}),
         ...(typeof part.unit === "string" && part.unit ? { unit: part.unit } : {}),
       };
     });

@@ -394,6 +394,42 @@ test("publishes the shared input control type for single-input answers", () => {
   assert.equal(question.answer.inputType, "number");
 });
 
+test("publishes multiple-answer controls inside nested questions", () => {
+  const question = sanitizePublishedQuestion({
+    question_no: 11,
+    text_en: "Complete both parts",
+    answer: {
+      type: "multiple_input",
+      correct: ['["345","354","435"]', "2624"],
+      inputs: [
+        {
+          question_en: "Write every three-digit number",
+          type: "multiple_answer",
+          correct: ["345", "354", "435"],
+          inputType: "number",
+        },
+        {
+          question_en: "Find their sum",
+          correct: "2624",
+          inputType: "number",
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(question.answer.inputs?.[0], {
+    question_en: "Write every three-digit number",
+    type: "multiple_answer",
+    correct: ["345", "354", "435"],
+    inputType: "number",
+  });
+  assert.deepEqual(question.answer.inputs?.[1], {
+    question_en: "Find their sum",
+    correct: "2624",
+    inputType: "number",
+  });
+});
+
 test("publishes alphabet questions with their independent runtime contract", () => {
   const question = sanitizePublishedQuestion({
     question_no: 1,

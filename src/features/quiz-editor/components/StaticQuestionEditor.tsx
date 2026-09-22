@@ -181,9 +181,10 @@ export function StaticQuestionEditor({
         type: "multiple_input",
         choices: undefined,
         correct: [...correct, ""],
-        inputs: [...inputs, {
-          question_en: "",
-          inputType: "number",
+      inputs: [...inputs, {
+        question_en: "",
+        type: "input",
+        inputType: "number",
         }],
       },
     });
