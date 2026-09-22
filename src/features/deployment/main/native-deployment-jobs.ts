@@ -1,9 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { BackgroundJob, DeploymentOperation, DeploymentProduct, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
+import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
@@ -177,9 +178,23 @@ export class NativeDeploymentJobManager {
   private async run(job: NativeJob, platform: NativePlatform) {
     const root = await this.repositoryRoot();
     const command = this.config.command(job.operation!, platform, job.target!);
-    const child = spawn(npmExecutable, ["run", command.script, ...(command.args.length ? ["--", ...command.args] : [])], {
-      cwd: root, env: this.nativeEnvironment(platform, job.target!), detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
-    });
+    let child: ChildProcess;
+    try {
+      child = spawnCommand(npmExecutable, ["run", command.script, ...(command.args.length ? ["--", ...command.args] : [])], {
+        cwd: root, env: this.nativeEnvironment(platform, job.target!), detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (cause) {
+      const finishedAt = new Date().toISOString();
+      job.status = "failed";
+      job.error = cause instanceof Error ? cause.message : String(cause);
+      job.progressLabel = "Failed";
+      job.cancellable = false;
+      job.retryable = true;
+      job.finishedAt = finishedAt;
+      job.logs?.push({ timestamp: finishedAt, stream: "stderr", message: job.error });
+      await this.persist();
+      throw cause;
+    }
     const runtime: Runtime = { child, cancelled: false, buffers: { stdout: "", stderr: "" } };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
@@ -238,7 +253,7 @@ export class NativeDeploymentJobManager {
   async open(platform: NativePlatform, target: WebDeploymentTarget) {
     if (this.config.product === "app") throw new Error("Expo native projects are generated when the run command starts.");
     const root = await this.repositoryRoot();
-    const child = spawn(npmExecutable, ["run", `native:open:${platform}`, "--", target], {
+    const child = spawnCommand(npmExecutable, ["run", `native:open:${platform}`, "--", target], {
       cwd: root, env: this.nativeEnvironment(platform, target), detached: true, stdio: "ignore",
     });
     child.unref();

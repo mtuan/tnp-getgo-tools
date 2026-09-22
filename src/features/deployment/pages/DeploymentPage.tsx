@@ -28,14 +28,14 @@ export function DeploymentPage({
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
   const [deploymentState, setDeploymentState] = useState<DeploymentStateSnapshot | null>(null);
   const [localWeb, setLocalWeb] = useState<LocalWebRuntimeSnapshot | null>(null);
-  const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | null>(null);
-  const localWebActionRef = useRef<"start" | "restart" | null>(null);
+  const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | "stop" | null>(null);
+  const localWebActionRef = useRef<"start" | "restart" | "stop" | null>(null);
   const [localDesign, setLocalDesign] = useState<LocalWebRuntimeSnapshot | null>(null);
-  const [localDesignAction, setLocalDesignAction] = useState<"start" | "restart" | null>(null);
-  const localDesignActionRef = useRef<"start" | "restart" | null>(null);
+  const [localDesignAction, setLocalDesignAction] = useState<"start" | "restart" | "stop" | null>(null);
+  const localDesignActionRef = useRef<"start" | "restart" | "stop" | null>(null);
   const [localApp, setLocalApp] = useState<LocalWebRuntimeSnapshot | null>(null);
-  const [localAppAction, setLocalAppAction] = useState<"start" | "restart" | null>(null);
-  const localAppActionRef = useRef<"start" | "restart" | null>(null);
+  const [localAppAction, setLocalAppAction] = useState<"start" | "restart" | "stop" | null>(null);
+  const localAppActionRef = useRef<"start" | "restart" | "stop" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logSelection, setLogSelection] = useState<DeploymentComponent | "localhost" | "design" | null>(null);
   const environmentRef = useRef(environment);
@@ -127,7 +127,7 @@ export function DeploymentPage({
     }
   };
 
-  const controlLocalApp = async (action: "start" | "restart") => {
+  const controlLocalApp = async (action: "start" | "restart" | "stop") => {
     if (localAppActionRef.current) return;
     localAppActionRef.current = action;
     setLocalAppAction(action);
@@ -136,7 +136,9 @@ export function DeploymentPage({
     try {
       setLocalApp(action === "start"
         ? await window.getgo.startLocalWebRuntime("app", environment)
-        : await window.getgo.restartLocalWebRuntime("app", environment));
+        : action === "restart"
+          ? await window.getgo.restartLocalWebRuntime("app", environment)
+          : await window.getgo.stopLocalWebRuntime("app"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -149,7 +151,7 @@ export function DeploymentPage({
     else void executeRun(operation, component);
   };
 
-  const controlLocalWeb = async (action: "start" | "restart") => {
+  const controlLocalWeb = async (action: "start" | "restart" | "stop") => {
     if (localWebActionRef.current) return;
     localWebActionRef.current = action;
     setLocalWebAction(action);
@@ -157,8 +159,10 @@ export function DeploymentPage({
     setError(null);
     try {
       setLocalWeb(action === "start"
-        ? await window.getgo.startLocalWebRuntime()
-        : await window.getgo.restartLocalWebRuntime());
+        ? await window.getgo.startLocalWebRuntime("web", environment)
+        : action === "restart"
+          ? await window.getgo.restartLocalWebRuntime("web", environment)
+          : await window.getgo.stopLocalWebRuntime());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -167,7 +171,7 @@ export function DeploymentPage({
     }
   };
 
-  const controlLocalDesign = async (action: "start" | "restart") => {
+  const controlLocalDesign = async (action: "start" | "restart" | "stop") => {
     if (localDesignActionRef.current) return;
     localDesignActionRef.current = action;
     setLocalDesignAction(action);
@@ -176,7 +180,9 @@ export function DeploymentPage({
     try {
       setLocalDesign(action === "start"
         ? await window.getgo.startLocalWebRuntime("design")
-        : await window.getgo.restartLocalWebRuntime("design"));
+        : action === "restart"
+          ? await window.getgo.restartLocalWebRuntime("design")
+          : await window.getgo.stopLocalWebRuntime("design"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -241,12 +247,12 @@ export function DeploymentPage({
     <div className="deployment-target-summary" aria-label={copy.selectedTarget}>
       <span>{copy.selectedTarget}</span>
       <strong>{environment}</strong>
-      <code>{product === "app" ? "com.tnpglobal.getgo / com.tnp.getgo" : environment === "development" ? "com.tnp.getgo.webapp.dev" : environment === "staging" ? "com.tnp.getgo.webapp.staging" : "com.tnp.getgo.webapp"}</code>
+      <code>{product === "app" ? "com.tnpglobal.getgo / com.tnp.getgo" : `${environment === "development" ? "com.tnp.getgo.webapp.dev" : environment === "staging" ? "com.tnp.getgo.webapp.staging" : "com.tnp.getgo.webapp"} / com.tnp.getgo`}</code>
       <small>{copy.targetAppliesToAll}</small>
     </div>
     {product === "web" ? <>
       <div className="deployment-grid deployment-grid-web">
-        <LocalRuntimeCard locale={locale} runtime={localWeb} action={localWebAction} title={copy.localhostTitle} environment={copy.development} onControl={action => void controlLocalWeb(action)} onViewLogs={() => setLogSelection("localhost")} />
+        <LocalRuntimeCard locale={locale} runtime={localWeb} action={localWebAction} title={copy.localhostTitle} environment={localWeb?.managed || localWeb?.status === "online" ? localWeb.target ?? "development" : environment} onControl={action => void controlLocalWeb(action)} onViewLogs={() => setLogSelection("localhost")} />
         <LocalRuntimeCard locale={locale} runtime={localDesign} action={localDesignAction} title={copy.designServerTitle} environment={copy.designServerEnvironment} onControl={action => void controlLocalDesign(action)} onViewLogs={() => setLogSelection("design")} />
         <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>

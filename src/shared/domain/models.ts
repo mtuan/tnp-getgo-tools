@@ -939,6 +939,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   getLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;
   startLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
   restartLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
+  stopLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;
   cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   resumeBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;

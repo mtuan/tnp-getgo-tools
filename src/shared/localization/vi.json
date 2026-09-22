@@ -1,4 +1,5 @@
 {
+  "startupFailure": "GetGo Tools không thể khởi động. Kiểm tra log khởi động hoặc DevTools Console, rồi khởi động lại ứng dụng.",
   "contentSafety": {
     "eyebrow": "An toàn nội dung",
     "title": "Từ an toàn",
@@ -503,6 +504,7 @@
     "openLocalhost": "Mở",
     "runLocalhost": "Khởi động",
     "restartLocalhost": "Khởi động lại",
+    "stopLocalhost": "Dừng",
     "online": "Trực tuyến",
     "offline": "Ngoại tuyến",
     "starting": "Đang khởi động",

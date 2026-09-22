@@ -1,11 +1,13 @@
-import { execFile, spawn, type ChildProcess } from "node:child_process";
+import { execFile, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
+import { spawnCommand } from "../../../shared/main/spawn-command.js";
 import { resolveLocalNetworkUrl } from "./local-network-address.js";
+import { stopWindowsProcessTree } from "./stop-windows-process-tree.js";
 
 export interface LocalWebRuntimeConfig {
   id: "web" | "app" | "design";
@@ -32,7 +34,7 @@ export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
   repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
   url: "http://localhost:5173",
   healthPath: "/manifest.json",
-  command: () => ["run", "dev:getgo:dev", "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"],
+  command: target => ["run", target === "development" ? "dev:getgo:dev" : `dev:getgo:${target}`, "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"],
   warmCommand: ["run", "warm:dev", "--", "--url", "http://localhost:5173"],
   exposeToNetwork: true,
 };
@@ -231,7 +233,7 @@ export class LocalWebRuntimeManager {
 
   private async signalRuntime(pid: number, signal: NodeJS.Signals) {
     if (process.platform === "win32") {
-      await execFileAsync("taskkill", ["/PID", String(pid), "/T", ...(signal === "SIGKILL" ? ["/F"] : [])]);
+      await stopWindowsProcessTree(pid, signal === "SIGKILL");
       return;
     }
     const [targetGroup, toolsGroup] = await Promise.all([
@@ -335,11 +337,12 @@ export class LocalWebRuntimeManager {
     const operationStartedAt = new Date().toISOString();
     this.startedAt = operationStartedAt;
     this.error = null;
-    const projectId = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_ID?.trim();
-    const projectNumber = process.env.GETGO_FIREBASE_DEVELOPMENT_PROJECT_NUMBER?.trim();
-    const apiKey = process.env.GETGO_FIREBASE_DEVELOPMENT_API_KEY?.trim();
+    const firebasePrefix = `GETGO_FIREBASE_${target.toUpperCase()}`;
+    const projectId = process.env[`${firebasePrefix}_PROJECT_ID`]?.trim();
+    const projectNumber = process.env[`${firebasePrefix}_PROJECT_NUMBER`]?.trim();
+    const apiKey = process.env[`${firebasePrefix}_API_KEY`]?.trim();
     if ((this.config.requiresFirebaseConfig ?? this.config.product === "web") && (!projectId || !projectNumber || !apiKey))
-      throw new Error("Development Firebase configuration is incomplete in GetGo Tools .env.");
+      throw new Error(`${target} Firebase configuration is incomplete in GetGo Tools .env.`);
     this.warmingUp = true;
     const command = this.config.command(target);
     const job: BackgroundJob = {
@@ -369,22 +372,39 @@ export class LocalWebRuntimeManager {
     ]);
     const stdoutFd = openSync(this.stdoutFile, "a");
     const stderrFd = openSync(this.stderrFile, "a");
-    const child = spawn(this.config.executable ?? npmExecutable, command, {
-      cwd: repositoryRoot,
-      detached: process.platform !== "win32",
-      env: {
-        ...process.env,
-        ...((this.config.requiresFirebaseConfig ?? this.config.product === "web") ? {
-          VITE_FIREBASE_API_KEY: apiKey!,
-          VITE_FIREBASE_PROJECT_ID: projectId!,
-          VITE_FIREBASE_MESSAGING_SENDER_ID: projectNumber!,
-        } : {}),
-      },
-      // File descriptors are inherited by the detached process and remain
-      // valid after Electron exits. Parent-owned pipes make localhost die when
-      // GetGo Tools closes or restarts.
-      stdio: ["ignore", stdoutFd, stderrFd],
-    });
+    let child: ChildProcess;
+    try {
+      child = spawnCommand(this.config.executable ?? npmExecutable, command, {
+        cwd: repositoryRoot,
+        detached: process.platform !== "win32",
+        env: {
+          ...process.env,
+          ...((this.config.requiresFirebaseConfig ?? this.config.product === "web") ? {
+            VITE_FIREBASE_API_KEY: apiKey!,
+            VITE_FIREBASE_PROJECT_ID: projectId!,
+            VITE_FIREBASE_MESSAGING_SENDER_ID: projectNumber!,
+          } : {}),
+        },
+        // File descriptors are inherited by the detached process and remain
+        // valid after Electron exits. Parent-owned pipes make localhost die when
+        // GetGo Tools closes or restarts.
+        stdio: ["ignore", stdoutFd, stderrFd],
+      });
+    } catch (cause) {
+      closeSync(stdoutFd);
+      closeSync(stderrFd);
+      const message = cause instanceof Error ? cause.message : String(cause);
+      const finishedAt = new Date().toISOString();
+      this.warmingUp = false;
+      this.error = message;
+      job.status = "failed";
+      job.error = message;
+      job.progressLabel = "Failed";
+      job.finishedAt = finishedAt;
+      job.logs?.push({ timestamp: finishedAt, stream: "stderr", message });
+      await this.persistLastJob();
+      throw cause;
+    }
     closeSync(stdoutFd);
     closeSync(stderrFd);
     this.child = child;
@@ -479,6 +499,35 @@ export class LocalWebRuntimeManager {
     this.lastConfirmedOnlineAt = 0;
     await this.clearExistingRuntime();
     return this.startInternal("restart", target);
+  }
+
+  stop() {
+    return this.singleFlight(() => this.stopInternal());
+  }
+
+  private async stopInternal() {
+    await this.ensureLastJobLoaded();
+    await this.clearExistingRuntime();
+    this.lastConfirmedOnlineAt = 0;
+    this.warmingUp = false;
+    this.error = null;
+    if (this.lastJob && this.lastJob.status === "running") {
+      const finishedAt = new Date().toISOString();
+      this.lastJob.status = "completed";
+      this.lastJob.completed = this.lastJob.total;
+      this.lastJob.progressLabel = "Localhost stopped";
+      this.lastJob.finishedAt = finishedAt;
+      this.lastJob.durationMs = this.lastJob.startedAt
+        ? Math.max(0, Date.parse(finishedAt) - Date.parse(this.lastJob.startedAt))
+        : undefined;
+      this.lastJob.logs?.push({
+        timestamp: finishedAt,
+        stream: "system",
+        message: `${this.config.displayName} localhost stopped by the user.`,
+      });
+      await this.persistLastJob();
+    }
+    return this.state();
   }
 
 }

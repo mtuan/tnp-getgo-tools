@@ -1,9 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, DeploymentItemState, DeploymentJobReportStep, DeploymentOperation, DeploymentStateSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
+import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
 type DeploymentJob = BackgroundJob & {
   kind: "deploy";
@@ -324,12 +325,25 @@ export class WebDeploymentJobManager {
     const args = ["run", targetScripts[target], "--", `--scope=${scope}`];
     if (operation === "build") args.push("--build-only", "--no-lint", "--no-typecheck");
     else args.push("--no-lint", "--no-typecheck");
-    const child = spawn(npmExecutable, args, {
-      cwd: webRoot,
-      detached: process.platform !== "win32",
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    let child: ChildProcess;
+    try {
+      child = spawnCommand(npmExecutable, args, {
+        cwd: webRoot,
+        detached: process.platform !== "win32",
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (cause) {
+      job.status = "failed";
+      job.error = cause instanceof Error ? cause.message : String(cause);
+      job.progressLabel = "Failed";
+      job.retryable = true;
+      job.cancellable = false;
+      job.finishedAt = new Date().toISOString();
+      await this.finalizeReport(job, "failed");
+      await this.persist();
+      throw cause;
+    }
     const runtime: Runtime = { child, cancelled: false, phases: new Set(), outputBuffer: "", reportPhase: "startup" };
     this.runtimes.set(job.id, runtime);
     job.status = "running";

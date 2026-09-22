@@ -1,4 +1,5 @@
 {
+  "startupFailure": "GetGo Tools could not start. Check the startup log or DevTools Console, then restart the app.",
   "contentSafety": {
     "eyebrow": "Content safety",
     "title": "Safe words",
@@ -503,6 +504,7 @@
     "openLocalhost": "Open",
     "runLocalhost": "Start",
     "restartLocalhost": "Restart",
+    "stopLocalhost": "Stop",
     "online": "Online",
     "offline": "Offline",
     "starting": "Starting",
