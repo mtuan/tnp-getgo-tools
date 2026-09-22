@@ -239,7 +239,7 @@ function QuestionPreviewContent({
                   textVn={indexedPartText(part.question_vn, index)}
                   supportedLanguages={supportedLanguages}
                 />
-                <CorrectAnswerPreview value={correct[index] ?? ""} unit={part.unit} />
+                <CorrectAnswerPreview value={part.correct ?? correct[index] ?? ""} unit={part.unit} />
               </section>
             ))}
           </div>

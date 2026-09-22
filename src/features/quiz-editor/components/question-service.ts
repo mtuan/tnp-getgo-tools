@@ -26,6 +26,7 @@ export interface RuntimeQuestion extends Record<string, unknown> {
     inputs?: Array<{
       question_en: string;
       question_vn?: string;
+      correct?: string;
       inputType?: "text" | "number" | "date";
       unit?: string;
     }>;
@@ -127,6 +128,23 @@ export function createAuthoringQuizBuilder(): QuizBuilder {
       options,
     );
   }) as typeof answer.choice;
+  const nested = answer.nested;
+  const nestedWithInputAnswers = (parts: unknown) => {
+    const result = (nested as (value: unknown) => {
+      type: "multiple_input";
+      correct: string[];
+      inputs: Array<Record<string, unknown>>;
+    })(parts);
+    return {
+      ...result,
+      inputs: result.inputs.map((part, index) => ({
+        ...part,
+        correct: String(part.correct ?? result.correct[index] ?? ""),
+      })),
+    };
+  };
+  answer.nested = nestedWithInputAnswers as typeof answer.nested;
+  answer.inputs = nestedWithInputAnswers as typeof answer.inputs;
   Object.assign(builder as unknown as Record<string, unknown>, {
     dayOfWeek: Object.freeze({
       SUNDAY: 0,
@@ -136,6 +154,7 @@ export function createAuthoringQuizBuilder(): QuizBuilder {
       THURSDAY: 4,
       FRIDAY: 5,
       SATURDAY: 6,
+      random: () => builder.rnd.int(0, 6),
     }),
   });
   const addDayOfWeek = (
@@ -172,6 +191,17 @@ export function createAuthoringQuizBuilder(): QuizBuilder {
     ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
     ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
   );
+  const english = builder.en as typeof builder.en & {
+    plural(word: string, irregularPlural?: string): string;
+  };
+  const plural = english.plural.bind(english);
+  english.plural = ((
+    countOrWord: number | string,
+    singularOrIrregular?: string,
+    irregularPlural?: string,
+  ) => typeof countOrWord === "string"
+    ? plural(2, countOrWord, singularOrIrregular)
+    : plural(countOrWord, singularOrIrregular!, irregularPlural)) as typeof english.plural;
   const random = builder.rnd as unknown as {
     int(min: number, max: number, options?: { step?: number; odd?: boolean; even?: boolean }): number;
   };
@@ -203,6 +233,7 @@ export function createAuthoringQuizBuilder(): QuizBuilder {
       value: number;
       renderExpression?: () => string;
     };
+    time: (...args: unknown[]) => unknown;
     replaceDigit: (...args: unknown[]) => string;
     sequence: (...args: unknown[]) => unknown;
     number?: (options: AuthoringDigitNumbersOptions) => number;
@@ -214,6 +245,40 @@ export function createAuthoringQuizBuilder(): QuizBuilder {
     ) => number[];
   };
   const calculate = maths.calc.bind(maths);
+  const createTime = maths.time.bind(maths);
+  const decorateTime = (value: unknown) => {
+    const time = value as { dow?: unknown; dowValue?: unknown };
+    const prototype = Object.getPrototypeOf(time) as object;
+    if (!Object.getOwnPropertyDescriptor(prototype, "dowValue")) {
+      Object.defineProperty(prototype, "dowValue", {
+        configurable: true,
+        get(this: { dow?: unknown }) {
+          return typeof this.dow === "string"
+            ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(this.dow)
+            : undefined;
+        },
+      });
+    }
+    return time;
+  };
+  maths.time = (hoursOrParts, ...rest) => {
+    if (
+      hoursOrParts
+      && typeof hoursOrParts === "object"
+      && "dow" in hoursOrParts
+      && typeof (hoursOrParts as { dow?: unknown }).dow === "number"
+    ) {
+      const parts = hoursOrParts as Record<string, unknown>;
+      const dow = parts.dow as number;
+      if (!Number.isInteger(dow) || dow < 0 || dow > 6)
+        throw new RangeError("Day of week must be an integer from 0 (Sunday) to 6 (Saturday)");
+      return decorateTime(createTime({
+        ...parts,
+        dow: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dow],
+      }));
+    }
+    return decorateTime(createTime(hoursOrParts, ...rest));
+  };
   maths.calc = (strings, ...values) => {
     const calculation = calculate(strings, ...values);
     calculation.renderExpression ??= () => calculation.expression

@@ -21,6 +21,7 @@ export interface PublishedContestQuestion {
     inputs?: Array<{
       question_en: string;
       question_vn?: string;
+      correct?: string;
       inputType?: "text" | "number" | "date";
       unit?: string;
     }>;
@@ -215,6 +216,7 @@ export function sanitizePublishedQuestion(
       return {
         question_en: part.question_en,
         ...(typeof part.question_vn === "string" && part.question_vn ? { question_vn: part.question_vn } : {}),
+        correct: String(part.correct ?? correct[index] ?? ""),
         ...(typeof part.inputType === "string" ? { inputType: part.inputType as "text" | "number" | "date" } : {}),
         ...(typeof part.unit === "string" && part.unit ? { unit: part.unit } : {}),
       };

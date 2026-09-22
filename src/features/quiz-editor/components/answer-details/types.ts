@@ -5,6 +5,7 @@ export interface EditableAnswer extends Record<string, unknown> {
   inputs?: Array<{
     question_en: string
     question_vn?: string
+    correct?: string
     inputType?: "text" | "number" | "date"
     unit?: string
   }>

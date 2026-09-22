@@ -109,6 +109,23 @@ test("authoring runtime sums and renders the configured sequence terms", async (
   assert.equal(generated.question.answer.correct, "24")
 })
 
+test("authoring runtime includes the answer inside every nested input", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ length: 12, width: 5 })",
+      questionGeneratorTs: "({ length, width }: __GetGoParams) => ({ question_no: 1, text_en: 'Dimensions', answer: QB.answer.nested([{ question_en: 'Length', correct: length }, { question_en: 'Width', correct: width }]) })",
+      originParamsTs: "{ length: 12, width: 5 }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.deepEqual(generated.question.answer.inputs?.map(part => part.correct), ["12", "5"])
+  assert.deepEqual(generated.question.answer.correct, ["12", "5"])
+})
+
 test("question service regenerates non-fixed choices and remaps the correct label", () => {
   const record = question(false)
   const current = questionService.loadStatic(record).question
@@ -372,6 +389,58 @@ test("authoring runtime supports localized wrapped day-of-week names", async () 
   const generated = await questionService.generateDynamic(record)
   assert.equal(generated.question.text_en, "Sat")
   assert.equal(generated.question.text_vn, "Thứ Hai")
+})
+
+test("authoring runtime pluralizes a word without requiring a count", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ previousDay: 'Monday' })",
+      questionGeneratorTs: "({ previousDay }: __GetGoParams) => ({ question_no: 1, text_en: QB.en.plural(previousDay), answer: QB.answer.input(previousDay) })",
+      originParamsTs: "{ previousDay: 'Monday' }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.equal(generated.question.text_en, "Mondays")
+})
+
+test("authoring runtime supports QB.dayOfWeek.random", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ tomorrow: QB.dayOfWeek.random() })",
+      questionGeneratorTs: "({ tomorrow }: __GetGoParams) => ({ question_no: 1, text_en: QB.en.dayOfWeek(tomorrow), answer: QB.answer.input(tomorrow) })",
+      originParamsTs: "{ tomorrow: QB.dayOfWeek.MONDAY }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const generated = await questionService.generateDynamic(record)
+    const value = Number(generated.question.answer.correct)
+    assert.equal(Number.isInteger(value) && value >= 0 && value <= 6, true)
+  }
+})
+
+test("authoring runtime accepts QB.dayOfWeek constants in maths time", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ time: QB.maths.time({ hours: 23, dow: QB.dayOfWeek.SUNDAY }).addHours(2) })",
+      questionGeneratorTs: "({ time }: __GetGoParams) => ({ question_no: 1, text_en: time.dow, answer: QB.answer.input(time.dowValue ?? -1) })",
+      originParamsTs: "{ time: QB.maths.time({ hours: 23, dow: 'Sunday' }).addHours(2) }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.equal(generated.question.text_en, "Monday")
+  assert.equal(generated.question.answer.correct, "1")
 })
 
 test("authoring runtime supports QB.maths.number before a vendored refresh", async () => {

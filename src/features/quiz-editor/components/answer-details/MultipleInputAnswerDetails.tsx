@@ -66,7 +66,7 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
   const rows: InputRow[] = (answer.inputs ?? []).map((part, index) => ({
     question_en: part.question_en || "",
     question_vn: part.question_vn || "",
-    correct: correct[index] ?? "",
+    correct: part.correct ?? correct[index] ?? "",
     inputType: part.inputType ?? "number",
     unit: part.unit ?? "",
   }))
@@ -81,6 +81,7 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
     inputs: nextRows.map(row => ({
       question_en: row.question_en,
       ...(row.question_vn ? { question_vn: row.question_vn } : {}),
+      correct: row.correct,
       inputType: row.inputType,
       ...(row.unit ? { unit: row.unit } : {}),
     })),
