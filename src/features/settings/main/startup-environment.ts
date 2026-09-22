@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { promises as fs } from "node:fs";
+import { constants, promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { StartupEnvironmentCheck, StartupEnvironmentReadiness } from "../domain/startup-environment.js";
@@ -29,14 +29,39 @@ const repositories: RepositoryCheck[] = [
   { id: "logics", label: "GetGo Logics source", packageName: "@tnp/getgo-logics", directoryName: "tnp-getgo-logics", environmentVariable: "GETGO_LOGICS_ROOT", required: false },
 ];
 
-async function commandAvailable(command: string) {
-  try {
-    await execFileAsync(process.platform === "win32" ? "where.exe" : "which", [command]);
-    return true;
-  } catch {
-    return false;
-  }
+interface ExecutableSearchOptions {
+  pathValue?: string;
+  platform?: NodeJS.Platform;
+  macosFallbackPaths?: readonly string[];
 }
+
+export async function resolveExecutable(command: string, options: ExecutableSearchOptions = {}) {
+  const platform = options.platform ?? process.platform;
+  if (platform === "win32") {
+    try {
+      const { stdout } = await execFileAsync("where.exe", [command], {
+        env: { ...process.env, PATH: options.pathValue ?? process.env.PATH },
+      });
+      return stdout.split(/\r?\n/).map(value => value.trim()).find(Boolean) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  const fallbackPaths = platform === "darwin"
+    ? options.macosFallbackPaths ?? ["/opt/homebrew/bin", "/usr/local/bin"]
+    : [];
+  const directories = [...new Set([...(options.pathValue ?? process.env.PATH ?? "").split(path.delimiter), ...fallbackPaths].filter(Boolean))];
+  for (const directory of directories) {
+    const candidate = path.join(directory, command);
+    try {
+      await fs.access(candidate, constants.X_OK);
+      return candidate;
+    } catch { /* Try the next executable directory. */ }
+  }
+  return null;
+}
+
+const commandAvailable = async (command: string) => Boolean(await resolveExecutable(command));
 
 const configured = (name: string) => Boolean(process.env[name]?.trim());
 
@@ -267,12 +292,14 @@ export class StartupEnvironmentService {
       const projectPath = id === "tools" ? this.toolsAppPath
         : repository ? await findRelatedRepository(this.toolsAppPath, repository) : null;
       if (!projectPath) throw new Error(`Cannot install dependencies because the ${id} project was not found.`);
-      const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+      const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+      const npm = await resolveExecutable(npmCommand) ?? npmCommand;
       await execFileAsync(npm, ["install"], { cwd: projectPath, maxBuffer: 10 * 1024 * 1024 });
       return;
     }
     const command = checkId.replace(/^tool-/, "");
-    const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+    const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+    const npm = await resolveExecutable(npmCommand) ?? npmCommand;
     const installers: Record<string, readonly [string, string[]]> = process.platform === "win32" ? {
       git: ["winget", ["install", "--id", "Git.Git", "-e", "--accept-package-agreements", "--accept-source-agreements"]],
       npm: ["winget", ["install", "--id", "OpenJS.NodeJS.LTS", "-e", "--accept-package-agreements", "--accept-source-agreements"]],
@@ -291,6 +318,13 @@ export class StartupEnvironmentService {
     };
     const installer = installers[command];
     if (!installer) throw new Error(`No automatic installer is available for ${checkId} on ${process.platform}.`);
-    await execFileAsync(installer[0], installer[1], { maxBuffer: 10 * 1024 * 1024 });
+    const executable = await resolveExecutable(installer[0]);
+    if (!executable) {
+      const detail = installer[0] === "brew"
+        ? "Homebrew was not found. Install it from https://brew.sh, then reopen GetGo Tools."
+        : `${installer[0]} was not found on this computer.`;
+      throw new Error(`Cannot install ${command}: ${detail}`);
+    }
+    await execFileAsync(executable, installer[1], { maxBuffer: 10 * 1024 * 1024 });
   }
 }
