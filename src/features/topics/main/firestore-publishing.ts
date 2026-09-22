@@ -587,6 +587,7 @@ export class FirestorePublishingService {
     previousState?: ContentV2PublishTargetState,
     control?: PublishJobControl,
     followingOperationCount = 0,
+    force = false,
   ): Promise<ContentV2PublishResult & {
     environment: string;
     projectId: string;
@@ -615,7 +616,10 @@ export class FirestorePublishingService {
       contentHash,
     );
     const items = contentV2PublishedItems(preview);
-    const diff = diffContentV2PublishedItems(previousState?.items, items);
+    const calculatedDiff = diffContentV2PublishedItems(previousState?.items, items);
+    const diff = force
+      ? { ...calculatedDiff, changed: new Set(Object.keys(items)) }
+      : calculatedDiff;
     const quizPath = preview.firestore.quizDocument.path;
     const [remoteQuestionNames, remoteAssetNames, remoteResourceNames] = previousState
       ? [[], [], []]

@@ -565,6 +565,9 @@
   "quizPublish": {
     "tab": "Xuất bản",
     "more": "Thêm",
+    "forceSync": "Đồng bộ bài quiz",
+    "forceSyncSuccessTitle": "Đã đồng bộ bài quiz",
+    "forceSyncSuccessDescription": "Bài quiz đã chọn và toàn bộ nội dung xuất bản của bài đã được đồng bộ.",
     "markAllReviewed": "Đánh dấu tất cả câu hỏi đã duyệt",
     "markAllReviewedSuccess": "Đã duyệt tất cả câu hỏi",
     "markAllReviewedDescription": "Đã đánh dấu {count} câu hỏi là đã duyệt.",

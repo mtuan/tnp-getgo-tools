@@ -835,6 +835,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   publishContentV2Quiz(
     topicId: string,
     quizId: string,
+    force?: boolean,
   ): Promise<ContentV2PublishResult>;
   previewContentV2QuizPublish(
     topicId: string,

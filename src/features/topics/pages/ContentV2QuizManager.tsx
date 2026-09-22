@@ -408,6 +408,10 @@ export function ContentV2QuizManager(props: Props) {
         const quiz = next.contentV2.quizzes.find((item) => item.topicId === topicId && item.id === quizId);
         return { contestId: topicId, quizId, contentHash: result.contentHash, questionCount: quiz?.questionCount ?? 0, publishedAt: result.publishedAt };
       },
+      forceSyncContentV2Quiz: async (topicId, quizId) => {
+        await window.getgo.publishContentV2Quiz(topicId, quizId, true);
+        await reloadFromFiles(topicId);
+      },
       publishContentV2Topic: async (topicId) => {
         const result = await window.getgo.publishContentV2Topic(topicId);
         await reloadFromFiles(topicId);

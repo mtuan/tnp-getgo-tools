@@ -317,9 +317,12 @@ ipcMain.handle(
 );
 ipcMain.handle(
   "content-v2:quiz:publish",
-  async (_event, topicId: unknown, quizId: unknown) => {
+  async (_event, topicId: unknown, quizId: unknown, forceValue: unknown) => {
     if (typeof topicId !== "string" || typeof quizId !== "string")
       throw new Error("Invalid quiz selection.");
+    if (forceValue !== undefined && typeof forceValue !== "boolean")
+      throw new Error("Invalid force-sync option.");
+    const force = forceValue === true;
     const root = await repositoryRoot();
     const content = (await loadContentV2WorkspaceFromFiles(root, { topicId })).content;
     const summary = content.quizzes.find(
@@ -330,8 +333,8 @@ ipcMain.handle(
       throw new Error("Review every question before publishing this quiz.");
     return publishJobs.track(
       {
-        name: `Publish · ${summary.title}`,
-        description: `Publish ${summary.questionCount} questions to Firebase`,
+        name: `${force ? "Sync quiz" : "Publish"} · ${summary.title}`,
+        description: `${force ? "Force-sync" : "Publish"} ${summary.questionCount} questions to Firebase`,
         route: `/topics/${encodeURIComponent(topicId)}/quizzes/${encodeURIComponent(quizId)}?tab=publish`,
       },
       async (control) => {
@@ -403,6 +406,7 @@ ipcMain.handle(
           publishState.targets[target.projectId],
           control,
           publishContainingTopic ? 2 : 0,
+          force,
         );
         const topicPublishState = await readContentV2TopicPublishState(topicSummary.filePath);
         const topicAssets = await loadContentV2TopicAssets(root, topic, false);
