@@ -8,6 +8,7 @@ import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
+import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
 
 export async function syncAllMarketplaceTopics(
   root: string,
@@ -109,7 +110,7 @@ export async function syncAllMarketplaceTopics(
         Promise.all(questionIds.map((id) => loadContentV2Question(root, topicId, summary.id, id))),
         loadContentV2QuizResources(root, topicId, quiz),
       ]);
-      const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources });
+      const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources }, false);
       await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
       const previous = await readContentV2QuizPublishState(summary.filePath);
       const result = await publishing.publishContentV2Quiz(topicId, quiz, marketplaceContentAccess(topic.marketplace), questions, resources, assets, summary.localHash, previous.targets[target.projectId]);
@@ -126,10 +127,14 @@ export async function syncAllMarketplaceTopics(
     }
     const reviewedQuizIds = reviewedTopicQuizzes(next.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
     const syncWork = marketplaceTopicSyncWork(topicSummary, topicPlan);
+    const previousTopicState = await readContentV2TopicPublishState(topicSummary.filePath);
+    const previousTargetState = previousTopicState.targets[target.projectId];
+    let topicAssetItems = Object.fromEntries(Object.entries(previousTargetState?.items ?? {})
+      .filter(([, item]) => item.kind === "storage-object"));
     if (syncWork.uploadTopicAssets) {
-      const topicAssets = await loadContentV2TopicAssets(root, topic);
+      const topicAssets = await loadContentV2TopicAssets(root, topic, false);
       await control.report(`Topic assets discovered · ${topicSummary.title} · ${topicAssets.length} files`);
-      await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
+      topicAssetItems = await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control, previousTargetState);
     } else {
       await control.report(`Topic assets unchanged · ${topicSummary.title} · upload skipped`);
     }
@@ -153,7 +158,16 @@ export async function syncAllMarketplaceTopics(
       } : {}),
       marketplace: syncedMarketplaceMetadata(topic.marketplace, state, marketResult),
     });
-    const previousTopicState = await readContentV2TopicPublishState(topicSummary.filePath);
+    const topicDocumentItem: ContentV2PublishedItem = {
+      kind: "firestore-document",
+      path: `/getgo-content-v2/catalog/topics/${encodeURIComponent(topicId)}`,
+      hash: topicResult?.contentHash ?? topicSummary.publishedHash ?? topicSummary.localHash,
+    };
+    const marketplaceDocumentItem: ContentV2PublishedItem = {
+      kind: "firestore-document",
+      path: `/getgo-marketplace-topics/${encodeURIComponent(topicId)}`,
+      hash: marketResult.contentHash,
+    };
     await writeContentV2TopicPublishState(topicSummary.filePath, {
       schemaVersion: 1,
       targets: {
@@ -165,6 +179,11 @@ export async function syncAllMarketplaceTopics(
           contentHash: topicResult?.contentHash ?? topicSummary.publishedHash,
           marketplaceContentHash: marketResult.contentHash,
           publishedAt: marketResult.publishedAt,
+          items: {
+            ...topicAssetItems,
+            [publishedItemKey(topicDocumentItem)]: topicDocumentItem,
+            [publishedItemKey(marketplaceDocumentItem)]: marketplaceDocumentItem,
+          },
         },
       },
     });

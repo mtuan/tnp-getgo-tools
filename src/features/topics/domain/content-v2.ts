@@ -81,6 +81,14 @@ export type MarketplaceTopicMetadata = z.infer<typeof marketplaceTopicMetadataSc
 export type MarketplaceTopicMetadataInput = Partial<MarketplaceTopicMetadata>;
 export type MarketplaceContentAccess = "free" | "subscription" | "paid";
 
+function enabledMarketplaceMetadata(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const enabled = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== false),
+  );
+  return Object.keys(enabled).length ? enabled : undefined;
+}
+
 export function marketplaceContentAccess(
   metadata: MarketplaceTopicMetadataInput | undefined,
   inherited: MarketplaceContentAccess = "free",
@@ -104,11 +112,13 @@ export function sanitizeMarketplaceQuiz(
     status: _status,
     ...summary
   } = contentV2QuizSchema.parse(record);
+  const normalizedMarketplace = enabledMarketplaceMetadata(summary.marketplace);
   return {
     ...summary,
+    marketplace: normalizedMarketplace,
     access: marketplaceContentAccess(record.marketplace, inheritedAccess),
     ...(questionCount === undefined ? {} : { questionCount }),
-    ...(supportsDynamic === undefined ? {} : { dynamic: supportsDynamic, supportsDynamic }),
+    ...(supportsDynamic ? { dynamic: true, supportsDynamic: true } : {}),
   };
 }
 
@@ -124,6 +134,7 @@ export function sanitizeMarketplaceTopic(
     publishedHash?: string;
     publishedAt?: string;
   };
+  const normalizedMarketplace = enabledMarketplaceMetadata(marketplace) ?? {};
   return {
     topicId: record.id,
     title: record.title,
@@ -131,7 +142,7 @@ export function sanitizeMarketplaceTopic(
     icon: record.icon,
     publisherId: record.publisherId,
     publisher: record.publisher,
-    ...marketplace,
+    ...normalizedMarketplace,
     shortDescription: record.description,
     fullDescription: record.description,
     subjects: record.subjects,
@@ -471,7 +482,12 @@ export function sanitizeContentV2Topic(
 export function sanitizeContentV2Quiz(
   record: ContentV2Quiz,
 ): Record<string, unknown> {
-  return withoutAuthoringMetadata(contentV2QuizSchema.parse(record));
+  const { marketplace, ...runtime } = withoutAuthoringMetadata(contentV2QuizSchema.parse(record));
+  const normalizedMarketplace = enabledMarketplaceMetadata(marketplace);
+  return {
+    ...runtime,
+    ...(normalizedMarketplace ? { marketplace: normalizedMarketplace } : {}),
+  };
 }
 
 export function sanitizeContentV2Question(

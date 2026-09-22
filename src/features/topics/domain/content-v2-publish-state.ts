@@ -15,6 +15,8 @@ export interface ContentV2PublishTargetState {
   projectId: string;
   contentHash: string;
   publishedAt: string;
+  /** Local files changed after this target was published; item hashes remain reusable. */
+  dirty?: boolean;
   items: Record<string, ContentV2PublishedItem>;
 }
 
@@ -30,6 +32,9 @@ export interface ContentV2TopicPublishTargetState {
   contentHash: string | null;
   marketplaceContentHash: string | null;
   publishedAt: string;
+  /** Local topic metadata or owned assets changed after publication. */
+  dirty?: boolean;
+  items?: Record<string, ContentV2PublishedItem>;
 }
 
 export interface ContentV2TopicPublishState {

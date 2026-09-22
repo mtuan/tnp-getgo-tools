@@ -68,8 +68,8 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
   assert.equal(preview.firestore.quizDocument.data.access, "free");
   assert.equal(preview.firestore.marketplaceQuizDocument.data.access, "free");
   assert.equal(preview.firestore.marketplaceQuizDocument.data.questionCount, 0);
-  assert.equal(preview.firestore.marketplaceQuizDocument.data.supportsDynamic, false);
-  assert.equal(preview.firestore.quizDocument.data.supportsDynamic, false);
+  assert.equal("supportsDynamic" in preview.firestore.marketplaceQuizDocument.data, false);
+  assert.equal("supportsDynamic" in preview.firestore.quizDocument.data, false);
   assert.equal(
     preview.firestore.quizDocument.data.quizBuilderApiVersion,
     currentQuizBuilderApiVersion,

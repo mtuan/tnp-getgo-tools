@@ -16,11 +16,13 @@ import {
   diffContentV2PublishedItems,
   publishedItemKey,
   type ContentV2PublishTargetState,
+  type ContentV2TopicPublishTargetState,
 } from "../../../features/topics/domain/content-v2-publish-state.js";
 import type { ContentV2Asset } from "../repository/content-v2-repository.js";
 import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 import { stalePublishedQuizIds } from "../../../features/topics/domain/content-v2-publish-policy.js";
 import { compileQuizSharedCode } from "@tnp/getgo-logics/authoring";
+import { promises as fs } from "node:fs";
 
 type FirestoreValue = Record<string, unknown>;
 type FirestoreDocument = {
@@ -200,8 +202,7 @@ export function createContentV2QuizPublishPreview(
           access,
           questionsCodeFormat: "getgo.questions.v1",
           questionsCode: buildContentV2QuestionsCode(questions),
-          dynamic: supportsDynamic,
-          supportsDynamic,
+          ...(supportsDynamic ? { dynamic: true, supportsDynamic: true } : {}),
           quizBuilderApiVersion,
           contentHash,
           publishedAt: "<generated at publish time>",
@@ -426,28 +427,55 @@ export class FirestorePublishingService {
     topicId: string,
     assets: ContentV2Asset[],
     control?: PublishJobControl,
-  ): Promise<void> {
-    if (assets.length === 0) {
+    previousState?: ContentV2TopicPublishTargetState,
+  ): Promise<ContentV2PublishTargetState["items"]> {
+    const current = Object.fromEntries(assets.map((asset) => {
+      const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
+      const item = {
+        kind: "storage-object" as const,
+        path: `getgo-content-v2/topics/${topicId}/assets/${reference}`,
+        hash: asset.contentHash,
+      };
+      return [publishedItemKey(item), item];
+    }));
+    const previousStorage = Object.fromEntries(Object.entries(previousState?.items ?? {})
+      .filter(([, item]) => item.kind === "storage-object"));
+    const diff = diffContentV2PublishedItems(previousStorage, current);
+    const changedAssets = assets.filter((asset) => {
+      const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
+      return diff.changed.has(`storage-object:getgo-content-v2/topics/${topicId}/assets/${reference}`);
+    });
+    if (changedAssets.length === 0 && diff.removed.length === 0) {
       await control?.report(`No topic assets to upload · ${topicId}`);
-      return;
+      return current;
     }
     let uploaded = 0;
-    await control?.report(`Uploading topic assets · ${topicId} · 0/${assets.length}`);
-    for (let offset = 0; offset < assets.length; offset += 8) {
-      await Promise.all(assets.slice(offset, offset + 8).map(async (asset) => {
+    await control?.report(`Uploading changed topic assets · ${topicId} · 0/${changedAssets.length}`);
+    for (let offset = 0; offset < changedAssets.length; offset += 8) {
+      await Promise.all(changedAssets.slice(offset, offset + 8).map(async (asset) => {
         await control?.checkpoint();
         const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
         const destination = `getgo-content-v2/topics/${topicId}/assets/${reference}`;
         try {
-          await this.auth.uploadStorageObject(destination, asset.data, asset.mimeType);
+          await this.auth.uploadStorageObject(
+            destination,
+            asset.data.byteLength ? asset.data : await fs.readFile(asset.sourcePath),
+            asset.mimeType,
+          );
         } catch (cause) {
           const message = cause instanceof Error ? cause.message : String(cause);
           throw new Error(`Could not upload topic asset “${destination}”: ${message} The signed-in account needs the contentPublisher or contentAdmin Storage claim.`);
         }
         uploaded += 1;
-        await control?.report(`Uploading topic assets · ${topicId} · ${uploaded}/${assets.length} · ${reference}`);
+        await control?.report(`Uploading topic assets · ${topicId} · ${uploaded}/${changedAssets.length} · ${reference}`);
       }));
     }
+    for (const item of diff.removed) {
+      await control?.checkpoint();
+      await this.auth.deleteStorageObject(item.path);
+      await control?.report(`Removed obsolete topic asset · ${item.path}`);
+    }
+    return current;
   }
 
   async contentV2TopicExists(topicId: string): Promise<boolean> {
@@ -652,7 +680,7 @@ export class FirestorePublishingService {
           const previewAsset = preview.firebaseStorage.uploads.find((upload) => upload.reference === asset.reference)!;
           await this.auth.uploadStorageObject(
             previewAsset.destinationPath,
-            asset.data,
+            asset.data.byteLength ? asset.data : await fs.readFile(asset.sourcePath),
             asset.mimeType,
           );
           uploadedAssets += 1;

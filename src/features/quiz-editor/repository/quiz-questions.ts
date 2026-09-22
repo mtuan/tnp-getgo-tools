@@ -27,6 +27,9 @@ const builder = createDynamicQuestionBuildService({
 function dynamicStarterFields(question: Record<string, unknown>) {
   const starterQuestion = {
     ...question,
+    answer: question.answer && typeof question.answer === "object"
+      ? question.answer
+      : { type: "input", correct: "" },
     text_en: Array.isArray(question.text_en)
       ? question.text_en.join("\n")
       : String(question.text_en ?? ""),
