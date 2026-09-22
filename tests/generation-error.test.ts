@@ -27,6 +27,17 @@ test("syntax errors map composed locations to editor fields without internal sta
 
   assert.equal(detail.summary, 'Question generator, line 2:3 — Unexpected token, expected ","')
   assert.match(detail.detail, /Field: Question generator/)
-  assert.match(detail.detail, /Source: broken/)
+  assert.match(detail.detail, /Code:[\s\S]*> 6 \|     broken\n    \|   \^/)
   assert.doesNotMatch(detail.detail, /Stack:/)
+})
+
+test("syntax errors at end of input show the nearest source and caret", () => {
+  const detail = generationErrorDetail(new SyntaxError("Unexpected token (4:2)"), {
+    source: ["QB.template(", "  () => ({})", "  broken"].join("\n"),
+    sections: [],
+  })
+
+  assert.match(detail.detail, /Code:/)
+  assert.match(detail.detail, /> 3 \|   broken/)
+  assert.match(detail.detail, /\^/)
 })

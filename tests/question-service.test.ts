@@ -1,8 +1,14 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { questionService } from "../src/features/quiz-editor/components/question-service"
+import {
+  formatAuthoringChoice,
+  questionService,
+} from "../src/features/quiz-editor/components/question-service"
 import {
   formatDynamicCodeExpression,
+  dynamicEditorModelEnvelope,
+  dynamicEditorValueFromModel,
+  editorModelHasExtraEnvelopes,
   originParamsEditorSource,
   originParamsValueFromEditor,
   quizSharedEditorContext,
@@ -19,6 +25,88 @@ test("question service preserves fixed static choice order", () => {
   const generated = questionService.loadStatic(question(true), true)
   assert.deepEqual(Object.values(generated.question.answer.choices ?? {}), ["correct", "second", "third"])
   assert.equal(generated.question.answer.correct, "A")
+})
+
+test("preview choice formatter restores QB scope", () => {
+  const answer = {
+    format: {
+      $type: "function",
+      source: "value => QB.en.dayOfWeek(value, 'short')",
+    },
+  }
+  assert.equal(formatAuthoringChoice(answer, 1), "Mon")
+})
+
+test("authoring runtime supports choices inside QB.answer.choice options", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ correct: QB.dayOfWeek.MONDAY, choices: [QB.dayOfWeek.SUNDAY, QB.dayOfWeek.MONDAY, QB.dayOfWeek.TUESDAY] })",
+      questionGeneratorTs: "({ correct, choices }: __GetGoParams) => ({ question_no: 1, text_en: 'Day', answer: QB.answer.choice(correct, { choices, format: value => QB.en.dayOfWeek(value), fixed: true }) })",
+      originParamsTs: "{ correct: 1, choices: [0, 1, 2] }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+  const generated = await questionService.generateDynamic(record)
+  assert.deepEqual(generated.question.answer.choices, {
+    A: "Sunday",
+    B: "Monday",
+    C: "Tuesday",
+  })
+  assert.equal(generated.question.answer.correct, "B")
+})
+
+test("authoring runtime ignores undefined choices and generates distractors", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ correct: 58 })",
+      questionGeneratorTs: "({ correct, choices }: __GetGoParams) => ({ question_no: 1, text_en: 'Stickers', answer: QB.answer.choice(correct, { choices, distractors: 3, fixed: true }) })",
+      originParamsTs: "() => { const choices = [58, 88, 53, 63]; return { correct: 58, choices } }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.equal(generated.question.answer.correct, "A")
+  assert.equal(Object.keys(generated.question.answer.choices ?? {}).length, 4)
+})
+
+test("authoring runtime exposes full, value, and expression-only calculations", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ n1: 1, n2: 2, denominator: 4 })",
+      questionGeneratorTs: "({ n1, n2, denominator }: __GetGoParams) => { const expr = QB.maths.calc`${n1} / ${denominator} + ${n2} / ${denominator}`; return { question_no: 1, text_en: [expr.render(), expr.renderExpression()], answer: QB.answer.input(expr.value) } }",
+      originParamsTs: "{ n1: 1, n2: 2, denominator: 4 }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.deepEqual(generated.question.text_en, ["1 ÷ 4 + 2 ÷ 4 = 0.75", "1 ÷ 4 + 2 ÷ 4"])
+  assert.equal(generated.question.answer.correct, "0.75")
+})
+
+test("authoring runtime sums and renders the configured sequence terms", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ seq: QB.maths.sequence({ start: 3, step: 2, count: 4 }) })",
+      questionGeneratorTs: "({ seq }: __GetGoParams) => ({ question_no: 1, text_en: seq.renderSum('sum'), text_vn: seq.renderSum(), answer: QB.answer.input(seq.sum()) })",
+      originParamsTs: "{ seq: QB.maths.sequence({ start: 3, step: 2, count: 4 }) }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.equal(generated.question.text_en, "3 + 5 + 7 + 9 = 24")
+  assert.equal(generated.question.text_vn, "3 + 5 + 7 + 9")
+  assert.equal(generated.question.answer.correct, "24")
 })
 
 test("question service regenerates non-fixed choices and remaps the correct label", () => {
@@ -112,6 +200,124 @@ test("dynamic callback formatting never exposes Prettier's ASI guard", async () 
   assert.match(formatted, /^\(\{ answer \}\) => \{\n/)
 })
 
+test("Monaco IntelliSense envelopes never leak into persisted generator code", () => {
+  const callback = `() => {
+  const seq = QB.maths.sequence({ start: 9, step: 6, count: 4 })
+  return { seq }
+}`
+  const outer = dynamicEditorModelEnvelope()
+  const inner = dynamicEditorModelEnvelope()
+  const onceWrapped = `${inner.prefix}${callback}${inner.suffix}`
+  const twiceWrapped = `${outer.prefix}${onceWrapped}${outer.suffix}`
+
+  assert.equal(dynamicEditorValueFromModel(onceWrapped, outer.prefix, outer.suffix), callback)
+  assert.equal(dynamicEditorValueFromModel(twiceWrapped, outer.prefix, outer.suffix), callback)
+  assert.equal(dynamicEditorValueFromModel(callback, outer.prefix, outer.suffix), callback)
+})
+
+test("legacy Monaco envelopes are removed from already-leaked generator code", () => {
+  const callback = "() => ({ value: QB.rnd.int(1, 9) })"
+  const legacy = `(() => {
+const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;
+return (${callback}
+);
+})()`
+
+  assert.equal(dynamicEditorValueFromModel(legacy), callback)
+})
+
+test("malformed nested legacy envelopes recover the editable callback", () => {
+  const leaked = `(() => {
+const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;
+return (
+() => {
+  return (() => {
+  const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;
+  return (
+    () => {
+      const seq = QB.maths.sequence({ start: 9, step: 6, count: 4 })
+      return { seq }
+    }
+}
+);
+})()`
+
+  assert.equal(dynamicEditorValueFromModel(leaked), `() => {
+      const seq = QB.maths.sequence({ start: 9, step: 6, count: 4 })
+      return { seq }
+    }`)
+})
+
+test("malformed marked envelopes are removed from original parameters", () => {
+  const leaked = `(() => {
+/* __GETGO_EDITOR_ENVELOPE_START__ */
+const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;
+return (
+() => {
+return (() => {
+/* __GETGO_EDITOR_ENVELOPE_START__ */
+const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;
+return (
+() => {
+const seq = QB.maths.sequence({ start: 9, step: 6, count: 4 })
+const pos = 12
+const answer = QB.answer.choice(75, [72, 75, 78, 69])
+return { seq, pos, answer }
+)
+}
+);
+/* __GETGO_EDITOR_ENVELOPE_END__ */
+})()`
+
+  const recovered = originParamsValueFromEditor(leaked)
+  assert.doesNotMatch(recovered, /GETGO_EDITOR_ENVELOPE|unknown as import/)
+  assert.equal(recovered, `() => {
+const seq = QB.maths.sequence({ start: 9, step: 6, count: 4 })
+const pos = 12
+const answer = QB.answer.choice(75, [72, 75, 78, 69])
+return { seq, pos, answer }
+}`)
+})
+
+test("stored original-parameter callbacks are not wrapped a second time", () => {
+  const callback = `() => {
+  const value = 9
+  return { value }
+}`
+  assert.equal(originParamsEditorSource(callback), callback)
+  assert.equal(originParamsValueFromEditor(callback), callback)
+})
+
+test("structural recovery ignores completely damaged envelope closers", () => {
+  const leaked = `(() => {
+/* a damaged editor marker */
+const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;
+return (
+() => {
+  const seq = QB.maths.sequence({ start: 9, step: 6, count: 4 })
+  const answer = QB.answer.choice(75, [72, 75, 78, 69])
+  return { seq, answer }
+)
+}
+this is not valid envelope syntax`
+
+  assert.equal(dynamicEditorValueFromModel(leaked), `() => {
+  const seq = QB.maths.sequence({ start: 9, step: 6, count: 4 })
+  const answer = QB.answer.choice(75, [72, 75, 78, 69])
+  return { seq, answer }
+}`)
+})
+
+test("a repaired prop replaces a corrupted cached Monaco model", () => {
+  const envelope = dynamicEditorModelEnvelope()
+  const callback = "() => ({ value: 9 })"
+  const expected = `${envelope.prefix}${callback}${envelope.suffix}`
+  const corrupted = `${envelope.prefix}${expected}${envelope.suffix}`
+
+  assert.equal(editorModelHasExtraEnvelopes(corrupted, expected), true)
+  assert.equal(editorModelHasExtraEnvelopes(expected, expected), false)
+})
+
 test("incomplete dynamic code can be persisted as an uncompiled draft", async () => {
   const draft = questionService.createDynamicDraft(question(true))
   draft.advancedDynamic!.questionGeneratorTs = "({ value }) => {"
@@ -149,6 +355,23 @@ test("authoring runtime supports filtered QB.maths.numbers ranges", async () => 
 
   const generated = await questionService.generateDynamic(record)
   assert.equal(generated.question.answer.correct, "5,10,15")
+})
+
+test("authoring runtime supports localized wrapped day-of-week names", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ en: QB.en.dayOfWeek(QB.dayOfWeek.SATURDAY, 'short'), vi: QB.vi.dayOfWeek(QB.dayOfWeek.MONDAY) })",
+      questionGeneratorTs: "({ en, vi }: __GetGoParams) => ({ question_no: 1, text_en: en, text_vn: vi, answer: QB.answer.input(en) })",
+      originParamsTs: "{ en: 'Sat', vi: 'Thứ Hai' }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.equal(generated.question.text_en, "Sat")
+  assert.equal(generated.question.text_vn, "Thứ Hai")
 })
 
 test("authoring runtime supports QB.maths.number before a vendored refresh", async () => {

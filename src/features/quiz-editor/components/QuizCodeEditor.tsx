@@ -7,6 +7,10 @@ import TypeScriptWorker from "monaco-editor/language/typescript/ts.worker?worker
 import { useCallback, useEffect, useRef, useState } from "react"
 import quizBuilderTypes from "../../../shared/ui/quiz-builder.monaco.json"
 import { declarationDetailsAt, type DeclarationDetails } from "../domain/declaration-details"
+import {
+  dynamicEditorValueFromModel,
+  editorModelHasExtraEnvelopes,
+} from "../domain/question-dynamics"
 import { DeclarationDetailsDialog } from "./DeclarationDetailsDialog"
 
 self.MonacoEnvironment = { getWorker(_id, label) { if (label === "typescript" || label === "javascript") return new TypeScriptWorker(); if (label === "json") return new JsonWorker(); return new EditorWorker() } }
@@ -369,7 +373,16 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
       existingPreview: existingValue.slice(0, 120),
       replacedOnMount,
     })
-    if (mountedModel && replacedOnMount) mountedModel.setValue(modelValue)
+    if (mountedModel && replacedOnMount) {
+      applyingExternalValueRef.current = true
+      try {
+        mountedModel.setValue(modelValue)
+      } finally {
+        applyingExternalValueRef.current = false
+      }
+      liveValueRef.current = modelValue
+      pendingLocalValueRef.current = null
+    }
     declarationOpenerRef.current?.dispose()
     declarationOpenerRef.current = monaco.editor.registerEditorOpener({
       openCodeEditor(source, resource, selectionOrPosition) {
@@ -500,7 +513,10 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
       liveValueRef.current = modelValue
       if (pendingLocalValueRef.current === modelValue)
         pendingLocalValueRef.current = null
-    } else if (pendingLocalValueRef.current === null) {
+    } else if (
+      pendingLocalValueRef.current === null
+      || editorModelHasExtraEnvelopes(currentValue, modelValue)
+    ) {
       console.info("[GetGo Tools][Monaco model][prop sync]", {
         path,
         model: model.uri.toString(),
@@ -524,6 +540,7 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
         applyingExternalValueRef.current = false
       }
       liveValueRef.current = modelValue
+      pendingLocalValueRef.current = null
       const nextLength = model.getValueLength()
       if (selectionOffsets.length) editor.setSelections(selectionOffsets.map(offsets => {
         const start = model.getPositionAt(Math.min(offsets.start, nextLength))
@@ -537,12 +554,11 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
     liveValueRef.current = next
     if (applyingExternalValueRef.current) return
     pendingLocalValueRef.current = next
-    const withoutPrefix = next.startsWith(normalizedModelContext)
-      ? next.slice(normalizedModelContext.length)
-      : next
-    onChange(normalizedModelContextSuffix && withoutPrefix.endsWith(normalizedModelContextSuffix)
-      ? withoutPrefix.slice(0, -normalizedModelContextSuffix.length)
-      : withoutPrefix)
+    onChange(dynamicEditorValueFromModel(
+      next,
+      normalizedModelContext,
+      normalizedModelContextSuffix,
+    ))
   }
   const handleValidate: OnValidate | undefined = onValidate
     ? (markers) => onValidate(markers

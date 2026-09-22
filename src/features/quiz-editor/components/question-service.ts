@@ -95,8 +95,83 @@ type AuthoringNumberRangeOptions = {
 
 type AuthoringNumbersOptions = AuthoringDigitNumbersOptions | AuthoringNumberRangeOptions;
 
-function createAuthoringQuizBuilder(): QuizBuilder {
+export function createAuthoringQuizBuilder(): QuizBuilder {
   const builder = new QuizBuilder();
+  const answer = builder.answer as QuizBuilder["answer"];
+  const choice = answer.choice;
+  answer.choice = ((
+    correct: unknown,
+    optionsOrChoices: unknown,
+    options?: unknown,
+  ) => {
+    if (
+      optionsOrChoices !== null
+      && typeof optionsOrChoices === "object"
+      && !Array.isArray(optionsOrChoices)
+      && "choices" in optionsOrChoices
+    ) {
+      const { choices, ...choiceOptions } = optionsOrChoices as Record<string, unknown>;
+      if (choices === undefined)
+        return (choice as (...args: unknown[]) => unknown)(correct, choiceOptions);
+      if (!Array.isArray(choices))
+        throw new TypeError("QB.answer.choice choices must be an array.");
+      return (choice as (...args: unknown[]) => unknown)(
+        correct,
+        choices,
+        choiceOptions,
+      );
+    }
+    return (choice as (...args: unknown[]) => unknown)(
+      correct,
+      optionsOrChoices,
+      options,
+    );
+  }) as typeof answer.choice;
+  Object.assign(builder as unknown as Record<string, unknown>, {
+    dayOfWeek: Object.freeze({
+      SUNDAY: 0,
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+    }),
+  });
+  const addDayOfWeek = (
+    locale: unknown,
+    full: readonly string[],
+    short: readonly string[],
+  ) => {
+    const helper = locale as {
+      dayOfWeek?: (
+        index: number,
+        styleOrOptions?: "full" | "short" | { style?: "full" | "short"; capitalize?: boolean },
+      ) => string;
+    };
+    helper.dayOfWeek ??= (index, styleOrOptions = {}) => {
+      if (!Number.isSafeInteger(index))
+        throw new TypeError("Day-of-week index must be a safe integer");
+      const options = typeof styleOrOptions === "string"
+        ? { style: styleOrOptions }
+        : styleOrOptions;
+      const normalized = ((index % 7) + 7) % 7;
+      const value = (options.style === "short" ? short : full)[normalized]!;
+      return options.capitalize
+        ? `${value.charAt(0).toUpperCase()}${value.slice(1)}`
+        : value;
+    };
+  };
+  addDayOfWeek(
+    builder.en,
+    ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  );
+  addDayOfWeek(
+    builder.vi,
+    ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
+    ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
+  );
   const random = builder.rnd as unknown as {
     int(min: number, max: number, options?: { step?: number; odd?: boolean; even?: boolean }): number;
   };
@@ -123,6 +198,11 @@ function createAuthoringQuizBuilder(): QuizBuilder {
     return min + ((firstIndex + randomInt(0, matchingCount - 1) * 2) * step);
   };
   const maths = builder.maths as unknown as {
+    calc: (strings: TemplateStringsArray, ...values: unknown[]) => {
+      expression: string;
+      value: number;
+      renderExpression?: () => string;
+    };
     replaceDigit: (...args: unknown[]) => string;
     sequence: (...args: unknown[]) => unknown;
     number?: (options: AuthoringDigitNumbersOptions) => number;
@@ -132,6 +212,14 @@ function createAuthoringQuizBuilder(): QuizBuilder {
       length: number,
       options?: { reuse?: boolean },
     ) => number[];
+  };
+  const calculate = maths.calc.bind(maths);
+  maths.calc = (strings, ...values) => {
+    const calculation = calculate(strings, ...values);
+    calculation.renderExpression ??= () => calculation.expression
+      .replace(/(?<!\*)\*(?!\*)/g, "×")
+      .replace(/\//g, "÷");
+    return calculation;
   };
   const replaceDigit = maths.replaceDigit.bind(maths);
   const sequence = maths.sequence.bind(maths);
@@ -146,14 +234,34 @@ function createAuthoringQuizBuilder(): QuizBuilder {
   // Keep the authoring runtime aligned with the source Logics API before the
   // next vendored package build. The current package already accepts the
   // equivalent structured arithmetic definition.
+  const decorateSequence = (value: unknown) => {
+    const result = value as {
+      toArray(termCount?: number): number[];
+      sumFirst(termCount: number): number;
+      sum?: (termCount?: number) => number;
+      renderSum?: (mode?: "sum" | "expression", termCount?: number) => string;
+    };
+    result.sum ??= (termCount) => termCount === undefined
+      ? result.toArray().reduce((total, term) => total + term, 0)
+      : result.sumFirst(termCount);
+    result.renderSum ??= (mode = "expression", termCount) => {
+      const terms = result.toArray(termCount);
+      const expression = terms.reduce((text, term, index) => {
+        if (index === 0) return String(term);
+        return term < 0 ? `${text} - ${Math.abs(term)}` : `${text} + ${term}`;
+      }, "");
+      return mode === "expression" ? expression : `${expression} = ${result.sum!(termCount)}`;
+    };
+    return result;
+  };
   maths.sequence = (...args) => {
-    if (args.length !== 3) return sequence(...args);
+    if (args.length !== 3) return decorateSequence(sequence(...args));
     const [start, step, end] = args;
     if (
       typeof start !== "number"
       || typeof step !== "number"
       || typeof end !== "number"
-    ) return sequence(...args);
+    ) return decorateSequence(sequence(...args));
     if (!Number.isFinite(end))
       throw new RangeError("Sequence end must be a finite number");
     if (step === 0) throw new RangeError("Sequence step cannot be 0");
@@ -193,7 +301,7 @@ function createAuthoringQuizBuilder(): QuizBuilder {
         ...(endCount === 0 ? [] : values.slice(-endCount)),
       ].filter((value) => value !== "").join(", ");
     };
-    return bounded;
+    return decorateSequence(bounded);
   };
   // Keep range generation available while this app still carries an older
   // vendored Logics package. Digit-based calls continue through the canonical
@@ -233,6 +341,17 @@ function createAuthoringQuizBuilder(): QuizBuilder {
     return values[Math.floor(Math.random() * values.length)]!;
   };
   return builder;
+}
+
+export function formatAuthoringChoice(answer: object, value: unknown): unknown {
+  const { format } = answer as { format?: unknown };
+  if (!QuizValueSerializer.isFunctionJson(format))
+    return QuizValueSerializer.formatChoice(answer, value);
+  const formatter = Function(
+    "QB",
+    `"use strict"; return (${format.source});`,
+  )(createAuthoringQuizBuilder()) as (choice: unknown) => unknown;
+  return formatter(QuizValueSerializer.deserialize(value));
 }
 
 async function sha256(source: string): Promise<string> {

@@ -23,6 +23,23 @@ function parserLocation(message: string): { line: number; column: number } | nul
   return match ? { line: Number(match[1]), column: Number(match[2]) } : null
 }
 
+function sourceFrame(source: string, line: number, column: number): string | null {
+  const lines = source.split("\n")
+  const targetIndex = Math.min(Math.max(0, line - 1), Math.max(0, lines.length - 1))
+  if (lines.length === 0) return null
+  const start = Math.max(0, targetIndex - 1)
+  const end = Math.min(lines.length - 1, targetIndex + 1)
+  const width = String(end + 1).length
+  const shown = lines.slice(start, end + 1).map((value, offset) => {
+    const number = start + offset + 1
+    return `${number === targetIndex + 1 ? ">" : " "} ${String(number).padStart(width)} | ${value}`
+  })
+  const target = lines[targetIndex] ?? ""
+  const caretColumn = line > lines.length ? target.length + 1 : Math.max(1, column)
+  shown.splice(targetIndex - start + 1, 0, `  ${" ".repeat(width)} | ${" ".repeat(caretColumn - 1)}^`)
+  return shown.join("\n")
+}
+
 const sectionNames: Record<SourceSection["id"], string> = {
   params: "Parameters generator",
   question: "Question generator",
@@ -54,7 +71,7 @@ export function generationErrorDetail(
   if (cause.name === "SyntaxError" && location) {
     const field = section ? sectionNames[section.id] : "Dynamic template"
     const shownLine = localLine ?? location.line
-    const sourceLine = context?.source.split("\n")[location.line - 1]?.trim()
+    const frame = context ? sourceFrame(context.source, location.line, location.column) : null
     return {
       summary: `${field}, line ${shownLine}:${location.column} — ${cleanMessage}`,
       detail: [
@@ -62,7 +79,7 @@ export function generationErrorDetail(
         `Field: ${field}`,
         `Location: line ${shownLine}, column ${location.column}`,
         `Message: ${cleanMessage}`,
-        sourceLine ? `Source: ${sourceLine}` : null,
+        frame ? `Code:\n${frame}` : null,
       ].filter((line): line is string => Boolean(line)).join("\n"),
     }
   }

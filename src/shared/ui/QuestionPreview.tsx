@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from "react";
 import { Check } from "lucide-react";
-import type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
+import {
+  formatAuthoringChoice,
+  type RuntimeQuestion,
+} from "../../features/quiz-editor/components/question-service";
 import { displayQuestionValue } from "../../features/quiz-editor/domain/question-value-display";
-import { QuizValueSerializer } from "@tnp/getgo-logics/quiz-builder";
 import { MathText } from "./MathText";
 import { localizedPreviewText } from "./question-preview-language";
 import type { GenerationPerformance } from "../../features/quiz-editor/domain/generation-performance";
@@ -141,19 +143,54 @@ function CorrectAnswerPreview({ value, unit }: { value: unknown; unit?: unknown 
   );
 }
 
-export function QuestionPreview({
-  question,
-  params,
-  generationPerformance,
-  manifestPath,
-  supportedLanguages = ["en", "vi"],
-}: {
+type QuestionPreviewProps = {
   question: RuntimeQuestion;
   params?: Record<string, unknown>;
   generationPerformance?: GenerationPerformance;
   manifestPath: string;
   supportedLanguages?: Array<"en" | "vi">;
-}) {
+};
+
+class QuestionPreviewErrorBoundary extends Component<{
+  children: ReactNode;
+  supportedLanguages: Array<"en" | "vi">;
+}, { error: Error | null }> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[GetGo Tools][Question preview][render failed]", {
+      error,
+      componentStack: info.componentStack,
+    });
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    const showEnglish = this.props.supportedLanguages.includes("en");
+    const showVietnamese = this.props.supportedLanguages.includes("vi");
+    return (
+      <div className="question-editor-errors" role="alert">
+        <strong>
+          {showEnglish ? "Preview could not be rendered" : "Không thể hiển thị bản xem trước"}
+        </strong>
+        {showEnglish && showVietnamese && <span>Không thể hiển thị bản xem trước</span>}
+        <pre>{this.state.error.message}</pre>
+      </div>
+    );
+  }
+}
+
+function QuestionPreviewContent({
+  question,
+  params,
+  generationPerformance,
+  manifestPath,
+  supportedLanguages = ["en", "vi"],
+}: QuestionPreviewProps) {
   const indexedPartText = (value: unknown, index: number) => {
     const text = questionText(value).replace(/^\s*(?:[a-z]|\d+)[.)]\s*/i, "");
     return text.trim() ? `${String.fromCharCode(97 + index)}. ${text}` : "";
@@ -221,7 +258,7 @@ export function QuestionPreview({
                     manifestPath={manifestPath}
                     value={label === question.answer.otherChoiceKey
                       ? value
-                      : QuizValueSerializer.formatChoice(question.answer, value)}
+                      : formatAuthoringChoice(question.answer, value)}
                     alt={`Choice ${label}`}
                   />
                   {question.answer.unit &&
@@ -278,5 +315,17 @@ export function QuestionPreview({
         </div>
       )}
     </div>
+  );
+}
+
+export function QuestionPreview(props: QuestionPreviewProps) {
+  const supportedLanguages = props.supportedLanguages ?? ["en", "vi"];
+  return (
+    <QuestionPreviewErrorBoundary
+      key={`${String(props.question.question_no)}:${JSON.stringify(props.question.answer)}`}
+      supportedLanguages={supportedLanguages}
+    >
+      <QuestionPreviewContent {...props} supportedLanguages={supportedLanguages} />
+    </QuestionPreviewErrorBoundary>
   );
 }
