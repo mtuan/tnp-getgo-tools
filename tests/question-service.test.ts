@@ -135,6 +135,22 @@ test("authoring runtime supports QB.maths.numbers before a vendored refresh", as
   assert.equal(generated.question.answer.correct, "21,23,31,32")
 })
 
+test("authoring runtime supports filtered QB.maths.numbers ranges", async () => {
+  const record = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ values: QB.maths.numbers({ start: 3, end: 18, where: value => value % 5 === 0 }) })",
+      questionGeneratorTs: "({ values }: __GetGoParams) => ({ question_no: 1, text_en: 'Numbers', answer: QB.answer.input(values.join(',')) })",
+      originParamsTs: "{ values: [5, 10, 15] }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as QuizQuestionRecord
+
+  const generated = await questionService.generateDynamic(record)
+  assert.equal(generated.question.answer.correct, "5,10,15")
+})
+
 test("authoring runtime supports QB.maths.number before a vendored refresh", async () => {
   const record = {
     ...question(true),

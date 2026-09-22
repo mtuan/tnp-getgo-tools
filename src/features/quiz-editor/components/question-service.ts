@@ -77,7 +77,7 @@ function replaceDigitArray(
   return result.join("");
 }
 
-type AuthoringNumbersOptions = {
+type AuthoringDigitNumbersOptions = {
   length: number;
   odd?: boolean;
   even?: boolean;
@@ -85,6 +85,15 @@ type AuthoringNumbersOptions = {
   duplicate?: boolean;
   where?: (value: number) => boolean;
 };
+
+type AuthoringNumberRangeOptions = {
+  start: number;
+  end: number;
+  step?: number;
+  where?: (value: number) => boolean;
+};
+
+type AuthoringNumbersOptions = AuthoringDigitNumbersOptions | AuthoringNumberRangeOptions;
 
 function createAuthoringQuizBuilder(): QuizBuilder {
   const builder = new QuizBuilder();
@@ -116,7 +125,7 @@ function createAuthoringQuizBuilder(): QuizBuilder {
   const maths = builder.maths as unknown as {
     replaceDigit: (...args: unknown[]) => string;
     sequence: (...args: unknown[]) => unknown;
-    number?: (options: AuthoringNumbersOptions) => number;
+    number?: (options: AuthoringDigitNumbersOptions) => number;
     numbers?: (options: AuthoringNumbersOptions) => number[];
     numbersFromDigits: (
       digits: readonly number[],
@@ -126,6 +135,7 @@ function createAuthoringQuizBuilder(): QuizBuilder {
   };
   const replaceDigit = maths.replaceDigit.bind(maths);
   const sequence = maths.sequence.bind(maths);
+  const numbers = maths.numbers?.bind(maths);
   // Electron can retain a prior prebundled helper during an HMR session. Keep
   // array replacement compatible at the authoring boundary; numeric calls and
   // every other maths helper still use the canonical QuizBuilder method.
@@ -185,21 +195,35 @@ function createAuthoringQuizBuilder(): QuizBuilder {
     };
     return bounded;
   };
-  // Keep the authoring runtime usable before the next vendored Logics package
-  // refresh. Once the installed package exposes numbers(), its implementation
-  // is retained unchanged.
-  maths.numbers ??= (options) => {
-    if (options.odd === true && options.even === true)
+  // Keep range generation available while this app still carries an older
+  // vendored Logics package. Digit-based calls continue through the canonical
+  // implementation when it exists.
+  maths.numbers = (options) => {
+    if ("start" in options || "end" in options) {
+      const { start, end, step = 1, where } = options as AuthoringNumberRangeOptions;
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end))
+        throw new TypeError("QB.maths.numbers range bounds must be safe integers");
+      if (!Number.isSafeInteger(step) || step === 0)
+        throw new RangeError("QB.maths.numbers range step must be a non-zero safe integer");
+      if ((step > 0 && end < start) || (step < 0 && end > start))
+        throw new RangeError("QB.maths.numbers range step must move from start toward end");
+      const count = Math.floor((end - start) / step) + 1;
+      return Array.from({ length: count }, (_, index) => start + (index * step))
+        .filter((value) => where?.(value) ?? true);
+    }
+    if (numbers) return numbers(options);
+    const digitOptions = options as AuthoringDigitNumbersOptions;
+    if (digitOptions.odd === true && digitOptions.even === true)
       throw new TypeError("QB.maths.numbers cannot require both odd and even numbers");
     const values = maths.numbersFromDigits(
-      options.digits ?? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-      options.length,
-      { reuse: options.duplicate !== false },
+      digitOptions.digits ?? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      digitOptions.length,
+      { reuse: digitOptions.duplicate !== false },
     );
     return values.filter((value) => {
-      if (options.odd === true && value % 2 === 0) return false;
-      if (options.even === true && value % 2 !== 0) return false;
-      return options.where?.(value) ?? true;
+      if (digitOptions.odd === true && value % 2 === 0) return false;
+      if (digitOptions.even === true && value % 2 !== 0) return false;
+      return digitOptions.where?.(value) ?? true;
     });
   };
   maths.number ??= (options) => {
