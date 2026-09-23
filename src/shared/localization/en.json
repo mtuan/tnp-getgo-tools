@@ -489,7 +489,7 @@
     "runIosSimulator": "Run",
     "runAndroidSimulator": "Run",
     "buildNative": "Build",
-    "deployTestFlight": "Upload",
+    "deployTestFlight": "Publish to TestFlight",
     "deployPlay": "Upload",
     "localhostTitle": "Localhost Web",
     "designServerTitle": "Design server",

@@ -489,7 +489,7 @@
     "runIosSimulator": "Chạy",
     "runAndroidSimulator": "Chạy",
     "buildNative": "Build",
-    "deployTestFlight": "Tải lên",
+    "deployTestFlight": "Xuất bản lên TestFlight",
     "deployPlay": "Tải lên",
     "localhostTitle": "Web localhost",
     "designServerTitle": "Máy chủ thiết kế",
