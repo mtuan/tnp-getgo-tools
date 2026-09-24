@@ -6,6 +6,7 @@ import JsonWorker from "monaco-editor/language/json/json.worker?worker"
 import TypeScriptWorker from "monaco-editor/language/typescript/ts.worker?worker"
 import { useCallback, useEffect, useRef, useState } from "react"
 import quizBuilderTypes from "../../../shared/ui/quiz-builder.monaco.json"
+import { useSystemDarkMode } from "../../../shared/ui/useSystemDarkMode"
 import { declarationDetailsAt, type DeclarationDetails } from "../domain/declaration-details"
 import {
   dynamicEditorValueFromModel,
@@ -277,6 +278,7 @@ interface QuizCodeEditorProps {
 }
 
 export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = false, minHeight = 120, visibleLineRange, editableLineRange, relativeLineNumbers = false, onValidate, onBlur, onFocus, formatOnMount, extraLib, modelContext = "", modelContextSuffix = "", readOnly = false, autoFocus = false, language = "typescript" }: QuizCodeEditorProps) {
+  const isDarkMode = useSystemDarkMode()
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const lockedRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null)
   const saveRef = useRef(onSave); saveRef.current = onSave
@@ -576,10 +578,11 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   // `overflowWidgetsDomNode: document.body`: these editors live in auto-height,
   // scrollable panels, so a body host uses different coordinates and places
   // hover/signature/IntelliSense widgets far away from the editing cursor.
-  return <><Editor beforeMount={beforeMount} onMount={onMount} defaultValue={modelValue} onChange={handleChange} onValidate={handleValidate} language={language} path={`file:///${path.replaceAll("\\", "/")}`} height={autoHeight ? height : "100%"} theme={window.matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "light"} loading={<div className="editor-loading"><span />Loading editor and IntelliSense…</div>} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, fixedOverflowWidgets: true, folding: true, foldingStrategy: "indentation", showFoldingControls: "always", fontSize: 13, fontFamily: "SFMono-Regular, Consolas, 'Liberation Mono', monospace", minimap: { enabled: false }, lineNumbers: relativeLineNumbers && modelVisibleRange ? line => String(line - contextLineOffset - modelVisibleRange.startLineNumber + 1) : "on", padding: { top: 12, bottom: 12 }, readOnly, readOnlyMessage: { value: readOnly ? "This generated code is read-only." : "Only the function body can be edited." }, scrollBeyondLastLine: false, scrollbar: autoHeight ? { vertical: "hidden", verticalScrollbarSize: 0, handleMouseWheel: false } : undefined, tabSize: 2, wordWrap: "on" }} />{declarationDetails && <DeclarationDetailsDialog details={declarationDetails} onClose={() => setDeclarationDetails(null)} />}</>
+  return <><Editor beforeMount={beforeMount} onMount={onMount} defaultValue={modelValue} onChange={handleChange} onValidate={handleValidate} language={language} path={`file:///${path.replaceAll("\\", "/")}`} height={autoHeight ? height : "100%"} theme={isDarkMode ? "vs-dark" : "light"} loading={<div className="editor-loading"><span />Loading editor and IntelliSense…</div>} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, fixedOverflowWidgets: true, folding: true, foldingStrategy: "indentation", showFoldingControls: "always", fontSize: 13, fontFamily: "SFMono-Regular, Consolas, 'Liberation Mono', monospace", minimap: { enabled: false }, lineNumbers: relativeLineNumbers && modelVisibleRange ? line => String(line - contextLineOffset - modelVisibleRange.startLineNumber + 1) : "on", padding: { top: 12, bottom: 12 }, readOnly, readOnlyMessage: { value: readOnly ? "This generated code is read-only." : "Only the function body can be edited." }, scrollBeyondLastLine: false, scrollbar: autoHeight ? { vertical: "hidden", verticalScrollbarSize: 0, handleMouseWheel: false } : undefined, tabSize: 2, wordWrap: "on" }} />{declarationDetails && <DeclarationDetailsDialog details={declarationDetails} onClose={() => setDeclarationDetails(null)} />}</>
 }
 
 export function QuizCodeDiffViewer({ original, modified, path }: { original: string; modified: string; path: string }) {
+  const isDarkMode = useSystemDarkMode()
   const [diffHeight, setDiffHeight] = useState(160)
   const onDiffMount = useCallback<DiffOnMount>(editor => {
     const originalEditor = editor.getOriginalEditor()
@@ -590,5 +593,5 @@ export function QuizCodeDiffViewer({ original, modified, path }: { original: str
     modifiedEditor.onDidContentSizeChange(updateHeight)
     editor.onDidUpdateDiff(updateHeight)
   }, [])
-  return <DiffEditor beforeMount={configureMonaco} onMount={onDiffMount} original={original} modified={modified} originalModelPath={`file:///${path}-before.ts`} modifiedModelPath={`file:///${path}-after.ts`} language="typescript" height={diffHeight} theme={window.matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "light"} options={{ automaticLayout: true, fixedOverflowWidgets: true, fontSize: 12, fontFamily: "SFMono-Regular, Consolas, 'Liberation Mono', monospace", minimap: { enabled: false }, overviewRulerLanes: 0, hideCursorInOverviewRuler: true, readOnly: true, renderSideBySide: true, scrollBeyondLastLine: false, scrollbar: { vertical: "hidden", verticalScrollbarSize: 0, handleMouseWheel: false }, wordWrap: "on" }} />
+  return <DiffEditor beforeMount={configureMonaco} onMount={onDiffMount} original={original} modified={modified} originalModelPath={`file:///${path}-before.ts`} modifiedModelPath={`file:///${path}-after.ts`} language="typescript" height={diffHeight} theme={isDarkMode ? "vs-dark" : "light"} options={{ automaticLayout: true, fixedOverflowWidgets: true, fontSize: 12, fontFamily: "SFMono-Regular, Consolas, 'Liberation Mono', monospace", minimap: { enabled: false }, overviewRulerLanes: 0, hideCursorInOverviewRuler: true, readOnly: true, renderSideBySide: true, scrollBeyondLastLine: false, scrollbar: { vertical: "hidden", verticalScrollbarSize: 0, handleMouseWheel: false }, wordWrap: "on" }} />
 }
