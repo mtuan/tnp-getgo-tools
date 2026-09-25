@@ -5414,12 +5414,12 @@ tbody tr:hover {
 }
 .four-letter-icon-row > span {
   display: grid;
-  width: calc(100% / var(--monogram-columns));
+  width: 100%;
   min-width: 0;
   min-height: 0;
   place-items: center;
   font-family: "Arial Black", Impact, system-ui, sans-serif;
-  font-size: min(35cqi, calc(88cqi / var(--monogram-columns)));
+  font-size: min(35cqi, calc(150cqi / var(--monogram-characters)));
   font-weight: 900;
   line-height: 1;
   letter-spacing: -0.04em;

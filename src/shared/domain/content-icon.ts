@@ -14,10 +14,30 @@ export interface TextContentIcon {
 
 export type ContentIcon = string | TextContentIcon;
 const colorPattern = /^#[0-9a-f]{6}$/i;
-const textIconPattern = /^(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u;
 const normalizeColor = (value: unknown) => typeof value === "string" && colorPattern.test(value) ? value.toLowerCase() : null;
 
-export const isTextContentIconText = (value: string) => textIconPattern.test(value);
+export function textContentIconRows(value: string): [string, string] | null {
+  const text = value.toLocaleUpperCase();
+  const characters = Array.from(text);
+  if (!characters.length || /[\p{Z}\p{C}]/u.test(text)) return null;
+  const separators = characters
+    .map((character, index) => character === "-" ? index : -1)
+    .filter(index => index >= 0);
+  if (separators.length === 1) {
+    const separator = separators[0];
+    const top = characters.slice(0, separator).join("");
+    const bottom = characters.slice(separator + 1).join("");
+    if (top && bottom)
+      return Array.from(top).length <= 6 && Array.from(bottom).length <= 6
+        ? [top, bottom]
+        : null;
+  }
+  if (characters.length > 12) return null;
+  const splitAt = Math.ceil(characters.length / 2);
+  return [characters.slice(0, splitAt).join(""), characters.slice(splitAt).join("")];
+}
+
+export const isTextContentIconText = (value: string) => textContentIconRows(value) !== null;
 
 export function parseTextContentIcon(value: unknown): TextContentIcon | null {
   if (value && typeof value === "object" && !Array.isArray(value)) {

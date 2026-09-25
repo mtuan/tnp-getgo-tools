@@ -11,6 +11,7 @@ import type {
   QuizSummary,
 } from "../../../shared/domain/models";
 import { isCurrentQuestionDraftChange } from "../../../features/quiz-editor/domain/question-draft";
+import { formattedQuestionForCodeOnlyChange } from "../../../features/quiz-editor/domain/question-dynamics";
 import { useToast } from "../../../shared/ui/Toast";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -155,6 +156,7 @@ export function QuizManager({
     enabled: boolean;
     questionNo: string | null;
   } | null>(null);
+  const lastAutomaticFormatSaveAttempt = useRef<string | null>(null);
   const storedQuestion =
     selectedQuestion === null
       ? null
@@ -287,6 +289,87 @@ export function QuizManager({
       ...diff,
     });
   }, [questionDraftRecord]);
+
+  useEffect(() => {
+    if (
+      page.kind !== "quiz" ||
+      !storedQuestion ||
+      !questionDraftRecord ||
+      !draftMatchesSelection ||
+      !saveButtonDirty ||
+      saving ||
+      savingVerification
+    )
+      return;
+    const attemptKey = `${page.quiz.key}\u0000${JSON.stringify(
+      comparableQuestion(questionDraftRecord),
+    )}`;
+    if (lastAutomaticFormatSaveAttempt.current === attemptKey) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const formattedQuestion = await formattedQuestionForCodeOnlyChange(
+          storedQuestion,
+          questionDraftRecord,
+        );
+        if (cancelled || !formattedQuestion) return;
+        lastAutomaticFormatSaveAttempt.current = attemptKey;
+        setSaving(true);
+        setQuestionOperation("save");
+        setSourceError(null);
+        try {
+          console.info("[GetGo Tools][Question format][automatic save]", {
+            questionNo: formattedQuestion.question_no,
+            formattingChanges: questionDiff(storedQuestion, formattedQuestion),
+          });
+          const savedQuestion = await managerApi.saveQuizQuestion(
+            page.quiz.manifestPath,
+            formattedQuestion,
+          );
+          lastSavedQuestion.current = savedQuestion;
+          setQuestionRecords((current) =>
+            current.map((item) =>
+              String(item.question_no) === String(savedQuestion.question_no)
+                ? savedQuestion
+                : item,
+            ),
+          );
+          setQuestionDraftRecord((current) =>
+            current &&
+            String(current.question_no) === String(savedQuestion.question_no)
+              ? savedQuestion
+              : current,
+          );
+        } catch (cause) {
+          const message = cause instanceof Error ? cause.message : String(cause);
+          setSourceError(message);
+          toast.show({
+            title: "Could not save formatted question",
+            description: message,
+            variant: "error",
+          });
+        } finally {
+          setSaving(false);
+          setQuestionOperation(null);
+        }
+      })();
+    }, 75);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    draftMatchesSelection,
+    managerApi,
+    page,
+    questionDraftRecord,
+    saveButtonDirty,
+    saving,
+    savingVerification,
+    storedQuestion,
+    toast,
+  ]);
 
   const contests = useMemo(() => {
     return snapshot.contests.map((contest) => ({

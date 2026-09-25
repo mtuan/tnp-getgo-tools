@@ -70,7 +70,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
   const fields = useMemo<FormSchema[]>(() => [
     { type: "text", name: "id", label: "Quiz ID", required: true, readOnly: Boolean(quiz), transformInput: value => value.toLowerCase().replace(/[^a-z0-9_-]/g, ""), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
     { type: "text", name: "title", label: "Title", required: true },
-    { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a 4–6 character text monogram." },
+    { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a two-line text icon with up to 6 characters per line." },
     { type: "select", name: "type", label: "Quiz type", required: true, presentation: "segmented", options: [{ value: "contest", label: "Contest" }, { value: "alphabet", label: "Alphabet" }, { value: "pronunciation", label: "Vietnamese pronunciation" }] },
     ...(input.type === "contest" ? [{ type: "multi-select", name: "supportedLanguages", label: "Supported languages", required: true, options: [{ value: "vi", label: "Vietnamese" }, { value: "en", label: "English" }] } as FormSchema] : []),
     ...(input.type === "alphabet" ? [{ type: "select", name: "language", label: "Language", required: true, presentation: "segmented", options: [{ value: "en", label: "English" }, { value: "vi", label: "Vietnamese" }] } as FormSchema] : []),
