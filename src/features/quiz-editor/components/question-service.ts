@@ -143,8 +143,8 @@ export function createAuthoringQuizBuilder(): QuizBuilder {
       })),
     };
   };
-  answer.nested = nestedWithInputAnswers as typeof answer.nested;
-  answer.inputs = nestedWithInputAnswers as typeof answer.inputs;
+  answer.nested = nestedWithInputAnswers as unknown as typeof answer.nested;
+  answer.inputs = nestedWithInputAnswers as unknown as typeof answer.inputs;
   Object.assign(builder as unknown as Record<string, unknown>, {
     dayOfWeek: Object.freeze({
       SUNDAY: 0,

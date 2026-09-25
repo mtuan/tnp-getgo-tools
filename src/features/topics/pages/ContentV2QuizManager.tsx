@@ -3,6 +3,7 @@ import type { ContentV2Question, ContentV2Quiz, ContentV2Topic } from "../../../
 import type {
   AlphabetDictionary,
   AppSettings,
+  ContestQuizQuestionRecord,
   ContestSettings,
   ContestSummary,
   QuizCrudInput,
@@ -328,8 +329,21 @@ export function ContentV2QuizManager(props: Props) {
         const quiz = findQuiz(props.snapshot, manifestPath);
         const summary = findQuestionSummary(props.snapshot, quiz.topicId, quiz.id, question.question_no);
         const stored = await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, summary.id);
-        const compiledJs = question.authoringMode !== "reference" && question.advancedDynamic
-          ? await questionService.compileDynamicDraft(question)
+        const dynamic = question.authoringMode !== "reference" ? question.advancedDynamic : undefined;
+        const dynamicSourceChanged = Boolean(dynamic && stored.type === "competition-question" && (
+          dynamic.paramsGeneratorTs !== stored.dynamic?.paramsGeneratorTs
+          || dynamic.questionGeneratorTs !== stored.dynamic?.questionGeneratorTs
+          || dynamic.originParamsTs !== stored.dynamic?.originParamsTs
+          || dynamic.explanationGeneratorTs !== stored.dynamic?.explanationGeneratorTs
+        ));
+        // Review status and static-field updates are independent from generated
+        // code. Recompile only when an editable dynamic source actually changed.
+        const compiledJs = dynamic
+          ? dynamicSourceChanged
+            ? await questionService.compileDynamicDraft(question as ContestQuizQuestionRecord)
+            : stored.type === "competition-question"
+              ? stored.dynamic?.compiledJs
+              : undefined
           : undefined;
         const next = fromManagerQuestion(stored, question, compiledJs);
         await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, next);

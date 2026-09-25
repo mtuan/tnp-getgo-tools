@@ -175,8 +175,21 @@ export function comparableQuestion(record: QuizQuestionRecord | null): unknown {
     ...question
   } = record;
   if (!recordAdvancedDynamic) return question;
-  const { draftSourceTs: _derivedDraftSource, ...advancedDynamic } =
-    recordAdvancedDynamic;
+  const {
+    draftSourceTs: _derivedDraftSource,
+    compiledJs: _derivedCompiledJs,
+    quizBuilderApiVersion: _derivedQuizBuilderApiVersion,
+    ...storedAdvancedDynamic
+  } = recordAdvancedDynamic;
+  // Monaco canonicalizes CRLF to LF when a model is created. Treat that as a
+  // transport detail so merely opening a converted question cannot mark the
+  // draft dirty after the editor reports its normalized value.
+  const advancedDynamic = Object.fromEntries(
+    Object.entries(storedAdvancedDynamic).map(([key, value]) => [
+      key,
+      typeof value === "string" ? value.replace(/\r\n?/g, "\n") : value,
+    ]),
+  );
   return { ...question, advancedDynamic };
 }
 
@@ -252,6 +265,21 @@ export function contentV2QuizReviewStatus(
         : "none" as const,
     label: `${reviewed}/${total}`,
     reviewed,
+    total,
+  };
+}
+
+/** Prefer the loaded question list over a possibly stale repository summary. */
+export function effectiveQuizReviewCounts(
+  loadedReviewed: number,
+  loadedTotal: number,
+  summaryReviewed: number,
+  summaryTotal: number,
+): { reviewed: number; total: number } {
+  const total = Math.max(0, loadedTotal > 0 ? loadedTotal : summaryTotal);
+  const reviewed = loadedTotal > 0 ? loadedReviewed : summaryReviewed;
+  return {
+    reviewed: Math.max(0, Math.min(reviewed, total)),
     total,
   };
 }

@@ -18,7 +18,6 @@ import {
 import {
   DEFAULT_EXPLANATION_GENERATOR_TS,
   dynamicEditorModelEnvelope,
-  formatDynamicCodeExpression,
   dynamicEditorValueFromModel,
   originParamsEditorSource,
   originParamsValueFromEditor,
@@ -173,10 +172,12 @@ export function AdvancedQuestionEditor({
   const generatedQuestionRef = useRef<string | number | null>(null);
   const latestRecordRef = useRef(record);
   const pendingDynamicChangeRef = useRef(false);
+  const editedSignatureSourcesRef = useRef(new Set<"params" | "origin">());
   const latestRecord = latestRecordRef.current;
   if (String(latestRecord.question_no) !== String(record.question_no)) {
     latestRecordRef.current = record;
     pendingDynamicChangeRef.current = false;
+    editedSignatureSourcesRef.current.clear();
   } else if (
     !pendingDynamicChangeRef.current ||
     JSON.stringify(latestRecord.advancedDynamic) ===
@@ -205,30 +206,6 @@ export function AdvancedQuestionEditor({
     });
   }, [path, record.question_no]);
   useEffect(() => {
-    const latest = latestRecordRef.current;
-    const dynamic = latest.advancedDynamic;
-    if (!dynamic) return;
-    const repaired = {
-      ...dynamic,
-      paramsGeneratorTs: dynamicEditorValueFromModel(dynamic.paramsGeneratorTs),
-      questionGeneratorTs: dynamicEditorValueFromModel(dynamic.questionGeneratorTs),
-      explanationGeneratorTs: dynamicEditorValueFromModel(dynamic.explanationGeneratorTs),
-      originParamsTs: originParamsValueFromEditor(dynamicEditorValueFromModel(dynamic.originParamsTs)),
-    };
-    if (
-      repaired.paramsGeneratorTs === dynamic.paramsGeneratorTs
-      && repaired.questionGeneratorTs === dynamic.questionGeneratorTs
-      && repaired.explanationGeneratorTs === dynamic.explanationGeneratorTs
-      && repaired.originParamsTs === dynamic.originParamsTs
-    ) return;
-    const next = { ...latest, advancedDynamic: repaired };
-    latestRecordRef.current = next;
-    pendingDynamicChangeRef.current = true;
-    setErrors([]);
-    setErrorSourceKey(null);
-    onChange(next);
-  }, [onChange, path, record.advancedDynamic, record.question_no]);
-  useEffect(() => {
     console.info("[GetGo Tools][Question preview][committed]", {
       questionNo: String(preview.question.question_no),
       textEn: preview.question.text_en,
@@ -254,6 +231,8 @@ export function AdvancedQuestionEditor({
     };
     latestRecordRef.current = next;
     pendingDynamicChangeRef.current = true;
+    if (key === "paramsGeneratorTs") editedSignatureSourcesRef.current.add("params");
+    if (key === "originParamsTs") editedSignatureSourcesRef.current.add("origin");
     // A generation error describes one exact source snapshot. Do not leave it
     // visible while the editor is already showing a newer generator.
     setErrors([]);
@@ -423,13 +402,6 @@ export function AdvancedQuestionEditor({
   // the parent draft update is rendering so focus transitions never rebuild the
   // dependent editors from the previous parameter signature.
   const editorDynamic = latestRecordRef.current.advancedDynamic;
-  useEffect(() => {
-    synchronizeDependentSignatures("parameter-source-change");
-  }, [
-    record.question_no,
-    record.advancedDynamic?.paramsGeneratorTs,
-    record.advancedDynamic?.originParamsTs,
-  ]);
   const currentGeneratorSourceKey = generatorSourceKey(latestRecordRef.current);
   const currentErrors = errorSourceKey === currentGeneratorSourceKey ? errors : [];
   const editorFields = (
@@ -445,7 +417,7 @@ export function AdvancedQuestionEditor({
       key === "explanationGeneratorTs" && !storedValue.trim()
         ? DEFAULT_EXPLANATION_GENERATOR_TS
         : storedValue,
-    );
+    ).replace(/\r\n?/g, "\n");
     const value = key === "originParamsTs"
       ? originParamsEditorSource(normalizedValue)
       : normalizedValue;
@@ -529,11 +501,11 @@ export function AdvancedQuestionEditor({
       hasLeakedEditorEnvelope,
       repairedValue,
       onBlur: id === "params" || id === "origin"
-        ? () => synchronizeDependentSignatures(`${id}-blur`)
+        ? () => {
+            if (!editedSignatureSourcesRef.current.delete(id)) return;
+            synchronizeDependentSignatures(`${id}-edited-blur`);
+          }
         : undefined,
-      onFocus: id === "params" || id === "origin"
-        ? undefined
-        : () => synchronizeDependentSignatures(`${id}-monaco-focus`),
     };
   });
   return (
@@ -616,12 +588,7 @@ export function AdvancedQuestionEditor({
                 })
               }
             >
-              <div
-                className="question-code-workspace"
-                onFocusCapture={field.id === "params"
-                  ? undefined
-                  : () => synchronizeDependentSignatures(`${field.id}-dom-focus`)}
-              >
+              <div className="question-code-workspace">
                 <QuizCodeEditor
                   key={`${path}.${field.id}.${editorRepairRevision}`}
                   value={field.value}
@@ -637,7 +604,6 @@ export function AdvancedQuestionEditor({
                   modelContext={field.modelContext}
                   modelContextSuffix={field.modelContextSuffix}
                   relativeLineNumbers
-                  formatOnMount={formatDynamicCodeExpression}
                   onChange={(value) => updateField(
                     field.key,
                     field.id === "origin"
@@ -645,7 +611,6 @@ export function AdvancedQuestionEditor({
                       : value,
                   )}
                   onBlur={field.onBlur}
-                  onFocus={field.onFocus}
                   onSave={onSave}
                   onValidate={
                     field.id === "question"

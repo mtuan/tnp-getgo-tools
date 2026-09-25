@@ -12,7 +12,7 @@ import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import { marketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
-import { QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
+import { effectiveQuizReviewCounts, QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
 import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 
 type QuizOverviewContext = Record<string, any> & {
@@ -65,6 +65,12 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     (item: { topicId: string; id: string }) =>
       item.topicId === quiz.contest && item.id === quiz.id,
   );
+  const marketplaceQuizReview = effectiveQuizReviewCounts(
+    verifiedCount,
+    questions.length,
+    quiz.reviewedQuestionCount,
+    quiz.questionCount ?? 0,
+  );
     return (
       <section className="manager editor-page">
         <PageHeader
@@ -108,8 +114,8 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                     api={managerApi}
                     quizReview={{
                       manifestPath: quiz.manifestPath,
-                      reviewed: quiz.reviewedQuestionCount,
-                      total: quiz.questionCount ?? questions.length,
+                      reviewed: marketplaceQuizReview.reviewed,
+                      total: marketplaceQuizReview.total,
                     }}
                     compact={false}
                     onSaved={(value) => toast.show({

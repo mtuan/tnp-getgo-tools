@@ -312,6 +312,10 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
   const modelEditableRange = editableLineRange
     ? { ...editableLineRange, endLineNumber: Math.max(editableLineRange.startLineNumber, editableLineRange.endLineNumber + formattedLineDelta) }
     : undefined
+  const visibleStartLine = modelVisibleRange?.startLineNumber
+  const visibleEndLine = modelVisibleRange?.endLineNumber
+  const editableStartLine = modelEditableRange?.startLineNumber
+  const editableEndLine = modelEditableRange?.endLineNumber
   editableRef.current = modelEditableRange
     ? {
         startLineNumber: modelEditableRange.startLineNumber + contextLineOffset,
@@ -356,28 +360,30 @@ export function QuizCodeEditor({ value, path, onChange, onSave, autoHeight = fal
     const clampLine = (line: number) => Math.max(1, Math.min(lineCount, line))
     const maxColumn = (line: number) => model.getLineMaxColumn(clampLine(line))
     const shiftLine = (line: number) => line + contextLineOffset
-    const visibleStart = modelVisibleRange ? clampLine(shiftLine(modelVisibleRange.startLineNumber)) : clampLine(contextLineOffset + 1)
-    const visibleEnd = modelVisibleRange ? clampLine(shiftLine(modelVisibleRange.endLineNumber)) : lineCount
-    const editableStart = modelEditableRange ? clampLine(shiftLine(modelEditableRange.startLineNumber)) : visibleStart
-    const editableEnd = modelEditableRange ? clampLine(shiftLine(modelEditableRange.endLineNumber)) : visibleEnd
+    const hasVisibleRange = visibleStartLine !== undefined && visibleEndLine !== undefined
+    const hasEditableRange = editableStartLine !== undefined && editableEndLine !== undefined
+    const visibleStart = hasVisibleRange ? clampLine(shiftLine(visibleStartLine)) : clampLine(contextLineOffset + 1)
+    const visibleEnd = hasVisibleRange ? clampLine(shiftLine(visibleEndLine)) : lineCount
+    const editableStart = hasEditableRange ? clampLine(shiftLine(editableStartLine)) : visibleStart
+    const editableEnd = hasEditableRange ? clampLine(shiftLine(editableEndLine)) : visibleEnd
     const hidden: monaco.Range[] = []
     if (contextLineOffset > 0) {
       const contextEnd = clampLine(contextLineOffset)
       hidden.push(new monaco.Range(1, 1, contextEnd, maxColumn(contextEnd)))
     }
-    if (modelVisibleRange) {
+    if (hasVisibleRange) {
       if (visibleStart > contextLineOffset + 1)
         hidden.push(new monaco.Range(clampLine(contextLineOffset + 1), 1, clampLine(visibleStart - 1), maxColumn(visibleStart - 1)))
       if (visibleEnd < lineCount) hidden.push(new monaco.Range(clampLine(visibleEnd + 1), 1, lineCount, maxColumn(lineCount)))
     }
     ;(editor as typeof editor & { setHiddenAreas(ranges: monaco.IRange[]): void }).setHiddenAreas(hidden)
     const decorations: monaco.editor.IModelDeltaDecoration[] = []
-    if (modelVisibleRange && modelEditableRange) for (const [start, end] of [[visibleStart, editableStart - 1], [editableEnd + 1, visibleEnd]]) for (let line = Math.max(1, start); line <= Math.min(lineCount, end); line += 1) decorations.push({ range: new monaco.Range(line, 1, line, maxColumn(line)), options: { inlineClassName: "monaco-readonly-code" } })
+    if (hasVisibleRange && hasEditableRange) for (const [start, end] of [[visibleStart, editableStart - 1], [editableEnd + 1, visibleEnd]]) for (let line = Math.max(1, start); line <= Math.min(lineCount, end); line += 1) decorations.push({ range: new monaco.Range(line, 1, line, maxColumn(line)), options: { inlineClassName: "monaco-readonly-code" } })
     lockedRef.current ? lockedRef.current.set(decorations) : lockedRef.current = editor.createDecorationsCollection(decorations)
     if (autoHeight) window.requestAnimationFrame(() =>
       setHeight(Math.max(minHeight, editor.getContentHeight())),
     )
-  }, [autoHeight, contextLineOffset, minHeight, modelEditableRange, modelVisibleRange])
+  }, [autoHeight, contextLineOffset, editableEndLine, editableStartLine, minHeight, visibleEndLine, visibleStartLine])
   const onMount = useCallback<OnMount>(editor => {
     editorRef.current = editor
     const mountedModel = editor.getModel()
