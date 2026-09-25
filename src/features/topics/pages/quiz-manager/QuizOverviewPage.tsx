@@ -294,7 +294,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                 });
               }}
             />
-            {quizContest.settingsPath.includes("content-v2") && (
+            {/[\\/]content(?:-v2)?[\\/]topics[\\/]/.test(quizContest.settingsPath) && (
               <MarketplaceMetadataSection
                 recordKey={`quiz:${quiz.contest}/${quiz.id}`}
                 locale={locale}

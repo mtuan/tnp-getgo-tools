@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { contentTopicsRoot } from "../repository/content-source.js";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
 import { hashContentV2, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
@@ -252,12 +253,10 @@ ipcMain.handle(
   },
 );
 const topicAssetsDirectory = async (topicId: unknown) => {
-  if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+  if (typeof topicId !== "string" || !/^[a-z][a-z0-9_-]*$/.test(topicId))
     throw new Error("Invalid topic selection.");
   return path.join(
-    await repositoryRoot(),
-    "content-v2",
-    "topics",
+    contentTopicsRoot(await repositoryRoot()),
     topicId,
     "assets",
   );

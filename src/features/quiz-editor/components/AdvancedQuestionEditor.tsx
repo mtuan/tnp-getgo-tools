@@ -116,10 +116,12 @@ export function AdvancedQuestionEditor({
   const generatedQuestionRef = useRef<string | number | null>(null);
   const latestRecordRef = useRef(record);
   const pendingDynamicChangeRef = useRef(false);
+  const pendingSignatureSyncRef = useRef(false);
   const latestRecord = latestRecordRef.current;
   if (String(latestRecord.question_no) !== String(record.question_no)) {
     latestRecordRef.current = record;
     pendingDynamicChangeRef.current = false;
+    pendingSignatureSyncRef.current = false;
   } else if (
     !pendingDynamicChangeRef.current ||
     JSON.stringify(latestRecord.advancedDynamic) ===
@@ -169,10 +171,19 @@ export function AdvancedQuestionEditor({
     };
     latestRecordRef.current = next;
     pendingDynamicChangeRef.current = true;
+    if (key === "paramsGeneratorTs") pendingSignatureSyncRef.current = true;
     onChange(next);
   };
   const synchronizeDependentSignatures = (trigger = "unknown") => {
     const latest = latestRecordRef.current;
+    if (!pendingSignatureSyncRef.current) {
+      console.info("[GetGo Tools][Question signatures][skipped]", {
+        trigger,
+        reason: "parameters-unchanged",
+        questionNo: String(latest.question_no),
+      });
+      return;
+    }
     if (String(latest.question_no) !== String(record.question_no)) {
       console.info("[GetGo Tools][Question signatures][skipped]", {
         trigger,
@@ -224,6 +235,7 @@ export function AdvancedQuestionEditor({
           beforeExplanationSignature,
           failedFields: synchronized.failures.map((failure) => failure.field),
         });
+        pendingSignatureSyncRef.current = false;
         return;
       }
       const next = {
@@ -236,6 +248,7 @@ export function AdvancedQuestionEditor({
       };
       latestRecordRef.current = next;
       pendingDynamicChangeRef.current = true;
+      pendingSignatureSyncRef.current = false;
       console.info("[GetGo Tools][Question signatures][updated]", {
         trigger,
         questionNo: String(latest.question_no),
@@ -379,13 +392,15 @@ export function AdvancedQuestionEditor({
       : value;
     const sharedContext = quizSharedEditorContext(quizSharedCode);
     const paramsGeneratorTs = editorDynamic?.paramsGeneratorTs.trim();
-    const parameterContext = paramsGeneratorTs
-      ? `(() => {\nconst __getgoParamsGeneratorForEditor = (${paramsGeneratorTs});\ntype __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;\nreturn (`
-      : "";
-    const parameterContextSuffix = parameterContext ? `\n);\n})()` : "";
-    const extraLib = sharedContext
+    const parameterTypeContext = paramsGeneratorTs
+      ? `const __getgoParamsGeneratorForEditor = (${paramsGeneratorTs});\ntype __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;`
+      : "type __GetGoParams = Record<string, never>;";
+    const editorTypeContext = [sharedContext, parameterTypeContext]
+      .filter((source) => source.trim())
+      .join("\n\n");
+    const extraLib = editorTypeContext
       ? {
-          content: sharedContext,
+          content: editorTypeContext,
           filePath: `file://${path.replaceAll("\\", "/")}.shared-context.ts`,
           replaceGroup: "active-quiz-shared-context",
         }
@@ -398,12 +413,13 @@ export function AdvancedQuestionEditor({
       editableLineRange,
       editableCode,
       extraLib,
-      modelContext: id === "question" || id === "explanation"
-        ? parameterContext
-        : "",
-      modelContextSuffix: id === "question" || id === "explanation"
-        ? parameterContextSuffix
-        : "",
+      // Keep the persisted callback as the complete Monaco model. Wrapping it
+      // in hidden prefix/suffix source makes Monaco's hidden-line projection
+      // swallow the callback signature and expose the closing wrapper after
+      // formatting, which produces a false "Declaration or statement
+      // expected" diagnostic for otherwise valid question generators.
+      modelContext: "",
+      modelContextSuffix: "",
       onBlur: id === "params"
         ? () => synchronizeDependentSignatures("params-blur")
         : undefined,

@@ -34,7 +34,7 @@ const gradeOptions = Array.from({ length: 13 }, (_, grade) => ({ value: String(g
 const generalFields = (iconPreview: string, topicMode: boolean, language: EditorLanguage): FormSchema[] => [
   { section: topicMode ? "Topic information" : "Contest information", description: "Identity and visibility across GetGo.", fields: [
     [
-      { type: "text", name: "code", label: "Contest ID", required: true, rules: { pattern: { value: /^[a-z][-a-z0-9]*$/, message: "Use lowercase letters, numbers, and hyphens." } } },
+      { type: "text", name: "code", label: "Contest ID", required: true, rules: { pattern: { value: /^[a-z][-_a-z0-9]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
       { type: "text", name: language === "vi" ? "titleVi" : "title", label: "Display title", required: true },
     ],
     [
@@ -113,7 +113,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
   }, [isContestTopic])
   useEffect(() => {
     const reference = settings.book.icon
-    if (!contest || typeof reference !== "string" || !reference.startsWith("asset:") || !contest.settingsPath.includes("content-v2")) {
+    if (!contest || typeof reference !== "string" || !reference.startsWith("asset:") || !/[\\/]content(?:-v2)?[\\/]topics[\\/]/.test(contest.settingsPath)) {
       setIconPreview("")
       return
     }

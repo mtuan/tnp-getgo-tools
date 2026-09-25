@@ -7260,6 +7260,28 @@ button.danger svg {
   display: grid;
   gap: 8px;
 }
+.question-images-editor .question-asset-input:not(:last-child) {
+  min-height: 0;
+}
+.question-images-editor .question-asset-input:not(:last-child) .question-asset-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 12px;
+}
+.question-images-editor .question-asset-input:not(:last-child) .question-asset-value img {
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  max-width: none;
+  max-height: 220px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--soft);
+  object-fit: contain;
+}
+.question-images-editor .question-asset-input:not(:last-child) .question-asset-value span {
+  max-width: 180px;
+}
 .question-asset-input {
   position: relative;
   display: flex;

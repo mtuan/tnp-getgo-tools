@@ -5,6 +5,7 @@ import type {
   SyncedQuestionFeedbackStatus,
   QuestionFeedbackOverview,
 } from "../../../shared/domain/models.js";
+import { contentDirectoryRoot, contentTopicsRoot } from "./content-source.js";
 
 const idPattern = /^[a-z0-9][a-z0-9_-]*$/i;
 export const feedbackCursorSchemaVersion = 2;
@@ -22,9 +23,7 @@ function validId(value: string, label: string): string {
 
 function feedbackDirectory(root: string, topicId: string, quizId: string): string {
   return path.join(
-    path.resolve(root),
-    "content-v2",
-    "topics",
+    contentTopicsRoot(root),
     validId(topicId, "topic ID"),
     "quizzes",
     validId(quizId, "quiz ID"),
@@ -71,7 +70,7 @@ export async function hasFeedbackTarget(root: string, topicId: string, quizId: s
  * names only and only during feedback sync; never load topic or question files.
  */
 export async function findLegacyFeedbackTopic(root: string, quizId: string): Promise<string | null> {
-  const topicsRoot = path.join(path.resolve(root), "content-v2", "topics");
+  const topicsRoot = contentTopicsRoot(root);
   let topics: import("node:fs").Dirent[];
   try {
     topics = await fs.readdir(topicsRoot, { withFileTypes: true });
@@ -116,7 +115,7 @@ export async function loadQuestionFeedback(
 
 export async function listAllQuestionFeedback(root: string): Promise<SyncedQuestionFeedback[]> {
   const startedAt = performance.now();
-  const topicsRoot = path.join(path.resolve(root), "content-v2", "topics");
+  const topicsRoot = contentTopicsRoot(root);
   const records: SyncedQuestionFeedback[] = [];
   let topicEntries: import("node:fs").Dirent[] = [];
   try { topicEntries = await fs.readdir(topicsRoot, { withFileTypes: true }); }
@@ -175,7 +174,7 @@ export async function listQuestionFeedbackOverview(root: string): Promise<Questi
     const key = `${report.source.topicId}/${report.source.quizId}/${report.source.questionId}`;
     grouped.set(key, [...(grouped.get(key) ?? []), report]);
   }
-  const topicsRoot = path.join(path.resolve(root), "content-v2", "topics");
+  const topicsRoot = contentTopicsRoot(root);
   const pendingGroups = Array.from(grouped).filter(([, items]) =>
     items.some((item) => item.review.status === "pending"));
   return Promise.all(pendingGroups.map(async ([key, items]) => {
@@ -223,7 +222,7 @@ export async function updateQuestionFeedbackReview(
 }
 
 export function feedbackCursorPath(root: string, projectId: string): string {
-  return path.join(path.resolve(root), "content-v2", ".feedback-sync", `${validId(projectId, "project ID")}.json`);
+  return path.join(contentDirectoryRoot(root), ".feedback-sync", `${validId(projectId, "project ID")}.json`);
 }
 
 export async function readFeedbackCursor(root: string, projectId: string): Promise<FeedbackCursor | null> {

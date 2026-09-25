@@ -1,0 +1,4 @@
+interface:
+  display_name: "Convert GetGo Quiz Content"
+  short_description: "Convert scoped v1 quizzes into content topics"
+  default_prompt: "Convert the requested GetGo v1 quiz group into an isolated content topic and verify the result."

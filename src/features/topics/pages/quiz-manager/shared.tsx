@@ -165,10 +165,18 @@ export function preferredQuestionPrompt(english: unknown, vietnamese: unknown): 
 
 export function comparableQuestion(record: QuizQuestionRecord | null): unknown {
   if (!record) return record;
-  if (!record.advancedDynamic) return record;
+  // Review status is persisted immediately by its own action. It is not part
+  // of the editable question draft and must never enable Save/Discard.
+  const {
+    status: _reviewStatus,
+    verified: _legacyVerified,
+    advancedDynamic: recordAdvancedDynamic,
+    ...question
+  } = record;
+  if (!recordAdvancedDynamic) return question;
   const { draftSourceTs: _derivedDraftSource, ...advancedDynamic } =
-    record.advancedDynamic;
-  return { ...record, advancedDynamic };
+    recordAdvancedDynamic;
+  return { ...question, advancedDynamic };
 }
 
 export function questionDiff(before: QuizQuestionRecord, after: QuizQuestionRecord) {

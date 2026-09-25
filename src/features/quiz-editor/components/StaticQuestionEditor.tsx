@@ -60,6 +60,22 @@ export function StaticQuestionEditor({
   );
   const AnswerDetails = answerDetailsComponents[answerType];
   useEffect(() => setPreview(questionService.loadStatic(record)), [record]);
+  const regeneratePreview = async () => {
+    if (!record.advancedDynamic) {
+      setPreview((current) =>
+        questionService.loadStatic(record, true, current.question),
+      );
+      return;
+    }
+    try {
+      setPreview(await questionService.generateDynamic(record));
+    } catch (cause) {
+      console.error("[GetGo Tools][Static preview][dynamic generation failed]", {
+        questionNo: String(record.question_no),
+        cause,
+      });
+    }
+  };
   const values = {
     category: record.category,
     text_en: record.text_en,
@@ -305,11 +321,7 @@ export function StaticQuestionEditor({
                 title="Regenerate question"
                 aria-label="Regenerate question"
                 icon={<Zap size={16} />}
-                onClick={() =>
-                  setPreview((current) =>
-                    questionService.loadStatic(record, true, current.question),
-                  )
-                }
+                onClick={() => void regeneratePreview()}
               />
             </span>
           }

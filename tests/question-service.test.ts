@@ -134,3 +134,12 @@ test("origin parameters use a visible callback wrapper without changing persiste
   assert.match(editor, /^\(\) => \{\n  return \{/)
   assert.equal(originParamsValueFromEditor(editor), stored)
 })
+
+test("single-line converted origin parameters become a valid multiline editor callback", () => {
+  const stored = `{ nextMonth: "August", nextMonthVn: "TÃ¡m", correct: "A", choices: { A: "June", B: "July" } }`
+  const editor = originParamsEditorSource(stored)
+
+  assert.equal(editor.split("\n").length, 3)
+  assert.match(editor, /^\(\) => \{\n  return \{ nextMonth:/)
+  assert.equal(originParamsValueFromEditor(editor), stored)
+})

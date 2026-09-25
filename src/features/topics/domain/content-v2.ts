@@ -26,7 +26,7 @@ export const contentV2ReviewStatuses = [
 ] as const;
 export type ContentV2ReviewStatus = (typeof contentV2ReviewStatuses)[number];
 
-const idSchema = z.string().regex(/^[a-z][a-z0-9-]*$/);
+const idSchema = z.string().regex(/^[a-z][a-z0-9_-]*$/);
 const hashSchema = z
   .string()
   .regex(/^[a-f0-9]{64}$/)
