@@ -2,8 +2,10 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import {
   dynamicEditorModelEnvelope,
+  formattedQuestionForCodeOnlyChange,
   questionHasDynamicParams,
 } from "../src/features/quiz-editor/domain/question-dynamics.js"
+import type { QuizQuestionRecord } from "../src/shared/domain/models.js"
 
 test("identifies only parameter generators with named return values as dynamic", () => {
   assert.equal(questionHasDynamicParams({ paramsGeneratorTs: "() => ({})" }), false)
@@ -46,4 +48,61 @@ test("question params infer callback-style original parameters", () => {
 
   assert.match(envelope.prefix, /const __getgoOriginParamsForEditor = \(\(\) => \{/)
   assert.match(envelope.prefix, /ReturnType<typeof __getgoOriginParamsForEditor>/)
+})
+
+function dynamicQuestion(questionGeneratorTs: string): QuizQuestionRecord {
+  return {
+    question_no: 8,
+    type: "multiple-choice",
+    text_en: "Example",
+    answer: "1",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ value: 1 })",
+      questionGeneratorTs,
+      explanationGeneratorTs: "({ value }) => ({ en: `${value}` })",
+      originParamsTs: "{}",
+      draftSourceTs: "derived source",
+    },
+  } as QuizQuestionRecord
+}
+
+test("recognizes editor-only code formatting and returns the canonical draft", async () => {
+  const persisted = dynamicQuestion("({ value }) => { return { text_en: `${value}`, answer: value } }")
+  const draft = dynamicQuestion(`({ value }) => {
+  return { text_en: \`${"${value}"}\`, answer: value };
+}`)
+
+  const formatted = await formattedQuestionForCodeOnlyChange(persisted, draft)
+
+  assert.ok(formatted)
+  assert.notEqual(formatted.advancedDynamic?.draftSourceTs, "derived source")
+})
+
+test("recognizes editor-generated parameter signatures as a canonical code change", async () => {
+  const persisted = dynamicQuestion("({ value }) => ({ text_en: `${value}`, answer: value })")
+  const draft = dynamicQuestion("({ value }: __GetGoParams) => ({ text_en: `${value}`, answer: value })")
+  draft.advancedDynamic!.explanationGeneratorTs =
+    "({ value }: __GetGoParams) => ({ en: `${value}` })"
+
+  const formatted = await formattedQuestionForCodeOnlyChange(persisted, draft)
+
+  assert.ok(formatted)
+  assert.match(
+    formatted.advancedDynamic!.questionGeneratorTs,
+    /^\(\{ value \}: __GetGoParams\)/,
+  )
+  assert.match(
+    formatted.advancedDynamic!.explanationGeneratorTs,
+    /^\(\{ value \}: __GetGoParams\)/,
+  )
+})
+
+test("does not classify substantive generator edits as formatting-only", async () => {
+  const persisted = dynamicQuestion("({ value }) => ({ text_en: `${value}`, answer: value })")
+  const draft = dynamicQuestion("({ value }) => ({ text_en: `${value + 1}`, answer: value })")
+
+  assert.equal(
+    await formattedQuestionForCodeOnlyChange(persisted, draft),
+    null,
+  )
 })

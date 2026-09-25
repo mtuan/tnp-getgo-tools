@@ -1,5 +1,6 @@
 import { composeQuizSharedEditorTypeContext, QuizTsService } from "@tnp/getgo-logics/authoring"
 import type { QuizQuestionRecord } from "../../../shared/domain/models.js"
+import { includeOriginalParameterSignatures } from "./generator-signatures.js"
 
 /** Every dynamic question exposes a valid editable explanation callback. */
 export const DEFAULT_EXPLANATION_GENERATOR_TS = `({}) => {
@@ -51,6 +52,55 @@ export async function formatQuestionCode(
       draftSourceTs: formatted,
     },
   }
+}
+
+function comparableFormattedQuestion(question: QuizQuestionRecord): unknown {
+  if (!question.advancedDynamic) return question
+  const { draftSourceTs: _derivedDraftSource, ...advancedDynamic } =
+    question.advancedDynamic
+  return { ...question, advancedDynamic }
+}
+
+function withComparableGeneratorSignatures(
+  question: QuizQuestionRecord,
+): QuizQuestionRecord {
+  const dynamic = question.advancedDynamic
+  if (!dynamic) return question
+  try {
+    return {
+      ...question,
+      advancedDynamic: {
+        ...dynamic,
+        ...includeOriginalParameterSignatures(dynamic),
+      },
+    }
+  } catch {
+    // Invalid drafts must remain persistable and are never assumed equivalent.
+    return question
+  }
+}
+
+/**
+ * Return the canonical draft only when formatting is the complete difference
+ * between it and the persisted question. Derived template source is ignored in
+ * the same way as the editor's dirty-state comparison.
+ */
+export async function formattedQuestionForCodeOnlyChange(
+  persisted: QuizQuestionRecord,
+  draft: QuizQuestionRecord,
+): Promise<QuizQuestionRecord | null> {
+  if (!persisted.advancedDynamic || !draft.advancedDynamic) return null
+  const [formattedPersisted, formattedDraft] = await Promise.all([
+    formatQuestionCode(persisted),
+    formatQuestionCode(draft),
+  ])
+  return JSON.stringify(comparableFormattedQuestion(
+    withComparableGeneratorSignatures(formattedPersisted),
+  )) === JSON.stringify(comparableFormattedQuestion(
+    withComparableGeneratorSignatures(formattedDraft),
+  ))
+    ? formattedDraft
+    : null
 }
 
 /** Keep a following callback expression from chaining onto shared-code IIFEs. */

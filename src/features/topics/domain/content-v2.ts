@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
 import { z } from "zod";
 import { marketplaceTopicStates } from "./marketplace-topic-state.js";
-import { textContentIconColors, textContentIconThemes } from "../../../shared/domain/content-icon.js";
+import { isTextContentIconText, parseTextContentIcon, textContentIconColors, textContentIconThemes } from "../../../shared/domain/content-icon.js";
 export { localizedText, type LocalizedText } from "../../../shared/domain/localized-text.js";
 
 // Increment when the published quiz payload or Storage layout changes so
@@ -37,14 +37,14 @@ export const localizedTextSchema = z.union([
 ]);
 const legacyIconSchema = z.string().refine(
   (value) => value.startsWith("asset:")
-    || (/^text:(?:(?:violet|indigo|blue|cyan|teal|emerald|lime|yellow|amber|orange|red|rose|pink):)?(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u.test(value))
+    || (value.startsWith("text:") && Boolean(parseTextContentIcon(value)))
     || (value.trim().length <= 16 && /\P{ASCII}/u.test(value)),
 );
 const iconSchema = z.union([
   legacyIconSchema,
   z.object({
     type: z.literal("text"),
-    text: z.string().regex(/^(?:[\p{L}\p{N}]{4,6}|[\p{L}\p{N}]{2,3}-[\p{L}\p{N}]{2,3})$/u),
+    text: z.string().refine(isTextContentIconText),
     theme: z.enum(textContentIconThemes),
   }),
   z.object({ type: z.literal("text"), text: z.string(), color: z.string().regex(/^#[0-9a-f]{6}$/i) })

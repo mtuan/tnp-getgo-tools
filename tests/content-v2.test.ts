@@ -37,7 +37,7 @@ import { marketplaceSyncPlan } from "../src/features/topics/domain/marketplace-s
 import { sanitizeVietnamesePronunciationQuestion } from "../src/features/quiz-editor/domain/pronunciation-safety.js";
 import { defaultSafeWordDictionary, findUnsafeContent } from "../src/features/content-safety/domain/content-safety.js";
 import { assertRepositoryContentSafe, saveSafeWordDictionary } from "../src/features/content-safety/repository/content-safety-repository.js";
-import { parseTextContentIcon } from "../src/shared/domain/content-icon.js";
+import { parseTextContentIcon, textContentIconRows } from "../src/shared/domain/content-icon.js";
 
 test("content v2 contest text supports bilingual values and legacy strings", () => {
   const topic = contentV2TopicSchema.parse({
@@ -99,7 +99,19 @@ test("content v2 text icons use an extensible object and accept legacy strings",
   assert.deepEqual(parseTextContentIcon("text:#e11d48:SEAMO"), { type: "text", text: "SEAMO", theme: "rose" });
   assert.deepEqual(parseTextContentIcon("text:#e11d48:SEA-MO"), { type: "text", text: "SEA-MO", theme: "rose" });
   assert.deepEqual(parseTextContentIcon({ type: "text", text: "HE-LIX", color: "#0891b2" }), { type: "text", text: "HE-LIX", theme: "cyan" });
-  assert.equal(parseTextContentIcon("text:#e11d48:TOOLONG"), null);
+  assert.deepEqual(parseTextContentIcon("text:#e11d48:TOOLONG"), { type: "text", text: "TOOLONG", theme: "rose" });
+  assert.deepEqual(parseTextContentIcon("text:violet:POT249"), { type: "text", text: "POT249", theme: "violet" });
+  assert.deepEqual(parseTextContentIcon("text:violet:ABC/12.3"), { type: "text", text: "ABC/12.3", theme: "violet" });
+  assert.equal(parseTextContentIcon("text:violet:1234567890123"), null);
+});
+
+test("text icons balance default rows and honor one explicit separator", () => {
+  assert.deepEqual(textContentIconRows("POT249"), ["POT", "249"]);
+  assert.deepEqual(textContentIconRows("A/+.B"), ["A/+", ".B"]);
+  assert.deepEqual(textContentIconRows("ABC-123456"), ["ABC", "123456"]);
+  assert.deepEqual(textContentIconRows("ABC--12"), ["ABC-", "-12"]);
+  assert.deepEqual(textContentIconRows("-"), ["-", ""]);
+  assert.equal(textContentIconRows("1234567-ABC"), null);
 });
 
 test("content safety finds bilingual whole words and reports their data paths", () => {
