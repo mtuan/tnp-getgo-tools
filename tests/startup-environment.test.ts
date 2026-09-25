@@ -3,7 +3,22 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { StartupEnvironmentService } from "../src/features/settings/main/startup-environment.js";
+import { StartupEnvironmentService, resolveExecutable } from "../src/features/settings/main/startup-environment.js";
+
+test("finds macOS package-manager commands outside an Electron app PATH", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "getgo-executable-"));
+  const executable = path.join(root, "brew");
+  try {
+    await writeFile(executable, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    assert.equal(await resolveExecutable("brew", {
+      pathValue: "/usr/bin:/bin",
+      platform: "darwin",
+      macosFallbackPaths: [root],
+    }), executable);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("saves only allowlisted secrets in the private environment file", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "getgo-startup-env-"));

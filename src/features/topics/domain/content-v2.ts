@@ -7,9 +7,9 @@ export { localizedText, type LocalizedText } from "../../../shared/domain/locali
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 11;
+export const contentV2QuizPublishContractVersion = 13;
 // Increment when topic documents or shared topic-asset publication changes.
-export const contentV2TopicPublishContractVersion = 2;
+export const contentV2TopicPublishContractVersion = 3;
 
 export {
   marketplaceTopicState,
@@ -81,6 +81,14 @@ export type MarketplaceTopicMetadata = z.infer<typeof marketplaceTopicMetadataSc
 export type MarketplaceTopicMetadataInput = Partial<MarketplaceTopicMetadata>;
 export type MarketplaceContentAccess = "free" | "subscription" | "paid";
 
+function enabledMarketplaceMetadata(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const enabled = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== false),
+  );
+  return Object.keys(enabled).length ? enabled : undefined;
+}
+
 export function marketplaceContentAccess(
   metadata: MarketplaceTopicMetadataInput | undefined,
   inherited: MarketplaceContentAccess = "free",
@@ -95,6 +103,7 @@ export function sanitizeMarketplaceQuiz(
   record: ContentV2Quiz,
   inheritedAccess: MarketplaceContentAccess,
   questionCount?: number,
+  supportsDynamic?: boolean,
 ): Record<string, unknown> {
   const {
     sharedCode: _sharedCode,
@@ -103,10 +112,13 @@ export function sanitizeMarketplaceQuiz(
     status: _status,
     ...summary
   } = contentV2QuizSchema.parse(record);
+  const normalizedMarketplace = enabledMarketplaceMetadata(summary.marketplace);
   return {
     ...summary,
+    marketplace: normalizedMarketplace,
     access: marketplaceContentAccess(record.marketplace, inheritedAccess),
     ...(questionCount === undefined ? {} : { questionCount }),
+    ...(supportsDynamic ? { dynamic: true, supportsDynamic: true } : {}),
   };
 }
 
@@ -122,6 +134,7 @@ export function sanitizeMarketplaceTopic(
     publishedHash?: string;
     publishedAt?: string;
   };
+  const normalizedMarketplace = enabledMarketplaceMetadata(marketplace) ?? {};
   return {
     topicId: record.id,
     title: record.title,
@@ -129,7 +142,7 @@ export function sanitizeMarketplaceTopic(
     icon: record.icon,
     publisherId: record.publisherId,
     publisher: record.publisher,
-    ...marketplace,
+    ...normalizedMarketplace,
     shortDescription: record.description,
     fullDescription: record.description,
     subjects: record.subjects,
@@ -228,6 +241,7 @@ const quizSpeechSettingsSchema = z.object({
 export const competitionPaperQuizSchema = z.object({
   ...baseQuiz,
   type: z.literal("competition-paper"),
+  supportedLanguages: z.array(z.enum(["en", "vi"])).min(1).default(["en", "vi"]),
   grade: z.string().min(1),
   round: z.string().min(1),
   year: z.string().min(1),
@@ -298,6 +312,7 @@ export const competitionQuestionV2Schema = z.object({
       originParamsTs: z.string(),
       explanationGeneratorTs: z.string(),
       compiledJs: z.string().optional(),
+      quizBuilderApiVersion: z.number().int().positive().optional(),
     })
     .optional(),
   authoringMode: z.enum(["advanced-dynamic", "reference"]).optional(),
@@ -467,7 +482,12 @@ export function sanitizeContentV2Topic(
 export function sanitizeContentV2Quiz(
   record: ContentV2Quiz,
 ): Record<string, unknown> {
-  return withoutAuthoringMetadata(contentV2QuizSchema.parse(record));
+  const { marketplace, ...runtime } = withoutAuthoringMetadata(contentV2QuizSchema.parse(record));
+  const normalizedMarketplace = enabledMarketplaceMetadata(marketplace);
+  return {
+    ...runtime,
+    ...(normalizedMarketplace ? { marketplace: normalizedMarketplace } : {}),
+  };
 }
 
 export function sanitizeContentV2Question(

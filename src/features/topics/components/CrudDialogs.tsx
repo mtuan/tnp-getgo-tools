@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { RotateCcw, Save } from "lucide-react"
-import { supportedQuizBuilderApiVersions, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../../../shared/domain/models"
+import { currentQuizBuilderApiVersion, type ContestSettings, type ContestSummary, type QuizCrudInput, type QuizSummary } from "../../../shared/domain/models"
 import { Form, validateSchema, type FormErrors, type FormSchema, type FormValues } from "../../../shared/ui/Form"
 import { DialogFrame } from "../../../shared/ui/DialogFrame"
 import { AccordionSection } from "../../../shared/ui/Accordion"
@@ -45,7 +45,7 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
 }
 
 export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, embedded = false, onDirtyChange }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; onDirtyChange?(dirty: boolean): void }) {
-  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0] }), [quiz])
+  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", supportedLanguages: quiz?.supportedLanguages ?? ["en", "vi"], grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? currentQuizBuilderApiVersion }), [quiz])
   const [input, setInput] = useState<QuizCrudInput>(() => initialInput)
   const [savedInput, setSavedInput] = useState<QuizCrudInput>(() => initialInput)
   const [busy, setBusy] = useState(false)
@@ -72,9 +72,10 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
     { type: "text", name: "title", label: "Title", required: true },
     { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a 4–6 character text monogram." },
     { type: "select", name: "type", label: "Quiz type", required: true, presentation: "segmented", options: [{ value: "contest", label: "Contest" }, { value: "alphabet", label: "Alphabet" }, { value: "pronunciation", label: "Vietnamese pronunciation" }] },
+    ...(input.type === "contest" ? [{ type: "multi-select", name: "supportedLanguages", label: "Supported languages", required: true, options: [{ value: "vi", label: "Vietnamese" }, { value: "en", label: "English" }] } as FormSchema] : []),
     ...(input.type === "alphabet" ? [{ type: "select", name: "language", label: "Language", required: true, presentation: "segmented", options: [{ value: "en", label: "English" }, { value: "vi", label: "Vietnamese" }] } as FormSchema] : []),
   ], [iconPreview, input.type, quiz])
-  const values: FormValues = { ...input, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? supportedQuizBuilderApiVersions[0]) }
+  const values: FormValues = { ...input, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? currentQuizBuilderApiVersion) }
   const change = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     setInput(current => {
@@ -85,11 +86,12 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
           : { ...current, type, language: type === "pronunciation" ? "vi" : current.language ?? "en", grade: null, round: null, year: null }
       }
       if (name === "language") return { ...current, language: value === "vi" ? "vi" : "en" }
+      if (name === "supportedLanguages") return { ...current, supportedLanguages: Array.isArray(value) ? value.filter((item): item is "en" | "vi" => item === "en" || item === "vi") : [] }
       if (name === "quizBuilderApiVersion") return { ...current, quizBuilderApiVersion: Number(value) }
       return { ...current, [name]: value } as QuizCrudInput
     })
   }
-  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized = { ...input, id: input.id.trim(), title: input.title.trim(), icon: typeof input.icon === "string" ? input.icon.trim() || undefined : input.icon, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : input.type === "pronunciation" ? "vi" : undefined, grade: input.type === "contest" ? input.grade : null, round: input.type === "contest" ? input.round : null, year: input.type === "contest" ? input.year : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
+  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized: QuizCrudInput = { ...input, id: input.id.trim(), title: input.title.trim(), icon: typeof input.icon === "string" ? input.icon.trim() || undefined : input.icon, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : input.type === "pronunciation" ? "vi" : undefined, supportedLanguages: input.type === "contest" ? input.supportedLanguages ?? ["en", "vi"] : input.type === "pronunciation" ? ["vi"] : [input.language ?? "en"], grade: input.type === "contest" ? input.grade : null, round: input.type === "contest" ? input.round : null, year: input.type === "contest" ? input.year : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
   const editor = <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "quiz-info-form" : undefined} hideFooter={embedded} onReset={() => { setInput(structuredClone(savedInput)); setFieldErrors({}); setError(null) }} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}

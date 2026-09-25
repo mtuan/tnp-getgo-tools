@@ -221,6 +221,13 @@ async function mapQuiz(
     icon: manifest.icon,
     type: manifest.type ?? "contest",
     language: manifest.language,
+    supportedLanguages: manifest.supportedLanguages ?? (
+      manifest.type === "pronunciation"
+        ? ["vi"]
+        : manifest.type === "alphabet"
+          ? [manifest.language ?? "en"]
+          : ["en", "vi"]
+    ),
     grade: manifest.grade ?? null,
     round: manifest.round ?? null,
     year: manifest.year ?? null,

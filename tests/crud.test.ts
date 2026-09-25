@@ -21,8 +21,10 @@ test("creates and updates schema-backed contests and quizzes", async (t) => {
   t.after(() => fs.rm(root, { recursive: true, force: true }))
   await fs.mkdir(path.join(root, "quizzes"))
   await createContestDirectory(root, settings)
-  await createQuizFiles(root, "sample", { id: "sample-quiz", title: "Sample Quiz", grade: "1", round: "MAIN", year: "2026" })
+  await createQuizFiles(root, "sample", { id: "sample-quiz", title: "Sample Quiz", supportedLanguages: ["vi"], grade: "1", round: "MAIN", year: "2026" })
   const questionsDirectory = path.join(root, "quizzes", "sample", "sample-quiz", "questions")
+  const starterQuestion = JSON.parse(await fs.readFile(path.join(questionsDirectory, "q1.json"), "utf8")) as Record<string, unknown>
+  assert.equal("text_vn" in starterQuestion, true)
   await fs.writeFile(path.join(questionsDirectory, "q1.json"), JSON.stringify({ question_no: 1, verified: true }))
   await fs.writeFile(path.join(questionsDirectory, "q2.json"), JSON.stringify({ question_no: 2, verified: false }))
 
@@ -30,17 +32,19 @@ test("creates and updates schema-backed contests and quizzes", async (t) => {
   assert.equal(snapshot.contests[0].settings.quizRules?.length, 1)
   assert.equal(snapshot.quizzes[0].title, "Sample Quiz")
   assert.equal(snapshot.quizzes[0].type, "contest")
+  assert.deepEqual(snapshot.quizzes[0].supportedLanguages, ["vi"])
   assert.equal(snapshot.quizzes[0].questionStorageVersion, "questions-v1")
   assert.equal(snapshot.quizzes[0].questionCount, 2)
   assert.equal(snapshot.quizzes[0].reviewedQuestionCount, 1)
 
   await updateContestSettings(root, "sample", { ...settings, book: { ...settings.book, description: "Updated", isActive: false } })
-  await updateQuizManifest(snapshot.quizzes[0].manifestPath, { title: "Renamed Quiz", type: "alphabet", language: "en", grade: "2", round: "FINAL", year: "2027" })
+  await updateQuizManifest(snapshot.quizzes[0].manifestPath, { title: "Renamed Quiz", type: "alphabet", language: "en", supportedLanguages: ["en"], grade: "2", round: "FINAL", year: "2027" })
   snapshot = await loadLegacyOverviewFromFiles(root)
   assert.equal(snapshot.contests[0].description, "Updated")
   assert.equal(snapshot.contests[0].isActive, false)
   assert.equal(snapshot.quizzes[0].title, "Renamed Quiz")
   assert.equal(snapshot.quizzes[0].type, "alphabet")
+  assert.deepEqual(snapshot.quizzes[0].supportedLanguages, ["en"])
   assert.match(await fs.readFile(path.join(root, "quizzes", "sample", "sample-quiz", "quiz.ts"), "utf8"), /title: "Renamed Quiz"/)
 
   const source = "export default { questions: [] }\n"

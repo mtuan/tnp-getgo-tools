@@ -70,11 +70,16 @@ async function postJson(
   body: unknown,
   headers: Record<string, string> = {},
 ) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify(body),
-  });
+  const response = await fetchWithRetry(
+    url,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    },
+    "Firebase authentication request",
+    30_000,
+  );
   const payload = await response.json().catch(() => ({}));
   if (
     !response.ok ||
@@ -560,7 +565,7 @@ export class FirebaseAuthService {
           throw new Error(
             params.get("error_description") ?? "Google sign-in was cancelled.",
           );
-        const tokenResponse = await fetch(
+        const tokenResponse = await fetchWithRetry(
           "https://oauth2.googleapis.com/token",
           {
             method: "POST",
@@ -574,6 +579,8 @@ export class FirebaseAuthService {
               grant_type: "authorization_code",
             }),
           },
+          "Google token exchange",
+          30_000,
         );
         const tokens = (await tokenResponse.json()) as {
           id_token?: string;

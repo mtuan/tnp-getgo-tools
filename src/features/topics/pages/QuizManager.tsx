@@ -31,6 +31,13 @@ import { useQuizMigrationActions } from "./quiz-manager/useQuizMigrationActions"
 import { useTopicListFilters } from "./quiz-manager/useTopicListFilters";
 import { useTopicsView } from "./quiz-manager/useTopicsView";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan";
+import {
+  loadRecentActivity,
+  orderByRecent,
+  quizActivityKey,
+  recordRecentActivity,
+  saveRecentActivity,
+} from "../domain/recent-activity";
 
 export type { QuizManagerApi } from "./quiz-manager/shared";
 export function QuizManager({
@@ -58,6 +65,7 @@ export function QuizManager({
   const quizRoute = (contestId: string, quizId: string) =>
     `${contestRoute(contestId)}/quizzes/${encodeURIComponent(quizId)}`;
   const [page, setPage] = useState<ManagerPage>(restored.page);
+  const [recentActivity, setRecentActivity] = useState(loadRecentActivity);
   const loadedTopicRef = useRef<string | null>(null);
   useEffect(() => {
     if (routeMode !== "topics" || page.kind !== "contest" || !api?.loadTopicQuizzes)
@@ -300,11 +308,60 @@ export function QuizManager({
     setTopicGrades,
     setTopicSubjects,
   } = useTopicListFilters(snapshot.contentV2.topics, locale);
-  const visibleContests = useMemo(
-    () => contests.filter((contest) => routeMode !== "topics" || topicMatches(contest.id)),
-    [contests, routeMode, topicMatches],
+  useEffect(() => {
+    if (routeMode !== "topics" || page.kind !== "contest") return;
+    // Grade/subject filters belong to the topic list. Entering a selected
+    // topic retains that topic route while clearing the preceding list state.
+    setTopicGrades([]);
+    setTopicSubjects([]);
+  }, [page, routeMode, setTopicGrades, setTopicSubjects]);
+  const visibleContests = useMemo(() => {
+    const filtered = contests.filter(
+      (contest) => routeMode !== "topics" || topicMatches(contest.id),
+    );
+    return routeMode === "topics"
+      ? orderByRecent(filtered, recentActivity.topics, (contest) => contest.id)
+      : filtered;
+  }, [contests, recentActivity.topics, routeMode, topicMatches]);
+  const visibleQuizzes = useMemo(
+    () => routeMode === "topics" && selectedContest
+      ? orderByRecent(
+          selectedContest.quizzes,
+          recentActivity.quizzes,
+          (quiz) => quizActivityKey(quiz.contest, quiz.id),
+        )
+      : (selectedContest?.quizzes ?? []),
+    [recentActivity.quizzes, routeMode, selectedContest],
   );
-  const visibleQuizzes = selectedContest?.quizzes ?? [];
+  const activeQuestionNo = page.kind === "quiz"
+    ? selectedQuestion === null
+      ? pendingQuestionNo
+      : questionRecords[selectedQuestion]?.question_no
+    : undefined;
+  useEffect(() => {
+    if (routeMode !== "topics" || page.kind === "contests") return;
+    const target = page.kind === "contest"
+      ? { topicId: page.contest }
+      : {
+          topicId: page.quiz.contest,
+          quizId: page.quiz.id,
+          ...(activeQuestionNo !== null && activeQuestionNo !== undefined
+            ? { questionNo: activeQuestionNo }
+            : {}),
+        };
+    setRecentActivity((current) => {
+      const next = recordRecentActivity(current, target);
+      saveRecentActivity(next);
+      return next;
+    });
+  }, [
+    activeQuestionNo,
+    page.kind,
+    page.kind === "contest" ? page.contest : null,
+    page.kind === "quiz" ? page.quiz.contest : null,
+    page.kind === "quiz" ? page.quiz.id : null,
+    routeMode,
+  ]);
   const migrationForQuiz = (quiz: QuizSummary): QuizAiMigrationJob | null =>
     migrationJobs.find(
       (job) => job.contestId === quiz.contest && job.quizId === quiz.id,
@@ -540,6 +597,7 @@ export function QuizManager({
     migrateLegacyQuizzes,
     migrationForQuiz,
     migrationResults,
+    recentActivity,
     openQuiz,
     onOpenJobs,
     onRouteChange,

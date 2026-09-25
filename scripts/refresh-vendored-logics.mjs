@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process"
 const toolsRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const vendorRoot = join(toolsRoot, "vendor")
 const installedRoot = join(toolsRoot, "node_modules/@tnp/getgo-logics")
+const viteDependencyCacheRoot = join(toolsRoot, "node_modules/.vite")
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm"
 
 async function isLogicsRepository(candidate) {
@@ -86,8 +87,12 @@ async function verifyInstalledPackage(archivePath) {
   }
 }
 
-console.log("Checking and building @tnp/getgo-logics…")
-run(npmExecutable, ["run", "check"], logicsRoot)
+if (process.env.GETGO_LOGICS_ALREADY_BUILT === "1") {
+  console.log("Using the already checked and built @tnp/getgo-logics package.")
+} else {
+  console.log("Checking and building @tnp/getgo-logics…")
+  run(npmExecutable, ["run", "check"], logicsRoot)
+}
 
 console.log("Packing @tnp/getgo-logics…")
 const packOutput = run(npmExecutable, ["pack", "--json", "--pack-destination", vendorRoot], logicsRoot, true)
@@ -100,9 +105,18 @@ console.log(`Installing ${basename(archivePath)} explicitly…`)
 run(npmExecutable, ["install", `./vendor/${basename(archivePath)}`, "--save"], toolsRoot)
 await verifyInstalledPackage(archivePath)
 
+// The package version is intentionally stable during local development. Vite
+// therefore cannot reliably distinguish a newly packed @tnp/getgo-logics from
+// an earlier archive with the same version, and may continue serving a stale
+// optimized QuizBuilder module. Remove only Vite's disposable dependency cache
+// after installing a fresh archive so the next Tools start always re-optimizes
+// against the package that was just verified above.
+await rm(viteDependencyCacheRoot, { recursive: true, force: true })
+console.log("Cleared Vite's dependency cache for the refreshed Logics package.")
+
 console.log("Syncing editor types and checking GetGo Tools…")
 run(npmExecutable, ["run", "sync:monaco-types"], toolsRoot)
 run(npmExecutable, ["run", "typecheck"], toolsRoot)
-run(npmExecutable, ["test"], toolsRoot)
+if (process.env.GETGO_SKIP_CONSUMER_TESTS !== "1") run(npmExecutable, ["test"], toolsRoot)
 
 console.log("Vendored logics refresh completed successfully. Restart GetGo Tools if it is already running.")

@@ -1,7 +1,8 @@
-import { ExternalLink, Eye, MonitorCog, Power, RotateCw, Square } from "lucide-react";
+import { ExternalLink, Eye, MonitorCog, Power, QrCode, RotateCw, Square } from "lucide-react";
 import type { AppSettings, LocalWebRuntimeSnapshot } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { LastDeploymentJobStatus } from "./LastDeploymentJobStatus";
+import { LocalNetworkAccess } from "./LocalNetworkAccess";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
@@ -35,6 +36,11 @@ export function LocalRuntimeCard({ locale, runtime, action, title, environment, 
         {runtime?.error && <p className="local-web-error">{runtime.error}</p>}
       </div>
       <div className="deployment-card-actions">
+        {runtime?.status === "online" && runtime.networkUrl && <ui.Popover
+          label={copy.networkAccessTitle}
+          className="local-network-popover"
+          trigger={props => <ui.Button {...props} variant="icon" icon={<QrCode />} aria-label={copy.showNetworkQr} title={copy.showNetworkQr} />}
+        ><LocalNetworkAccess locale={locale} url={runtime.networkUrl} /></ui.Popover>}
         <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!runtime?.lastJob} onClick={onViewLogs} />
         <ui.Button icon={<ExternalLink />} aria-label={copy.openLocalhost} title={copy.openLocalhost} disabled={runtime?.status !== "online"} onClick={() => runtime && void window.getgo.openExternal(runtime.url)} />
         {runtime?.status === "online" || runtime?.managed

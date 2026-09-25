@@ -1,8 +1,9 @@
 import type { IpcMain } from "electron";
-import { contentV2QuizPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
-import { reviewedTopicQuizzes, shouldPublishContainingTopic } from "../domain/content-v2-publish-policy.js";
+import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
+import { reviewedTopicQuizzes, shouldPublishContainingTopic, shouldPublishContentV2Quiz } from "../domain/content-v2-publish-policy.js";
 import { createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, type FirestorePublishingService } from "./firestore-publishing.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
+import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
@@ -85,6 +86,18 @@ ipcMain.handle(
       async (control) => {
         if (!firebaseAuth) throw new Error("Publishing is not initialized.");
         const target = await firebaseAuth.publishingTarget();
+        const quizStates = new Map(await Promise.all(reviewedQuizzes.map(async (quiz) => [
+          quiz.key,
+          await readContentV2QuizPublishState(quiz.filePath),
+        ] as const)));
+        const changedReviewedQuizzes = reviewedQuizzes.filter((quiz) => {
+          const published = quizStates.get(quiz.key)?.targets[target.projectId];
+          return shouldPublishContentV2Quiz(
+            quiz.localHash,
+            contentV2QuizPublishContractVersion,
+            published,
+          );
+        });
         const localQuizIds = content.quizzes.filter(
             (quiz) => quiz.topicId === topicId && marketplaceTopicState(quiz.marketplace) !== "unlisted",
           )
@@ -94,10 +107,10 @@ ipcMain.handle(
           localQuizIds,
         );
         await control.setTotal(
-          reviewedQuizzes.length + staleQuizIds.length + 2,
-          `Publishing ${reviewedQuizzes.length} reviewed quizzes · removing ${staleQuizIds.length} deleted quizzes`,
+          changedReviewedQuizzes.length + staleQuizIds.length + 2,
+          `Publishing ${changedReviewedQuizzes.length}/${reviewedQuizzes.length} changed quizzes · removing ${staleQuizIds.length} deleted quizzes`,
         );
-        for (const [index, quizSummary] of reviewedQuizzes.entries()) {
+        for (const [index, quizSummary] of changedReviewedQuizzes.entries()) {
           await control.checkpoint();
           const quiz = await loadContentV2Quiz(root, topicId, quizSummary.id);
           const questionIds = content.questions
@@ -126,11 +139,10 @@ ipcMain.handle(
             topicId,
             quizSummary.id,
             { quiz, questions, resources },
+            false,
           );
           await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
-          const publishState = await readContentV2QuizPublishState(
-            quizSummary.filePath,
-          );
+          const publishState = quizStates.get(quizSummary.key)!;
           const quizResult = await publishing.publishContentV2Quiz(
             topicId,
             quiz,
@@ -161,7 +173,7 @@ ipcMain.handle(
             },
           });
           await control.advance(
-            `Published reviewed quiz ${index + 1}/${reviewedQuizzes.length}`,
+            `Published changed quiz ${index + 1}/${changedReviewedQuizzes.length}`,
           );
         }
         await publishing.deleteContentV2TopicQuizzes(
@@ -178,8 +190,11 @@ ipcMain.handle(
         }
         // Topic-owned assets are uploaded after quiz cleanup so an old quiz
         // publish state can never remove the shared topic icon permanently.
-        const topicAssets = await loadContentV2TopicAssets(root, topic);
-        await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
+        const topicPublishState = await readContentV2TopicPublishState(summary.filePath);
+        const topicAssets = await loadContentV2TopicAssets(root, topic, false);
+        const topicAssetItems = await publishing.uploadContentV2TopicAssets(
+          topicId, topicAssets, control, topicPublishState.targets[target.projectId],
+        );
         // Publish the catalog entry last so it never advertises a quiz early.
         const result = await publishing.publishContentV2Topic(
           topic,
@@ -218,6 +233,35 @@ ipcMain.handle(
           marketplace: syncedMarketplaceMetadata(
             marketTopic.marketplace, marketState, marketplaceResult,
           ),
+        });
+        const topicDocumentItem: ContentV2PublishedItem = {
+          kind: "firestore-document",
+          path: `/getgo-content-v2/catalog/topics/${encodeURIComponent(topicId)}`,
+          hash: result.contentHash,
+        };
+        const marketplaceDocumentItem: ContentV2PublishedItem = {
+          kind: "firestore-document",
+          path: `/getgo-marketplace-topics/${encodeURIComponent(topicId)}`,
+          hash: marketplaceResult.contentHash,
+        };
+        await writeContentV2TopicPublishState(summary.filePath, {
+          schemaVersion: 1,
+          targets: {
+            ...topicPublishState.targets,
+            [target.projectId]: {
+              publishContractVersion: contentV2TopicPublishContractVersion,
+              environment: target.environment,
+              projectId: target.projectId,
+              contentHash: result.contentHash,
+              marketplaceContentHash: marketplaceResult.contentHash,
+              publishedAt: marketplaceResult.publishedAt,
+              items: {
+                ...topicAssetItems,
+                [publishedItemKey(topicDocumentItem)]: topicDocumentItem,
+                [publishedItemKey(marketplaceDocumentItem)]: marketplaceDocumentItem,
+              },
+            },
+          },
         });
         await control.advance(
           marketState === "unlisted"
@@ -260,7 +304,7 @@ ipcMain.handle(
       quiz,
       questions,
       resources,
-    });
+    }, false);
     await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
     return createContentV2QuizPublishPreview(
       topicId,
@@ -275,9 +319,12 @@ ipcMain.handle(
 );
 ipcMain.handle(
   "content-v2:quiz:publish",
-  async (_event, topicId: unknown, quizId: unknown) => {
+  async (_event, topicId: unknown, quizId: unknown, forceValue: unknown) => {
     if (typeof topicId !== "string" || typeof quizId !== "string")
       throw new Error("Invalid quiz selection.");
+    if (forceValue !== undefined && typeof forceValue !== "boolean")
+      throw new Error("Invalid force-sync option.");
+    const force = forceValue === true;
     const root = await repositoryRoot();
     const content = (await loadContentV2WorkspaceFromFiles(root, { topicId })).content;
     const summary = content.quizzes.find(
@@ -288,8 +335,8 @@ ipcMain.handle(
       throw new Error("Review every question before publishing this quiz.");
     return publishJobs.track(
       {
-        name: `Publish · ${summary.title}`,
-        description: `Publish ${summary.questionCount} questions to Firebase`,
+        name: `${force ? "Sync quiz" : "Publish"} · ${summary.title}`,
+        description: `${force ? "Force-sync" : "Publish"} ${summary.questionCount} questions to Firebase`,
         route: `/topics/${encodeURIComponent(topicId)}/quizzes/${encodeURIComponent(quizId)}?tab=publish`,
       },
       async (control) => {
@@ -329,7 +376,7 @@ ipcMain.handle(
           quiz,
           questions,
           resources,
-        });
+        }, false);
         await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
         const topicSummary = content.topics.find(
           (item) => item.id === topicId,
@@ -361,9 +408,13 @@ ipcMain.handle(
           publishState.targets[target.projectId],
           control,
           publishContainingTopic ? 2 : 0,
+          force,
         );
-        const topicAssets = await loadContentV2TopicAssets(root, topic);
-        await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control);
+        const topicPublishState = await readContentV2TopicPublishState(topicSummary.filePath);
+        const topicAssets = await loadContentV2TopicAssets(root, topic, false);
+        const topicAssetItems = await publishing.uploadContentV2TopicAssets(
+          topicId, topicAssets, control, topicPublishState.targets[target.projectId],
+        );
         const removingQuiz = marketplaceTopicState(quiz.marketplace) === "unlisted";
         const topicResult = publishContainingTopic
           ? await publishing.publishContentV2Topic(
@@ -381,6 +432,26 @@ ipcMain.handle(
             topicResult.contentHash,
             topicResult.publishedAt,
           );
+        const previousTopicTarget = topicPublishState.targets[target.projectId];
+        await writeContentV2TopicPublishState(topicSummary.filePath, {
+          schemaVersion: 1,
+          targets: {
+            ...topicPublishState.targets,
+            [target.projectId]: {
+              publishContractVersion: contentV2TopicPublishContractVersion,
+              environment: target.environment,
+              projectId: target.projectId,
+              contentHash: topicResult?.contentHash ?? previousTopicTarget?.contentHash ?? null,
+              marketplaceContentHash: previousTopicTarget?.marketplaceContentHash ?? null,
+              publishedAt: topicResult?.publishedAt ?? previousTopicTarget?.publishedAt ?? result.publishedAt,
+              items: {
+                ...Object.fromEntries(Object.entries(previousTopicTarget?.items ?? {})
+                  .filter(([, item]) => item.kind !== "storage-object")),
+                ...topicAssetItems,
+              },
+            },
+          },
+        });
         await writeContentV2QuizPublishState(summary.filePath, removingQuiz ? {
           schemaVersion: 1,
           targets: {},

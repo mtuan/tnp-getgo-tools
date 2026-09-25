@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
 import { config as loadEnvironment } from "dotenv";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -82,6 +82,7 @@ else
 
 function createWindow(): void {
   startupLog("Creating main window");
+  const windowBackground = () => nativeTheme.shouldUseDarkColors ? "#020617" : "#f8fafc";
   mainWindow = new BrowserWindow({
     width: 1420,
     height: 900,
@@ -90,7 +91,7 @@ function createWindow(): void {
     title: productName,
     icon: appIconPath,
     show: true,
-    backgroundColor: "#f4f5f2",
+    backgroundColor: windowBackground(),
     webPreferences: {
       preload: path.join(currentDirectory, "../../preload/preload.cjs"),
       contextIsolation: true,
@@ -102,6 +103,9 @@ function createWindow(): void {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+  const syncWindowTheme = () => mainWindow?.setBackgroundColor(windowBackground());
+  nativeTheme.on("updated", syncWindowTheme);
+  mainWindow.once("closed", () => nativeTheme.off("updated", syncWindowTheme));
   mainWindow.webContents.on("will-attach-webview", (event, webPreferences, params) => {
     if (!isAllowedDevicePreviewUrl(params.src)) {
       event.preventDefault();

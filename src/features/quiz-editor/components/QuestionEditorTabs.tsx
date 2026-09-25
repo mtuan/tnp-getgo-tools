@@ -16,6 +16,7 @@ interface Props {
   manifestPath: string;
   context: Record<string, unknown>;
   quizSharedCode?: string;
+  supportedLanguages: Array<"en" | "vi">;
   questions: ContestQuizQuestionRecord[];
   onTabChange(tab: QuestionEditorTab): void;
   onChange(record: ContestQuizQuestionRecord): void;
@@ -30,6 +31,7 @@ export function QuestionEditorTabs(props: Props) {
     <StaticQuestionEditor
       record={props.record}
       manifestPath={props.manifestPath}
+      supportedLanguages={props.supportedLanguages}
       onChange={props.onChange}
       onFeedbackSave={props.onFeedbackSave}
     />

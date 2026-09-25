@@ -8,9 +8,11 @@ import {
   contentV2QuizPublishContractVersion,
   contentV2TopicPublishContractVersion,
   contentV2QuestionSchema,
+  competitionPaperQuizSchema,
   contentV2TopicSchema,
   hashContentV2,
   sanitizeContentV2Topic,
+  sanitizeContentV2Quiz,
   sanitizeContentV2Question,
   marketplaceTopicState,
   localizedText,
@@ -54,6 +56,29 @@ test("content v2 contest text supports bilingual values and legacy strings", () 
   assert.deepEqual(topic.subjects, ["mathematics"]);
   assert.deepEqual(topic.grades, [3]);
   assert.equal(localizedText("Legacy title", "vi"), "Legacy title");
+});
+
+test("content v2 competition quizzes persist supported languages and default legacy quizzes to both", () => {
+  const base = {
+    schemaVersion: 2,
+    id: "pot-4-1",
+    topicId: "archimedes-maths-3e2",
+    type: "competition-paper",
+    title: "Phiếu Ôn Tập số 4.1",
+    description: "",
+    sharedCode: "",
+    status: "pending",
+    order: 0,
+    grade: "3",
+    round: "main",
+    year: "2026",
+  } as const;
+
+  assert.deepEqual(competitionPaperQuizSchema.parse(base).supportedLanguages, ["en", "vi"]);
+  assert.deepEqual(
+    competitionPaperQuizSchema.parse({ ...base, supportedLanguages: ["vi"] }).supportedLanguages,
+    ["vi"],
+  );
 });
 
 test("content v2 text icons use an extensible object and accept legacy strings", () => {
@@ -204,6 +229,50 @@ test("stores content-v2 publish state separately for each Firebase project", asy
   const state = await readContentV2QuizPublishState(quizFilePath);
   assert.equal(state.targets["project-dev"]?.environment, "development");
   assert.equal(state.targets["project-dev"]?.contentHash, "a".repeat(64));
+});
+
+test("content edits preserve per-item hashes and only mark the target dirty", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-preserve-publish-items-"));
+  await saveContentV2Topic(root, alphabetTopic);
+  await saveContentV2Quiz(root, alphabetTopic, alphabetQuiz);
+  const quizFilePath = path.join(root, "content-v2", "topics", alphabetTopic.id, "quizzes", alphabetQuiz.id, "quiz.json");
+  const item = { kind: "storage-object" as const, path: "assets/a.png", hash: "b".repeat(64) };
+  await writeContentV2QuizPublishState(quizFilePath, {
+    schemaVersion: 1,
+    targets: {
+      "project-dev": {
+        environment: "development",
+        projectId: "project-dev",
+        contentHash: "a".repeat(64),
+        publishedAt: "2026-08-06T00:00:00.000Z",
+        items: { "storage-object:assets/a.png": item },
+      },
+    },
+  });
+
+  await saveContentV2Quiz(root, alphabetTopic, alphabetQuiz);
+  assert.equal((await readContentV2QuizPublishState(quizFilePath)).targets["project-dev"]?.dirty, undefined);
+
+  await saveContentV2Quiz(root, alphabetTopic, { ...alphabetQuiz, title: "Updated alphabet" });
+  const state = await readContentV2QuizPublishState(quizFilePath);
+  assert.equal(state.targets["project-dev"]?.dirty, true);
+  assert.deepEqual(state.targets["project-dev"]?.items, { "storage-object:assets/a.png": item });
+});
+
+test("disabled marketplace feature flags do not change published hashes", () => {
+  const withoutFlags = sanitizeMarketplaceTopic(alphabetTopic);
+  const disabledFlags = sanitizeMarketplaceTopic({
+    ...alphabetTopic,
+    marketplace: { featured: false, preview: false, experimental: false },
+  });
+  assert.equal(hashContentV2(withoutFlags), hashContentV2(disabledFlags));
+  assert.equal(
+    hashContentV2(sanitizeContentV2Quiz(alphabetQuiz)),
+    hashContentV2(sanitizeContentV2Quiz({
+      ...alphabetQuiz,
+      marketplace: { featured: false, preview: false, experimental: false },
+    })),
+  );
 });
 
 test("a target-aware filesystem snapshot has an empty plan after every local hash is recorded", async () => {

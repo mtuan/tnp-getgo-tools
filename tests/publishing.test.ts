@@ -10,7 +10,8 @@ import {
 } from "../src/features/topics/domain/publishing.js";
 import { recordPublishedHash } from "../src/features/topics/repository/quiz-publishing.js";
 import { loadContentV2Assets } from "../src/features/topics/repository/content-v2-repository.js";
-import { createContentV2QuizPublishPreview } from "../src/features/topics/main/firestore-publishing.js";
+import { contentV2QuizBuilderApiVersion, createContentV2QuizPublishPreview, createContentV2TopicPublishPreview } from "../src/features/topics/main/firestore-publishing.js";
+import { currentQuizBuilderApiVersion } from "../src/shared/domain/models.js";
 import {
   contentV2PublishedItems,
   diffContentV2PublishedItems,
@@ -67,6 +68,16 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
   assert.equal(preview.firestore.quizDocument.data.access, "free");
   assert.equal(preview.firestore.marketplaceQuizDocument.data.access, "free");
   assert.equal(preview.firestore.marketplaceQuizDocument.data.questionCount, 0);
+  assert.equal("supportsDynamic" in preview.firestore.marketplaceQuizDocument.data, false);
+  assert.equal("supportsDynamic" in preview.firestore.quizDocument.data, false);
+  assert.equal(
+    preview.firestore.quizDocument.data.quizBuilderApiVersion,
+    currentQuizBuilderApiVersion,
+  );
+  assert.equal(
+    preview.firestore.marketplaceQuizDocument.data.quizBuilderApiVersion,
+    currentQuizBuilderApiVersion,
+  );
   assert.equal(
     (preview.firestore.marketplaceQuizDocument.data.marketplace as { preview?: boolean }).preview,
     true,
@@ -89,6 +100,27 @@ test("content v2 quiz assets publish to quiz-scoped Storage paths", () => {
       hash: "a".repeat(64),
     },
   ]);
+});
+
+test("content v2 topic publishing records the QuizBuilder API version", () => {
+  const preview = createContentV2TopicPublishPreview({
+    schemaVersion: 2,
+    id: "mathematics",
+    type: "competition",
+    title: "Mathematics",
+    description: "",
+    subjects: ["mathematics"],
+    grades: [3],
+    status: "reviewed",
+    order: 0,
+    subject: "mathematics",
+    rounds: [],
+    gradeGroups: [],
+  }, "a".repeat(64), ["quiz-1"]);
+  assert.equal(
+    preview.firestore.topicDocument.data.quizBuilderApiVersion,
+    currentQuizBuilderApiVersion,
+  );
 });
 
 test("topic-owned assets are not assigned to a quiz publish state", async () => {
@@ -146,8 +178,84 @@ test("publishing rejects advanced dynamic questions without compiled JavaScript"
       [],
       "b".repeat(64),
     ),
-    /Question q1 has not been compiled/,
+    /Topic competition · Quiz “Quiz 1” \(quiz-1\) · Question q1: dynamic\.compiledJs is missing/,
   );
+});
+
+test("content v2 publishing marks quizzes that support dynamic questions", () => {
+  const preview = createContentV2QuizPublishPreview(
+    "competition",
+    {
+      schemaVersion: 2,
+      id: "quiz-1",
+      topicId: "competition",
+      type: "competition-paper",
+      title: "Quiz 1",
+      description: "",
+      sharedCode: "",
+      status: "reviewed",
+      order: 0,
+      grade: "1",
+      round: "main",
+      year: "2026",
+    },
+    "free",
+    [{
+      schemaVersion: 2,
+      id: "q1",
+      order: 0,
+      status: "reviewed",
+      type: "competition-question",
+      text: { en: "Value?" },
+      assets: [],
+      answer: { type: "input", correct: "4" },
+      authoringMode: "advanced-dynamic",
+      dynamic: { ...dynamic, compiledJs: "return 4;" },
+    }],
+    {},
+    [],
+    "b".repeat(64),
+  );
+
+  assert.equal(preview.firestore.marketplaceQuizDocument.data.supportsDynamic, true);
+  assert.equal(preview.firestore.marketplaceQuizDocument.data.dynamic, true);
+  assert.equal(preview.firestore.quizDocument.data.supportsDynamic, true);
+  assert.equal(preview.firestore.quizDocument.data.dynamic, true);
+});
+
+test("content v2 quiz version follows the newest compiled question", () => {
+  const quiz = {
+    schemaVersion: 2 as const,
+    id: "quiz-1",
+    topicId: "competition",
+    type: "competition-paper" as const,
+    title: "Quiz 1",
+    description: "",
+    sharedCode: "",
+    status: "reviewed" as const,
+    order: 0,
+    supportedLanguages: ["en" as const],
+    grade: "1",
+    round: "main",
+    year: "2026",
+  };
+  const question = {
+    schemaVersion: 2 as const,
+    id: "q1",
+    order: 0,
+    status: "reviewed" as const,
+    type: "competition-question" as const,
+    text: { en: "Value?" },
+    assets: [],
+    answer: { type: "input", correct: "4" },
+    authoringMode: "advanced-dynamic" as const,
+    dynamic: {
+      ...dynamic,
+      compiledJs: "return 4;",
+      quizBuilderApiVersion: 4,
+    },
+  };
+  assert.equal(contentV2QuizBuilderApiVersion(quiz, [question]), 4);
 });
 
 test("publishes only allowlisted runtime question fields and dynamic fragments", () => {
@@ -284,6 +392,42 @@ test("publishes the shared input control type for single-input answers", () => {
     },
   });
   assert.equal(question.answer.inputType, "number");
+});
+
+test("publishes multiple-answer controls inside nested questions", () => {
+  const question = sanitizePublishedQuestion({
+    question_no: 11,
+    text_en: "Complete both parts",
+    answer: {
+      type: "multiple_input",
+      correct: ['["345","354","435"]', "2624"],
+      inputs: [
+        {
+          question_en: "Write every three-digit number",
+          type: "multiple_answer",
+          correct: ["345", "354", "435"],
+          inputType: "number",
+        },
+        {
+          question_en: "Find their sum",
+          correct: "2624",
+          inputType: "number",
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(question.answer.inputs?.[0], {
+    question_en: "Write every three-digit number",
+    type: "multiple_answer",
+    correct: ["345", "354", "435"],
+    inputType: "number",
+  });
+  assert.deepEqual(question.answer.inputs?.[1], {
+    question_en: "Find their sum",
+    correct: "2624",
+    inputType: "number",
+  });
 });
 
 test("publishes alphabet questions with their independent runtime contract", () => {

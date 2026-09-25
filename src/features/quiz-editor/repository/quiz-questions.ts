@@ -24,91 +24,12 @@ const builder = createDynamicQuestionBuildService({
     createHash("sha256").update(source).digest("hex"),
 });
 
-function sourceLiteral(value: unknown): string {
-  return JSON.stringify(value, null, 2).replace(
-    /^(\s*)"([A-Za-z_$][\w$]*)":/gm,
-    "$1$2:",
-  );
-}
-
-function indent(source: string, spaces: number): string {
-  const prefix = " ".repeat(spaces);
-  return source.split("\n").map((line) => `${prefix}${line}`).join("\n");
-}
-
-function answerExpression(value: unknown): string {
-  const answer = value && typeof value === "object"
-    ? value as Record<string, unknown>
-    : {};
-  const choices = answer.choices && typeof answer.choices === "object"
-    ? answer.choices as Record<string, unknown>
-    : null;
-  if (choices && Object.keys(choices).length)
-    return `QB.answer.choice(${sourceLiteral(answer.correct)}, ${sourceLiteral(choices)})`;
-  if (answer.type === "multiple_answer" && Array.isArray(answer.correct)) {
-    const inputType = answer.inputType === "text" ? "text" : "number";
-    const correct = answer.correct.map((value) => {
-      if (inputType !== "number" || typeof value !== "string" || value.trim() === "")
-        return value;
-      const numericValue = Number(value);
-      return Number.isFinite(numericValue) ? numericValue : value;
-    });
-    const inferredInputType = correct.every((value) => typeof value === "number")
-      ? "number"
-      : "text";
-    const options = {
-      ...(inputType !== inferredInputType ? { inputType } : {}),
-      ...(answer.orderRequired === true ? { orderRequired: true } : {}),
-    };
-    const optionsArgument = Object.keys(options).length
-      ? `, ${sourceLiteral(options)}`
-      : "";
-    return `QB.answer.multiple(${sourceLiteral(correct)}${optionsArgument})`;
-  }
-  if (
-    answer.type === "multiple_input"
-    && Array.isArray(answer.correct)
-    && Array.isArray(answer.inputs)
-    && answer.inputs.length >= 2
-  ) {
-    const correct = answer.correct;
-    const parts = answer.inputs.map((input, index) => {
-      const part = input && typeof input === "object"
-        ? input as Record<string, unknown>
-        : {};
-      return {
-        question_en: String(part.question_en ?? ""),
-        ...(part.question_vn ? { question_vn: part.question_vn } : {}),
-        correct: correct[index] ?? "",
-        ...(part.inputType ? { inputType: part.inputType } : {}),
-        ...(part.unit ? { unit: part.unit } : {}),
-      };
-    });
-    return `QB.answer.nested(${sourceLiteral(parts)})`;
-  }
-  const inputType = ["text", "number", "date"].includes(String(answer.inputType))
-    ? String(answer.inputType)
-    : undefined;
-  const options = {
-    ...(answer.unit ? { unit: answer.unit } : {}),
-    ...(inputType ? { inputType } : {}),
-  };
-  const optionsArgument = Object.keys(options).length ? `, ${sourceLiteral(options)}` : "";
-  return `QB.answer.input(${sourceLiteral(answer.correct ?? "")}${optionsArgument})`;
-}
-
-function questionGeneratorSource(question: Record<string, unknown>): string {
-  const fields = Object.fromEntries(Object.entries(question).filter(([key]) => ![
-    "answer", "action", "status", "verified", "schemaVersion",
-    "authoringMode", "advancedDynamic", "reference", "generatorBuild",
-  ].includes(key)));
-  const fieldSource = sourceLiteral(fields).slice(1, -1).trim();
-  return `({}) => {\n  return {\n${fieldSource ? `${indent(fieldSource, 4)},\n` : ""}    answer: ${answerExpression(question.answer)},\n  }\n}`;
-}
-
 function dynamicStarterFields(question: Record<string, unknown>) {
   const starterQuestion = {
     ...question,
+    answer: question.answer && typeof question.answer === "object"
+      ? question.answer
+      : { type: "input", correct: "" },
     text_en: Array.isArray(question.text_en)
       ? question.text_en.join("\n")
       : String(question.text_en ?? ""),
@@ -271,12 +192,7 @@ function normalizeQuestion(
       ? { verified: normalized.verified }
       : {}),
     authoringMode: "advanced-dynamic",
-    advancedDynamic: {
-      paramsGeneratorTs: "() => {\n  return {}\n}",
-      questionGeneratorTs: questionGeneratorSource(normalized),
-      originParamsTs: "{}",
-      explanationGeneratorTs: DEFAULT_EXPLANATION_GENERATOR_TS,
-    },
+    advancedDynamic: dynamicStarterFields(normalized),
   };
 }
 
@@ -707,8 +623,17 @@ export async function createQuizQuestion(
     : 1;
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as {
     type?: unknown;
+    language?: unknown;
+    supportedLanguages?: unknown;
   };
   const alphabet = manifest.type === "alphabet";
+  const supportedLanguages = Array.isArray(manifest.supportedLanguages)
+    ? manifest.supportedLanguages.filter((value): value is "en" | "vi" => value === "en" || value === "vi")
+    : manifest.type === "pronunciation"
+      ? ["vi"]
+      : manifest.type === "alphabet"
+        ? [manifest.language === "vi" ? "vi" : "en"]
+        : ["en", "vi"];
   const created = await saveQuizQuestion(
     manifestPath,
     normalizeQuestion(
@@ -726,7 +651,7 @@ export async function createQuizQuestion(
             question_no: questionNo,
             category: "",
             text_en: "",
-            text_vn: "",
+            ...(supportedLanguages.includes("vi") ? { text_vn: "" } : {}),
             answer: { type: "input", correct: "" },
           },
       questionNo - 1,

@@ -14,6 +14,7 @@ import type {
 } from "../../../shared/domain/models";
 import { QuizManager, type QuizManagerApi } from "./QuizManager";
 import { questionService } from "../../quiz-editor/components/question-service";
+import { currentQuizBuilderApiVersion } from "../../../shared/domain/models";
 
 const defaultAlphabetQuizSpeechSettings = {
   letterRate: 0.75,
@@ -126,6 +127,7 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     sharedCode: quiz.sharedCode,
     type: contentV2ManagerRegistry.quizzes[quiz.type].managerType(),
     language: quiz.type === "alphabet" || quiz.type === "spelling" || quiz.type === "pronunciation" ? quiz.language : undefined,
+    supportedLanguages: quiz.supportedLanguages,
     grade: quiz.grade ?? null,
     round: quiz.round ?? null,
     year: quiz.year ?? null,
@@ -143,8 +145,9 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     localContentHash: quiz.localHash,
     questionCount: questions.length,
     reviewedQuestionCount: questions.filter((question) => question.status === "reviewed").length,
+    dynamic: quiz.dynamic,
     migrationErrorCount: 0,
-    quizBuilderApiVersion: 1,
+    quizBuilderApiVersion: currentQuizBuilderApiVersion,
     modifiedAt: snapshot.loadedAt,
   }); });
   return { ...snapshot, contests, quizzes };
@@ -228,7 +231,7 @@ function fromManagerQuestion(
         : undefined,
     reference: question.authoringMode === "reference" ? question.reference : undefined,
     dynamic: question.authoringMode !== "reference" && dynamic
-      ? { paramsGeneratorTs: dynamic.paramsGeneratorTs, questionGeneratorTs: dynamic.questionGeneratorTs, originParamsTs: dynamic.originParamsTs, explanationGeneratorTs: dynamic.explanationGeneratorTs, ...(compiledJs ? { compiledJs } : {}) }
+      ? { paramsGeneratorTs: dynamic.paramsGeneratorTs, questionGeneratorTs: dynamic.questionGeneratorTs, originParamsTs: dynamic.originParamsTs, explanationGeneratorTs: dynamic.explanationGeneratorTs, ...(compiledJs ? { compiledJs, quizBuilderApiVersion: currentQuizBuilderApiVersion } : {}) }
       : undefined,
   };
 }
@@ -357,7 +360,17 @@ export function ContentV2QuizManager(props: Props) {
           ? { schemaVersion: 2, id: `letter-${order + 1}`, type: "alphabet-letter", order, status: "pending", letter: "?", uppercase: "?", lowercase: "?", resources: [] }
           : quiz.type === "pronunciation"
             ? { schemaVersion: 2, id, type: "pronunciation-sound", order, status: "pending", title: "Bảng phát âm", letter: { text: "b", speech: "bờ" }, tones: [{ text: "", speech: "thanh ngang" }], sounds: [{ sound: { text: "a" }, forms: [{ text: "ba" }] }] }
-          : { schemaVersion: 2, id, type: "competition-question", order, status: "pending", text: { en: "" }, assets: [], answer: { type: "input", correct: "" }, explanation: { en: "" } };
+          : {
+              schemaVersion: 2,
+              id,
+              type: "competition-question",
+              order,
+              status: "pending",
+              text: { en: "", ...(quiz.supportedLanguages.includes("vi") ? { vi: "" } : {}) },
+              assets: [],
+              answer: { type: "input", correct: "" },
+              explanation: { en: "", ...(quiz.supportedLanguages.includes("vi") ? { vi: "" } : {}) },
+            };
         await window.getgo.saveContentV2Question(quiz.topicId, quiz.id, record);
         return { question: toManagerQuestion(record), snapshot: await reloadFromFiles(quiz.topicId) };
       },
@@ -395,6 +408,10 @@ export function ContentV2QuizManager(props: Props) {
         const quiz = next.contentV2.quizzes.find((item) => item.topicId === topicId && item.id === quizId);
         return { contestId: topicId, quizId, contentHash: result.contentHash, questionCount: quiz?.questionCount ?? 0, publishedAt: result.publishedAt };
       },
+      forceSyncContentV2Quiz: async (topicId, quizId) => {
+        await window.getgo.publishContentV2Quiz(topicId, quizId, true);
+        await reloadFromFiles(topicId);
+      },
       publishContentV2Topic: async (topicId) => {
         const result = await window.getgo.publishContentV2Topic(topicId);
         await reloadFromFiles(topicId);
@@ -427,7 +444,7 @@ export function ContentV2QuizManager(props: Props) {
         // to drop marketplace and let its default resolve to "unlisted".
         const common = { ...stored, title: input.title, icon: input.icon || undefined, sharedCode: input.sharedCode ?? stored.sharedCode, status: input.status === "reviewed" ? "reviewed" as const : stored.status };
         const next: ContentV2Quiz = input.type === "contest"
-          ? { ...common, type: "competition-paper", grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
+          ? { ...common, type: "competition-paper", supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : stored.type === "competition-paper" ? stored.supportedLanguages : ["en", "vi"], grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
           : input.type === "pronunciation"
             ? { ...common, type: "pronunciation", language: "vi", speech: stored.type === "pronunciation" ? stored.speech : defaultAlphabetQuizSpeechSettings }
             : { ...common, type: "alphabet", language: input.language ?? "en", speech: stored.type === "alphabet" ? stored.speech : defaultAlphabetQuizSpeechSettings };
@@ -441,7 +458,7 @@ export function ContentV2QuizManager(props: Props) {
           ? input.type === "pronunciation"
             ? { schemaVersion: 2, id: input.id, topicId, type: "pronunciation", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: "vi", speech: defaultAlphabetQuizSpeechSettings }
             : { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
-          : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
+          : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : ["en", "vi"], grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         await window.getgo.saveContentV2Quiz(topicId, quiz);
         return reloadFromFiles(topicId);
       },

@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import type { ContestSummary, PublishableQuiz, QuizQuestionRecord, QuizSummary } from "../../../shared/domain/models.js"
+import { currentQuizBuilderApiVersion, type ContestSummary, type PublishableQuiz, type QuizQuestionRecord, type QuizSummary } from "../../../shared/domain/models.js"
 import { hashPublishedQuestions, hashPublishedQuiz, sanitizePublishedQuestion, type PublishedQuestion } from "../../../features/topics/domain/publishing.js"
 import { legacyContentIcon } from "../../../shared/domain/content-icon.js"
 
@@ -27,6 +27,7 @@ export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unk
     seen.add(question.question_no)
   }
   const contentHash = hashPublishedQuiz({ ...quiz, icon: legacyContentIcon(quiz.icon) }, hashPublishedQuestions(questions))
+  const supportedLanguages = quiz.supportedLanguages ?? ["en", "vi"]
   return {
     quiz: {
       contestId: quiz.contest,
@@ -36,8 +37,12 @@ export function createPublishPayloadFromQuestions(quiz: QuizSummary, values: unk
       grade: quiz.grade,
       round: quiz.round,
       year: quiz.year,
+      supportedLanguages,
+      supportsMultilingual: supportedLanguages.includes("en") && supportedLanguages.includes("vi"),
       questionCount: questions.length,
       contentHash,
+      quizBuilderApiVersion:
+        quiz.quizBuilderApiVersion ?? currentQuizBuilderApiVersion,
     },
     contest: contest ? {
       id: contest.id,

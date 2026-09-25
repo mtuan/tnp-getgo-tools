@@ -5,10 +5,17 @@ import type { AnswerDetailsProps } from "./types"
 interface InputRow extends Record<string, unknown> {
   question_en: string
   question_vn: string
-  correct: string
+  type: "input" | "multiple_answer"
+  correct: string | string[]
   inputType: "text" | "number" | "date"
+  orderRequired: boolean
   unit: string
 }
+
+const answerTypes = [
+  { value: "input", label: "Input" },
+  { value: "multiple_answer", label: "Multiple answers" },
+]
 
 const inputTypes = [
   { value: "number", label: "Numeric" },
@@ -16,24 +23,26 @@ const inputTypes = [
   { value: "date", label: "Date" },
 ]
 
-const columns: EditColumnDef<InputRow>[] = [
-  {
+export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguages = ["en", "vi"] }: AnswerDetailsProps) {
+  const showEnglish = supportedLanguages.includes("en")
+  const showVietnamese = supportedLanguages.includes("vi")
+  const columns: EditColumnDef<InputRow>[] = [{
     key: "text",
-    dataKey: "question_en",
+    dataKey: showEnglish ? "question_en" : "question_vn",
     title: "Text",
-    field: { name: "question_en", type: "text" },
+    field: { name: showEnglish ? "question_en" : "question_vn", type: "text" },
     renderEdit: ({ row, onChange }) => (
       <div className="multiple-input-text-cell">
-        <FormControl
+        {showEnglish && <FormControl
           field={{ name: "question_en", type: "text", placeholder: "English", required: true }}
           values={row}
           onChange={(_name, value) => onChange("question_en", value)}
-        />
-        <FormControl
-          field={{ name: "question_vn", type: "text", placeholder: "Vietnamese" }}
+        />}
+        {showVietnamese && <FormControl
+          field={{ name: "question_vn", type: "text", placeholder: "Vietnamese", required: !showEnglish }}
           values={row}
           onChange={(_name, value) => onChange("question_vn", value)}
-        />
+        />}
       </div>
     ),
   },
@@ -45,6 +54,11 @@ const columns: EditColumnDef<InputRow>[] = [
     field: { name: "inputType", type: "select", options: inputTypes, presentation: "dropdown" },
     renderEdit: ({ row, onChange }) => (
       <div className="multiple-input-type-unit-cell">
+        <FormControl
+          field={{ name: "type", type: "select", options: answerTypes, presentation: "dropdown" }}
+          values={row}
+          onChange={(_name, value) => onChange("type", value)}
+        />
         <FormControl
           field={{ name: "inputType", type: "select", options: inputTypes, presentation: "dropdown" }}
           values={row}
@@ -58,30 +72,56 @@ const columns: EditColumnDef<InputRow>[] = [
       </div>
     ),
   },
-  { key: "answer", dataKey: "correct", title: "Answer", width: 180, field: { name: "correct", type: "text", required: true } },
-]
-
-export function MultipleInputAnswerDetails({ answer, onChange }: AnswerDetailsProps) {
+  {
+    key: "answer",
+    dataKey: "correct",
+    title: "Answer",
+    width: 260,
+    field: { name: "correct", type: "text", required: true },
+    renderEdit: ({ row, onChange }) => row.type === "multiple_answer"
+      ? <FormControl
+          field={{ name: "correct", type: "multi-tag", placeholder: "Add a value…", helper: "Press Enter or use semicolons to add multiple values." }}
+          values={row}
+          onChange={(_name, value) => onChange("correct", value)}
+        />
+      : <FormControl
+          field={{ name: "correct", type: "text", required: true }}
+          values={row}
+          onChange={(_name, value) => onChange("correct", value)}
+        />,
+  },
+  ]
   const correct = Array.isArray(answer.correct) ? answer.correct.map(String) : []
-  const rows: InputRow[] = (answer.inputs ?? []).map((part, index) => ({
-    question_en: part.question_en || "",
-    question_vn: part.question_vn || "",
-    correct: correct[index] ?? "",
-    inputType: part.inputType ?? "number",
-    unit: part.unit ?? "",
-  }))
+  const rows: InputRow[] = (answer.inputs ?? []).map((part, index) => {
+    const multiple = part.type === "multiple_answer" || Array.isArray(part.correct)
+    const partCorrect = part.correct ?? correct[index] ?? ""
+    return {
+      question_en: part.question_en || "",
+      question_vn: part.question_vn || "",
+      type: multiple ? "multiple_answer" : "input",
+      correct: multiple
+        ? (Array.isArray(partCorrect) ? partCorrect : [partCorrect]).map(String).filter(Boolean)
+        : String(partCorrect),
+      inputType: part.inputType ?? "number",
+      orderRequired: part.orderRequired === true,
+      unit: part.unit ?? "",
+    }
+  })
   while (rows.length < 2) {
-    rows.push({ question_en: "", question_vn: "", correct: "", inputType: "number", unit: "" })
+    rows.push({ question_en: "", question_vn: "", type: "input", correct: "", inputType: "number", orderRequired: false, unit: "" })
   }
   const commit = (nextRows: InputRow[]) => onChange({
     ...answer,
     type: "multiple_input",
     choices: undefined,
-    correct: nextRows.map(row => row.correct),
+    correct: nextRows.map(row => Array.isArray(row.correct) ? JSON.stringify(row.correct) : row.correct),
     inputs: nextRows.map(row => ({
       question_en: row.question_en,
       ...(row.question_vn ? { question_vn: row.question_vn } : {}),
+      ...(row.type === "multiple_answer" ? { type: "multiple_answer" as const } : {}),
+      correct: row.correct,
       inputType: row.inputType,
+      ...(row.type === "multiple_answer" && row.orderRequired ? { orderRequired: true } : {}),
       ...(row.unit ? { unit: row.unit } : {}),
     })),
   })
@@ -96,8 +136,20 @@ export function MultipleInputAnswerDetails({ answer, onChange }: AnswerDetailsPr
         rows={rows}
         reorderable
         onRowsReorder={commit}
-        onRowChange={(index, field, value) => commit(rows.map((row, rowIndex) =>
-          rowIndex === index ? { ...row, [field]: String(value) } : row))}
+        onRowChange={(index, field, value) => commit(rows.map((row, rowIndex) => {
+          if (rowIndex !== index) return row
+          if (field === "type") {
+            const type = value === "multiple_answer" ? "multiple_answer" : "input"
+            return {
+              ...row,
+              type,
+              correct: type === "multiple_answer"
+                ? (Array.isArray(row.correct) ? row.correct : row.correct ? [row.correct] : [])
+                : (Array.isArray(row.correct) ? row.correct[0] ?? "" : row.correct),
+            }
+          }
+          return { ...row, [field]: field === "correct" && Array.isArray(value) ? value.map(String) : String(value) }
+        }))}
         {...(rows.length > 2
           ? { onRowDelete: (index: number) => commit(rows.filter((_, rowIndex) => rowIndex !== index)) }
           : {})}

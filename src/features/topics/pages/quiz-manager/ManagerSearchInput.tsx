@@ -16,7 +16,7 @@ export function ManagerSearchInput({
 
   useEffect(() => setDraft(value ?? ""), [value]);
 
-  const applyVisibility = useCallback((query: string, reason: "input" | "rows-changed") => {
+  const applyVisibility = useCallback((query: string, reason: "input" | "rows-changed" | "reset") => {
     const startedAt = performance.now();
     const manager = rootRef.current?.closest(".manager");
     if (!manager) return;
@@ -51,6 +51,13 @@ export function ManagerSearchInput({
       }));
     }
   }, []);
+
+  // The topic header stays mounted during route changes. Re-apply the empty
+  // search state when this control is mounted for a newly selected topic so
+  // rows hidden by the preceding topic-list search cannot leak into it.
+  useEffect(() => {
+    applyVisibility(draft, "reset");
+  }, [applyVisibility, draft]);
 
   useEffect(() => {
     const manager = rootRef.current?.closest(".manager");

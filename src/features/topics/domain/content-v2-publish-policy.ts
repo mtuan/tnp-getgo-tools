@@ -1,4 +1,5 @@
 import type { ContentV2QuizSummary } from "../../../shared/domain/models.js";
+import type { ContentV2PublishTargetState } from "./content-v2-publish-state.js";
 
 export function reviewedTopicQuizzes(
   quizzes: ContentV2QuizSummary[],
@@ -15,6 +16,16 @@ export function reviewedTopicQuizzes(
 
 export function shouldPublishContainingTopic(topicExists: boolean): boolean {
   return !topicExists;
+}
+
+export function shouldPublishContentV2Quiz(
+  localHash: string,
+  publishContractVersion: number,
+  published: ContentV2PublishTargetState | undefined,
+): boolean {
+  return !published || published.dirty === true ||
+    published.publishContractVersion !== publishContractVersion ||
+    published.contentHash !== localHash;
 }
 
 export function stalePublishedQuizIds(

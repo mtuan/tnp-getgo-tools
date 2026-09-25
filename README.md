@@ -110,4 +110,15 @@ Windows installers on their respective operating systems. Private `.env`
 files are never bundled; the packaged app contains only placeholder values from
 `.env.example`, and users configure private values from the startup repair page.
 
+For routine macOS development, skip installer images and update metadata:
+
+```bash
+npm run reinstall:local
+```
+
+This performs an optimized directory-only package, moves the currently installed
+app to Trash as a recoverable backup, installs the new app in `/Applications`,
+and launches it. Use `npm run dist` only when DMG/ZIP release artifacts are
+actually required.
+
 See [PLAN.md](./PLAN.md) for architecture and job status semantics.

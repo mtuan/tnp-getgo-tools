@@ -24,11 +24,13 @@ const answerOf = (record: ContestQuizQuestionRecord): EditableAnswer =>
 export function StaticQuestionEditor({
   record,
   manifestPath,
+  supportedLanguages,
   onChange,
   onFeedbackSave,
 }: {
   record: ContestQuizQuestionRecord;
   manifestPath: string;
+  supportedLanguages: Array<"en" | "vi">;
   onChange(record: ContestQuizQuestionRecord): void;
   onFeedbackSave(value: Omit<Feedback, "updatedAt"> | null): Promise<void>;
 }) {
@@ -85,29 +87,31 @@ export function StaticQuestionEditor({
     answer_type: answerType,
   };
   const fields: FormSchema[] = [
-    { name: "text_en", label: "English question", type: "textarea", autoCompact: true, maxLines: 8 },
-    {
+    ...(supportedLanguages.includes("en") ? [
+      { name: "text_en", label: "English question", type: "textarea", autoCompact: true, maxLines: 8 },
+    ] satisfies FormSchema[] : []),
+    ...(supportedLanguages.includes("vi") ? [{
       name: "text_vn",
       label: "Vietnamese question",
       type: "textarea",
       autoCompact: true,
       maxLines: 8,
-    },
-    {
+    }] satisfies FormSchema[] : []),
+    ...(supportedLanguages.includes("en") ? [{
       name: "explanation_en",
       label: "English explanation",
       type: "textarea",
       autoCompact: true,
       maxLines: 6,
-    },
+    }] satisfies FormSchema[] : []),
     { name: "category", label: "Category", type: "text" },
-    {
+    ...(supportedLanguages.includes("vi") ? [{
       name: "explanation_vi",
       label: "Vietnamese explanation",
       type: "textarea",
       autoCompact: true,
       maxLines: 6,
-    },
+    }] satisfies FormSchema[] : []),
   ];
   const answerTypeFields: FormSchema[] = [{
     name: "answer_type",
@@ -193,9 +197,10 @@ export function StaticQuestionEditor({
         type: "multiple_input",
         choices: undefined,
         correct: [...correct, ""],
-        inputs: [...inputs, {
-          question_en: "",
-          inputType: "number",
+      inputs: [...inputs, {
+        question_en: "",
+        type: "input",
+        inputType: "number",
         }],
       },
     });
@@ -297,6 +302,7 @@ export function StaticQuestionEditor({
               }}
               manifestPath={manifestPath}
               questionNo={record.question_no}
+              supportedLanguages={supportedLanguages}
               onChange={(nextAnswer) =>
                 onChange({ ...record, answer: nextAnswer })
               }
@@ -330,6 +336,7 @@ export function StaticQuestionEditor({
             question={preview.question}
             params={preview.params}
             manifestPath={manifestPath}
+            supportedLanguages={supportedLanguages}
           />
         </AccordionSection>
       </div>

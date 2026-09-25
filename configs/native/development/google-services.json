@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "228489803923",
+    "project_id": "tnp-getgo-dev",
+    "storage_bucket": "tnp-getgo-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:228489803923:android:0214e173c2c3f49a51b566",
+        "android_client_info": {
+          "package_name": "com.tnp.getgo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "228489803923-7bb26nhp76mnqmeu27efrspgcum19q7l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tnp.getgo",
+            "certificate_hash": "1043c533e05e9664fe2e62997e7120474cf35a2d"
+          }
+        },
+        {
+          "client_id": "228489803923-6c2o907gi9pkrc03sjlehbqt9osqgt08.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1-uqf64cfefhi2REQcqC6u-X0lf6pETE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "228489803923-6c2o907gi9pkrc03sjlehbqt9osqgt08.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "228489803923-e6i7fpj6oc0tulb7nvnc4898o1n3vecn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tnpglobal.getgo"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:228489803923:android:59ee6376e6527bc151b566",
+        "android_client_info": {
+          "package_name": "com.tnp.getgo.webapp.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "228489803923-ba8vfp9ftmtlpn9m000p468fa393k1hh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tnp.getgo.webapp.dev",
+            "certificate_hash": "1043c533e05e9664fe2e62997e7120474cf35a2d"
+          }
+        },
+        {
+          "client_id": "228489803923-6c2o907gi9pkrc03sjlehbqt9osqgt08.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1-uqf64cfefhi2REQcqC6u-X0lf6pETE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "228489803923-6c2o907gi9pkrc03sjlehbqt9osqgt08.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "228489803923-e6i7fpj6oc0tulb7nvnc4898o1n3vecn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tnpglobal.getgo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

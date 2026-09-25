@@ -10,6 +10,7 @@ export const quizManifestSchema = z.object({
   icon: z.string().trim().min(1).optional(),
   type: z.preprocess(value => value === "question-list" ? "contest" : typeof value === "string" && (value.startsWith("alphabet-") || value.startsWith("spelling-")) ? "alphabet" : value, z.enum(quizTypes).optional()),
   language: z.enum(["en", "vi"]).optional(),
+  supportedLanguages: z.array(z.enum(["en", "vi"])).min(1).optional(),
   grade: z.string().nullable().optional(),
   round: z.string().nullable().optional(),
   year: z.string().nullable().optional(),

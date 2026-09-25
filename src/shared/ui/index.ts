@@ -21,6 +21,7 @@ export * from "./QuestionNavigator";
 export * from "./QuestionPreview";
 export * from "./SearchField";
 export * from "./Panel";
+export * from "./Popover";
 export * from "./Select";
 export * from "./SegmentedControl";
 export * from "./SummaryCard";

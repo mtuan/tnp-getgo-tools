@@ -1,4 +1,4 @@
-import { CheckCheck, FolderOpen, ListOrdered, Plus, Trash2, Zap } from "lucide-react";
+import { CheckCheck, FolderOpen, ListOrdered, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 import type { QuizSummary } from "../../../../shared/domain/models";
 import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { Button } from "../../../../shared/ui/Button";
@@ -180,6 +180,25 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                   label={quizPublishCopy.more}
                   disabled={sourceLoading || Boolean(buttonAction)}
                   items={[
+                    ...(contentQuiz && managerApi.forceSyncContentV2Quiz
+                      ? [{
+                          id: "force-sync",
+                          label: quizPublishCopy.forceSync,
+                          icon: RefreshCw,
+                          onSelect: () =>
+                            void runButtonAction("force-sync", async () => {
+                              await managerApi.forceSyncContentV2Quiz(
+                                quiz.contest,
+                                quiz.id,
+                              );
+                              toast.show({
+                                title: quizPublishCopy.forceSyncSuccessTitle,
+                                description: quizPublishCopy.forceSyncSuccessDescription,
+                                variant: "success",
+                              });
+                            }),
+                        }]
+                      : []),
                     {
                       id: "mark-all-reviewed",
                       label: quizPublishCopy.markAllReviewed,

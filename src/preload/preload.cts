@@ -150,8 +150,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("publishing:quiz", contestId, quizId),
   publishContentV2Topic: (topicId) =>
     ipcRenderer.invoke("content-v2:topic:publish", topicId),
-  publishContentV2Quiz: (topicId, quizId) =>
-    ipcRenderer.invoke("content-v2:quiz:publish", topicId, quizId),
+  publishContentV2Quiz: (topicId, quizId, force) =>
+    ipcRenderer.invoke("content-v2:quiz:publish", topicId, quizId, force),
   showInFolder: (path) =>
     ipcRenderer.invoke("shell:show", path) as Promise<void>,
   showQuizQuestionInFolder: (manifestPath, questionNo) =>

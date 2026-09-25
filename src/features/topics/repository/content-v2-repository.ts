@@ -26,6 +26,8 @@ import { warnForContentV2File, warnForRepositoryContent } from "../../content-sa
 import { contentTopicsRoot } from "./content-source.js";
 
 const topicIdPattern = /^[a-z][a-z0-9_-]*$/;
+const jsonFileCache = new Map<string, { mtimeMs: number; size: number; value: unknown }>();
+const assetHashCache = new Map<string, { mtimeMs: number; size: number; hash: string }>();
 
 function sharedDictionaryPath(repositoryPath: string, topicId: string) {
   return path.join(
@@ -49,7 +51,13 @@ function contentRoot(repositoryPath: string): string {
 }
 
 async function readJson(filePath: string): Promise<unknown> {
-  return JSON.parse(await fs.readFile(filePath, "utf8"));
+  const stat = await fs.stat(filePath);
+  const cached = jsonFileCache.get(filePath);
+  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size)
+    return cached.value;
+  const value = JSON.parse(await fs.readFile(filePath, "utf8"));
+  jsonFileCache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, value });
+  return value;
 }
 
 async function writeJson(filePath: string, value: unknown, safetyChecked = false): Promise<void> {
@@ -58,6 +66,7 @@ async function writeJson(filePath: string, value: unknown, safetyChecked = false
   const temporary = `${filePath}.tmp`;
   await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   await fs.rename(temporary, filePath);
+  jsonFileCache.delete(filePath);
 }
 
 async function saveMetadataIcon(
@@ -298,7 +307,7 @@ export async function loadContentV2WorkspaceFromFiles(
               quiz,
               questions: quizQuestions.map((item) => item.record),
               resources,
-            })
+            }, false)
           ).map((asset) => ({
             reference: asset.reference,
             contentHash: asset.contentHash,
@@ -315,7 +324,9 @@ export async function loadContentV2WorkspaceFromFiles(
         ? (await readContentV2QuizPublishState(quizFile)).targets[options.projectId]
         : undefined;
       const localHash = lightweight
-        ? targetPublishState && targetPublishState.publishContractVersion !== contentV2QuizPublishContractVersion
+        ? targetPublishState?.dirty
+          ? "local-files-changed"
+          : targetPublishState && targetPublishState.publishContractVersion !== contentV2QuizPublishContractVersion
           ? `publish-contract-v${contentV2QuizPublishContractVersion}`
           : targetPublishState?.contentHash ?? quiz.publishedHash ?? ""
         : hashContentV2({
@@ -354,9 +365,13 @@ export async function loadContentV2WorkspaceFromFiles(
         reviewedQuestionCount: quizQuestions.filter(
           (item) => item.record.status === "reviewed",
         ).length,
+        dynamic: quizQuestions.some((item) =>
+          item.record.type === "competition-question"
+          && (item.record.authoringMode === "advanced-dynamic" || Boolean(item.record.dynamic)),
+        ),
         ...(quiz.type === "competition-paper"
-          ? { grade: quiz.grade, round: quiz.round, year: quiz.year }
-          : { language: quiz.language }),
+          ? { grade: quiz.grade, round: quiz.round, year: quiz.year, supportedLanguages: quiz.supportedLanguages }
+          : { language: quiz.language, supportedLanguages: [quiz.language] }),
       };
       quizzes.push(summary);
       topicQuizzes.push(summary);
@@ -385,7 +400,7 @@ export async function loadContentV2WorkspaceFromFiles(
       : undefined;
     const topicAssets = lightweight || topic.type !== "kid-learning"
       ? []
-      : await loadContentV2TopicAssets(repositoryPath, topic);
+      : await loadContentV2TopicAssets(repositoryPath, topic, false);
     topics.push({
       id: topic.id,
       type: topic.type,
@@ -400,7 +415,9 @@ export async function loadContentV2WorkspaceFromFiles(
       order: topic.order,
       filePath: topicFile,
       localHash: lightweight
-        ? targetTopicPublishState && topic.type === "kid-learning" && targetTopicPublishState.publishContractVersion !== contentV2TopicPublishContractVersion
+        ? targetTopicPublishState?.dirty
+          ? "local-files-changed"
+          : targetTopicPublishState && topic.type === "kid-learning" && targetTopicPublishState.publishContractVersion !== contentV2TopicPublishContractVersion
           ? `publish-contract-v${contentV2TopicPublishContractVersion}`
           : targetTopicPublishState?.contentHash ?? topic.publishedHash ?? ""
         : hashContentV2({
@@ -532,11 +549,13 @@ export async function saveContentV2Topic(
   const existing = await fs.readFile(filePath, "utf8")
     .then((source) => contentV2TopicSchema.parse(JSON.parse(source)))
     .catch(() => null);
-  if (existing && hashContentV2(sanitizeContentV2Topic(existing)) !== hashContentV2(sanitizeContentV2Topic(topic))) {
+  const contentChanged = Boolean(existing && hashContentV2(sanitizeContentV2Topic(existing)) !== hashContentV2(sanitizeContentV2Topic(topic)));
+  if (contentChanged) {
     const { publishedHash: _publishedHash, publishedAt: _publishedAt, ...changed } = topic;
     topic = changed as ContentV2Topic;
   }
   await writeJson(filePath, topic);
+  if (contentChanged) await markTopicPublishStateDirty(filePath);
   return topic;
 }
 
@@ -617,11 +636,12 @@ export async function loadContentV2TopicDictionary(
 export async function loadContentV2TopicAssets(
   repositoryPath: string,
   topic: ContentV2Topic,
+  includeData = true,
 ): Promise<ContentV2Asset[]> {
   const topicResources = topic.type === "kid-learning"
     ? { dictionary: await loadContentV2TopicDictionary(repositoryPath, topic.id) }
     : {};
-  return loadContentV2Assets(repositoryPath, topic.id, undefined, { topic, topicResources });
+  return loadContentV2Assets(repositoryPath, topic.id, undefined, { topic, topicResources }, includeData);
 }
 
 export async function saveContentV2TopicDictionary(
@@ -717,6 +737,7 @@ export async function loadContentV2Assets(
   topicId: string,
   quizId: string | undefined,
   content: unknown,
+  includeData = true,
 ): Promise<ContentV2Asset[]> {
   const topicDirectory = path.join(
     contentRoot(repositoryPath),
@@ -766,11 +787,23 @@ export async function loadContentV2Assets(
     const mimeType = mimeTypes[path.extname(sourcePath).toLowerCase()];
     if (!mimeType)
       throw new Error(`Asset ${reference} has an unsupported file type.`);
-    const data = await fs.readFile(sourcePath);
+    const stat = await fs.stat(sourcePath);
+    const cached = assetHashCache.get(sourcePath);
+    let data: Uint8Array;
+    let contentHash: string;
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+      contentHash = cached.hash;
+      data = includeData ? await fs.readFile(sourcePath) : new Uint8Array();
+    } else {
+      const bytes = await fs.readFile(sourcePath);
+      contentHash = createHash("sha256").update(bytes).digest("hex");
+      assetHashCache.set(sourcePath, { mtimeMs: stat.mtimeMs, size: stat.size, hash: contentHash });
+      data = includeData ? bytes : new Uint8Array();
+    }
     result.push({
       reference,
       sourcePath,
-      contentHash: createHash("sha256").update(data).digest("hex"),
+      contentHash,
       mimeType,
       data,
     });
@@ -812,7 +845,7 @@ export async function calculateContentV2QuizHash(
       quiz,
       questions,
       resources,
-    })
+    }, false)
   ).map((asset) => ({
     reference: asset.reference,
     contentHash: asset.contentHash,
@@ -855,8 +888,13 @@ export async function saveContentV2Quiz(
     validateId(quiz.id, "Quiz ID"),
     "quiz.json",
   );
+  const existingQuiz = await fs.readFile(filePath, "utf8")
+    .then((source) => contentV2QuizSchema.parse(JSON.parse(source)))
+    .catch(() => null);
+  const contentChanged = !existingQuiz ||
+    hashContentV2(sanitizeContentV2Quiz(existingQuiz)) !== hashContentV2(sanitizeContentV2Quiz(quiz));
   await writeJson(filePath, quiz);
-  await fs.rm(path.join(path.dirname(filePath), "publish-state.json"), { force: true });
+  if (contentChanged) await markQuizPublishStateDirty(filePath);
   if (quiz.type === "alphabet" || quiz.type === "spelling") {
     const dictionaryPath = sharedDictionaryPath(repositoryPath, topic.id);
     if (
@@ -893,16 +931,20 @@ export async function saveContentV2Question(
   const existing = (await fs
     .readFile(filePath, "utf8")
     .then(JSON.parse)
-    .catch(() => null)) as { type?: unknown } | null;
+    .catch(() => null)) as ({ type?: unknown } & Record<string, unknown>) | null;
   if (existing?.type && existing.type !== question.type)
     throw new Error("A question type cannot be changed after creation.");
+  const contentChanged = !existing || hashContentV2(
+    sanitizeContentV2Question(contentV2QuestionSchema.parse(existing)),
+  ) !== hashContentV2(sanitizeContentV2Question(question));
   await writeJson(filePath, question, true);
-  await invalidateQuizPublished(path.join(path.dirname(path.dirname(filePath)), "quiz.json"));
+  if (contentChanged)
+    await invalidateQuizPublished(path.join(path.dirname(path.dirname(filePath)), "quiz.json"));
   return question;
 }
 
 async function invalidateQuizPublished(quizFilePath: string): Promise<void> {
-  await fs.rm(path.join(path.dirname(quizFilePath), "publish-state.json"), { force: true });
+  await markQuizPublishStateDirty(quizFilePath);
   const record = await fs.readFile(quizFilePath, "utf8")
     .then((source) => JSON.parse(source) as Record<string, unknown>)
     .catch(() => null);
@@ -910,6 +952,30 @@ async function invalidateQuizPublished(quizFilePath: string): Promise<void> {
   delete record.publishedHash;
   delete record.publishedAt;
   await writeJson(quizFilePath, record);
+}
+
+async function markQuizPublishStateDirty(quizFilePath: string): Promise<void> {
+  const state = await readContentV2QuizPublishState(quizFilePath);
+  if (!Object.keys(state.targets).length) return;
+  await writeContentV2QuizPublishState(quizFilePath, {
+    ...state,
+    targets: Object.fromEntries(Object.entries(state.targets).map(([key, target]) => [
+      key,
+      { ...target, dirty: true },
+    ])),
+  });
+}
+
+async function markTopicPublishStateDirty(topicFilePath: string): Promise<void> {
+  const state = await readContentV2TopicPublishState(topicFilePath);
+  if (!Object.keys(state.targets).length) return;
+  await writeContentV2TopicPublishState(topicFilePath, {
+    ...state,
+    targets: Object.fromEntries(Object.entries(state.targets).map(([key, target]) => [
+      key,
+      { ...target, dirty: true },
+    ])),
+  });
 }
 
 async function invalidateTopicQuizPublishStates(repositoryPath: string, topicId: string): Promise<void> {

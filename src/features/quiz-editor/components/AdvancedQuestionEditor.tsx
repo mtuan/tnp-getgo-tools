@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, History, Zap } from "lucide-react";
+import { Check, Copy, History, RotateCcw, Zap } from "lucide-react";
 import { QuizTsService } from "@tnp/getgo-logics/authoring";
 import type {
   ContestQuizQuestionRecord,
@@ -17,11 +17,22 @@ import {
 } from "../../../shared/ui/QuestionPreview";
 import {
   DEFAULT_EXPLANATION_GENERATOR_TS,
+  dynamicEditorModelEnvelope,
   formatDynamicCodeExpression,
+  dynamicEditorValueFromModel,
   originParamsEditorSource,
   originParamsValueFromEditor,
   quizSharedEditorContext,
 } from "../domain/question-dynamics";
+import {
+  generationErrorDetail,
+  type GenerationErrorDetail,
+} from "../domain/generation-error";
+import {
+  generationPerformance,
+  type GenerationPerformance,
+} from "../domain/generation-performance";
+import { includeOriginalParameterSignatures } from "../domain/generator-signatures";
 import { questionService } from "./question-service";
 import { QuestionFeedback } from "./QuestionFeedback";
 import * as ui from "../../../shared/ui";
@@ -29,6 +40,47 @@ import * as ui from "../../../shared/ui";
 type AdvancedDynamic = NonNullable<ContestQuizQuestionRecord["advancedDynamic"]>;
 
 const SIGNATURE_PROBE_QUESTION = "({}) => {\n  return {} as never\n}";
+const GENERATOR_RUNTIME_REVISION = "replace-digit-iterable-v1";
+
+function generatorSourceKey(record: ContestQuizQuestionRecord): string {
+  const dynamic = record.advancedDynamic;
+  return [
+    GENERATOR_RUNTIME_REVISION,
+    dynamic?.paramsGeneratorTs ?? "",
+    dynamic?.questionGeneratorTs ?? "",
+    dynamic?.explanationGeneratorTs ?? "",
+    dynamic?.originParamsTs ?? "",
+  ].join("\u0000");
+}
+
+function recoveringSourceSections(
+  source: string,
+  dynamic: AdvancedDynamic,
+) {
+  try {
+    return QuizTsService.getTemplateEditorSectionsRecovering(source);
+  } catch {
+    const fields = [
+      ["params", dynamic.paramsGeneratorTs],
+      ["question", dynamic.questionGeneratorTs],
+      ["origin", dynamic.originParamsTs],
+      ["explanation", dynamic.explanationGeneratorTs],
+    ] as const;
+    return fields.flatMap(([id, value]) => {
+      const trimmed = value?.trim();
+      if (!trimmed) return [];
+      const firstLine = trimmed.split("\n", 1)[0];
+      const offset = source.indexOf(firstLine);
+      if (offset < 0) return [];
+      const startLineNumber = source.slice(0, offset).split("\n").length;
+      return [{
+        id,
+        startLineNumber,
+        endLineNumber: startLineNumber + trimmed.split("\n").length - 1,
+      }];
+    });
+  }
+}
 
 function synchronizeGeneratorFields(dynamic: AdvancedDynamic): {
   dynamic: AdvancedDynamic;
@@ -48,8 +100,7 @@ function synchronizeGeneratorFields(dynamic: AdvancedDynamic): {
           paramsGeneratorTs: dynamic.paramsGeneratorTs,
           questionGeneratorTs: dynamic.questionGeneratorTs,
           explanationGeneratorTs: DEFAULT_EXPLANATION_GENERATOR_TS,
-          // Origin code is edited independently and may temporarily be invalid.
-          originParamsTs: "{}",
+          originParamsTs: originParamsValueFromEditor(dynamic.originParamsTs),
         }),
       ),
     );
@@ -65,8 +116,7 @@ function synchronizeGeneratorFields(dynamic: AdvancedDynamic): {
           paramsGeneratorTs: dynamic.paramsGeneratorTs,
           questionGeneratorTs: SIGNATURE_PROBE_QUESTION,
           explanationGeneratorTs: dynamic.explanationGeneratorTs,
-          // Origin code is edited independently and may temporarily be invalid.
-          originParamsTs: "{}",
+          originParamsTs: originParamsValueFromEditor(dynamic.originParamsTs),
         }),
       ),
     );
@@ -76,11 +126,15 @@ function synchronizeGeneratorFields(dynamic: AdvancedDynamic): {
     failures.push({ field: "explanation", cause });
   }
 
+  const withOriginalParameters = includeOriginalParameterSignatures({
+    ...dynamic,
+    questionGeneratorTs,
+    explanationGeneratorTs,
+  });
   return {
     dynamic: {
       ...dynamic,
-      questionGeneratorTs,
-      explanationGeneratorTs,
+      ...withOriginalParameters,
     },
     failures,
   };
@@ -105,7 +159,8 @@ export function AdvancedQuestionEditor({
   onSave(): void;
   onFeedbackSave(value: Omit<Feedback, "updatedAt"> | null): Promise<void>;
 }) {
-  const [errors, setErrors] = useState<string[]>([]);
+  const [errors, setErrors] = useState<GenerationErrorDetail[]>([]);
+  const [errorSourceKey, setErrorSourceKey] = useState<string | null>(null);
   const [preview, setPreview] = useState<{
     question: RuntimeQuestion;
     params: Record<string, unknown>;
@@ -113,15 +168,15 @@ export function AdvancedQuestionEditor({
     question: questionService.loadStatic(record).question,
     params: { __dynamic: true },
   }));
+  const [previewPerformance, setPreviewPerformance] =
+    useState<GenerationPerformance>();
   const generatedQuestionRef = useRef<string | number | null>(null);
   const latestRecordRef = useRef(record);
   const pendingDynamicChangeRef = useRef(false);
-  const pendingSignatureSyncRef = useRef(false);
   const latestRecord = latestRecordRef.current;
   if (String(latestRecord.question_no) !== String(record.question_no)) {
     latestRecordRef.current = record;
     pendingDynamicChangeRef.current = false;
-    pendingSignatureSyncRef.current = false;
   } else if (
     !pendingDynamicChangeRef.current ||
     JSON.stringify(latestRecord.advancedDynamic) ===
@@ -132,6 +187,7 @@ export function AdvancedQuestionEditor({
   }
   const [aiHistoryOpen, setAiHistoryOpen] = useState(false);
   const [copiedPanel, setCopiedPanel] = useState<string | null>(null);
+  const [editorRepairRevision, setEditorRepairRevision] = useState(0);
   const toast = ui.useToast();
   const [expandedCodePanels, setExpandedCodePanels] = useState<Set<string>>(
     () => new Set(["params", "question", "explanation", "origin"]),
@@ -149,6 +205,30 @@ export function AdvancedQuestionEditor({
     });
   }, [path, record.question_no]);
   useEffect(() => {
+    const latest = latestRecordRef.current;
+    const dynamic = latest.advancedDynamic;
+    if (!dynamic) return;
+    const repaired = {
+      ...dynamic,
+      paramsGeneratorTs: dynamicEditorValueFromModel(dynamic.paramsGeneratorTs),
+      questionGeneratorTs: dynamicEditorValueFromModel(dynamic.questionGeneratorTs),
+      explanationGeneratorTs: dynamicEditorValueFromModel(dynamic.explanationGeneratorTs),
+      originParamsTs: originParamsValueFromEditor(dynamicEditorValueFromModel(dynamic.originParamsTs)),
+    };
+    if (
+      repaired.paramsGeneratorTs === dynamic.paramsGeneratorTs
+      && repaired.questionGeneratorTs === dynamic.questionGeneratorTs
+      && repaired.explanationGeneratorTs === dynamic.explanationGeneratorTs
+      && repaired.originParamsTs === dynamic.originParamsTs
+    ) return;
+    const next = { ...latest, advancedDynamic: repaired };
+    latestRecordRef.current = next;
+    pendingDynamicChangeRef.current = true;
+    setErrors([]);
+    setErrorSourceKey(null);
+    onChange(next);
+  }, [onChange, path, record.advancedDynamic, record.question_no]);
+  useEffect(() => {
     console.info("[GetGo Tools][Question preview][committed]", {
       questionNo: String(preview.question.question_no),
       textEn: preview.question.text_en,
@@ -165,25 +245,23 @@ export function AdvancedQuestionEditor({
     value: string,
   ) => {
     const latest = latestRecordRef.current;
+    const persistedValue = key === "originParamsTs"
+      ? value
+      : dynamicEditorValueFromModel(value);
     const next = {
       ...latest,
-      advancedDynamic: { ...latest.advancedDynamic!, [key]: value },
+      advancedDynamic: { ...latest.advancedDynamic!, [key]: persistedValue },
     };
     latestRecordRef.current = next;
     pendingDynamicChangeRef.current = true;
-    if (key === "paramsGeneratorTs") pendingSignatureSyncRef.current = true;
+    // A generation error describes one exact source snapshot. Do not leave it
+    // visible while the editor is already showing a newer generator.
+    setErrors([]);
+    setErrorSourceKey(null);
     onChange(next);
   };
   const synchronizeDependentSignatures = (trigger = "unknown") => {
     const latest = latestRecordRef.current;
-    if (!pendingSignatureSyncRef.current) {
-      console.info("[GetGo Tools][Question signatures][skipped]", {
-        trigger,
-        reason: "parameters-unchanged",
-        questionNo: String(latest.question_no),
-      });
-      return;
-    }
     if (String(latest.question_no) !== String(record.question_no)) {
       console.info("[GetGo Tools][Question signatures][skipped]", {
         trigger,
@@ -235,7 +313,6 @@ export function AdvancedQuestionEditor({
           beforeExplanationSignature,
           failedFields: synchronized.failures.map((failure) => failure.field),
         });
-        pendingSignatureSyncRef.current = false;
         return;
       }
       const next = {
@@ -248,7 +325,6 @@ export function AdvancedQuestionEditor({
       };
       latestRecordRef.current = next;
       pendingDynamicChangeRef.current = true;
-      pendingSignatureSyncRef.current = false;
       console.info("[GetGo Tools][Question signatures][updated]", {
         trigger,
         questionNo: String(latest.question_no),
@@ -266,6 +342,7 @@ export function AdvancedQuestionEditor({
     }
   };
   const generate = async (original = false) => {
+    const startedAt = performance.now();
     try {
       console.info("[GetGo Tools][Question preview][generation requested]", {
         mode: original ? "original" : "random",
@@ -291,14 +368,30 @@ export function AdvancedQuestionEditor({
         question: generated.question,
         params: generated.params ?? {},
       });
+      setPreviewPerformance(generationPerformance(performance.now() - startedAt));
       setErrors([]);
+      setErrorSourceKey(null);
     } catch (cause) {
       console.error("[GetGo Tools][Question preview][generation failed]", {
         mode: original ? "original" : "random",
         questionNo: String(latestRecordRef.current.question_no),
         cause,
       });
-      setErrors([cause instanceof Error ? cause.message : String(cause)]);
+      const latest = latestRecordRef.current;
+      let sourceContext;
+      if (latest.advancedDynamic) {
+        const source = QuizTsService.composeTemplateSource(latest.advancedDynamic);
+        try {
+          sourceContext = {
+            source,
+            sections: recoveringSourceSections(source, latest.advancedDynamic),
+          };
+        } catch {
+          /* Keep the original error when even structural recovery is impossible. */
+        }
+      }
+      setErrors([generationErrorDetail(cause, sourceContext)]);
+      setErrorSourceKey(generatorSourceKey(latestRecordRef.current));
     }
   };
   useEffect(() => {
@@ -330,6 +423,15 @@ export function AdvancedQuestionEditor({
   // the parent draft update is rendering so focus transitions never rebuild the
   // dependent editors from the previous parameter signature.
   const editorDynamic = latestRecordRef.current.advancedDynamic;
+  useEffect(() => {
+    synchronizeDependentSignatures("parameter-source-change");
+  }, [
+    record.question_no,
+    record.advancedDynamic?.paramsGeneratorTs,
+    record.advancedDynamic?.originParamsTs,
+  ]);
+  const currentGeneratorSourceKey = generatorSourceKey(latestRecordRef.current);
+  const currentErrors = errorSourceKey === currentGeneratorSourceKey ? errors : [];
   const editorFields = (
     [
       ["origin", "originParamsTs"],
@@ -339,10 +441,11 @@ export function AdvancedQuestionEditor({
     ] as const
   ).map(([id, key]) => {
     const storedValue = editorDynamic?.[key] ?? "";
-    const normalizedValue =
+    const normalizedValue = dynamicEditorValueFromModel(
       key === "explanationGeneratorTs" && !storedValue.trim()
         ? DEFAULT_EXPLANATION_GENERATOR_TS
-        : storedValue;
+        : storedValue,
+    );
     const value = key === "originParamsTs"
       ? originParamsEditorSource(normalizedValue)
       : normalizedValue;
@@ -392,19 +495,27 @@ export function AdvancedQuestionEditor({
       : value;
     const sharedContext = quizSharedEditorContext(quizSharedCode);
     const paramsGeneratorTs = editorDynamic?.paramsGeneratorTs.trim();
-    const parameterTypeContext = paramsGeneratorTs
-      ? `const __getgoParamsGeneratorForEditor = (${paramsGeneratorTs});\ntype __GetGoParams = ReturnType<typeof __getgoParamsGeneratorForEditor>;`
-      : "type __GetGoParams = Record<string, never>;";
-    const editorTypeContext = [sharedContext, parameterTypeContext]
-      .filter((source) => source.trim())
-      .join("\n\n");
-    const extraLib = editorTypeContext
+    const modelEnvelope = dynamicEditorModelEnvelope(
+      id === "question" || id === "explanation"
+        ? paramsGeneratorTs
+        : undefined,
+      id === "question" || id === "explanation"
+        ? originParamsValueFromEditor(editorDynamic?.originParamsTs ?? "").trim()
+        : undefined,
+    );
+    const extraLib = sharedContext
       ? {
-          content: editorTypeContext,
+          content: sharedContext,
           filePath: `file://${path.replaceAll("\\", "/")}.shared-context.ts`,
           replaceGroup: "active-quiz-shared-context",
         }
       : undefined;
+    const hasLeakedEditorEnvelope = storedValue.includes(
+      'const QB = null as unknown as import("@tnp/getgo-logics/quiz-builder/QuizBuilder").QuizBuilder;',
+    );
+    const repairedValue = key === "originParamsTs"
+      ? originParamsValueFromEditor(storedValue)
+      : dynamicEditorValueFromModel(storedValue);
     return {
       id,
       key,
@@ -413,17 +524,14 @@ export function AdvancedQuestionEditor({
       editableLineRange,
       editableCode,
       extraLib,
-      // Keep the persisted callback as the complete Monaco model. Wrapping it
-      // in hidden prefix/suffix source makes Monaco's hidden-line projection
-      // swallow the callback signature and expose the closing wrapper after
-      // formatting, which produces a false "Declaration or statement
-      // expected" diagnostic for otherwise valid question generators.
-      modelContext: "",
-      modelContextSuffix: "",
-      onBlur: id === "params"
-        ? () => synchronizeDependentSignatures("params-blur")
+      modelContext: modelEnvelope.prefix,
+      modelContextSuffix: modelEnvelope.suffix,
+      hasLeakedEditorEnvelope,
+      repairedValue,
+      onBlur: id === "params" || id === "origin"
+        ? () => synchronizeDependentSignatures(`${id}-blur`)
         : undefined,
-      onFocus: id === "params"
+      onFocus: id === "params" || id === "origin"
         ? undefined
         : () => synchronizeDependentSignatures(`${id}-monaco-focus`),
     };
@@ -435,7 +543,7 @@ export function AdvancedQuestionEditor({
           <DynamicQuestionAi
             record={record}
             context={context}
-            diagnostics={errors}
+            diagnostics={errors.map((error) => error.summary)}
             hasGeneratedExplanation={Boolean(
               text(preview.question.explanation?.en).trim() ||
               text(preview.question.explanation?.vi).trim(),
@@ -451,27 +559,52 @@ export function AdvancedQuestionEditor({
               key={field.id}
               actionsAlwaysVisible
               actions={
-                <Button
-                  variant="icon"
-                  title={copiedPanel === field.id ? "Copied" : "Copy editable code"}
-                  aria-label={copiedPanel === field.id ? "Editable code copied" : `Copy ${panelCopy[field.id].title} editable code`}
-                  icon={copiedPanel === field.id ? <Check size={16} /> : <Copy size={16} />}
-                  onClick={() => {
-                    void window.getgo.copyText(field.editableCode).then(() => {
-                      setCopiedPanel(field.id);
-                      window.setTimeout(
-                        () => setCopiedPanel((current) => current === field.id ? null : current),
-                        1400,
-                      );
-                    }).catch((cause: unknown) => {
-                      toast.show({
-                        title: "Could not copy code",
-                        description: cause instanceof Error ? cause.message : String(cause),
-                        variant: "error",
+                <span className="button-group">
+                  <Button
+                    variant="icon"
+                    title={field.hasLeakedEditorEnvelope ? "Repair corrupted editor code" : "Reload editor from saved code"}
+                    aria-label={`Repair ${panelCopy[field.id].title} code`}
+                    icon={<RotateCcw size={16} />}
+                    onClick={() => {
+                        console.info("[GetGo Tools][Question editor][repair leaked envelope]", {
+                          questionNo: String(latestRecordRef.current.question_no),
+                          field: field.key,
+                          beforeLength: latestRecordRef.current.advancedDynamic?.[field.key].length ?? 0,
+                          afterLength: field.repairedValue.length,
+                          beforePreview: latestRecordRef.current.advancedDynamic?.[field.key].slice(0, 240),
+                          afterPreview: field.repairedValue.slice(0, 240),
+                        });
+                        updateField(field.key, field.repairedValue);
+                        setEditorRepairRevision((current) => current + 1);
+                        toast.show({
+                          title: "Editor code repaired",
+                          description: `${panelCopy[field.id].title} was restored.`,
+                          variant: "success",
+                        });
+                    }}
+                  />
+                  <Button
+                    variant="icon"
+                    title={copiedPanel === field.id ? "Copied" : "Copy editable code"}
+                    aria-label={copiedPanel === field.id ? "Editable code copied" : `Copy ${panelCopy[field.id].title} editable code`}
+                    icon={copiedPanel === field.id ? <Check size={16} /> : <Copy size={16} />}
+                    onClick={() => {
+                      void window.getgo.copyText(field.editableCode).then(() => {
+                        setCopiedPanel(field.id);
+                        window.setTimeout(
+                          () => setCopiedPanel((current) => current === field.id ? null : current),
+                          1400,
+                        );
+                      }).catch((cause: unknown) => {
+                        toast.show({
+                          title: "Could not copy code",
+                          description: cause instanceof Error ? cause.message : String(cause),
+                          variant: "error",
+                        });
                       });
-                    });
-                  }}
-                />
+                    }}
+                  />
+                </span>
               }
               expanded={expandedCodePanels.has(field.id)}
               onExpandedChange={(expanded) =>
@@ -490,7 +623,7 @@ export function AdvancedQuestionEditor({
                   : () => synchronizeDependentSignatures(`${field.id}-dom-focus`)}
               >
                 <QuizCodeEditor
-                  key={`${path}.${field.id}`}
+                  key={`${path}.${field.id}.${editorRepairRevision}`}
                   value={field.value}
                   path={`${path}.${field.id}.ts`}
                   autoHeight
@@ -520,10 +653,18 @@ export function AdvancedQuestionEditor({
                           setErrors(
                             markers
                               .filter((marker) => marker.severity === 8)
-                              .map(
-                                (marker) =>
-                                  `${marker.startLineNumber}:${marker.startColumn} — ${marker.message}`,
-                              ),
+                              .map((marker) => {
+                                const location = `${marker.startLineNumber}:${marker.startColumn}`;
+                                return {
+                                  summary: `TypeScript [TS${marker.code}] ${location} — ${marker.message}`,
+                                  detail: [
+                                    "Name: TypeScript diagnostic",
+                                    `Code: TS${marker.code}`,
+                                    `Location: ${location}`,
+                                    `Message: ${marker.message}`,
+                                  ].join("\n"),
+                                };
+                              }),
                           )
                       : undefined
                   }
@@ -562,13 +703,20 @@ export function AdvancedQuestionEditor({
             <QuestionPreview
               question={preview.question}
               params={preview.params}
+              generationPerformance={previewPerformance}
               manifestPath={manifestPath}
             />
-            {errors.length > 0 && (
+            {currentErrors.length > 0 && (
               <div className="question-editor-errors">
                 <strong>Type or generation error</strong>
-                {errors.map((error, index) => (
-                  <span key={index}>{error}</span>
+                {currentErrors.map((error, index) => (
+                  <span key={index} className="question-editor-error">
+                    <span>{error.summary}</span>
+                    <details open>
+                      <summary>Error details</summary>
+                      <pre>{error.detail}</pre>
+                    </details>
+                  </span>
                 ))}
               </div>
             )}

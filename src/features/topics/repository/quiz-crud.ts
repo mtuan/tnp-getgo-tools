@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 import { legacyContentIcon } from "../../../shared/domain/content-icon.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type {
-  ContestSettings,
-  QuizCrudInput,
-  QuizManifest,
+import {
+  currentQuizBuilderApiVersion,
+  type ContestSettings,
+  type QuizCrudInput,
+  type QuizManifest,
 } from "../../../shared/domain/models.js";
 import { contestSettingsSchema, quizManifestSchema } from "../../../features/topics/domain/schema.js";
 import { createQuizQuestion } from "../../quiz-editor/repository/quiz-questions.js";
@@ -136,7 +137,16 @@ export async function createQuizFiles(
   if (await pathExists(directory))
     throw new Error(`Quiz “${id}” already exists.`);
   const title = input.title.trim() || id;
-  const quizSource = `import QB from '@src/utils/quiz-builder';\n\nexport default {\n  exam_no: ${JSON.stringify(id)},\n  title: ${JSON.stringify(title)},\n  grade: ${JSON.stringify(input.grade ?? "")},\n  round: ${JSON.stringify(input.round ?? "")},\n  year: ${JSON.stringify(input.year ?? "")},\n  questions: [\n    QB.template(\n      () => ({}),\n      () => ({\n        question_no: 1,\n        category: "",\n        text_en: "",\n        answer: { type: "input", correct: "" },\n      }),\n    ),\n  ],\n};\n`;
+  const supportedLanguages: NonNullable<QuizManifest["supportedLanguages"]> = input.type === "pronunciation"
+    ? ["vi"]
+    : input.type === "alphabet"
+      ? [input.language ?? "en"]
+      : input.supportedLanguages?.length ? input.supportedLanguages : ["en", "vi"];
+  const localizedQuestionFields = [
+    "        text_en: \"\",",
+    ...(supportedLanguages.includes("vi") ? ["        text_vn: \"\","] : []),
+  ].join("\n");
+  const quizSource = `import QB from '@src/utils/quiz-builder';\n\nexport default {\n  exam_no: ${JSON.stringify(id)},\n  title: ${JSON.stringify(title)},\n  grade: ${JSON.stringify(input.grade ?? "")},\n  round: ${JSON.stringify(input.round ?? "")},\n  year: ${JSON.stringify(input.year ?? "")},\n  questions: [\n    QB.template(\n      () => ({}),\n      () => ({\n        question_no: 1,\n        category: "",\n${localizedQuestionFields}\n        answer: { type: "input", correct: "" },\n      }),\n    ),\n  ],\n};\n`;
   const manifest: QuizManifest = {
     schemaVersion: 1,
     questionStorageVersion: "questions-v1",
@@ -147,6 +157,7 @@ export async function createQuizFiles(
     icon: legacyContentIcon(input.icon)?.trim() || undefined,
     type: input.type ?? "contest",
     language: input.type === "alphabet" ? input.language ?? "en" : undefined,
+    supportedLanguages: [...supportedLanguages],
     grade: input.grade,
     round: input.round,
     year: input.year,
@@ -156,7 +167,8 @@ export async function createQuizFiles(
       rawJsonSha256: "",
       quizTsSha256: createHash("sha256").update(quizSource).digest("hex"),
     },
-    quizBuilderApiVersion: input.quizBuilderApiVersion ?? 1,
+    quizBuilderApiVersion:
+      input.quizBuilderApiVersion ?? currentQuizBuilderApiVersion,
   };
   await fs.mkdir(directory);
   try {
@@ -214,6 +226,13 @@ export async function updateQuizManifest(
     icon: legacyContentIcon(input.icon)?.trim() || undefined,
     type: input.type ?? manifest.type ?? "contest",
     language: input.type === "alphabet" ? input.language ?? manifest.language ?? "en" : undefined,
+    supportedLanguages: input.type === "pronunciation"
+      ? ["vi"]
+      : input.type === "alphabet"
+        ? [input.language ?? manifest.language ?? "en"]
+        : input.supportedLanguages?.length
+          ? input.supportedLanguages
+          : manifest.supportedLanguages ?? ["en", "vi"],
     grade: input.grade,
     round: input.round,
     year: input.year,

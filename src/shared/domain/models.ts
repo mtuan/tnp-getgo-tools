@@ -20,6 +20,7 @@ export const quizTypes = [
   "pronunciation",
 ] as const;
 export type QuizType = (typeof quizTypes)[number];
+export type QuizSupportedLanguage = "en" | "vi";
 
 export interface QuizManifest {
   schemaVersion: number;
@@ -30,6 +31,7 @@ export interface QuizManifest {
   icon?: string;
   type?: QuizType;
   language?: "en" | "vi";
+  supportedLanguages?: QuizSupportedLanguage[];
   grade?: string | null;
   round?: string | null;
   year?: string | null;
@@ -53,6 +55,7 @@ export interface QuizSummary {
   sharedCode?: string;
   type: QuizType;
   language?: "en" | "vi";
+  supportedLanguages?: QuizSupportedLanguage[];
   grade: string | null;
   round: string | null;
   year: string | null;
@@ -70,6 +73,7 @@ export interface QuizSummary {
   localContentHash: string | null;
   questionCount: number | null;
   reviewedQuestionCount: number;
+  dynamic?: boolean;
   migrationErrorCount: number;
   aiMigrationJob?: QuizAiMigrationJob | null;
   quizBuilderApiVersion: number | null;
@@ -154,10 +158,12 @@ export interface ContentV2QuizSummary {
   publishedAt: string | null; marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
   questionCount: number;
   reviewedQuestionCount: number;
+  dynamic: boolean;
   grade?: string;
   round?: string;
   year?: string;
   language?: "en" | "vi";
+  supportedLanguages: QuizSupportedLanguage[];
 }
 
 export interface ContentV2QuestionSummary {
@@ -235,6 +241,7 @@ export interface QuizCrudInput {
   sharedCode?: string;
   type?: QuizType;
   language?: "en" | "vi";
+  supportedLanguages?: QuizSupportedLanguage[];
   grade: string | null;
   round: string | null;
   year: string | null;
@@ -437,6 +444,8 @@ export interface QuestionFeedbackSyncResult {
 }
 
 export const supportedQuizBuilderApiVersions = [1] as const;
+export const currentQuizBuilderApiVersion =
+  supportedQuizBuilderApiVersions.at(-1)!;
 
 export type SpeechLanguage = "en" | "vi";
 export interface SpeechLanguageSettings {
@@ -486,8 +495,11 @@ export interface PublishableQuiz {
   grade: string | null;
   round: string | null;
   year: string | null;
+  supportedLanguages: QuizSupportedLanguage[];
+  supportsMultilingual: boolean;
   questionCount: number;
   contentHash: string;
+  quizBuilderApiVersion: number;
 }
 
 export interface PublishResult {
@@ -616,6 +628,7 @@ export interface DeploymentStateSnapshot {
 export interface LocalWebRuntimeSnapshot {
   status: "offline" | "starting" | "online" | "error";
   url: string;
+  networkUrl?: string;
   managed: boolean;
   target?: WebDeploymentTarget;
   pid?: number;
@@ -822,6 +835,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   publishContentV2Quiz(
     topicId: string,
     quizId: string,
+    force?: boolean,
   ): Promise<ContentV2PublishResult>;
   previewContentV2QuizPublish(
     topicId: string,

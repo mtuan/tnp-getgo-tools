@@ -1,4 +1,4 @@
-import type { PublishResult, QuizSummary } from "../../../shared/domain/models.js";
+import { currentQuizBuilderApiVersion, type PublishResult, type QuizSummary } from "../../../shared/domain/models.js";
 import type { LocalPublishPayload } from "../repository/quiz-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { ContentV2Question, ContentV2Quiz, ContentV2Topic, MarketplaceContentAccess } from "../../../features/topics/domain/content-v2.js";
@@ -16,11 +16,13 @@ import {
   diffContentV2PublishedItems,
   publishedItemKey,
   type ContentV2PublishTargetState,
+  type ContentV2TopicPublishTargetState,
 } from "../../../features/topics/domain/content-v2-publish-state.js";
 import type { ContentV2Asset } from "../repository/content-v2-repository.js";
 import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 import { stalePublishedQuizIds } from "../../../features/topics/domain/content-v2-publish-policy.js";
 import { compileQuizSharedCode } from "@tnp/getgo-logics/authoring";
+import { promises as fs } from "node:fs";
 
 type FirestoreValue = Record<string, unknown>;
 type FirestoreDocument = {
@@ -108,6 +110,21 @@ export function buildContentV2QuestionsCode(
   );
 }
 
+export function contentV2QuizBuilderApiVersion(
+  quiz: ContentV2Quiz,
+  questions: ContentV2Question[],
+): number {
+  return Math.max(
+    1,
+    quiz.sharedCode.trim() ? currentQuizBuilderApiVersion : 1,
+    ...questions.map((question) =>
+      question.type === "competition-question" && question.dynamic?.compiledJs
+        ? (question.dynamic.quizBuilderApiVersion ?? 1)
+        : 1,
+    ),
+  );
+}
+
 function contentV2QuizPath(topicId: string, quizId: string): string {
   return `${contentV2TopicPath(topicId)}/quizzes/${encodeURIComponent(quizId)}`;
 }
@@ -126,6 +143,7 @@ export function createContentV2TopicPublishPreview(
           ...sanitizeContentV2Topic(topic),
           catalogRef: marketplaceTopicPath(topic.id),
           quizIds,
+          quizBuilderApiVersion: currentQuizBuilderApiVersion,
           contentHash,
           publishedAt: "<generated at publish time>",
         },
@@ -155,9 +173,14 @@ export function createContentV2QuizPublishPreview(
     && question.authoringMode === "advanced-dynamic"
     && !question.dynamic?.compiledJs?.trim()
   ));
+  const supportsDynamic = questions.some((question) => (
+    question.type === "competition-question"
+    && question.authoringMode === "advanced-dynamic"
+  ));
+  const quizBuilderApiVersion = contentV2QuizBuilderApiVersion(quiz, questions);
   if (missingCompiledQuestion) {
     throw new Error(
-      `Question ${missingCompiledQuestion.id} has not been compiled. Save it successfully before publishing.`,
+      `Topic ${topicId} · Quiz “${quiz.title}” (${quiz.id}) · Question ${missingCompiledQuestion.id}: dynamic.compiledJs is missing. The question was not saved after a successful dynamic-code compilation. Open and save this question successfully before publishing.`,
     );
   }
   return {
@@ -165,7 +188,10 @@ export function createContentV2QuizPublishPreview(
       marketplaceQuizDocument: {
         operation: "upsert",
         path: marketplaceQuizPath(topicId, quiz.id),
-        data: sanitizeMarketplaceQuiz(quiz, topicAccess, questions.length),
+        data: {
+          ...sanitizeMarketplaceQuiz(quiz, topicAccess, questions.length, supportsDynamic),
+          quizBuilderApiVersion,
+        },
       },
       quizDocument: {
         operation: "upsert",
@@ -176,6 +202,8 @@ export function createContentV2QuizPublishPreview(
           access,
           questionsCodeFormat: "getgo.questions.v1",
           questionsCode: buildContentV2QuestionsCode(questions),
+          ...(supportsDynamic ? { dynamic: true, supportsDynamic: true } : {}),
+          quizBuilderApiVersion,
           contentHash,
           publishedAt: "<generated at publish time>",
         },
@@ -325,8 +353,11 @@ export class FirestorePublishingService {
             grade: local.quiz.grade,
             round: local.quiz.round,
             year: local.quiz.year,
+            supportedLanguages: local.quiz.supportedLanguages,
+            supportsMultilingual: local.quiz.supportsMultilingual,
             questionStorage: "subcollection",
             questionCount: local.quiz.questionCount,
+            quizBuilderApiVersion: local.quiz.quizBuilderApiVersion,
             contentHash: local.quiz.contentHash,
             publishedAt,
           }),
@@ -363,6 +394,7 @@ export class FirestorePublishingService {
       ...sanitizeContentV2Topic(topic),
       access: marketplaceContentAccess(topic.marketplace),
       quizIds,
+      quizBuilderApiVersion: currentQuizBuilderApiVersion,
       contentHash,
       publishedAt,
     });
@@ -395,28 +427,55 @@ export class FirestorePublishingService {
     topicId: string,
     assets: ContentV2Asset[],
     control?: PublishJobControl,
-  ): Promise<void> {
-    if (assets.length === 0) {
+    previousState?: ContentV2TopicPublishTargetState,
+  ): Promise<ContentV2PublishTargetState["items"]> {
+    const current = Object.fromEntries(assets.map((asset) => {
+      const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
+      const item = {
+        kind: "storage-object" as const,
+        path: `getgo-content-v2/topics/${topicId}/assets/${reference}`,
+        hash: asset.contentHash,
+      };
+      return [publishedItemKey(item), item];
+    }));
+    const previousStorage = Object.fromEntries(Object.entries(previousState?.items ?? {})
+      .filter(([, item]) => item.kind === "storage-object"));
+    const diff = diffContentV2PublishedItems(previousStorage, current);
+    const changedAssets = assets.filter((asset) => {
+      const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
+      return diff.changed.has(`storage-object:getgo-content-v2/topics/${topicId}/assets/${reference}`);
+    });
+    if (changedAssets.length === 0 && diff.removed.length === 0) {
       await control?.report(`No topic assets to upload · ${topicId}`);
-      return;
+      return current;
     }
     let uploaded = 0;
-    await control?.report(`Uploading topic assets · ${topicId} · 0/${assets.length}`);
-    for (let offset = 0; offset < assets.length; offset += 8) {
-      await Promise.all(assets.slice(offset, offset + 8).map(async (asset) => {
+    await control?.report(`Uploading changed topic assets · ${topicId} · 0/${changedAssets.length}`);
+    for (let offset = 0; offset < changedAssets.length; offset += 8) {
+      await Promise.all(changedAssets.slice(offset, offset + 8).map(async (asset) => {
         await control?.checkpoint();
         const reference = asset.reference.slice("asset:".length).replaceAll("\\", "/");
         const destination = `getgo-content-v2/topics/${topicId}/assets/${reference}`;
         try {
-          await this.auth.uploadStorageObject(destination, asset.data, asset.mimeType);
+          await this.auth.uploadStorageObject(
+            destination,
+            asset.data.byteLength ? asset.data : await fs.readFile(asset.sourcePath),
+            asset.mimeType,
+          );
         } catch (cause) {
           const message = cause instanceof Error ? cause.message : String(cause);
           throw new Error(`Could not upload topic asset “${destination}”: ${message} The signed-in account needs the contentPublisher or contentAdmin Storage claim.`);
         }
         uploaded += 1;
-        await control?.report(`Uploading topic assets · ${topicId} · ${uploaded}/${assets.length} · ${reference}`);
+        await control?.report(`Uploading topic assets · ${topicId} · ${uploaded}/${changedAssets.length} · ${reference}`);
       }));
     }
+    for (const item of diff.removed) {
+      await control?.checkpoint();
+      await this.auth.deleteStorageObject(item.path);
+      await control?.report(`Removed obsolete topic asset · ${item.path}`);
+    }
+    return current;
   }
 
   async contentV2TopicExists(topicId: string): Promise<boolean> {
@@ -438,6 +497,7 @@ export class FirestorePublishingService {
       publisherId: topic.publisherId,
       publisher: topic.publisher,
       ...topic.marketplace,
+      quizBuilderApiVersion: currentQuizBuilderApiVersion,
       contentHash,
       publishedAt,
     }) } }]);
@@ -527,6 +587,7 @@ export class FirestorePublishingService {
     previousState?: ContentV2PublishTargetState,
     control?: PublishJobControl,
     followingOperationCount = 0,
+    force = false,
   ): Promise<ContentV2PublishResult & {
     environment: string;
     projectId: string;
@@ -555,7 +616,10 @@ export class FirestorePublishingService {
       contentHash,
     );
     const items = contentV2PublishedItems(preview);
-    const diff = diffContentV2PublishedItems(previousState?.items, items);
+    const calculatedDiff = diffContentV2PublishedItems(previousState?.items, items);
+    const diff = force
+      ? { ...calculatedDiff, changed: new Set(Object.keys(items)) }
+      : calculatedDiff;
     const quizPath = preview.firestore.quizDocument.path;
     const [remoteQuestionNames, remoteAssetNames, remoteResourceNames] = previousState
       ? [[], [], []]
@@ -620,7 +684,7 @@ export class FirestorePublishingService {
           const previewAsset = preview.firebaseStorage.uploads.find((upload) => upload.reference === asset.reference)!;
           await this.auth.uploadStorageObject(
             previewAsset.destinationPath,
-            asset.data,
+            asset.data.byteLength ? asset.data : await fs.readFile(asset.sourcePath),
             asset.mimeType,
           );
           uploadedAssets += 1;
