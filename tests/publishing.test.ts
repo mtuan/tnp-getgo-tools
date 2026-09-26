@@ -394,6 +394,30 @@ test("publishes the shared input control type for single-input answers", () => {
   assert.equal(question.answer.inputType, "number");
 });
 
+test("publishes required-solution metadata for input and nested answers", () => {
+  const input = sanitizePublishedQuestion({
+    question_no: 1,
+    text_en: "Enter a number",
+    answer: { type: "input", correct: "42", solutionRequired: true },
+  });
+  const nested = sanitizePublishedQuestion({
+    question_no: 2,
+    text_en: "Complete both parts",
+    answer: {
+      type: "multiple_input",
+      correct: ["1", "2"],
+      inputs: [
+        { question_en: "First", correct: "1", solutionRequired: true },
+        { question_en: "Second", correct: "2" },
+      ],
+    },
+  });
+
+  assert.equal(input.answer.solutionRequired, true);
+  assert.equal(nested.answer.inputs?.[0]?.solutionRequired, true);
+  assert.equal(nested.answer.inputs?.[1]?.solutionRequired, undefined);
+});
+
 test("publishes multiple-answer controls inside nested questions", () => {
   const question = sanitizePublishedQuestion({
     question_no: 11,

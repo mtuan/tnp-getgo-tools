@@ -132,6 +132,7 @@ export function StaticQuestionEditor({
                     ? answer.choices
                     : {},
                 inputs: undefined,
+                solutionRequired: undefined,
               }
             : value === "multiple_input"
               ? {
@@ -139,6 +140,7 @@ export function StaticQuestionEditor({
                   type: "multiple_input",
                   correct: Array.isArray(answer.correct) && answer.correct.length >= 2 ? answer.correct : ["", ""],
                   choices: undefined,
+                  solutionRequired: undefined,
                   inputs: answer.inputs && answer.inputs.length >= 2
                     ? answer.inputs
                     : [
@@ -153,6 +155,7 @@ export function StaticQuestionEditor({
                   correct: Array.isArray(answer.correct) ? answer.correct : firstCorrect ? [firstCorrect] : [],
                   choices: undefined,
                   inputs: undefined,
+                  solutionRequired: undefined,
                   inputType: "number",
                   orderRequired: false,
                 }

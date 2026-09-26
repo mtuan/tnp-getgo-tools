@@ -10,6 +10,7 @@ interface InputRow extends Record<string, unknown> {
   inputType: "text" | "number" | "date"
   orderRequired: boolean
   unit: string
+  solutionRequired: boolean
 }
 
 const answerTypes = [
@@ -45,6 +46,13 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
         />}
       </div>
     ),
+  },
+  {
+    key: "solutionRequired",
+    dataKey: "solutionRequired",
+    title: "Solution",
+    width: 88,
+    field: { name: "solutionRequired", type: "checkbox" },
   },
   {
     key: "type-unit",
@@ -105,10 +113,11 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
       inputType: part.inputType ?? "number",
       orderRequired: part.orderRequired === true,
       unit: part.unit ?? "",
+      solutionRequired: part.solutionRequired === true,
     }
   })
   while (rows.length < 2) {
-    rows.push({ question_en: "", question_vn: "", type: "input", correct: "", inputType: "number", orderRequired: false, unit: "" })
+    rows.push({ question_en: "", question_vn: "", type: "input", correct: "", inputType: "number", orderRequired: false, unit: "", solutionRequired: false })
   }
   const commit = (nextRows: InputRow[]) => onChange({
     ...answer,
@@ -123,6 +132,7 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
       inputType: row.inputType,
       ...(row.type === "multiple_answer" && row.orderRequired ? { orderRequired: true } : {}),
       ...(row.unit ? { unit: row.unit } : {}),
+      ...(row.solutionRequired ? { solutionRequired: true } : {}),
     })),
   })
   return <Form
@@ -148,6 +158,7 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
                 : (Array.isArray(row.correct) ? row.correct[0] ?? "" : row.correct),
             }
           }
+          if (field === "solutionRequired") return { ...row, solutionRequired: value === true }
           return { ...row, [field]: field === "correct" && Array.isArray(value) ? value.map(String) : String(value) }
         }))}
         {...(rows.length > 2
