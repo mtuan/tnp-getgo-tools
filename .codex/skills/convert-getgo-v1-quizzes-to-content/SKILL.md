@@ -17,6 +17,8 @@ Never write to `content-v2`. Preserve every distinct source folder even when two
 
 - Use `raw.json` for current metadata, original text, answer, category, and explanation.
 - Use `raw.ts` for `paramsGeneratorTs`, `questionGeneratorTs`, `originParamsTs`, and the explanation generator.
+- Compile the composed current dynamic TypeScript while converting. Store the resulting non-empty `dynamic.compiledJs` and the current `dynamic.quizBuilderApiVersion`; a source-only dynamic record is not publishable.
+- Never preserve a previous `compiledJs` after changing any dynamic source field. Recompile it so the artifact cannot become stale.
 - Do not assume the `raw.ts` origin fixture is correct. Evaluate `questionGeneratorTs` with `originParamsTs` and compare the generated numeric text parameters, correct answer, and non-image choices with the canonical question in `raw.json`. Treat any mismatch as a conversion error and fix the source fixture or generator before writing output.
 - Treat serialized image data in `raw.json` as a runtime artifact, not canonical content. For `image_choice`, preserve the answer type and `asset:` choice references from `raw.ts`; never store base64 choice values.
 - Parse `raw.ts` with the TypeScript AST. Do not split `QB.template` with regular expressions.
@@ -43,9 +45,17 @@ node scripts/convert-timo-1-pr-to-content.mjs --quiz=<source-folder> --question=
 node scripts/convert-timo-1-pr-to-content.mjs --quiz=<source-folder> --question=<number> --replace
 ```
 
+To repair or upgrade compiled artifacts without reconverting question content or
+changing review status/feedback, run:
+
+```powershell
+node scripts/convert-timo-1-pr-to-content.mjs --compile-existing --dry-run
+node scripts/convert-timo-1-pr-to-content.mjs --compile-existing
+```
+
 Always run `--dry-run` first. Use `--replace` only when the request authorizes refreshing an existing topic.
 
-Before completion, verify source/output quiz counts, matching JSON/template counts, valid JSON, unique complete question IDs/orders, all four dynamic source fields, origin-fixture generation against `raw.json`, no base64 under `answer`, exact answer-choice counts, resolvable content/choice assets, and no changes under `content-v2`.
+Before completion, verify source/output quiz counts, matching JSON/template counts, valid JSON, unique complete question IDs/orders, all four dynamic source fields, a non-empty freshly generated `compiledJs` and supported `quizBuilderApiVersion` for every dynamic question, origin-fixture generation against `raw.json`, no base64 under `answer`, exact answer-choice counts, resolvable content/choice assets, and no changes under `content-v2`.
 
 If validation exposes pre-existing source defects, do not weaken or bypass the check. Correct `raw.ts` so its origin fixture reproduces the original question, then rerun `--dry-run`. This includes fixing the parameter generator when its rule cannot generate the source example.
 

@@ -51,6 +51,8 @@
     },
     "sync": "Đồng bộ",
     "syncTopic": "Đồng bộ chủ đề",
+    "topicSyncInProgress": "Đang đồng bộ chủ đề",
+    "topicSyncInProgressDescription": "Đang xuất bản nội dung chủ đề và đề thi đã thay đổi. Vui lòng giữ GetGo Tools đang mở.",
     "topicSyncComplete": "Đã đồng bộ chủ đề",
     "topicSyncCompleteDescription": "Đã đồng bộ chủ đề cùng các bài quiz mới hoặc đã thay đổi.",
     "syncing": "Đang đồng bộ {completed}/{total}",

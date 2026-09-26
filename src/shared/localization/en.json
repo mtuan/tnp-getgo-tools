@@ -51,6 +51,8 @@
     },
     "sync": "Sync",
     "syncTopic": "Sync topic",
+    "topicSyncInProgress": "Synchronizing topic",
+    "topicSyncInProgressDescription": "Publishing changed topic and quiz content. Please keep GetGo Tools open.",
     "topicSyncComplete": "Topic synchronized",
     "topicSyncCompleteDescription": "The topic and its changed or unpublished quizzes were synchronized.",
     "syncing": "Syncing {completed}/{total}",

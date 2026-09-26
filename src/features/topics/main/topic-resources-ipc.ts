@@ -25,7 +25,7 @@ export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, reposi
 ipcMain.handle(
   "marketplace:topics:publish",
   async (_event, topicId: unknown, state: unknown) => {
-    if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+    if (typeof topicId !== "string" || !/^[a-z][a-z0-9_-]*$/.test(topicId))
       throw new Error("Invalid marketplace topic ID.");
     const marketplaceState = parseMarketplaceTopicState(state);
     const root = await repositoryRoot();
@@ -112,7 +112,10 @@ ipcMain.handle("marketplace:topics:sync-all", async (_event, value: unknown) => 
   if (active) return backgroundJobsSnapshot();
   if (!firebaseAuth) throw new Error("Publishing is not initialized.");
   if (!Array.isArray(value)) throw new Error("Invalid marketplace sync plan.");
-  const idPattern = /^[a-z][a-z0-9-]*$/;
+  // Keep marketplace IDs aligned with the Content v2 repository/schema.
+  // Existing converted topics can legitimately contain underscores (for
+  // example, `timo_1_pr`).
+  const idPattern = /^[a-z][a-z0-9_-]*$/;
   const plan = value.map((item): { kind: "topic" | "quiz"; topicId: string; quizId?: string } => {
     if (!item || typeof item !== "object") throw new Error("Invalid marketplace sync item.");
     const input = item as Record<string, unknown>;

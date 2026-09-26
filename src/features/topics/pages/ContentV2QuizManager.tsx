@@ -337,9 +337,15 @@ export function ContentV2QuizManager(props: Props) {
           || dynamic.explanationGeneratorTs !== stored.dynamic?.explanationGeneratorTs
         ));
         // Review status and static-field updates are independent from generated
-        // code. Recompile only when an editable dynamic source actually changed.
+        // code. Also heal migrated/source-only records that have never produced
+        // a publishable compiled artifact.
+        const dynamicCompilationRequired = Boolean(
+          dynamic
+          && stored.type === "competition-question"
+          && (dynamicSourceChanged || !stored.dynamic?.compiledJs?.trim()),
+        );
         const compiledJs = dynamic
-          ? dynamicSourceChanged
+          ? dynamicCompilationRequired
             ? await questionService.compileDynamicDraft(question as ContestQuizQuestionRecord)
             : stored.type === "competition-question"
               ? stored.dynamic?.compiledJs
