@@ -2,7 +2,8 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, DeploymentOperation, DeploymentProduct, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import { parseEnv } from "node:util";
+import type { BackgroundJob, DeploymentOperation, DeploymentProduct, IosSigningState, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
@@ -14,6 +15,17 @@ const firebaseEnvironmentNames: Record<WebDeploymentTarget, string> = {
   staging: "STAGING",
   production: "PRODUCTION",
 };
+
+export function resolveIosSigningState(environment: Record<string, string | undefined>): IosSigningState {
+  const configuredStyle = environment.GETGO_IOS_SIGNING_STYLE?.trim().toLowerCase() || "automatic";
+  if (configuredStyle !== "automatic" && configuredStyle !== "manual") {
+    return { style: "invalid", configured: false };
+  }
+  if (configuredStyle === "automatic") return { style: "automatic", configured: true };
+  const provisioningProfile = environment.GETGO_IOS_PROVISIONING_PROFILE?.trim();
+  const certificate = environment.GETGO_IOS_SIGNING_CERTIFICATE?.trim() || "Apple Distribution";
+  return { style: "manual", configured: Boolean(provisioningProfile && certificate), provisioningProfile, certificate };
+}
 
 interface Runtime { child: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> }
 
@@ -147,6 +159,23 @@ export class NativeDeploymentJobManager {
       ...process.env,
       GETGO_ANDROID_GOOGLE_SERVICES_PATH: this.androidGoogleServicesPath(target),
     };
+  }
+
+  async iosSigningState(target: WebDeploymentTarget): Promise<IosSigningState> {
+    const root = await this.repositoryRoot();
+    const readEnvironment = async (file: string) => {
+      try { return parseEnv(await fs.readFile(file, "utf8")); }
+      catch (cause) {
+        if ((cause as NodeJS.ErrnoException).code === "ENOENT") return {};
+        throw cause;
+      }
+    };
+    const shared = await readEnvironment(path.join(root, ".env.native"));
+    const override = await readEnvironment(path.join(root, `.env.native.${target}.local`));
+    const processOverrides = Object.fromEntries(Object.entries(process.env)
+      .filter(([key, value]) => key.startsWith("GETGO_IOS_") && value?.trim()));
+    const environment = { ...shared, ...override, ...processOverrides };
+    return resolveIosSigningState(environment);
   }
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }

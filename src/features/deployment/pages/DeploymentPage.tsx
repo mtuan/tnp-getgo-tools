@@ -257,7 +257,7 @@ export function DeploymentPage({
         <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
       <div className="deployment-grid deployment-grid-native">
-        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} busy={busy} onRun={run} onOpen={platform => void window.getgo.openNativeProject(platform, environment, "web")} onViewLogs={setLogSelection} latestJob={latestJob} />
+        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} busy={busy} iosSigning={deploymentState?.iosSigning} onRun={run} onOpen={platform => void window.getgo.openNativeProject(platform, environment, "web")} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
     </> : <>
       <div className="deployment-grid deployment-grid-app">

@@ -86,9 +86,13 @@ export function registerBackgroundJobsIpc(
     }
     return snapshot();
   });
-  ipcMain.handle("deployment:state", (_event, target: unknown) => {
+  ipcMain.handle("deployment:state", async (_event, target: unknown) => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
-    return webDeploymentJobs.state(target);
+    const [state, iosSigning] = await Promise.all([
+      webDeploymentJobs.state(target),
+      nativeDeploymentJobs.iosSigningState(target),
+    ]);
+    return { ...state, iosSigning };
   });
   const runtime = (value: unknown) => {
     if (value === "design") return localDesignRuntime;

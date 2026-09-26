@@ -616,6 +616,12 @@ export interface DeploymentComponentState {
   deployedVersion?: string;
   items: DeploymentItemState[];
 }
+export interface IosSigningState {
+  style: "automatic" | "manual" | "invalid";
+  configured: boolean;
+  provisioningProfile?: string;
+  certificate?: string;
+}
 export interface DeploymentStateSnapshot {
   target: WebDeploymentTarget;
   firebaseProject: string;
@@ -624,6 +630,7 @@ export interface DeploymentStateSnapshot {
   webUrl: string;
   rules: DeploymentComponentState;
   web: DeploymentComponentState;
+  iosSigning?: IosSigningState;
 }
 export interface LocalWebRuntimeSnapshot {
   status: "offline" | "starting" | "online" | "error";

@@ -1,5 +1,5 @@
 import { Apple, ExternalLink, Eye, PackageCheck, Play, Smartphone, UploadCloud } from "lucide-react";
-import type { AppSettings, BackgroundJob, DeploymentComponent, DeploymentOperation } from "../../../shared/domain/models";
+import type { AppSettings, BackgroundJob, DeploymentComponent, DeploymentOperation, IosSigningState } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { LastDeploymentJobStatus } from "./LastDeploymentJobStatus";
 import en from "../../../shared/localization/en.json";
@@ -13,11 +13,12 @@ interface NativeDeploymentCardsProps {
   onOpen(platform: "ios" | "android"): void;
   onViewLogs(component: DeploymentComponent): void;
   latestJob(component: DeploymentComponent): BackgroundJob | undefined;
+  iosSigning?: IosSigningState;
   product?: "web" | "app";
   runOnly?: boolean;
 }
 
-export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen, onViewLogs, latestJob, product = "web", runOnly = false }: NativeDeploymentCardsProps) {
+export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen, onViewLogs, latestJob, iosSigning, product = "web", runOnly = false }: NativeDeploymentCardsProps) {
   const copy = (locale === "vi" ? vi : en).deployment;
   const renderCard = (platform: "ios" | "android") => {
     const component = `mobile-${platform}` as const;
@@ -38,6 +39,17 @@ export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen,
               {runOnly
                 ? <><div><dt>{copy.nativeEnvironment}</dt><dd>{copy.expoDevelopmentBuild}</dd></div><div><dt>{copy.nativePlatform}</dt><dd>{isIos ? "iOS Simulator" : "Android Emulator"}</dd></div></>
                 : <><div><dt>{copy.nativeArtifact}</dt><dd>{isIos ? "IPA" : "AAB"}</dd></div><div><dt>{copy.nativeDistribution}</dt><dd>{isIos ? "TestFlight / App Store" : "Google Play"}</dd></div></>}
+              {isIos && !runOnly && <div>
+                <dt>{copy.iosSigning}</dt>
+                <dd>
+                  <ui.StatusBadge
+                    tone={!iosSigning ? "neutral" : iosSigning.style === "automatic" ? "info" : iosSigning.configured ? "primary" : "danger"}
+                    title={iosSigning?.provisioningProfile}
+                  >
+                    {!iosSigning ? copy.iosSigningLoading : iosSigning.style === "automatic" ? copy.iosSigningAutomatic : iosSigning.style === "invalid" ? copy.iosSigningInvalid : iosSigning.configured ? copy.iosSigningManual : copy.iosSigningIncomplete}
+                  </ui.StatusBadge>
+                </dd>
+              </div>}
             </dl>
             <LastDeploymentJobStatus job={latestJob(component)} locale={locale} />
             {active?.progressLabel && <p className="deployment-active-progress">{active.progressLabel}</p>}
