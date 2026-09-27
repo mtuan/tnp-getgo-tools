@@ -22,6 +22,7 @@ export interface RuntimeQuestion extends Record<string, unknown> {
     type: string;
     correct: string | number | string[];
     inputType?: "text" | "number" | "date";
+    solutionRequired?: boolean;
     choices?: Record<string, unknown>;
     inputs?: Array<{
       question_en: string;
@@ -29,6 +30,7 @@ export interface RuntimeQuestion extends Record<string, unknown> {
       correct?: string;
       inputType?: "text" | "number" | "date";
       unit?: string;
+      solutionRequired?: boolean;
     }>;
     unit?: string;
     otherChoiceKey?: string;

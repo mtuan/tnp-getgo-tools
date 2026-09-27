@@ -10,9 +10,11 @@ export interface EditableAnswer extends Record<string, unknown> {
     inputType?: "text" | "number" | "date"
     orderRequired?: boolean
     unit?: string
+    solutionRequired?: boolean
   }>
   unit?: string
   inputType?: string
+  solutionRequired?: boolean
   orderRequired?: boolean
   fixed?: boolean
   otherChoiceKey?: string

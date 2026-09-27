@@ -16,6 +16,7 @@ export interface PublishedContestQuestion {
     type: IQuizAnswer["type"];
     correct: string | number | string[];
     inputType?: "text" | "number" | "date";
+    solutionRequired?: boolean;
     orderRequired?: boolean;
     choices?: Record<string, string | number | Record<string, unknown>>;
     inputs?: Array<{
@@ -26,6 +27,7 @@ export interface PublishedContestQuestion {
       inputType?: "text" | "number" | "date";
       orderRequired?: boolean;
       unit?: string;
+      solutionRequired?: boolean;
     }>;
     unit?: string;
     otherChoiceKey?: string;
@@ -193,6 +195,11 @@ export function sanitizePublishedQuestion(
       throw new Error(`Question ${questionNo} answer.inputType is invalid.`);
     result.answer.inputType = answer.inputType as "text" | "number" | "date";
   }
+  if (answer.solutionRequired !== undefined) {
+    if (answer.type !== "input" || typeof answer.solutionRequired !== "boolean")
+      throw new Error(`Question ${questionNo} answer.solutionRequired is invalid.`);
+    if (answer.solutionRequired) result.answer.solutionRequired = true;
+  }
   if (answer.orderRequired !== undefined) {
     if (answer.type !== "multiple_answer" || typeof answer.orderRequired !== "boolean")
       throw new Error(`Question ${questionNo} answer.orderRequired is invalid.`);
@@ -225,6 +232,8 @@ export function sanitizePublishedQuestion(
         throw new Error(`Question ${questionNo} input part ${index + 1} orderRequired is invalid.`);
       if (part.unit !== undefined && typeof part.unit !== "string")
         throw new Error(`Question ${questionNo} input part ${index + 1} unit is invalid.`);
+      if (part.solutionRequired !== undefined && typeof part.solutionRequired !== "boolean")
+        throw new Error(`Question ${questionNo} input part ${index + 1} solutionRequired is invalid.`);
       return {
         question_en: part.question_en,
         ...(typeof part.question_vn === "string" && part.question_vn ? { question_vn: part.question_vn } : {}),
@@ -233,6 +242,7 @@ export function sanitizePublishedQuestion(
         ...(typeof part.inputType === "string" ? { inputType: part.inputType as "text" | "number" | "date" } : {}),
         ...(partType === "multiple_answer" && part.orderRequired === true ? { orderRequired: true } : {}),
         ...(typeof part.unit === "string" && part.unit ? { unit: part.unit } : {}),
+        ...(part.solutionRequired === true ? { solutionRequired: true } : {}),
       };
     });
   }
