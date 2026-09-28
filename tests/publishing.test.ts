@@ -308,9 +308,9 @@ test("publishes multiple-answer values through the shared contract", () => {
   const question = sanitizePublishedQuestion({
     question_no: 1,
     text_en: "Enter all prime factors",
-    answer: { type: "multiple_answer", correct: ["2", "3", "5"], inputType: "number", orderRequired: true },
+    answer: { type: "multiple_answer", correct: ["2", "3", "5"], inputType: "number", orderRequired: true, separator: "×" },
   });
-  assert.deepEqual(question.answer, { type: "multiple_answer", correct: ["2", "3", "5"], inputType: "number", orderRequired: true });
+  assert.deepEqual(question.answer, { type: "multiple_answer", correct: ["2", "3", "5"], inputType: "number", orderRequired: true, separator: "×" });
 });
 
 test("AI and review changes do not affect hashes, but dynamic code changes do", () => {
@@ -431,6 +431,7 @@ test("publishes multiple-answer controls inside nested questions", () => {
           type: "multiple_answer",
           correct: ["345", "354", "435"],
           inputType: "number",
+          separator: "+",
         },
         {
           question_en: "Find their sum",
@@ -446,6 +447,7 @@ test("publishes multiple-answer controls inside nested questions", () => {
     type: "multiple_answer",
     correct: ["345", "354", "435"],
     inputType: "number",
+    separator: "+",
   });
   assert.deepEqual(question.answer.inputs?.[1], {
     question_en: "Find their sum",

@@ -18,6 +18,7 @@ export interface PublishedContestQuestion {
     inputType?: "text" | "number" | "date";
     solutionRequired?: boolean;
     orderRequired?: boolean;
+    separator?: string;
     choices?: Record<string, string | number | Record<string, unknown>>;
     inputs?: Array<{
       question_en: string;
@@ -26,6 +27,7 @@ export interface PublishedContestQuestion {
       correct?: string | string[];
       inputType?: "text" | "number" | "date";
       orderRequired?: boolean;
+      separator?: string;
       unit?: string;
       solutionRequired?: boolean;
     }>;
@@ -205,6 +207,11 @@ export function sanitizePublishedQuestion(
       throw new Error(`Question ${questionNo} answer.orderRequired is invalid.`);
     result.answer.orderRequired = answer.orderRequired;
   }
+  if (answer.separator !== undefined) {
+    if (answer.type !== "multiple_answer" || typeof answer.separator !== "string")
+      throw new Error(`Question ${questionNo} answer.separator is invalid.`);
+    if (answer.separator) result.answer.separator = answer.separator;
+  }
   if (answer.inputs !== undefined) {
     if (!Array.isArray(answer.inputs))
       throw new Error(`Question ${questionNo} answer.inputs must be an array.`);
@@ -230,6 +237,8 @@ export function sanitizePublishedQuestion(
         throw new Error(`Question ${questionNo} input part ${index + 1} inputType is invalid.`);
       if (part.orderRequired !== undefined && (partType !== "multiple_answer" || typeof part.orderRequired !== "boolean"))
         throw new Error(`Question ${questionNo} input part ${index + 1} orderRequired is invalid.`);
+      if (part.separator !== undefined && (partType !== "multiple_answer" || typeof part.separator !== "string"))
+        throw new Error(`Question ${questionNo} input part ${index + 1} separator is invalid.`);
       if (part.unit !== undefined && typeof part.unit !== "string")
         throw new Error(`Question ${questionNo} input part ${index + 1} unit is invalid.`);
       if (part.solutionRequired !== undefined && typeof part.solutionRequired !== "boolean")
@@ -241,6 +250,7 @@ export function sanitizePublishedQuestion(
         correct: Array.isArray(partCorrect) ? [...partCorrect] : String(partCorrect),
         ...(typeof part.inputType === "string" ? { inputType: part.inputType as "text" | "number" | "date" } : {}),
         ...(partType === "multiple_answer" && part.orderRequired === true ? { orderRequired: true } : {}),
+        ...(partType === "multiple_answer" && typeof part.separator === "string" && part.separator ? { separator: part.separator } : {}),
         ...(typeof part.unit === "string" && part.unit ? { unit: part.unit } : {}),
         ...(part.solutionRequired === true ? { solutionRequired: true } : {}),
       };

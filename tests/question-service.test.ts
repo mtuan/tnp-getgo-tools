@@ -183,11 +183,11 @@ test("question service converts multiple answers into an editable dynamic draft"
   const draft = questionService.createDynamicDraft({
     question_no: 9,
     text_en: "Enter every prime factor",
-    answer: { type: "multiple_answer", correct: ["2", "3", "5"] },
+    answer: { type: "multiple_answer", correct: ["2", "3", "5"], separator: "×" },
   } as QuizQuestionRecord)
 
   assert.match(draft.advancedDynamic?.paramsGeneratorTs ?? "", /return \{\}/)
-  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.multiple\(\[\s*2,\s*3,\s*5\s*\]\)/)
+  assert.match(draft.advancedDynamic?.questionGeneratorTs ?? "", /QB\.answer\.multiple\(\[\s*2,\s*3,\s*5\s*\],\s*\{\s*separator:\s*["']×["']\s*\}\)/)
   assert.doesNotMatch(draft.advancedDynamic?.questionGeneratorTs ?? "", /type:\s*["']multiple_answer/)
 })
 

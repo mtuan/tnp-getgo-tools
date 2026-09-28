@@ -239,12 +239,21 @@ function QuestionPreviewContent({
                   textVn={indexedPartText(part.question_vn, index)}
                   supportedLanguages={supportedLanguages}
                 />
-                <CorrectAnswerPreview value={part.correct ?? correct[index] ?? ""} unit={part.unit} />
+                <CorrectAnswerPreview
+                  value={Array.isArray(part.correct)
+                    ? part.correct.map(String).join(typeof part.separator === "string" ? ` ${part.separator} ` : "; ")
+                    : part.correct ?? correct[index] ?? ""}
+                  unit={part.unit}
+                />
               </section>
             ))}
           </div>
         ) : isMultipleAnswer ? (
-          <CorrectAnswerPreview value={correct.join("; ")} />
+          <CorrectAnswerPreview value={correct.join(
+            typeof question.answer.separator === "string" && question.answer.separator
+              ? ` ${question.answer.separator} `
+              : "; ",
+          )} />
         ) : choices.length ? (
           <div className="question-preview-choices">
             {choices.map(([label, value]) => (
