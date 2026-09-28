@@ -33,6 +33,11 @@ import { registerAvatarSetIpc } from "../../features/avatar-sets/main/avatar-set
 import { registerScreenshotProjectIpc } from "../../features/screenshot-manager/main/screenshot-project-ipc.js";
 import { registerDesignProjectIpc } from "../../features/design-projects/main/design-project-ipc.js";
 import { assertRepositoryContentSafe, setContentSafetyWarningHandler } from "../../features/content-safety/repository/content-safety-repository.js";
+import {
+  GETGO_TOOLS_PROTOCOL,
+  routeFromGetGoToolsArguments,
+  routeFromGetGoToolsUrl,
+} from "../../shared/domain/app-deep-link.js";
 
 const environmentRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
 const privateEnvironmentPath = app.isPackaged
@@ -73,6 +78,7 @@ let isQuitting = false;
 let rendererRecoveryTimer: NodeJS.Timeout | null = null;
 let rendererRecoveryAttempts: number[] = [];
 let relaunchScheduled = false;
+let pendingDeepLinkRoute = routeFromGetGoToolsArguments(process.argv);
 
 const rendererRecoveryWindowMs = 60_000;
 const maxRendererRecoveryAttempts = 3;
@@ -80,12 +86,38 @@ const maxRendererRecoveryAttempts = 3;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 else
-  app.on("second-instance", () => {
+  app.on("second-instance", (_event, commandLine) => {
+    const route = routeFromGetGoToolsArguments(commandLine);
+    if (route) openDeepLinkRoute(route);
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
       mainWindow.focus();
     }
   });
+
+const protocolArguments = process.defaultApp && process.argv[1]
+  ? [path.resolve(process.argv[1])]
+  : undefined;
+app.setAsDefaultProtocolClient(
+  GETGO_TOOLS_PROTOCOL,
+  protocolArguments ? process.execPath : undefined,
+  protocolArguments,
+);
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  const route = routeFromGetGoToolsUrl(url);
+  if (route) openDeepLinkRoute(route);
+});
+
+function openDeepLinkRoute(route: string): void {
+  const window = mainWindow;
+  if (!window || window.isDestroyed() || window.webContents.isLoadingMainFrame()) {
+    pendingDeepLinkRoute = route;
+    return;
+  }
+  window.webContents.send("app:open-route", route);
+}
 
 function createWindow(): void {
   startupLog("Creating main window");
@@ -180,6 +212,10 @@ function createWindow(): void {
   });
   mainWindow.webContents.once("did-finish-load", () => {
     startupLog("Renderer finished loading");
+    if (pendingDeepLinkRoute) {
+      mainWindow?.webContents.send("app:open-route", pendingDeepLinkRoute);
+      pendingDeepLinkRoute = null;
+    }
   });
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     startupLog("Renderer process gone", {

@@ -294,7 +294,7 @@ export const competitionQuestionV2Schema = z.object({
   assets: z.array(z.string().startsWith("asset:")).default([]),
   answer: z.record(z.unknown()),
   explanation: z
-    .object({ en: z.string(), vi: z.string().optional() })
+    .object({ en: z.string().optional(), vi: z.string().optional() })
     .optional(),
   feedback: z
     .object({

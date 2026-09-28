@@ -387,14 +387,15 @@ export function App() {
     quizBackAction.current = action;
     setCanNavigateBack(Boolean(action));
   }, []);
-  function goToRoute(route: string) {
+  const goToRoute = useCallback((route: string) => {
     const nextRoute = normalizedRoute(route);
     const nextView = viewFromRoute(nextRoute);
     if (nextView !== "quizzes") updateQuizBackAction(null);
     setView(nextView);
     setCurrentRoute(nextRoute);
     setRouteRequest((request) => ({ route: nextRoute, key: request.key + 1 }));
-  }
+  }, [updateQuizBackAction]);
+  useEffect(() => window.getgo.onOpenRoute(goToRoute), [goToRoute]);
   function refreshCurrentRoute() {
     setRouteDraft(currentRoute);
     setRouteRequest((request) => ({

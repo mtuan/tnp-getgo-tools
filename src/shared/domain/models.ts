@@ -749,6 +749,7 @@ export interface SafeWordSyncStatus {
 }
 export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi, ScreenshotManagerDesktopApi, DesignProjectsDesktopApi {
   restartApp(): Promise<void>;
+  onOpenRoute(listener: (route: string) => void): () => void;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
   loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;
   detectImagePdfOrientations(paths: string[]): Promise<ImagePdfOrientation[]>;

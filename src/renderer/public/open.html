@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open GetGo Tools</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { display: grid; min-height: 100vh; margin: 0; place-items: center; }
+      main { max-width: 32rem; padding: 2rem; text-align: center; }
+      a { color: LinkText; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>Opening GetGo Tools…</p>
+      <p><a id="open-link" href="getgo-tools:///dashboard">Open GetGo Tools</a></p>
+    </main>
+    <script>
+      const route = new URLSearchParams(window.location.search).get("route") || "/dashboard";
+      const allowedRoute = /^\/(dashboard|feedbacks|jobs|deploy|image-pdf|screenshots|designs|avatar-sets|payments|payment-packages|safe-words|settings|topics|quizzes)(?:\/|$)/.test(route)
+        ? route
+        : "/dashboard";
+      const target = `getgo-tools:///${allowedRoute.replace(/^\//, "")}`;
+      const link = document.getElementById("open-link");
+      link.href = target;
+      window.location.replace(target);
+    </script>
+  </body>
+</html>
