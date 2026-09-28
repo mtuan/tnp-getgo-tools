@@ -69,6 +69,13 @@ const appIconPath = app.isPackaged
   : path.join(app.getAppPath(), "src/renderer/public/icons/getgo-app-icon.png");
 let mainWindow: BrowserWindow | null = null;
 let firebaseAuth: FirebaseAuthService | null = null;
+let isQuitting = false;
+let rendererRecoveryTimer: NodeJS.Timeout | null = null;
+let rendererRecoveryAttempts: number[] = [];
+let relaunchScheduled = false;
+
+const rendererRecoveryWindowMs = 60_000;
+const maxRendererRecoveryAttempts = 3;
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
@@ -101,6 +108,8 @@ function createWindow(): void {
     },
   });
   mainWindow.on("closed", () => {
+    if (rendererRecoveryTimer) clearTimeout(rendererRecoveryTimer);
+    rendererRecoveryTimer = null;
     mainWindow = null;
   });
   const syncWindowTheme = () => mainWindow?.setBackgroundColor(windowBackground());
@@ -117,6 +126,53 @@ function createWindow(): void {
     webPreferences.sandbox = true;
   });
   const devUrl = process.env.VITE_DEV_SERVER_URL;
+  const loadRenderer = async (clearDevelopmentCache = false): Promise<void> => {
+    const window = mainWindow;
+    if (!window || window.isDestroyed()) return;
+    if (devUrl) {
+      if (clearDevelopmentCache) await window.webContents.session.clearCache();
+      await window.loadURL(devUrl);
+      return;
+    }
+    await window.loadFile(path.join(currentDirectory, "../../renderer/index.html"));
+  };
+  const recoverRenderer = (trigger: string, details: Record<string, unknown>): void => {
+    if (isQuitting || relaunchScheduled || rendererRecoveryTimer) return;
+    const now = Date.now();
+    rendererRecoveryAttempts = rendererRecoveryAttempts.filter(
+      attemptedAt => now - attemptedAt < rendererRecoveryWindowMs,
+    );
+    startupLog("Renderer recovery requested", {
+      trigger,
+      attempt: rendererRecoveryAttempts.length + 1,
+      ...details,
+    });
+    if (rendererRecoveryAttempts.length >= maxRendererRecoveryAttempts) {
+      relaunchScheduled = true;
+      startupLog("Renderer recovery exhausted; relaunching application", {
+        trigger,
+        attempts: rendererRecoveryAttempts.length,
+      });
+      setTimeout(() => {
+        app.relaunch();
+        app.exit(0);
+      }, 500);
+      return;
+    }
+    rendererRecoveryAttempts.push(now);
+    rendererRecoveryTimer = setTimeout(() => {
+      rendererRecoveryTimer = null;
+      void loadRenderer(true)
+        .then(() => startupLog("Renderer recovery load completed", { trigger }))
+        .catch(cause => {
+          startupLog("Renderer recovery load failed", {
+            trigger,
+            message: cause instanceof Error ? cause.message : String(cause),
+          });
+          recoverRenderer("recovery-load-failed", { previousTrigger: trigger });
+        });
+    }, 500);
+  };
   mainWindow.webContents.on("console-message", event => {
     const { level, message, lineNumber, sourceId } = event;
     if (level === "error" || message.startsWith("[GetGo Tools][Renderer startup]"))
@@ -125,15 +181,45 @@ function createWindow(): void {
   mainWindow.webContents.once("did-finish-load", () => {
     startupLog("Renderer finished loading");
   });
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    startupLog("Renderer process gone", {
+      reason: details.reason,
+      exitCode: details.exitCode,
+    });
+    recoverRenderer("render-process-gone", {
+      reason: details.reason,
+      exitCode: details.exitCode,
+    });
+  });
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      if (!isMainFrame || errorCode === -3) return;
+      startupLog("Renderer failed loading", {
+        errorCode,
+        errorDescription,
+        validatedURL,
+      });
+      recoverRenderer("did-fail-load", {
+        errorCode,
+        errorDescription,
+        validatedURL,
+      });
+    },
+  );
   // A rebuilt Vite dependency may retain a URL previously cached by Electron.
   // Clear HTTP cache for development only; preserve cookies/auth/storage.
-  if (devUrl) void mainWindow.webContents.session.clearCache()
-    .then(() => mainWindow?.loadURL(devUrl))
-    .catch(cause => startupLog("Development renderer load failed", { message: String(cause) }));
-  else
-    void mainWindow.loadFile(
-      path.join(currentDirectory, "../../renderer/index.html"),
-    );
+  if (devUrl) void loadRenderer(true)
+    .catch(cause => {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      startupLog("Development renderer load failed", { message });
+      recoverRenderer("initial-load-failed", { message });
+    });
+  else void loadRenderer().catch(cause => {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    startupLog("Packaged renderer load failed", { message });
+    recoverRenderer("initial-load-failed", { message });
+  });
 }
 
 const isAllowedDevicePreviewUrl = (value: string): boolean => {
@@ -381,4 +467,8 @@ app.whenReady().then(async () => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  isQuitting = true;
 });
