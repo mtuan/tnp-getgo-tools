@@ -27,8 +27,11 @@ export function FourLetterIcon({ code, theme = "violet", label, className = "" }
   const accessibleText = rows.filter(Boolean).join(" ")
   const resolvedColor = textContentIconColors[theme]
   return <span className={`four-letter-icon ${className}`.trim()} style={{ "--monogram-border": resolvedColor, "--monogram-from": resolvedColor, "--monogram-to": resolvedColor } as CSSProperties} role="img" aria-label={label ? `${label} (${accessibleText})` : accessibleText}>
-    {rows.map((row, rowIndex) => <span className="four-letter-icon-row" style={{ "--monogram-characters": Math.max(1, Array.from(row).length) } as CSSProperties} aria-hidden="true" key={rowIndex}>
-      <span>{row}</span>
-    </span>)}
+    {rows.map((row, rowIndex) => {
+      const characters = Array.from(row)
+      return <span className="four-letter-icon-row" style={{ "--monogram-columns": Math.max(1, characters.length) } as CSSProperties} aria-hidden="true" key={rowIndex}>
+        {characters.map((character, columnIndex) => <span key={columnIndex}>{character}</span>)}
+      </span>
+    })}
   </span>
 }
