@@ -24,6 +24,14 @@ type Session = {
   user: AuthUser;
 };
 
+function tokenClaims(idToken: string): Record<string, unknown> {
+  try {
+    return JSON.parse(Buffer.from(idToken.split('.')[1] ?? '', 'base64url').toString('utf8')) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 function isFirebaseIdToken(value: string): boolean {
   const parts = value.split(".");
   if (parts.length !== 3 || !parts.every(Boolean)) return false;
@@ -336,17 +344,17 @@ export class FirebaseAuthService {
     relativePath: string,
     init: RequestInit = {},
   ): Promise<{ projectId: string; response: Response }> {
-    const session = await this.activeSession();
+    let session = await this.activeSession();
     if (!session) throw new Error("Sign in before accessing Firestore.");
     const {
       firebase: { projectId },
     } = await this.config();
-    const response = await fetchWithRetry(
+    const request = (active: Session) => fetchWithRetry(
       `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents${relativePath}`,
       {
         ...init,
         headers: {
-          authorization: `Bearer ${session.idToken}`,
+          authorization: `Bearer ${active.idToken}`,
           "content-type": "application/json",
           ...init.headers,
         },
@@ -354,7 +362,36 @@ export class FirebaseAuthService {
       `Firestore request ${relativePath}`,
       30_000,
     );
+    let response = await request(session);
+    if (response.status === 401 || response.status === 403) {
+      await response.body?.cancel().catch(() => undefined);
+      session = await this.activeSession(true);
+      if (!session) throw new Error("Your Firebase session expired. Sign in again before publishing.");
+      response = await request(session);
+    }
     return { projectId, response };
+  }
+
+  async authorizationContext(): Promise<{
+    environment: GetGoEnvironment;
+    projectId: string;
+    uid: string;
+    email: string;
+    contentPublisher: boolean;
+    contentAdmin: boolean;
+  }> {
+    const session = await this.activeSession();
+    if (!session) throw new Error("Sign in before accessing Firestore.");
+    const { environment, firebase } = await this.config();
+    const claims = tokenClaims(session.idToken);
+    return {
+      environment,
+      projectId: firebase.projectId,
+      uid: session.user.uid,
+      email: session.user.email,
+      contentPublisher: claims.contentPublisher === true,
+      contentAdmin: claims.contentAdmin === true,
+    };
   }
   private async storageTarget(forceRefresh = false): Promise<{
     session: Session;

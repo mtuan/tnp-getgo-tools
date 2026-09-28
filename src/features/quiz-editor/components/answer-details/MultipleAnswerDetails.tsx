@@ -12,10 +12,11 @@ export function MultipleAnswerDetails({ answer, onChange }: AnswerDetailsProps) 
       { name: "inputType", label: "Data type", type: "select", options: [{ value: "number", label: "Numeric" }, { value: "text", label: "Text" }] },
       { name: "orderRequired", label: "Order", type: "select", options: [{ value: "false", label: "Unordered" }, { value: "true", label: "Ordered" }] },
     ],
+    { name: "separator", label: "Separator", type: "text", placeholder: "Optional, for example +", helper: "Displayed between answer tags. Leave empty for no separator." },
   ]
   return <Form
     fields={fields}
-    values={{ correct: valuesFrom(answer.correct), inputType: answer.inputType === "text" ? "text" : "number", orderRequired: String(answer.orderRequired === true) }}
+    values={{ correct: valuesFrom(answer.correct), inputType: answer.inputType === "text" ? "text" : "number", orderRequired: String(answer.orderRequired === true), separator: String(answer.separator ?? "") }}
     autoFocus={false}
     onChange={(name, value) => onChange({
       ...answer,
@@ -25,6 +26,7 @@ export function MultipleAnswerDetails({ answer, onChange }: AnswerDetailsProps) 
       correct: name === "correct" ? value : valuesFrom(answer.correct),
       inputType: name === "inputType" ? String(value) : answer.inputType === "text" ? "text" : "number",
       orderRequired: name === "orderRequired" ? value === "true" : answer.orderRequired === true,
+      separator: name === "separator" ? String(value) || undefined : answer.separator,
     })}
   />
 }

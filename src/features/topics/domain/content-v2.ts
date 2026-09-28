@@ -7,7 +7,10 @@ export { localizedText, type LocalizedText } from "../../../shared/domain/locali
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-export const contentV2QuizPublishContractVersion = 14;
+// v15 enriches question image asset references with intrinsic width/height metadata.
+// Bumping the contract makes existing published quiz bundles stale so their
+// questions and assets are synchronized together once under the new format.
+export const contentV2QuizPublishContractVersion = 15;
 // Increment when topic documents or shared topic-asset publication changes.
 export const contentV2TopicPublishContractVersion = 3;
 
@@ -294,7 +297,7 @@ export const competitionQuestionV2Schema = z.object({
   assets: z.array(z.string().startsWith("asset:")).default([]),
   answer: z.record(z.unknown()),
   explanation: z
-    .object({ en: z.string(), vi: z.string().optional() })
+    .object({ en: z.string().optional(), vi: z.string().optional() })
     .optional(),
   feedback: z
     .object({

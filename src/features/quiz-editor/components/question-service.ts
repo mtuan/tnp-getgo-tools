@@ -23,12 +23,17 @@ export interface RuntimeQuestion extends Record<string, unknown> {
     correct: string | number | string[];
     inputType?: "text" | "number" | "date";
     solutionRequired?: boolean;
+    orderRequired?: boolean;
+    separator?: string;
     choices?: Record<string, unknown>;
     inputs?: Array<{
       question_en: string;
       question_vn?: string;
-      correct?: string;
+      correct?: string | string[];
+      type?: "input" | "multiple_answer";
       inputType?: "text" | "number" | "date";
+      orderRequired?: boolean;
+      separator?: string;
       unit?: string;
       solutionRequired?: boolean;
     }>;

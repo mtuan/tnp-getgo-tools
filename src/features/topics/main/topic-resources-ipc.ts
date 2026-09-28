@@ -11,6 +11,7 @@ import type { FirestorePublishingService } from "./firestore-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
+import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
 interface Dependencies {
   mainWindow: BrowserWindow;
@@ -199,12 +200,13 @@ ipcMain.handle(
       typeof questionId !== "string"
     )
       throw new Error("Invalid question selection.");
-    return loadContentV2Question(
-      await repositoryRoot(),
+    const root = await repositoryRoot();
+    return withQuestionAssetDimensions(root, topicId, quizId, await loadContentV2Question(
+      root,
       topicId,
       quizId,
       questionId,
-    );
+    ));
   },
 );
 ipcMain.handle(

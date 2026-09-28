@@ -13,6 +13,7 @@ import { reviewAllContentV2Questions } from "../repository/content-v2-question-r
 import { parseMarketplaceTopicState } from "./marketplace-sync.js";
 import { setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
 import { contentTopicsRoot } from "../repository/content-source.js";
+import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
 interface Dependencies { repositoryRoot(): Promise<string> }
 const idPattern = /^[a-z][a-z0-9_-]*$/;
@@ -77,7 +78,8 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
       loadContentV2Topic(root, topicId),
       loadContentV2Quiz(root, topicId, quizId),
     ]);
-    return saveContentV2Question(root, topic, quiz, value);
+    return saveContentV2Question(root, topic, quiz,
+      await withQuestionAssetDimensions(root, topicId, quizId, value));
   });
 
   ipcMain.handle("content-v2:questions:review-all", async (_event, topicIdValue: unknown, quizIdValue: unknown) => {

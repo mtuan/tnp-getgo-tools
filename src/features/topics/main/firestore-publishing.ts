@@ -801,7 +801,28 @@ export class FirestorePublishingService {
         `${parentPath}/${collectionId}?${query}`,
       );
       if (response.status === 404) return documents;
-      if (!response.ok) throw await responseError(response);
+      if (!response.ok) {
+        const cause = await responseError(response);
+        if (response.status === 401 || response.status === 403) {
+          const context = await this.auth.authorizationContext();
+          console.error('[GetGo Tools][Firestore publishing][authorization denied]', {
+            ...context,
+            operation: 'listDocuments',
+            parentPath,
+            collectionId,
+            status: response.status,
+          });
+          throw new Error(
+            `Publishing access denied for ${context.email} in ${context.environment} `
+            + `(${context.projectId}) while listing ${parentPath}/${collectionId}. `
+            + `Publisher claims: contentPublisher=${context.contentPublisher}, `
+            + `contentAdmin=${context.contentAdmin}. Verify this account is an admin `
+            + `under the deployed Firestore rules.`,
+            { cause },
+          );
+        }
+        throw cause;
+      }
       const payload = (await response.json()) as {
         documents?: FirestoreDocument[];
         nextPageToken?: string;

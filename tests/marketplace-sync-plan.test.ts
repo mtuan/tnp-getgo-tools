@@ -47,6 +47,20 @@ test("sync preview hydrates topics whose changed quiz readiness is not loaded", 
   );
 });
 
+test("a clean published contract migration is actionable from the lightweight overview", () => {
+  const topics = [
+    { id: "ikmc", title: "IKMC", localHash: "same", publishedHash: "same", marketplaceLocalHash: "same", marketplacePublishedHash: "same", marketplace: { state: "listed" } },
+  ];
+  const quizzes = [
+    { key: "ikmc/migrate", id: "migrate", topicId: "ikmc", title: "Migrate", localHash: "publish-contract-v15", publishedHash: "old", questionCount: 0, reviewedQuestionCount: 0, publishContractStale: true, publishStateDirty: false, marketplace: { state: "listed" } },
+  ];
+  const plan = marketplaceSyncPlan(topics as never, quizzes as never);
+
+  assert.equal(marketplaceSyncPlanStatus(plan, "topic", "ikmc"), "needs-sync");
+  assert.equal(marketplaceSyncPlanStatus(plan, "quiz", "ikmc/migrate"), "needs-sync");
+  assert.ok(plan.some((item) => item.kind === "quiz" && item.quiz.key === "ikmc/migrate" && item.ready));
+});
+
 test("unreviewed quiz changes do not create an empty actionable topic row", () => {
   const topics = [{ id: "ikmc", title: "IKMC", localHash: "topic", publishedHash: "topic", marketplaceLocalHash: "market", marketplacePublishedHash: "market", marketplace: { state: "listed" } }];
   const quizzes = [

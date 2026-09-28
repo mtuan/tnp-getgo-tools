@@ -5,7 +5,19 @@ import type {
   RepositoryViewData,
 } from "../shared/domain/models.js";
 
+const routeListeners = new Set<(route: string) => void>();
+const pendingRoutes: string[] = [];
+ipcRenderer.on("app:open-route", (_event, route: string) => {
+  if (routeListeners.size === 0) pendingRoutes.push(route);
+  else routeListeners.forEach((listener) => listener(route));
+});
+
 const api: DesktopApi = {
+  onOpenRoute: (listener) => {
+    routeListeners.add(listener);
+    pendingRoutes.splice(0).forEach((route) => listener(route));
+    return () => routeListeners.delete(listener);
+  },
   listDesignProjects: () => ipcRenderer.invoke("designs:projects:list"),
   createDesignProject: (input) => ipcRenderer.invoke("designs:projects:create", input),
   updateDesignProject: (id, input) => ipcRenderer.invoke("designs:projects:update", id, input),

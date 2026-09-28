@@ -5414,12 +5414,12 @@ tbody tr:hover {
 }
 .four-letter-icon-row > span {
   display: grid;
-  width: 100%;
+  width: calc(100% / var(--monogram-columns));
   min-width: 0;
   min-height: 0;
   place-items: center;
   font-family: "Arial Black", Impact, system-ui, sans-serif;
-  font-size: min(35cqi, calc(150cqi / var(--monogram-characters)));
+  font-size: min(35cqi, calc(88cqi / var(--monogram-columns)));
   font-weight: 900;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -8319,6 +8319,26 @@ button.danger svg {
   max-width: 100%;
   height: auto;
   object-fit: contain;
+}
+.question-preview-asset {
+  position: relative;
+  display: inline-grid;
+  min-width: 64px;
+  min-height: 64px;
+  place-items: center;
+  overflow: hidden;
+}
+.question-preview-asset > img {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.question-preview-asset > img.is-loaded {
+  visibility: visible;
+}
+.question-preview-asset > .mini-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
 }
 .question-preview-choices img {
   display: block;

@@ -8,6 +8,7 @@ import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-s
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
+import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
 interface Dependencies { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; publishJobs: PublishJobManager; firebaseAuth: FirebaseAuthService }
 export function registerContentV2PublishingIpc(ipcMain: IpcMain, { repositoryRoot, publishing, publishJobs, firebaseAuth }: Dependencies): void {
@@ -121,7 +122,7 @@ ipcMain.handle(
             )
             .sort((left, right) => left.order - right.order)
             .map((question) => question.id);
-          const [questions, resources] = await Promise.all([
+          const [rawQuestions, resources] = await Promise.all([
             Promise.all(
               questionIds.map((questionId) =>
                 loadContentV2Question(
@@ -134,6 +135,8 @@ ipcMain.handle(
             ),
             loadContentV2QuizResources(root, topicId, quiz),
           ]);
+          const questions = await Promise.all(rawQuestions.map(question =>
+            withQuestionAssetDimensions(root, topicId, quizSummary.id, question)));
           const assets = await loadContentV2Assets(
             root,
             topicId,
@@ -354,7 +357,7 @@ ipcMain.handle(
           .sort((left, right) => left.order - right.order)
           .map((question) => question.id);
         let preparedQuestions = 0;
-        const [questions, resources] = await Promise.all([
+        const [rawQuestions, resources] = await Promise.all([
           Promise.all(
             questionIds.map(async (questionId) => {
               const question = await loadContentV2Question(
@@ -372,6 +375,8 @@ ipcMain.handle(
           ),
           loadContentV2QuizResources(root, topicId, quiz),
         ]);
+        const questions = await Promise.all(rawQuestions.map(question =>
+          withQuestionAssetDimensions(root, topicId, quizId, question)));
         const assets = await loadContentV2Assets(root, topicId, quizId, {
           quiz,
           questions,

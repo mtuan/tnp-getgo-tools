@@ -155,7 +155,10 @@ export interface ContentV2QuizSummary {
   hasSourcePdf: boolean;
   localHash: string;
   publishedHash: string | null;
-  publishedAt: string | null; marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
+  publishedAt: string | null;
+  publishContractStale?: boolean;
+  publishStateDirty?: boolean;
+  marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
   questionCount: number;
   reviewedQuestionCount: number;
   dynamic: boolean;
@@ -756,6 +759,7 @@ export interface SafeWordSyncStatus {
 }
 export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi, ScreenshotManagerDesktopApi, DesignProjectsDesktopApi {
   restartApp(): Promise<void>;
+  onOpenRoute(listener: (route: string) => void): () => void;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;
   loadImagePdfInputs(paths: string[]): Promise<ImagePdfSelection>;
   detectImagePdfOrientations(paths: string[]): Promise<ImagePdfOrientation[]>;

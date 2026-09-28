@@ -9,6 +9,7 @@ interface InputRow extends Record<string, unknown> {
   correct: string | string[]
   inputType: "text" | "number" | "date"
   orderRequired: boolean
+  separator: string
   unit: string
   solutionRequired: boolean
 }
@@ -57,8 +58,8 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
   {
     key: "type-unit",
     dataKey: "inputType",
-    title: "Type / unit",
-    width: 180,
+    title: "Type / unit / separator",
+    width: 220,
     field: { name: "inputType", type: "select", options: inputTypes, presentation: "dropdown" },
     renderEdit: ({ row, onChange }) => (
       <div className="multiple-input-type-unit-cell">
@@ -77,6 +78,11 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
           values={row}
           onChange={(_name, value) => onChange("unit", value)}
         />
+        {row.type === "multiple_answer" && <FormControl
+          field={{ name: "separator", type: "text", placeholder: "Separator" }}
+          values={row}
+          onChange={(_name, value) => onChange("separator", value)}
+        />}
       </div>
     ),
   },
@@ -112,12 +118,13 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
         : String(partCorrect),
       inputType: part.inputType ?? "number",
       orderRequired: part.orderRequired === true,
+      separator: part.separator ?? "",
       unit: part.unit ?? "",
       solutionRequired: part.solutionRequired === true,
     }
   })
   while (rows.length < 2) {
-    rows.push({ question_en: "", question_vn: "", type: "input", correct: "", inputType: "number", orderRequired: false, unit: "", solutionRequired: false })
+    rows.push({ question_en: "", question_vn: "", type: "input", correct: "", inputType: "number", orderRequired: false, separator: "", unit: "", solutionRequired: false })
   }
   const commit = (nextRows: InputRow[]) => onChange({
     ...answer,
@@ -131,6 +138,7 @@ export function MultipleInputAnswerDetails({ answer, onChange, supportedLanguage
       correct: row.correct,
       inputType: row.inputType,
       ...(row.type === "multiple_answer" && row.orderRequired ? { orderRequired: true } : {}),
+      ...(row.type === "multiple_answer" && row.separator ? { separator: row.separator } : {}),
       ...(row.unit ? { unit: row.unit } : {}),
       ...(row.solutionRequired ? { solutionRequired: true } : {}),
     })),
