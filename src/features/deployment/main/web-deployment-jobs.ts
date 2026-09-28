@@ -5,6 +5,7 @@ import path from "node:path";
 import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, DeploymentItemState, DeploymentJobReportStep, DeploymentOperation, DeploymentStateSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
+import { FirestoreIndexWaitCancelledError, waitForFirestoreIndexes } from "./firestore-index-readiness.js";
 
 type DeploymentJob = BackgroundJob & {
   kind: "deploy";
@@ -15,7 +16,7 @@ type DeploymentJob = BackgroundJob & {
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
-interface Runtime { child: ChildProcess; cancelled: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string }
+interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
   development: "deploy:getgo:dev",
@@ -62,6 +63,7 @@ const phaseLabels: Record<string, string> = {
   bundle: "Finalize Web bundle",
   plan: "Compare deployment artifacts",
   deploy: "Publish to Firebase",
+  indexes: "Wait for Firestore indexes",
   complete: "Finalize report",
 };
 
@@ -344,7 +346,7 @@ export class WebDeploymentJobManager {
       await this.persist();
       throw cause;
     }
-    const runtime: Runtime = { child, cancelled: false, phases: new Set(), outputBuffer: "", reportPhase: "startup" };
+    const runtime: Runtime = { child, cancelled: false, finishing: false, phases: new Set(), outputBuffer: "", reportPhase: "startup" };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
@@ -376,18 +378,52 @@ export class WebDeploymentJobManager {
   }
 
   private async finish(job: DeploymentJob, runtime: Runtime, code: number | null, cause: Error | null) {
-    if (this.runtimes.get(job.id) !== runtime) return;
-    this.runtimes.delete(job.id);
+    if (this.runtimes.get(job.id) !== runtime || runtime.finishing) return;
+    runtime.finishing = true;
     if (!runtime.cancelled) {
       if (!cause && code === 0) {
-        job.status = "completed";
-        job.completed = job.total;
-        job.progressLabel = job.operation === "build" ? "Built" : "Deployed";
-        if ((job.operation === "build" || job.operation === "deploy") && job.component && job.target)
-          await this.recordBuild(job.component, job.target);
-        if (job.operation === "deploy" && job.component && job.target)
-          await this.recordDeployment(job.component, job.target);
-        await this.finalizeReport(job, "completed");
+        try {
+          if (job.operation === "deploy" && job.component === "firebase" && job.target) {
+            const webRoot = await this.webRoot();
+            const deploymentState = await this.state(job.target);
+            this.beginReportStep(job, runtime, "indexes", "Firebase deployment finished; checking composite index readiness.");
+            job.progressLabel = "Checking Firestore indexes";
+            job.completed = Math.max(job.completed, job.total - 1);
+            await this.persist();
+            let lastIndexStatus = "";
+            await waitForFirestoreIndexes({
+              webRoot,
+              firebaseProject: deploymentState.firebaseProject,
+              isCancelled: () => runtime.cancelled,
+              onStatus: async (status) => {
+                const pendingStates = [...new Set(status.pending.map((index) => index.state))].join(", ");
+                const detail = `${status.ready}/${status.total} Firestore indexes READY${pendingStates ? `; waiting: ${pendingStates}` : ""}.`;
+                job.progressLabel = `Waiting for Firestore indexes · ${status.ready}/${status.total} READY`;
+                this.beginReportStep(job, runtime, "indexes", detail === lastIndexStatus ? undefined : detail);
+                lastIndexStatus = detail;
+                await this.persist();
+              },
+            });
+          }
+          if (!runtime.cancelled) {
+            job.status = "completed";
+            job.completed = job.total;
+            job.progressLabel = job.operation === "build" ? "Built" : "Deployed";
+            if ((job.operation === "build" || job.operation === "deploy") && job.component && job.target)
+              await this.recordBuild(job.component, job.target);
+            if (job.operation === "deploy" && job.component && job.target)
+              await this.recordDeployment(job.component, job.target);
+            await this.finalizeReport(job, "completed");
+          }
+        } catch (waitCause) {
+          if (!(waitCause instanceof FirestoreIndexWaitCancelledError) && !runtime.cancelled) {
+            job.status = "failed";
+            job.error = waitCause instanceof Error ? waitCause.message : String(waitCause);
+            job.progressLabel = "Failed";
+            job.retryable = true;
+            await this.finalizeReport(job, "failed");
+          }
+        }
       } else {
         job.status = "failed";
         job.error = cause?.message ?? reportedDeploymentError(job) ?? `Deployment exited with code ${code ?? "unknown"}.`;
@@ -396,13 +432,14 @@ export class WebDeploymentJobManager {
         await this.finalizeReport(job, "failed");
       }
     }
+    this.runtimes.delete(job.id);
     job.cancellable = false;
     job.finishedAt ??= new Date().toISOString();
     await this.persist();
   }
 
   private signal(runtime: Runtime, signal: NodeJS.Signals) {
-    if (runtime.child.pid === undefined) return;
+    if (runtime.child.pid === undefined || runtime.child.exitCode !== null) return;
     if (process.platform === "win32") {
       if (signal !== "SIGTERM") throw new Error("Pause and resume are not supported on Windows.");
       runtime.child.kill(signal);
@@ -415,7 +452,7 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const job = this.jobs.find((item) => item.id === id);
     const runtime = this.runtimes.get(id);
-    if (!job || !runtime || job.status !== "running") return;
+    if (!job || !runtime || job.status !== "running" || runtime.child.exitCode !== null) return;
     this.signal(runtime, "SIGSTOP");
     job.status = "paused";
     job.progressLabel = "Paused";
@@ -426,7 +463,7 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const job = this.jobs.find((item) => item.id === id);
     const runtime = this.runtimes.get(id);
-    if (!job || !runtime || job.status !== "paused") return;
+    if (!job || !runtime || job.status !== "paused" || runtime.child.exitCode !== null) return;
     this.signal(runtime, "SIGCONT");
     job.status = "running";
     job.progressLabel = "Building and deploying";
