@@ -1,12 +1,13 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { shell, type IpcMain } from "electron";
+import { nativeImage, shell, type IpcMain } from "electron";
 import type { RepositoryViewData } from "../../../shared/domain/models.js";
 import type { SettingsStore } from "../../settings/main/settings.js";
 import { createContestDirectory, createQuizFiles, renameContestDirectory, updateContestSettings, updateQuizManifest, updateQuizSource, validateRepositoryId } from "../repository/quiz-crud.js";
 import { createQuizQuestion, deleteQuizQuestion, loadQuizQuestions, markAllQuizQuestionsReviewed, quizQuestionFile, reorderQuizQuestions, resetQuizQuestion, saveQuizQuestion } from "../../quiz-editor/repository/quiz-questions.js";
 import { loadAlphabetDictionary, saveAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { registerResourceLinksIpc } from "./resource-links-ipc.js";
+import { imageAssetPath, imageAssetReference } from "../../../shared/domain/image-asset-reference.js";
 
 interface Dependencies {
   settings: SettingsStore;
@@ -86,7 +87,7 @@ ipcMain.handle(
       !assetReference.startsWith("asset:")
     )
       throw new Error("Invalid quiz asset reference");
-    const relativeAssetPath = assetReference.slice("asset:".length);
+    const relativeAssetPath = imageAssetPath(assetReference);
     if (
       !relativeAssetPath ||
       path.isAbsolute(relativeAssetPath) ||
@@ -184,7 +185,13 @@ ipcMain.handle(
       path.join(assetsDirectory, filename),
       Buffer.from(match[2].replace(/\s/g, ""), "base64"),
     );
-return { reference: `asset:${filename}`, preview: dataUrl };
+    const size = nativeImage.createFromDataURL(dataUrl).getSize();
+    return {
+      reference: size.width > 0 && size.height > 0
+        ? imageAssetReference(filename, size.width, size.height)
+        : `asset:${filename}`,
+      preview: dataUrl,
+    };
   },
 );
 ipcMain.handle("quiz-source:read", async (_event, manifestPath: unknown) => {

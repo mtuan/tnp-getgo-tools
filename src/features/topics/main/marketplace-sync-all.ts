@@ -9,6 +9,7 @@ import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-s
 import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
 import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
+import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
 export async function syncAllMarketplaceTopics(
   root: string,
@@ -106,10 +107,12 @@ export async function syncAllMarketplaceTopics(
       }
       const quiz = await loadContentV2Quiz(root, topicId, summary.id);
       const questionIds = next.questions.filter((question) => question.topicId === topicId && question.quizId === summary.id).sort((a, b) => a.order - b.order).map((question) => question.id);
-      const [questions, resources] = await Promise.all([
+      const [rawQuestions, resources] = await Promise.all([
         Promise.all(questionIds.map((id) => loadContentV2Question(root, topicId, summary.id, id))),
         loadContentV2QuizResources(root, topicId, quiz),
       ]);
+      const questions = await Promise.all(rawQuestions.map(question =>
+        withQuestionAssetDimensions(root, topicId, summary.id, question)));
       const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources }, false);
       await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
       const previous = await readContentV2QuizPublishState(summary.filePath);

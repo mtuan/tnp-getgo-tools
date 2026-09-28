@@ -1,4 +1,4 @@
-import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from "react";
+import { Component, useEffect, useState, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import {
   formatAuthoringChoice,
@@ -8,6 +8,7 @@ import { displayQuestionValue } from "../../features/quiz-editor/domain/question
 import { MathText } from "./MathText";
 import { localizedPreviewText } from "./question-preview-language";
 import type { GenerationPerformance } from "../../features/quiz-editor/domain/generation-performance";
+import { parseImageAssetReference } from "../domain/image-asset-reference";
 
 export type { RuntimeQuestion } from "../../features/quiz-editor/components/question-service";
 
@@ -49,6 +50,8 @@ export function PreviewAsset({
     value.startsWith("data:image/") ? value : "",
   );
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const metadata = parseImageAssetReference(value);
   useEffect(() => {
     let active = true;
     const assetUpdated = (event: Event) => {
@@ -68,6 +71,7 @@ export function PreviewAsset({
     };
     window.addEventListener("getgo:quiz-asset-updated", assetUpdated);
     setFailed(false);
+    setLoaded(false);
     if (value.startsWith("data:image/")) {
       setSource(value);
       return () => {
@@ -95,11 +99,13 @@ export function PreviewAsset({
         Could not load {value}
       </span>
     );
-  return source ? (
-    <img src={source} alt={alt} />
-  ) : (
-    <span className="mini-spinner" aria-label={`Loading ${alt}`} />
-  );
+  const style = metadata?.width && metadata.height
+    ? { width: `min(100%, ${metadata.width}px)`, aspectRatio: `${metadata.width} / ${metadata.height}` } as CSSProperties
+    : undefined;
+  return <span className="question-preview-asset" style={style}>
+    {source && <img src={source} alt={alt} className={loaded ? "is-loaded" : ""} onLoad={() => setLoaded(true)} />}
+    {(!source || !loaded) && <span className="mini-spinner" aria-label={`Loading ${alt}`} />}
+  </span>;
 }
 
 function PreviewValue({

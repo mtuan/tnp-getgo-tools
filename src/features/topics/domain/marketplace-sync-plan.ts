@@ -55,6 +55,11 @@ export function marketplaceTopicSyncWork(
 function quizReady(topicState: string, quiz: ContentV2QuizSummary) {
   const state = marketplaceTopicState(quiz.marketplace);
   return topicState === "unlisted" || state === "unlisted" ||
+    // The overview intentionally skips question files. A clean, previously
+    // published quiz whose payload contract changed is safe to migrate; the
+    // sync job reloads the full records before it publishes anything.
+    (quiz.questionCount === 0 && Boolean(quiz.publishedHash)
+      && quiz.publishContractStale === true && quiz.publishStateDirty !== true) ||
     (quiz.questionCount > 0 && quiz.questionCount === quiz.reviewedQuestionCount);
 }
 

@@ -155,7 +155,10 @@ export interface ContentV2QuizSummary {
   hasSourcePdf: boolean;
   localHash: string;
   publishedHash: string | null;
-  publishedAt: string | null; marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
+  publishedAt: string | null;
+  publishContractStale?: boolean;
+  publishStateDirty?: boolean;
+  marketplace?: import("../../features/topics/domain/content-v2.js").MarketplaceTopicMetadataInput;
   questionCount: number;
   reviewedQuestionCount: number;
   dynamic: boolean;

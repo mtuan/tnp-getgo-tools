@@ -8298,6 +8298,26 @@ button.danger svg {
   height: auto;
   object-fit: contain;
 }
+.question-preview-asset {
+  position: relative;
+  display: inline-grid;
+  min-width: 64px;
+  min-height: 64px;
+  place-items: center;
+  overflow: hidden;
+}
+.question-preview-asset > img {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.question-preview-asset > img.is-loaded {
+  visibility: visible;
+}
+.question-preview-asset > .mini-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
 .question-preview-choices img {
   display: block;
   max-width: 100%;

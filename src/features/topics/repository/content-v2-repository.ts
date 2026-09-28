@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { imageAssetPath } from "../../../shared/domain/image-asset-reference.js";
 import {
   assertContentV2Relationship,
   contentV2QuizPublishContractVersion,
@@ -359,6 +360,11 @@ export async function loadContentV2WorkspaceFromFiles(
         publishedAt: options.projectId
           ? targetPublishState?.publishedAt ?? null
           : quiz.publishedAt ?? null,
+        publishContractStale: Boolean(
+          targetPublishState
+          && targetPublishState.publishContractVersion !== contentV2QuizPublishContractVersion,
+        ),
+        publishStateDirty: targetPublishState?.dirty === true,
         marketplace: quiz.marketplace,
         questionCount: quizQuestions.length,
         reviewedQuestionCount: quizQuestions.filter(
@@ -722,7 +728,7 @@ function collectAssetReferences(
   references = new Set<string>(),
 ): Set<string> {
   if (typeof value === "string" && value.startsWith("asset:"))
-    references.add(value);
+    references.add(`asset:${imageAssetPath(value)}`);
   else if (Array.isArray(value))
     for (const item of value) collectAssetReferences(item, references);
   else if (value && typeof value === "object")
