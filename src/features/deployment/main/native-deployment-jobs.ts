@@ -162,11 +162,12 @@ export class NativeDeploymentJobManager {
         throw cause;
       }
     };
-    const shared = await readEnvironment(path.join(root, ".env.native"));
-    const override = await readEnvironment(path.join(root, `.env.native.${target}.local`));
+    const targetEnvironment = await readEnvironment(path.join(root, "configs", "native", target, ".env.local"));
     const processOverrides = Object.fromEntries(Object.entries(process.env)
       .filter(([key, value]) => key.startsWith("GETGO_IOS_") && value?.trim()));
-    const environment = { ...shared, ...override, ...processOverrides };
+    // Match Web's native loader: the selected target file wins over inherited
+    // process values so credentials from another environment cannot leak in.
+    const environment = { ...processOverrides, ...targetEnvironment };
     return resolveIosSigningState(environment);
   }
 
