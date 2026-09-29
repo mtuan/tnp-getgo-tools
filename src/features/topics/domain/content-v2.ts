@@ -14,6 +14,7 @@ export { automaticMarketplaceTopicTags } from "../../../shared/domain/topic-sear
 export const contentV2QuizPublishContractVersion = 15;
 // Increment when topic documents or shared topic-asset publication changes.
 export const contentV2TopicPublishContractVersion = 3;
+export const marketplaceTopicPublishContractVersion = 2;
 
 export {
   marketplaceTopicState,
@@ -196,6 +197,7 @@ export function sanitizeMarketplaceTopic(
   };
   const normalizedMarketplace = enabledMarketplaceMetadata(marketplace) ?? {};
   return {
+    publishContractVersion: marketplaceTopicPublishContractVersion,
     topicId: record.id,
     title: record.title,
     description: record.description,

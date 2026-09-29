@@ -10,7 +10,8 @@ import {
 } from "../src/features/topics/domain/publishing.js";
 import { recordPublishedHash } from "../src/features/topics/repository/quiz-publishing.js";
 import { loadContentV2Assets } from "../src/features/topics/repository/content-v2-repository.js";
-import { contentV2QuizBuilderApiVersion, createContentV2QuizPublishPreview, createContentV2TopicPublishPreview } from "../src/features/topics/main/firestore-publishing.js";
+import { contentV2QuizBuilderApiVersion, createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, createMarketplaceTopicPublishData } from "../src/features/topics/main/firestore-publishing.js";
+import { marketplaceTopicPublishContractVersion } from "../src/features/topics/domain/content-v2.js";
 import { currentQuizBuilderApiVersion } from "../src/shared/domain/models.js";
 import {
   contentV2PublishedItems,
@@ -121,6 +122,29 @@ test("content v2 topic publishing records the QuizBuilder API version", () => {
     preview.firestore.topicDocument.data.quizBuilderApiVersion,
     currentQuizBuilderApiVersion,
   );
+});
+
+test("marketplace topic publishing uses the canonical searchable payload", () => {
+  const data = createMarketplaceTopicPublishData({
+    schemaVersion: 2,
+    id: "mathematics-grade-3",
+    type: "competition",
+    title: "Mathematics Grade 3",
+    description: "Grade 3 mathematics",
+    subjects: ["mathematics"],
+    grades: [3],
+    status: "reviewed",
+    order: 4,
+    subject: "mathematics",
+    rounds: [],
+    gradeGroups: [],
+    marketplace: { state: "listed", tags: ["Maths"] },
+  }, "a".repeat(64));
+
+  assert.equal(data.publishContractVersion, marketplaceTopicPublishContractVersion);
+  assert.equal(data.order, 4);
+  assert.deepEqual(data.grades, [3]);
+  assert.ok((data.filterKeys as string[]).includes("public|g:3"));
 });
 
 test("topic-owned assets are not assigned to a quiz publish state", async () => {
