@@ -5,6 +5,7 @@ import {
   type ContentV2Topic,
   type MarketplaceTopicMetadata,
 } from "../../../features/topics/domain/content-v2";
+import { automaticMarketplaceTopicTags } from "../../../shared/domain/topic-search-tags";
 import { localizedText, type LocalizedText } from "../../../shared/domain/localized-text";
 import type { AppSettings } from "../../../shared/domain/models";
 import en from "../../../shared/localization/en.json";
@@ -119,7 +120,15 @@ export function MarketplaceMetadataSection({
       .then(([record, subjects]) => {
         if (!active) return;
         setSource(record);
-        setDraft(structuredClone(record));
+        const next = structuredClone(record);
+        if (!("topicId" in next)) {
+          const existingTags = next.marketplace?.tags ?? [];
+          const tags = new Map(existingTags.map((tag) => [tag.toLocaleLowerCase(), tag]));
+          for (const tag of automaticMarketplaceTopicTags(next.title))
+            if (!tags.has(tag.toLocaleLowerCase())) tags.set(tag.toLocaleLowerCase(), tag);
+          next.marketplace = { ...next.marketplace, tags: [...tags.values()] };
+        }
+        setDraft(next);
         setParentSubjects(subjects);
       })
       .catch((error) => {
@@ -141,7 +150,6 @@ export function MarketplaceMetadataSection({
   }, [recordKey]);
   const current = draft ? metadata(draft) : null;
   const isTopic = Boolean(draft && !("topicId" in draft));
-  const isKidLearningTopic = Boolean(isTopic && draft?.type === "kid-learning");
   const subjectOptions = useMemo(() => {
     if (!isTopic)
       return parentSubjects.map((subject) => ({
@@ -222,11 +230,11 @@ export function MarketplaceMetadataSection({
         label: copy.fields.languages,
         options: [{ value: "en", label: "English" }, { value: "vi", label: "Tiếng Việt" }],
       } as FormSchema]),
-      ...(isKidLearningTopic ? [{
+      ...(isTopic ? [{
         type: "textarea",
         name: "tags",
         label: copy.fields.tags,
-        helper: copy.fields.listHelp,
+        helper: copy.fields.tagsHelp,
       } as FormSchema] : []),
       ...(isTopic ? [[{
         type: "textarea",
@@ -280,7 +288,7 @@ export function MarketplaceMetadataSection({
         },
       ],
     ],
-    [copy, isKidLearningTopic, isTopic, subjectOptions],
+    [copy, isTopic, subjectOptions],
   );
   const change = (name: string, value: unknown) =>
     setDraft((record) => {

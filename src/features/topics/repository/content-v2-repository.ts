@@ -4,6 +4,7 @@ import path from "node:path";
 import { imageAssetPath } from "../../../shared/domain/image-asset-reference.js";
 import {
   assertContentV2Relationship,
+  automaticMarketplaceTopicTags,
   contentV2QuizPublishContractVersion,
   contentV2TopicPublishContractVersion,
   contentV2QuestionSchema,
@@ -555,6 +556,19 @@ export async function saveContentV2Topic(
   const existing = await fs.readFile(filePath, "utf8")
     .then((source) => contentV2TopicSchema.parse(JSON.parse(source)))
     .catch(() => null);
+  const previousAutomaticTags = new Set(
+    automaticMarketplaceTopicTags(existing?.title).map((tag) => tag.toLocaleLowerCase()),
+  );
+  const manualTags = (topic.marketplace?.tags ?? []).filter(
+    (tag) => !previousAutomaticTags.has(tag.toLocaleLowerCase()),
+  );
+  const normalizedTags = new Map<string, string>();
+  for (const tag of [...automaticMarketplaceTopicTags(topic.title), ...manualTags])
+    normalizedTags.set(tag.toLocaleLowerCase(), tag);
+  topic = {
+    ...topic,
+    marketplace: { ...topic.marketplace, tags: [...normalizedTags.values()] },
+  } as ContentV2Topic;
   const contentChanged = Boolean(existing && hashContentV2(sanitizeContentV2Topic(existing)) !== hashContentV2(sanitizeContentV2Topic(topic)));
   if (contentChanged) {
     const { publishedHash: _publishedHash, publishedAt: _publishedAt, ...changed } = topic;

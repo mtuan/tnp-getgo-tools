@@ -191,6 +191,7 @@
       "subjects": "Môn học",
       "languages": "Ngôn ngữ",
       "tags": "Thẻ",
+      "tagsHelp": "Các từ trong tên chủ đề được thêm tự động. Thêm bí danh tại đây, mỗi mục một dòng hoặc phân cách bằng dấu phẩy. Tìm kiếm chủ đề chỉ sử dụng các thẻ này.",
       "learningObjectives": "Mục tiêu học tập",
       "learningObjectivesEn": "Mục tiêu học tập (Tiếng Anh)",
       "learningObjectivesVi": "Mục tiêu học tập (Tiếng Việt)",

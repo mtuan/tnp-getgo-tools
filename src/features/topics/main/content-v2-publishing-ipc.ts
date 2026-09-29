@@ -17,12 +17,15 @@ ipcMain.handle(
   async (_event, topicId: unknown) => {
     if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
     const root = await repositoryRoot();
+    const topic = await saveContentV2Topic(
+      root,
+      await loadContentV2Topic(root, topicId),
+    );
     const content = (await loadContentV2WorkspaceFromFiles(root, { topicId })).content;
     const summary = content.topics.find(
       (item) => item.id === topicId,
     );
     if (!summary) throw new Error("The selected topic was not found.");
-    const topic = await loadContentV2Topic(root, topicId);
     await assertRepositoryContentSafe(root, `Topic “${topic.title}”`, topic);
     if (marketplaceTopicState(topic.marketplace) === "unlisted") {
       return publishJobs.track(
@@ -62,12 +65,15 @@ ipcMain.handle(
   async (_event, topicId: unknown) => {
     if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
     const root = await repositoryRoot();
+    const topic = await saveContentV2Topic(
+      root,
+      await loadContentV2Topic(root, topicId),
+    );
     const content = (await loadContentV2WorkspaceFromFiles(root, { topicId })).content;
     const summary = content.topics.find(
       (item) => item.id === topicId,
     );
     if (!summary) throw new Error("The selected topic was not found.");
-    const topic = await loadContentV2Topic(root, topicId);
     await assertRepositoryContentSafe(root, `Topic “${topic.title}”`, topic);
     const reviewedQuizzes = reviewedTopicQuizzes(
       content.quizzes,
