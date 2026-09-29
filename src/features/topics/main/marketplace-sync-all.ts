@@ -24,6 +24,10 @@ export async function syncAllMarketplaceTopics(
   for (const topicId of topicIds) {
     await control.checkpoint();
     await control.report(`Preparing topic · ${topicId}`);
+    const topic = await saveContentV2Topic(
+      root,
+      await loadContentV2Topic(root, topicId),
+    );
     const content = (await loadContentV2TopicFolder(root, topicId, {
       lightweight: false,
       projectId: target.projectId,
@@ -38,7 +42,6 @@ export async function syncAllMarketplaceTopics(
     const topicPlan = plan;
     const topicSummary = next.topics.find((item) => item.id === topicId);
     if (!topicSummary) throw new Error(`Topic ${topicId} was not found.`);
-    const topic = await loadContentV2Topic(root, topicId);
     await assertRepositoryContentSafe(root, `Topic “${topic.title}”`, topic);
     const state = marketplaceTopicState(topic.marketplace);
     if (state === "unlisted") {

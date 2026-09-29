@@ -4,6 +4,7 @@ import { z } from "zod";
 import { marketplaceTopicStates } from "./marketplace-topic-state.js";
 import { isTextContentIconText, parseTextContentIcon, textContentIconColors, textContentIconThemes } from "../../../shared/domain/content-icon.js";
 export { localizedText, type LocalizedText } from "../../../shared/domain/localized-text.js";
+export { automaticMarketplaceTopicTags } from "../../../shared/domain/topic-search-tags.js";
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
@@ -92,6 +93,62 @@ function enabledMarketplaceMetadata(value: unknown): Record<string, unknown> | u
   return Object.keys(enabled).length ? enabled : undefined;
 }
 
+const MARKETPLACE_SEARCH_TERM_LIMIT = 256;
+
+function marketplaceSearchText(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(marketplaceSearchText);
+  if (value && typeof value === "object") return Object.values(value as Record<string, unknown>).flatMap(marketplaceSearchText);
+  return [];
+}
+
+function normalizeMarketplaceSearch(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d")
+    .toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function marketplaceSearchTerms(values: unknown[]): string[] {
+  const terms = new Set<string>();
+  for (const source of values.flatMap(marketplaceSearchText)) {
+    const normalized = normalizeMarketplaceSearch(source);
+    const words = normalized.split(" ").filter(Boolean);
+    for (const word of words) {
+      for (let length = 1; length <= word.length; length += 1) terms.add(word.slice(0, length));
+    }
+    for (let start = 0; start < words.length; start += 1) {
+      const compact = words.slice(start).join("-");
+      for (let length = 1; length <= compact.length; length += 1) terms.add(compact.slice(0, length));
+    }
+    if (terms.size >= MARKETPLACE_SEARCH_TERM_LIMIT) break;
+  }
+  return [...terms].slice(0, MARKETPLACE_SEARCH_TERM_LIMIT);
+}
+
+function canonicalMarketplaceSubject(value: string): string {
+  const normalized = normalizeMarketplaceSearch(value);
+  return ({ math: "mathematics", maths: "mathematics", mathematics: "mathematics" } as Record<string, string>)[normalized] ?? normalized;
+}
+
+function marketplaceFilterKeys(record: ContentV2Topic, marketplace: Record<string, unknown>): string[] {
+  const audiences = marketplace.experimental === true ? ["admin"] : ["public", "admin"];
+  const grades = [...new Set([
+    ...(record.grades ?? []).map(String),
+    ...("gradeGroups" in record && Array.isArray(record.gradeGroups) ? record.gradeGroups.flatMap(group => group.grades.map(String)) : []),
+  ])];
+  const subjects = [...new Set([
+    ...(record.subjects ?? []),
+    ...("subject" in record && typeof record.subject === "string" ? [record.subject] : []),
+  ].map(canonicalMarketplaceSubject).filter(Boolean))];
+  const bases = audiences.flatMap(audience => [
+    audience,
+    ...grades.map(grade => `${audience}|g:${grade}`),
+    ...subjects.map(subject => `${audience}|s:${subject}`),
+    ...grades.flatMap(grade => subjects.map(subject => `${audience}|g:${grade}|s:${subject}`)),
+  ]);
+  const terms = marketplaceSearchTerms([marketplace.tags]);
+  return [...new Set(bases.flatMap(base => [base, ...terms.map(term => `${base}|q:${term}`)]))];
+}
+
 export function marketplaceContentAccess(
   metadata: MarketplaceTopicMetadataInput | undefined,
   inherited: MarketplaceContentAccess = "free",
@@ -150,6 +207,8 @@ export function sanitizeMarketplaceTopic(
     fullDescription: record.description,
     subjects: record.subjects,
     grades: record.grades,
+    order: record.order,
+    filterKeys: marketplaceFilterKeys(record, normalizedMarketplace),
   };
 }
 const baseRecord = {

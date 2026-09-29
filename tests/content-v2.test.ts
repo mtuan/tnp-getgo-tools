@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   assertContentV2Relationship,
+  automaticMarketplaceTopicTags,
   contentV2QuizPublishContractVersion,
   contentV2TopicPublishContractVersion,
   contentV2QuestionSchema,
@@ -196,6 +197,29 @@ test("marketplace topic publishing preserves the experimental flag", () => {
     marketplace: { listed: true, experimental: true },
   });
   assert.equal(published.experimental, true);
+});
+
+test("marketplace topic publishing creates query keys for audience, filters, and normalized search", () => {
+  const published = sanitizeMarketplaceTopic({
+    ...alphabetTopic,
+    title: { en: "Math Adventures", vi: "Khám phá Toán" },
+    subjects: ["maths"],
+    grades: [3],
+    marketplace: { state: "listed", listed: true, tags: ["Tư duy", "Archimedes"] },
+  });
+  const keys = published.filterKeys as string[];
+  assert.ok(keys.includes("public"));
+  assert.ok(keys.includes("public|g:3|s:mathematics"));
+  assert.ok(keys.includes("public|g:3|s:mathematics|q:tu-duy"));
+  assert.ok(keys.includes("admin|q:arch"));
+  assert.ok(!keys.includes("admin|q:math"));
+});
+
+test("topic titles split into persisted search tags", () => {
+  assert.deepEqual(
+    automaticMarketplaceTopicTags({ en: "TI-MO Grade 3", vi: "Toán lớp 3" }),
+    ["TI", "MO", "TIMO", "Grade", "3", "Toán", "lớp"],
+  );
 });
 
 const alphabetTopic = {

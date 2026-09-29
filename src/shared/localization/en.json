@@ -189,6 +189,7 @@
       "subjects": "Subjects",
       "languages": "Languages",
       "tags": "Tags",
+      "tagsHelp": "Title words are added automatically. Add aliases here, one per line or separated by commas. These tags are the only source used by topic search.",
       "learningObjectives": "Learning objectives",
       "learningObjectivesEn": "Learning objectives (English)",
       "learningObjectivesVi": "Learning objectives (Vietnamese)",
