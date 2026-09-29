@@ -17,6 +17,7 @@ import {
   sanitizeContentV2Question,
   marketplaceTopicState,
   localizedText,
+  marketplaceTopicPublishContractVersion,
   sanitizeMarketplaceTopic,
   withMarketplaceTopicState,
 } from "../src/features/topics/domain/content-v2.js";
@@ -208,6 +209,7 @@ test("marketplace topic publishing creates query keys for audience, filters, and
     marketplace: { state: "listed", listed: true, tags: ["Tư duy", "Archimedes"] },
   });
   const keys = published.filterKeys as string[];
+  assert.equal(published.publishContractVersion, marketplaceTopicPublishContractVersion);
   assert.ok(keys.includes("public"));
   assert.ok(keys.includes("public|g:3|s:mathematics"));
   assert.ok(keys.includes("public|g:3|s:mathematics|q:tu-duy"));

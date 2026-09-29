@@ -5,6 +5,7 @@ import type { ContentV2Question, ContentV2Quiz, ContentV2Topic, MarketplaceConte
 import {
   marketplaceContentAccess,
   sanitizeMarketplaceQuiz,
+  sanitizeMarketplaceTopic,
   sanitizeContentV2Question,
   sanitizeContentV2Quiz,
   sanitizeContentV2Topic,
@@ -150,6 +151,19 @@ export function createContentV2TopicPublishPreview(
       },
     },
     firebaseStorage: { uploads: [] },
+  };
+}
+
+export function createMarketplaceTopicPublishData(
+  topic: ContentV2Topic,
+  contentHash: string,
+  publishedAt = "<generated at publish time>",
+): Record<string, unknown> {
+  return {
+    ...sanitizeMarketplaceTopic(topic),
+    quizBuilderApiVersion: currentQuizBuilderApiVersion,
+    contentHash,
+    publishedAt,
   };
 }
 
@@ -489,18 +503,19 @@ export class FirestorePublishingService {
   ): Promise<ContentV2PublishResult> {
     const publishedAt = new Date().toISOString();
     const relativeName = marketplaceTopicPath(topic.id);
-    await this.commit([{ update: { name: "", relativeName, fields: fields({
-      topicId: topic.id,
-      title: topic.title,
-      description: topic.description,
-      icon: topic.icon,
-      publisherId: topic.publisherId,
-      publisher: topic.publisher,
-      ...topic.marketplace,
-      quizBuilderApiVersion: currentQuizBuilderApiVersion,
-      contentHash,
-      publishedAt,
-    }) } }]);
+    await this.commit([{ update: {
+      name: "",
+      relativeName,
+      fields: fields(createMarketplaceTopicPublishData(topic, contentHash, publishedAt)),
+    } }]);
+    const { document } = await this.getDocument(relativeName);
+    const requiredFields = ["publishContractVersion", "filterKeys", "grades", "subjects", "order"];
+    const missingFields = requiredFields.filter((key) => !document?.fields || !(key in document.fields));
+    if (stringField(document, "contentHash") !== contentHash || missingFields.length) {
+      throw new Error(
+        `Marketplace topic ${topic.id} failed remote verification${missingFields.length ? `; missing fields: ${missingFields.join(", ")}` : ""}.`,
+      );
+    }
     return { kind: "topic", topicId: topic.id, contentHash, publishedAt };
   }
 
