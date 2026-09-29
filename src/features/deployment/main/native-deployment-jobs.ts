@@ -10,11 +10,6 @@ import { spawnCommand } from "../../../shared/main/spawn-command.js";
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
-const firebaseEnvironmentNames: Record<WebDeploymentTarget, string> = {
-  development: "DEVELOPMENT",
-  staging: "STAGING",
-  production: "PRODUCTION",
-};
 
 export function resolveIosSigningState(environment: Record<string, string | undefined>): IosSigningState {
   const configuredStyle = environment.GETGO_IOS_SIGNING_STYLE?.trim().toLowerCase() || "automatic";
@@ -145,20 +140,17 @@ export class NativeDeploymentJobManager {
     throw new Error(`GetGo ${this.config.product === "web" ? "Web" : "App"} repository was not found. Set ${this.config.repositoryEnvironmentVariable} to its absolute path.`);
   }
 
-  private androidGoogleServicesPath(target: WebDeploymentTarget) {
-    const variable = `GETGO_ANDROID_${firebaseEnvironmentNames[target]}_GOOGLE_SERVICES_PATH`;
-    const configured = process.env[variable]?.trim();
-    return configured
-      ? (path.isAbsolute(configured) ? configured : path.resolve(this.toolsAppPath, configured))
-      : path.join(this.toolsAppPath, "configs", "native", target, "google-services.json");
-  }
-
-  private nativeEnvironment(platform: NativePlatform, target: WebDeploymentTarget) {
-    if (this.config.product !== "web" || platform !== "android") return process.env;
-    return {
-      ...process.env,
-      GETGO_ANDROID_GOOGLE_SERVICES_PATH: this.androidGoogleServicesPath(target),
-    };
+  private async nativeEnvironment(root: string, platform: NativePlatform, target: WebDeploymentTarget) {
+    if (this.config.product !== "web") return process.env;
+    const directory = path.join(root, "configs", "native", target);
+    const manifestPath = path.join(directory, "config.json");
+    const platformConfigPath = path.join(directory, platform === "ios" ? "GoogleService-Info.plist" : "google-services.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as { environment?: string };
+    if (manifest.environment !== target) {
+      throw new Error(`Native configuration mismatch: ${manifestPath} declares ${manifest.environment ?? "no environment"}, expected ${target}.`);
+    }
+    await fs.access(platformConfigPath);
+    return { ...process.env, GETGO_NATIVE_CONFIG_DIR: directory };
   }
 
   async iosSigningState(target: WebDeploymentTarget): Promise<IosSigningState> {
@@ -209,8 +201,9 @@ export class NativeDeploymentJobManager {
     const command = this.config.command(job.operation!, platform, job.target!);
     let child: ChildProcess;
     try {
+      const environment = await this.nativeEnvironment(root, platform, job.target!);
       child = spawnCommand(npmExecutable, ["run", command.script, ...(command.args.length ? ["--", ...command.args] : [])], {
-        cwd: root, env: this.nativeEnvironment(platform, job.target!), detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
+        cwd: root, env: environment, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (cause) {
       const finishedAt = new Date().toISOString();
@@ -282,8 +275,9 @@ export class NativeDeploymentJobManager {
   async open(platform: NativePlatform, target: WebDeploymentTarget) {
     if (this.config.product === "app") throw new Error("Expo native projects are generated when the run command starts.");
     const root = await this.repositoryRoot();
+    const environment = await this.nativeEnvironment(root, platform, target);
     const child = spawnCommand(npmExecutable, ["run", `native:open:${platform}`, "--", target], {
-      cwd: root, env: this.nativeEnvironment(platform, target), detached: true, stdio: "ignore",
+      cwd: root, env: environment, detached: true, stdio: "ignore",
     });
     child.unref();
   }

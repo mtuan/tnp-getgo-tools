@@ -1,0 +1,4 @@
+interface:
+  display_name: "GetGo Static Quiz Converter"
+  short_description: "Convert static questions from code patterns"
+  default_prompt: "Use $getgo-convert-static-quiz to convert this quiz’s static questions using established repository code patterns."
