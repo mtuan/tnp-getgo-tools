@@ -1,4 +1,4 @@
-import { Apple, ExternalLink, Eye, PackageCheck, Play, Smartphone, Tag, UploadCloud } from "lucide-react";
+import { Apple, Cable, ExternalLink, Eye, PackageCheck, Play, Smartphone, Tag, UploadCloud } from "lucide-react";
 import type { AppSettings, BackgroundJob, DeploymentComponent, DeploymentOperation, IosSigningState, NativeVersionState } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { LastDeploymentJobStatus } from "./LastDeploymentJobStatus";
@@ -8,7 +8,6 @@ import vi from "../../../shared/localization/vi.json";
 interface NativeDeploymentCardsProps {
   locale: AppSettings["locale"];
   activeJobs: BackgroundJob[];
-  busy: DeploymentComponent | null;
   onRun(operation: DeploymentOperation, component: DeploymentComponent): void;
   onOpen(platform: "ios" | "android"): void;
   onViewLogs(component: DeploymentComponent): void;
@@ -21,7 +20,7 @@ interface NativeDeploymentCardsProps {
   onUpdateVersion?(increment: "patch" | "minor" | "major"): void;
 }
 
-export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen, onViewLogs, latestJob, iosSigning, product = "web", runOnly = false, nativeVersion, versionBusy = false, onUpdateVersion }: NativeDeploymentCardsProps) {
+export function NativeDeploymentCards({ locale, activeJobs, onRun, onOpen, onViewLogs, latestJob, iosSigning, product = "web", runOnly = false, nativeVersion, versionBusy = false, onUpdateVersion }: NativeDeploymentCardsProps) {
   const copy = (locale === "vi" ? vi : en).deployment;
   const renderCard = (platform: "ios" | "android") => {
     const component = `mobile-${platform}` as const;
@@ -60,8 +59,8 @@ export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen,
           <div className="deployment-card-actions">
             <ui.Button icon={<Eye />} aria-label={copy.viewLogs} title={copy.viewLogs} disabled={!latestJob(component)} onClick={() => onViewLogs(component)} />
             {!runOnly && <ui.Button icon={<ExternalLink />} aria-label={copy.openNativeProject} title={copy.openNativeProject} disabled={Boolean(active)} onClick={() => onOpen(platform)} />}
-            <ui.Button icon={<Play />} loading={active?.operation === "run"} disabled={Boolean(active)} onClick={() => onRun("run", component)}>{isIos ? copy.runIosSimulator : copy.runAndroidSimulator}</ui.Button>
-            {!runOnly && <ui.Button icon={<PackageCheck />} loading={active?.operation === "build"} disabled={Boolean(active) || busy === component} onClick={() => onRun("build", component)}>{copy.buildNative}</ui.Button>}
+            <ui.Button icon={<Play />} loading={active?.operation === "run"} disabled={Boolean(active)} onClick={() => onRun("run", component)}>{isIos ? copy.iosSimulator : copy.androidEmulator}</ui.Button>
+            {!runOnly && <ui.Button icon={<Cable />} loading={active?.operation === "run-device"} disabled={Boolean(active)} onClick={() => onRun("run-device", component)}>{copy.usb}</ui.Button>}
             {!runOnly && <ui.Button variant="solid" icon={isIos ? <UploadCloud /> : <PackageCheck />} loading={active?.operation === "deploy"} disabled={Boolean(active)} onClick={() => onRun("deploy", component)}>{isIos ? copy.deployTestFlight : copy.deployPlay}</ui.Button>}
           </div>
         </ui.PanelBody>

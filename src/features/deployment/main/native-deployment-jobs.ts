@@ -41,7 +41,9 @@ export const getGoWebNativeConfig: NativeDeploymentConfig = {
   repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
   storageFile: "native-deployment-jobs.json",
   technology: "Capacitor",
-  command: (operation, platform, target) => ({ script: `native:${operation}:${platform}`, args: [target] }),
+  command: (operation, platform, target) => operation === "run-device"
+    ? { script: `native:run:${platform}`, args: [target, "--device"] }
+    : { script: `native:${operation}:${platform}`, args: [target] },
 };
 
 export const getGoAppNativeConfig: NativeDeploymentConfig = {
@@ -214,8 +216,10 @@ export class NativeDeploymentJobManager {
     }
     const job: NativeJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: this.config.product, component, operation, target,
-      name: `${operation === "run" ? "Run" : operation === "build" ? "Build" : "Deploy"} ${this.config.technology} ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
-      description: operation === "run"
+      name: `${operation === "run-device" ? `Run on ${platform === "ios" ? "iPhone" : "Android device"}` : operation === "run" ? "Run" : operation === "build" ? "Build" : "Deploy"} ${this.config.technology} ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
+      description: operation === "run-device"
+        ? `Build, install, and launch the ${target} ${this.config.technology} app on a connected ${platform === "ios" ? "iPhone" : "Android device"}`
+        : operation === "run"
         ? `Build, install, and launch the ${target} ${this.config.technology} app in a local ${platform} simulator`
         : operation === "build"
         ? `Compile and sign the ${target} ${this.config.technology} ${platform} artifact`

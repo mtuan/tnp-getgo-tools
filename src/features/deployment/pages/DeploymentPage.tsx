@@ -272,12 +272,12 @@ export function DeploymentPage({
         <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
       <div className="deployment-grid deployment-grid-native">
-        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} busy={busy} iosSigning={deploymentState?.iosSigning} nativeVersion={deploymentState?.nativeVersion} versionBusy={versionBusy} onUpdateVersion={increment => void updateNativeVersion(increment)} onRun={run} onOpen={platform => void window.getgo.openNativeProject(platform, environment, "web")} onViewLogs={setLogSelection} latestJob={latestJob} />
+        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} iosSigning={deploymentState?.iosSigning} nativeVersion={deploymentState?.nativeVersion} versionBusy={versionBusy} onUpdateVersion={increment => void updateNativeVersion(increment)} onRun={run} onOpen={platform => void window.getgo.openNativeProject(platform, environment, "web")} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
     </> : <>
       <div className="deployment-grid deployment-grid-app">
         <LocalRuntimeCard locale={locale} runtime={localApp} action={localAppAction} title={copy.appLocalhostTitle} environment={copy.localEnvironment} onControl={action => void controlLocalApp(action)} onViewLogs={() => setLogSelection("localhost")} />
-        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} busy={busy} product="app" runOnly onRun={run} onOpen={() => undefined} onViewLogs={setLogSelection} latestJob={latestJob} />
+        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} product="app" runOnly onRun={run} onOpen={() => undefined} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
     </>}
     <section className="deployment-jobs">

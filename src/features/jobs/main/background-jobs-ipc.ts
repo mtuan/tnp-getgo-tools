@@ -73,13 +73,14 @@ export function registerBackgroundJobsIpc(
     return snapshot();
   });
   ipcMain.handle("deployment:start", async (_event, operation: unknown, component: unknown, target: unknown, product: unknown = "web") => {
-    if (!(operation === "run" || operation === "build" || operation === "deploy")) throw new Error("Invalid deployment operation.");
+    if (!(operation === "run" || operation === "run-device" || operation === "build" || operation === "deploy")) throw new Error("Invalid deployment operation.");
     if (!(component === "firebase" || component === "web" || component === "mobile-ios" || component === "mobile-android")) throw new Error("Invalid deployment component.");
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     const requestedProduct = deploymentProduct(product);
     if (component === "mobile-ios" || component === "mobile-android") {
+      if (operation === "run-device" && requestedProduct !== "web") throw new Error("Connected-device runs are only available for GetGo Web native apps.");
       await (requestedProduct === "app" ? appNativeRuntimeJobs : nativeDeploymentJobs).start(operation, component === "mobile-ios" ? "ios" : "android", target);
-    } else if (operation === "run") {
+    } else if (operation === "run" || operation === "run-device") {
       throw new Error("Simulator runs are only available for native apps.");
     } else {
       await webDeploymentJobs.start(operation, component, target);
