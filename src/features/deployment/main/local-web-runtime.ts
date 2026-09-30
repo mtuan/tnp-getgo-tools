@@ -21,6 +21,7 @@ export interface LocalWebRuntimeConfig {
   command(target: WebDeploymentTarget): string[];
   executable?: string;
   warmCommand?: string[];
+  startupTimeoutMs?: number;
   requiresFirebaseConfig?: boolean;
   exposeToNetwork?: boolean;
 }
@@ -36,6 +37,9 @@ export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
   healthPath: "/manifest.json",
   command: target => ["run", target === "development" ? "dev:getgo:dev" : `dev:getgo:${target}`, "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"],
   warmCommand: ["run", "warm:dev", "--", "--url", "http://localhost:5173"],
+  // prepare:shared can check, build, pack, and install getgo-logics before
+  // Vite binds its port. A cold Windows checkout regularly exceeds one minute.
+  startupTimeoutMs: 10 * 60_000,
   exposeToNetwork: true,
 };
 
@@ -433,8 +437,10 @@ export class LocalWebRuntimeManager {
       job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: job.error ?? "Localhost stopped." });
       void this.persistLastJob();
     });
-    if (!await this.waitUntilOnline(60_000)) {
-      const message = this.error ?? `${this.config.displayName} did not become available within 60 seconds.`;
+    const startupTimeoutMs = this.config.startupTimeoutMs ?? 60_000;
+    if (!await this.waitUntilOnline(startupTimeoutMs)) {
+      const timeoutSeconds = Math.round(startupTimeoutMs / 1000);
+      const message = this.error ?? `${this.config.displayName} did not become available within ${timeoutSeconds} seconds.`;
       await this.terminate().catch(() => undefined);
       throw new Error(message);
     }

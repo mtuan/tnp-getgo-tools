@@ -9,7 +9,7 @@ Cross-platform desktop operations app for GetGo quiz repositories.
 - macOS or Windows
 - Tesseract OCR for image orientation detection
 - Firebase CLI for Firebase deployments
-- EAS CLI, Android Studio/JDK, or Xcode only for their corresponding workflows
+- Android Studio/JDK or Xcode for their corresponding native workflows
 
 ## Development setup
 
@@ -81,7 +81,7 @@ Private and never committed:
 - Firebase API keys (kept private in this repository to satisfy secret scanning)
 - Google OAuth client secrets
 - Firebase service-account JSON/private keys
-- EAS, Firebase, Apple, Google Play, signing, and store credentials
+- Firebase, Apple, Google Play, signing, and store credentials
 
 Firebase client API keys identify a Firebase project and are not sufficient for
 authorization, but they are kept out of Git because secret scanners classify
@@ -94,7 +94,7 @@ authorization, and API-key restrictions should be configured in Google Cloud.
 - iOS workflows require macOS and Xcode and are unavailable on Windows.
 - Install Tesseract with `brew install tesseract` on macOS or install it on
   Windows and ensure `tesseract.exe` is on `PATH` (or set `TESSERACT_PATH`).
-- Developers need explicit Firebase/EAS permissions for remote operations.
+- Developers need explicit Firebase permissions for remote operations.
 
 ## Verification and packaging
 

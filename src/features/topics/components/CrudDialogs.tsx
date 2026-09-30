@@ -57,7 +57,7 @@ export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, emb
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   useEffect(() => {
     const reference = input.icon
-    if (typeof reference !== "string" || !reference.startsWith("asset:") || !contest.settingsPath.includes("content-v2")) {
+    if (typeof reference !== "string" || !reference.startsWith("asset:") || !/[\\/]content(?:-v2)?[\\/]topics[\\/]/.test(contest.settingsPath)) {
       setIconPreview("")
       return
     }

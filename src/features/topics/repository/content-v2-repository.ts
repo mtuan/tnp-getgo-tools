@@ -25,8 +25,9 @@ import type { ContentV2QuizPublishState, ContentV2TopicPublishState } from "../.
 import { parseAlphabetDictionary, parseKidLearningDictionary, reviewedKidLearningDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
 import { warnForContentV2File, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
+import { contentTopicsRoot } from "./content-source.js";
 
-const topicIdPattern = /^[a-z][a-z0-9-]*$/;
+const topicIdPattern = /^[a-z][a-z0-9_-]*$/;
 const jsonFileCache = new Map<string, { mtimeMs: number; size: number; value: unknown }>();
 const assetHashCache = new Map<string, { mtimeMs: number; size: number; hash: string }>();
 
@@ -42,13 +43,13 @@ function sharedDictionaryPath(repositoryPath: string, topicId: string) {
 function validateId(value: string, label: string): string {
   if (!topicIdPattern.test(value))
     throw new Error(
-      `${label} must use lowercase letters, numbers, and hyphens.`,
+      `${label} must use lowercase letters, numbers, hyphens, and underscores.`,
     );
   return value;
 }
 
 function contentRoot(repositoryPath: string): string {
-  return path.join(path.resolve(repositoryPath), "content-v2", "topics");
+  return contentTopicsRoot(repositoryPath);
 }
 
 async function readJson(filePath: string): Promise<unknown> {

@@ -7,6 +7,7 @@ test("localhost web selects the requested backend environment and remains availa
     assert.deepEqual(getGoWebRuntimeConfig.command(target), ["run", script, "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"]);
   }
   assert.equal(getGoWebRuntimeConfig.exposeToNetwork, true);
+  assert.equal(getGoWebRuntimeConfig.startupTimeoutMs, 10 * 60_000);
 });
 
 test("design server still does not require Firebase or an environment-specific command", () => {

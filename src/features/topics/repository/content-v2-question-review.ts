@@ -8,6 +8,7 @@ import {
   loadContentV2Question,
   saveContentV2Quiz,
 } from "./content-v2-repository.js";
+import { contentTopicsRoot } from "./content-source.js";
 
 function questionDirectory(
   repositoryPath: string,
@@ -15,9 +16,7 @@ function questionDirectory(
   quizId: string,
 ): string {
   return path.join(
-    path.resolve(repositoryPath),
-    "content-v2",
-    "topics",
+    contentTopicsRoot(repositoryPath),
     topicId,
     "quizzes",
     quizId,

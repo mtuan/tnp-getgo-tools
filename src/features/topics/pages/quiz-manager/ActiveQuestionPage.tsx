@@ -235,6 +235,9 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
       const setQuestionReviewStatus = async (status: string) => {
         if (!questionDraftRecord || saving || savingVerification) return;
         const previousRecord = questionDraftRecord;
+        const hadUnsavedContentChanges =
+          JSON.stringify(comparableQuestion(previousRecord)) !==
+          JSON.stringify(comparableQuestion(activeQuestion.record));
         const previousVerified = questionIsVerified(previousRecord);
         const nextRecord = withQuestionStatus(activeQuestion.record, status);
         setQuestionDraftRecord((current) =>
@@ -255,7 +258,9 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
           );
           setQuestionDraftRecord((current) =>
             current
-              ? withQuestionStatus(current, questionStatus(savedQuestion))
+              ? hadUnsavedContentChanges
+                ? withQuestionStatus(current, questionStatus(savedQuestion))
+                : structuredClone(savedQuestion)
               : current,
           );
           updateReviewedCount(

@@ -164,6 +164,26 @@ export function ManagerHeaderControls(context: Context) {
     const topicId = selectedContest?.id;
     if (!topicId) return;
     await managerApi.publishContentV2Topic(topicId);
+    const loaded = await window.getgo.loadContentV2Route(topicId);
+    onSnapshotChange({
+      ...snapshot,
+      repositoryPath: loaded.repositoryPath,
+      loadedAt: loaded.loadedAt,
+      contentV2: {
+        ...loaded.content,
+        topics: snapshot.contentV2.topics.map((topic) =>
+          topic.id === topicId ? loaded.content.topics[0] ?? topic : topic,
+        ),
+        quizzes: [
+          ...snapshot.contentV2.quizzes.filter((quiz) => quiz.topicId !== topicId),
+          ...loaded.content.quizzes,
+        ],
+        questions: [
+          ...snapshot.contentV2.questions.filter((question) => question.topicId !== topicId),
+          ...loaded.content.questions,
+        ],
+      },
+    });
     toast.show({
       title: copy.topicSyncComplete,
       description: copy.topicSyncCompleteDescription,
@@ -203,6 +223,12 @@ export function ManagerHeaderControls(context: Context) {
     </ui.ControlGroup>
     {headerStateControl}
     <ui.ActionMenu label="More" disabled={Boolean(buttonAction)} items={items} />
+    <ui.ProcessingOverlay
+      open={buttonAction === "sync-topic"}
+      title={copy.topicSyncInProgress}
+      description={copy.topicSyncInProgressDescription}
+      showElapsed
+    />
     {syncPreviewOpen && <MarketplaceSyncDrawer
       topics={syncPreview?.topics ?? []}
       quizzes={syncPreview?.quizzes ?? []}

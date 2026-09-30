@@ -2,13 +2,25 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, DeploymentOperation, DeploymentProduct, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import { parseEnv } from "node:util";
+import type { BackgroundJob, DeploymentOperation, DeploymentProduct, IosSigningState, NativeVersionState, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
+
+export function resolveIosSigningState(environment: Record<string, string | undefined>): IosSigningState {
+  const configuredStyle = environment.GETGO_IOS_SIGNING_STYLE?.trim().toLowerCase() || "automatic";
+  if (configuredStyle !== "automatic" && configuredStyle !== "manual") {
+    return { style: "invalid", configured: false };
+  }
+  if (configuredStyle === "automatic") return { style: "automatic", configured: true };
+  const provisioningProfile = environment.GETGO_IOS_PROVISIONING_PROFILE?.trim();
+  const certificate = environment.GETGO_IOS_SIGNING_CERTIFICATE?.trim() || "Apple Distribution";
+  return { style: "manual", configured: Boolean(provisioningProfile && certificate), provisioningProfile, certificate };
+}
 
 interface Runtime { child: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> }
 
@@ -29,7 +41,9 @@ export const getGoWebNativeConfig: NativeDeploymentConfig = {
   repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
   storageFile: "native-deployment-jobs.json",
   technology: "Capacitor",
-  command: (operation, platform, target) => ({ script: `native:${operation}:${platform}`, args: [target] }),
+  command: (operation, platform, target) => operation === "run-device"
+    ? { script: `native:run:${platform}`, args: [target, "--device"] }
+    : { script: `native:${operation}:${platform}`, args: [target] },
 };
 
 export const getGoAppNativeConfig: NativeDeploymentConfig = {
@@ -141,6 +155,57 @@ export class NativeDeploymentJobManager {
     return { ...process.env, GETGO_NATIVE_CONFIG_DIR: directory };
   }
 
+  async iosSigningState(target: WebDeploymentTarget): Promise<IosSigningState> {
+    const root = await this.repositoryRoot();
+    const readEnvironment = async (file: string) => {
+      try { return parseEnv(await fs.readFile(file, "utf8")); }
+      catch (cause) {
+        if ((cause as NodeJS.ErrnoException).code === "ENOENT") return {};
+        throw cause;
+      }
+    };
+    const targetEnvironment = await readEnvironment(path.join(root, "configs", "native", target, ".env.local"));
+    const processOverrides = Object.fromEntries(Object.entries(process.env)
+      .filter(([key, value]) => key.startsWith("GETGO_IOS_") && value?.trim()));
+    // Match Web's native loader: the selected target file wins over inherited
+    // process values so credentials from another environment cannot leak in.
+    const environment = { ...processOverrides, ...targetEnvironment };
+    return resolveIosSigningState(environment);
+  }
+
+  async versionState(): Promise<NativeVersionState> {
+    if (this.config.product !== "web") throw new Error("Native version management is only available for GetGo Web.");
+    const root = await this.repositoryRoot();
+    const manifestPath = path.join(root, "native-app.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as { version?: unknown };
+    const version = String(manifest.version ?? "");
+    const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+    if (!match) throw new Error(`Invalid native version in ${manifestPath}: ${version || "(missing)"}.`);
+    const [, major, minor, patch] = match.map(Number);
+    return {
+      version,
+      next: {
+        patch: `${major}.${minor}.${patch + 1}`,
+        minor: `${major}.${minor + 1}.0`,
+        major: `${major + 1}.0.0`,
+      },
+    };
+  }
+
+  async updateVersion(increment: "patch" | "minor" | "major"): Promise<NativeVersionState> {
+    await this.ensureLoaded();
+    if (this.jobs.some(job => ["queued", "running", "paused"].includes(job.status))) {
+      throw new Error("Wait for the active native job to finish before changing the native version.");
+    }
+    const current = await this.versionState();
+    const root = await this.repositoryRoot();
+    const manifestPath = path.join(root, "native-app.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as Record<string, unknown>;
+    manifest.version = current.next[increment];
+    await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    return this.versionState();
+  }
+
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
 
   async start(operation: DeploymentOperation, platform: NativePlatform, target: WebDeploymentTarget) {
@@ -151,8 +216,10 @@ export class NativeDeploymentJobManager {
     }
     const job: NativeJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: this.config.product, component, operation, target,
-      name: `${operation === "run" ? "Run" : operation === "build" ? "Build" : "Deploy"} ${this.config.technology} ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
-      description: operation === "run"
+      name: `${operation === "run-device" ? `Run on ${platform === "ios" ? "iPhone" : "Android device"}` : operation === "run" ? "Run" : operation === "build" ? "Build" : "Deploy"} ${this.config.technology} ${platform === "ios" ? "iOS" : "Android"} · ${target}`,
+      description: operation === "run-device"
+        ? `Build, install, and launch the ${target} ${this.config.technology} app on a connected ${platform === "ios" ? "iPhone" : "Android device"}`
+        : operation === "run"
         ? `Build, install, and launch the ${target} ${this.config.technology} app in a local ${platform} simulator`
         : operation === "build"
         ? `Compile and sign the ${target} ${this.config.technology} ${platform} artifact`

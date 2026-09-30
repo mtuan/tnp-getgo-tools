@@ -158,7 +158,6 @@ export class StartupEnvironmentService {
       ["npm", "Node.js and npm", true, "Install Node.js 20, including npm, and ensure it is on PATH."],
       ["tesseract", "Tesseract OCR", false, "Install Tesseract and add it to PATH, or set TESSERACT_PATH."],
       ["firebase", "Firebase CLI", false, "Install with npm install -g firebase-tools when deployment is needed."],
-      ["eas", "EAS CLI", false, "Install with npm install -g eas-cli when App cloud workflows are needed."],
       ["adb", "Android SDK tools", false, "Install Android Studio and add Android platform-tools to PATH."],
     ];
     if (process.platform === "darwin")
@@ -305,14 +304,12 @@ export class StartupEnvironmentService {
       npm: ["winget", ["install", "--id", "OpenJS.NodeJS.LTS", "-e", "--accept-package-agreements", "--accept-source-agreements"]],
       tesseract: ["winget", ["install", "--id", "UB-Mannheim.TesseractOCR", "-e", "--accept-package-agreements", "--accept-source-agreements"]],
       firebase: [npm, ["install", "-g", "firebase-tools"]],
-      eas: [npm, ["install", "-g", "eas-cli"]],
       adb: ["winget", ["install", "--id", "Google.PlatformTools", "-e", "--accept-package-agreements", "--accept-source-agreements"]],
     } : {
       git: ["xcode-select", ["--install"]],
       npm: ["brew", ["install", "node"]],
       tesseract: ["brew", ["install", "tesseract"]],
       firebase: [npm, ["install", "-g", "firebase-tools"]],
-      eas: [npm, ["install", "-g", "eas-cli"]],
       adb: ["brew", ["install", "--cask", "android-platform-tools"]],
       xcodebuild: ["xcode-select", ["--install"]],
     };

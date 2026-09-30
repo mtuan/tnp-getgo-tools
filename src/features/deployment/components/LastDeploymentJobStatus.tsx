@@ -40,7 +40,7 @@ function statusLabel(job: BackgroundJob, locale: AppSettings["locale"], localhos
     if (job.status === "cancelled") return copy.startCancelled;
     return copy.started;
   }
-  const operation = job.operation ?? "deploy";
+  const operation = job.operation === "run-device" ? "run" : job.operation ?? "deploy";
   const labels = copy[operation];
   return labels[job.status];
 }

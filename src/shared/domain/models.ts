@@ -603,7 +603,7 @@ export interface AiMigrationJobsSnapshot {
 export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "design";
 export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
-export type DeploymentOperation = "run" | "build" | "deploy";
+export type DeploymentOperation = "run" | "run-device" | "build" | "deploy";
 export interface DeploymentItemState {
   id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "functions" | "web";
   localHash: string | null;
@@ -619,6 +619,16 @@ export interface DeploymentComponentState {
   deployedVersion?: string;
   items: DeploymentItemState[];
 }
+export interface IosSigningState {
+  style: "automatic" | "manual" | "invalid";
+  configured: boolean;
+  provisioningProfile?: string;
+  certificate?: string;
+}
+export interface NativeVersionState {
+  version: string;
+  next: { patch: string; minor: string; major: string };
+}
 export interface DeploymentStateSnapshot {
   target: WebDeploymentTarget;
   firebaseProject: string;
@@ -627,6 +637,8 @@ export interface DeploymentStateSnapshot {
   webUrl: string;
   rules: DeploymentComponentState;
   web: DeploymentComponentState;
+  iosSigning?: IosSigningState;
+  nativeVersion?: NativeVersionState;
 }
 export interface LocalWebRuntimeSnapshot {
   status: "offline" | "starting" | "online" | "error";
@@ -939,6 +951,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
   startDeployment(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget, product?: DeploymentProduct): Promise<BackgroundJobsSnapshot>;
   getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
+  updateNativeVersion(increment: "patch" | "minor" | "major"): Promise<NativeVersionState>;
   openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget, product?: DeploymentProduct): Promise<void>;
   getLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;
   startLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;

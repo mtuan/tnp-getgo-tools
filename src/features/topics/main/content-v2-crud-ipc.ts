@@ -12,10 +12,11 @@ import {
 import { reviewAllContentV2Questions } from "../repository/content-v2-question-review.js";
 import { parseMarketplaceTopicState } from "./marketplace-sync.js";
 import { setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
+import { contentTopicsRoot } from "../repository/content-source.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
 interface Dependencies { repositoryRoot(): Promise<string> }
-const idPattern = /^[a-z][a-z0-9-]*$/;
+const idPattern = /^[a-z][a-z0-9_-]*$/;
 
 function validId(value: unknown, label: string): string {
   if (typeof value !== "string" || !idPattern.test(value)) throw new Error(`Invalid ${label}.`);
@@ -37,7 +38,7 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
       if (error) throw new Error(error);
       return;
     }
-    const relative = path.relative(path.join(root, "content-v2", "topics"), manifestPathValue);
+    const relative = path.relative(contentTopicsRoot(root), manifestPathValue);
     const parts = relative.split(path.sep);
     if (relative.startsWith("..") || path.isAbsolute(relative) || parts.length !== 4 || parts[1] !== "quizzes" || parts[3] !== "quiz.json")
       throw new Error("Quiz is outside the selected repository.");
@@ -95,7 +96,7 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
 
   ipcMain.handle("content-v2:topic:delete", async (_event, topicIdValue: unknown) => {
     const topicId = validId(topicIdValue, "topic ID");
-    const directory = path.join(await repositoryRoot(), "content-v2", "topics", topicId);
+    const directory = path.join(contentTopicsRoot(await repositoryRoot()), topicId);
     await fs.access(path.join(directory, "topic.json"));
     await shell.trashItem(directory);
     return { id: topicId };
@@ -104,7 +105,7 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
   ipcMain.handle("content-v2:quiz:delete", async (_event, topicIdValue: unknown, quizIdValue: unknown) => {
     const topicId = validId(topicIdValue, "topic ID");
     const quizId = validId(quizIdValue, "quiz ID");
-    const directory = path.join(await repositoryRoot(), "content-v2", "topics", topicId, "quizzes", quizId);
+    const directory = path.join(contentTopicsRoot(await repositoryRoot()), topicId, "quizzes", quizId);
     await fs.access(path.join(directory, "quiz.json"));
     await shell.trashItem(directory);
     return { topicId, id: quizId };
@@ -114,7 +115,7 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
     const topicId = validId(topicIdValue, "topic ID");
     const quizId = validId(quizIdValue, "quiz ID");
     const questionId = validId(questionIdValue, "question ID");
-    const filePath = path.join(await repositoryRoot(), "content-v2", "topics", topicId, "quizzes", quizId, "questions", `${questionId}.json`);
+    const filePath = path.join(contentTopicsRoot(await repositoryRoot()), topicId, "quizzes", quizId, "questions", `${questionId}.json`);
     await fs.access(filePath);
     await shell.trashItem(filePath);
     return { topicId, quizId, id: questionId };

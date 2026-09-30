@@ -44,6 +44,7 @@ function run(command, args, cwd, capture = false) {
     cwd,
     encoding: "utf8",
     env: { ...process.env, LANG: "C", LC_ALL: "C" },
+    shell: process.platform === "win32" && command.toLowerCase().endsWith(".cmd"),
     stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
   })
   if (result.error) throw result.error
@@ -69,7 +70,8 @@ async function digest(path) {
 async function verifyInstalledPackage(archivePath) {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "getgo-logics-verify-"))
   try {
-    run("tar", ["-xzf", archivePath, "-C", temporaryRoot], toolsRoot)
+    const localArchivePath = relative(toolsRoot, archivePath).replaceAll("\\", "/")
+    run("tar", ["-xzf", localArchivePath, "-C", temporaryRoot], toolsRoot)
     const packedRoot = join(temporaryRoot, "package")
     const packedFiles = await filesBelow(packedRoot)
     for (const file of packedFiles) {

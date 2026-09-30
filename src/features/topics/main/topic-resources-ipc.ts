@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { contentTopicsRoot } from "../repository/content-source.js";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
 import { hashContentV2, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
@@ -25,7 +26,7 @@ export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, reposi
 ipcMain.handle(
   "marketplace:topics:publish",
   async (_event, topicId: unknown, state: unknown) => {
-    if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+    if (typeof topicId !== "string" || !/^[a-z][a-z0-9_-]*$/.test(topicId))
       throw new Error("Invalid marketplace topic ID.");
     const marketplaceState = parseMarketplaceTopicState(state);
     const root = await repositoryRoot();
@@ -112,7 +113,10 @@ ipcMain.handle("marketplace:topics:sync-all", async (_event, value: unknown) => 
   if (active) return backgroundJobsSnapshot();
   if (!firebaseAuth) throw new Error("Publishing is not initialized.");
   if (!Array.isArray(value)) throw new Error("Invalid marketplace sync plan.");
-  const idPattern = /^[a-z][a-z0-9-]*$/;
+  // Keep marketplace IDs aligned with the Content v2 repository/schema.
+  // Existing converted topics can legitimately contain underscores (for
+  // example, `timo_1_pr`).
+  const idPattern = /^[a-z][a-z0-9_-]*$/;
   const plan = value.map((item): { kind: "topic" | "quiz"; topicId: string; quizId?: string } => {
     if (!item || typeof item !== "object") throw new Error("Invalid marketplace sync item.");
     const input = item as Record<string, unknown>;
@@ -254,12 +258,10 @@ ipcMain.handle(
   },
 );
 const topicAssetsDirectory = async (topicId: unknown) => {
-  if (typeof topicId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topicId))
+  if (typeof topicId !== "string" || !/^[a-z][a-z0-9_-]*$/.test(topicId))
     throw new Error("Invalid topic selection.");
   return path.join(
-    await repositoryRoot(),
-    "content-v2",
-    "topics",
+    contentTopicsRoot(await repositoryRoot()),
     topicId,
     "assets",
   );
