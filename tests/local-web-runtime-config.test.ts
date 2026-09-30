@@ -8,6 +8,8 @@ test("localhost web selects the requested backend environment and remains availa
   }
   assert.equal(getGoWebRuntimeConfig.exposeToNetwork, true);
   assert.equal(getGoWebRuntimeConfig.startupTimeoutMs, 10 * 60_000);
+  assert.equal(getGoWebRuntimeConfig.url, "https://localhost:5173");
+  assert.deepEqual(getGoWebRuntimeConfig.warmCommand, ["run", "warm:dev", "--", "--url", "https://localhost:5173"]);
 });
 
 test("design server still does not require Firebase or an environment-specific command", () => {
