@@ -53,7 +53,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
   const [automaticCapture, setAutomaticCapture] = useState<AutomaticCaptureProgress | null>(null);
   const [deletingScreenshotId, setDeletingScreenshotId] = useState<string | null>(null);
   const captureWorkspaceRef = useRef<ProjectCaptureWorkspaceHandle>(null);
-  const [projectValues, setProjectValues] = useState<ui.FormValues>({ name: "", description: "", baseUrl: "http://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 });
+  const [projectValues, setProjectValues] = useState<ui.FormValues>({ name: "", description: "", baseUrl: "https://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 });
   const toast = ui.useToast();
 
   const load = useCallback(async () => {
@@ -83,7 +83,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     { name: "description", type: "textarea", label: copy.description, rows: 4, maxLength: 500 },
     { name: "instructions", type: "textarea", label: locale === "vi" ? "Hướng dẫn thiết kế dùng chung" : "Shared design instructions", rows: 8 },
     { section: copy.previewConfig, fields: [
-      { name: "baseUrl", type: "url", label: copy.baseUrl, required: true, placeholder: "http://localhost:5173" },
+      { name: "baseUrl", type: "url", label: copy.baseUrl, required: true, placeholder: "https://localhost:5173" },
       { name: "devicePreset", type: "select", label: copy.devicePreview.device, options: previewPresets, presentation: "dropdown" },
       [{ name: "width", type: "number", label: copy.devicePreview.width, required: true, min: 240, max: 2560 }, { name: "height", type: "number", label: copy.devicePreview.height, required: true, min: 320, max: 2560 }],
     ] },
@@ -102,7 +102,7 @@ export function ScreenshotProjectsPage({ locale, initialRoute, onRouteChange }: 
     setBusy(true); setError(null);
     try {
       const created = await window.getgo.createScreenshotProject(projectInput());
-      setCreating(false); setProjectValues({ name: "", description: "", instructions: "", baseUrl: "http://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 }); onRouteChange(detailRoute(created.id));
+      setCreating(false); setProjectValues({ name: "", description: "", instructions: "", baseUrl: "https://localhost:5173", devicePreset: "iphone-15", width: 393, height: 852 }); onRouteChange(detailRoute(created.id));
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }

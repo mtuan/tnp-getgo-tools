@@ -52,7 +52,7 @@ const normalizeRoute = (value: unknown) => {
 };
 
 const normalizePreviewConfig = (value: ScreenshotProjectInput["previewConfig"] | undefined) => {
-  const baseUrlValue = value?.baseUrl ?? "http://localhost:5173";
+  const baseUrlValue = value?.baseUrl ?? "https://localhost:5173";
   const baseUrl = new URL(baseUrlValue);
   if (!["http:", "https:"].includes(baseUrl.protocol) || !["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname))
     throw new Error("Preview URL must use localhost, 127.0.0.1, or ::1.");

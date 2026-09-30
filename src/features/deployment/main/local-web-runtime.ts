@@ -1,6 +1,7 @@
 import { execFile, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync, promises as fs } from "node:fs";
+import { request as httpsRequest } from "node:https";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
@@ -33,10 +34,10 @@ export const getGoWebRuntimeConfig: LocalWebRuntimeConfig = {
   repositoryName: "tnp-getgo-web",
   repositoryDirectory: "tnp-getgo-web",
   repositoryEnvironmentVariable: "GETGO_WEB_ROOT",
-  url: "http://localhost:5173",
+  url: "https://localhost:5173",
   healthPath: "/manifest.json",
   command: target => ["run", target === "development" ? "dev:getgo:dev" : `dev:getgo:${target}`, "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"],
-  warmCommand: ["run", "warm:dev", "--", "--url", "http://localhost:5173"],
+  warmCommand: ["run", "warm:dev", "--", "--url", "https://localhost:5173"],
   // prepare:shared can check, build, pack, and install getgo-logics before
   // Vite binds its port. A cold Windows checkout regularly exceeds one minute.
   startupTimeoutMs: 10 * 60_000,
@@ -194,6 +195,20 @@ export class LocalWebRuntimeManager {
     // Metro port as ready so health probes do not repeatedly abort cold SSR.
     if (this.config.product === "app") return Boolean(await this.listenerPid());
     try {
+      const runtimeUrl = new URL(`${this.config.url}${this.config.healthPath ?? ""}`);
+      if (runtimeUrl.protocol === "https:" && ["localhost", "127.0.0.1", "::1"].includes(runtimeUrl.hostname)) {
+        return await new Promise<boolean>(resolve => {
+          const request = httpsRequest(runtimeUrl, { rejectUnauthorized: false }, response => {
+            response.resume();
+            const online = Boolean(response.statusCode && response.statusCode >= 200 && response.statusCode < 300);
+            if (online) this.lastConfirmedOnlineAt = Date.now();
+            resolve(online);
+          });
+          request.setTimeout(1500, () => request.destroy());
+          request.once("error", () => resolve(false));
+          request.end();
+        });
+      }
       const response = await fetch(`${this.config.url}${this.config.healthPath ?? ""}`, {
         cache: "no-store",
         signal: AbortSignal.timeout(1500),
