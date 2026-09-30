@@ -1,5 +1,5 @@
-import { Apple, ExternalLink, Eye, PackageCheck, Play, Smartphone, UploadCloud } from "lucide-react";
-import type { AppSettings, BackgroundJob, DeploymentComponent, DeploymentOperation, IosSigningState } from "../../../shared/domain/models";
+import { Apple, ExternalLink, Eye, PackageCheck, Play, Smartphone, Tag, UploadCloud } from "lucide-react";
+import type { AppSettings, BackgroundJob, DeploymentComponent, DeploymentOperation, IosSigningState, NativeVersionState } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { LastDeploymentJobStatus } from "./LastDeploymentJobStatus";
 import en from "../../../shared/localization/en.json";
@@ -16,9 +16,12 @@ interface NativeDeploymentCardsProps {
   iosSigning?: IosSigningState;
   product?: "web" | "app";
   runOnly?: boolean;
+  nativeVersion?: NativeVersionState;
+  versionBusy?: boolean;
+  onUpdateVersion?(increment: "patch" | "minor" | "major"): void;
 }
 
-export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen, onViewLogs, latestJob, iosSigning, product = "web", runOnly = false }: NativeDeploymentCardsProps) {
+export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen, onViewLogs, latestJob, iosSigning, product = "web", runOnly = false, nativeVersion, versionBusy = false, onUpdateVersion }: NativeDeploymentCardsProps) {
   const copy = (locale === "vi" ? vi : en).deployment;
   const renderCard = (platform: "ios" | "android") => {
     const component = `mobile-${platform}` as const;
@@ -65,5 +68,24 @@ export function NativeDeploymentCards({ locale, activeJobs, busy, onRun, onOpen,
       </ui.Panel>
     );
   };
-  return <>{renderCard("ios")}{renderCard("android")}</>;
+  return <>
+    {!runOnly && <ui.Panel className="native-version-panel">
+      <ui.PanelBody>
+        <div className="native-version-heading">
+          <span className="deployment-card-icon"><Tag /></span>
+          <div>
+            <h2>{copy.nativeVersion}</h2>
+            <p>{copy.nativeVersionDescription}</p>
+          </div>
+          <strong>{nativeVersion?.version ?? copy.nativeVersionLoading}</strong>
+        </div>
+        <div className="native-version-actions">
+          <ui.Button disabled={!nativeVersion || versionBusy || activeJobs.length > 0} onClick={() => onUpdateVersion?.("patch")}>{copy.versionPatch} · {nativeVersion?.next.patch ?? "—"}</ui.Button>
+          <ui.Button disabled={!nativeVersion || versionBusy || activeJobs.length > 0} onClick={() => onUpdateVersion?.("minor")}>{copy.versionMinor} · {nativeVersion?.next.minor ?? "—"}</ui.Button>
+          <ui.Button disabled={!nativeVersion || versionBusy || activeJobs.length > 0} onClick={() => onUpdateVersion?.("major")}>{copy.versionMajor} · {nativeVersion?.next.major ?? "—"}</ui.Button>
+        </div>
+      </ui.PanelBody>
+    </ui.Panel>}
+    {renderCard("ios")}{renderCard("android")}
+  </>;
 }

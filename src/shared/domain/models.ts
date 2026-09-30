@@ -625,6 +625,10 @@ export interface IosSigningState {
   provisioningProfile?: string;
   certificate?: string;
 }
+export interface NativeVersionState {
+  version: string;
+  next: { patch: string; minor: string; major: string };
+}
 export interface DeploymentStateSnapshot {
   target: WebDeploymentTarget;
   firebaseProject: string;
@@ -634,6 +638,7 @@ export interface DeploymentStateSnapshot {
   rules: DeploymentComponentState;
   web: DeploymentComponentState;
   iosSigning?: IosSigningState;
+  nativeVersion?: NativeVersionState;
 }
 export interface LocalWebRuntimeSnapshot {
   status: "offline" | "starting" | "online" | "error";
@@ -946,6 +951,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
   startDeployment(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget, product?: DeploymentProduct): Promise<BackgroundJobsSnapshot>;
   getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
+  updateNativeVersion(increment: "patch" | "minor" | "major"): Promise<NativeVersionState>;
   openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget, product?: DeploymentProduct): Promise<void>;
   getLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;
   startLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;

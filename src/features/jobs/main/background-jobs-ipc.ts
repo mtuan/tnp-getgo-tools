@@ -88,11 +88,16 @@ export function registerBackgroundJobsIpc(
   });
   ipcMain.handle("deployment:state", async (_event, target: unknown) => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
-    const [state, iosSigning] = await Promise.all([
+    const [state, iosSigning, nativeVersion] = await Promise.all([
       webDeploymentJobs.state(target),
       nativeDeploymentJobs.iosSigningState(target),
+      nativeDeploymentJobs.versionState(),
     ]);
-    return { ...state, iosSigning };
+    return { ...state, iosSigning, nativeVersion };
+  });
+  ipcMain.handle("native-version:update", async (_event, increment: unknown) => {
+    if (!(increment === "patch" || increment === "minor" || increment === "major")) throw new Error("Invalid native version increment.");
+    return nativeDeploymentJobs.updateVersion(increment);
   });
   const runtime = (value: unknown) => {
     if (value === "design") return localDesignRuntime;

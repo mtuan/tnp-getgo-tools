@@ -27,6 +27,7 @@ export function DeploymentPage({
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
   const [deploymentState, setDeploymentState] = useState<DeploymentStateSnapshot | null>(null);
+  const [versionBusy, setVersionBusy] = useState(false);
   const [localWeb, setLocalWeb] = useState<LocalWebRuntimeSnapshot | null>(null);
   const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | "stop" | null>(null);
   const localWebActionRef = useRef<"start" | "restart" | "stop" | null>(null);
@@ -150,6 +151,20 @@ export function DeploymentPage({
     if (operation === "deploy") requireAuth(() => executeRun(operation, component));
     else void executeRun(operation, component);
   };
+  const updateNativeVersion = async (increment: "patch" | "minor" | "major") => {
+    const next = deploymentState?.nativeVersion?.next[increment];
+    if (!next || !window.confirm(copy.nativeVersionConfirm.replace("{version}", next))) return;
+    setVersionBusy(true);
+    setError(null);
+    try {
+      const nativeVersion = await window.getgo.updateNativeVersion(increment);
+      setDeploymentState(current => current ? { ...current, nativeVersion } : current);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setVersionBusy(false);
+    }
+  };
 
   const controlLocalWeb = async (action: "start" | "restart" | "stop") => {
     if (localWebActionRef.current) return;
@@ -257,7 +272,7 @@ export function DeploymentPage({
         <DeploymentServiceCards locale={locale} state={deploymentState} busy={busy} deploymentIsActive={deploymentIsActive} componentControlsLocked={componentControlsLocked} operationIsRunning={operationIsRunning} onRun={run} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
       <div className="deployment-grid deployment-grid-native">
-        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} busy={busy} iosSigning={deploymentState?.iosSigning} onRun={run} onOpen={platform => void window.getgo.openNativeProject(platform, environment, "web")} onViewLogs={setLogSelection} latestJob={latestJob} />
+        <NativeDeploymentCards locale={locale} activeJobs={activeJobs} busy={busy} iosSigning={deploymentState?.iosSigning} nativeVersion={deploymentState?.nativeVersion} versionBusy={versionBusy} onUpdateVersion={increment => void updateNativeVersion(increment)} onRun={run} onOpen={platform => void window.getgo.openNativeProject(platform, environment, "web")} onViewLogs={setLogSelection} latestJob={latestJob} />
       </div>
     </> : <>
       <div className="deployment-grid deployment-grid-app">

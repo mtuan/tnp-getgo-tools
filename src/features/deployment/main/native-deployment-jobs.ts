@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { parseEnv } from "node:util";
-import type { BackgroundJob, DeploymentOperation, DeploymentProduct, IosSigningState, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { BackgroundJob, DeploymentOperation, DeploymentProduct, IosSigningState, NativeVersionState, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
@@ -169,6 +169,39 @@ export class NativeDeploymentJobManager {
     // process values so credentials from another environment cannot leak in.
     const environment = { ...processOverrides, ...targetEnvironment };
     return resolveIosSigningState(environment);
+  }
+
+  async versionState(): Promise<NativeVersionState> {
+    if (this.config.product !== "web") throw new Error("Native version management is only available for GetGo Web.");
+    const root = await this.repositoryRoot();
+    const manifestPath = path.join(root, "native-app.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as { version?: unknown };
+    const version = String(manifest.version ?? "");
+    const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+    if (!match) throw new Error(`Invalid native version in ${manifestPath}: ${version || "(missing)"}.`);
+    const [, major, minor, patch] = match.map(Number);
+    return {
+      version,
+      next: {
+        patch: `${major}.${minor}.${patch + 1}`,
+        minor: `${major}.${minor + 1}.0`,
+        major: `${major + 1}.0.0`,
+      },
+    };
+  }
+
+  async updateVersion(increment: "patch" | "minor" | "major"): Promise<NativeVersionState> {
+    await this.ensureLoaded();
+    if (this.jobs.some(job => ["queued", "running", "paused"].includes(job.status))) {
+      throw new Error("Wait for the active native job to finish before changing the native version.");
+    }
+    const current = await this.versionState();
+    const root = await this.repositoryRoot();
+    const manifestPath = path.join(root, "native-app.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as Record<string, unknown>;
+    manifest.version = current.next[increment];
+    await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    return this.versionState();
   }
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }

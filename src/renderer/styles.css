@@ -7975,6 +7975,38 @@ button.danger svg {
 .deployment-grid-native {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+.native-version-panel {
+  grid-column: 1 / -1;
+}
+.native-version-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+.native-version-heading h2,
+.native-version-heading p {
+  margin: 0;
+}
+.native-version-heading h2 {
+  font-size: 16px;
+}
+.native-version-heading p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.native-version-heading > strong {
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+.native-version-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
 .deployment-grid-app {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
