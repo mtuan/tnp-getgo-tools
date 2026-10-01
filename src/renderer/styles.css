@@ -10173,8 +10173,16 @@ button.danger svg {
   overflow-wrap: anywhere;
 }
 
-.getgo-math-inline { display: inline-block; max-width: 100%; white-space: nowrap; }
-.getgo-math-block { display: block; width: 100%; max-width: 100%; overflow: hidden; }
+.getgo-math-inline { max-width: 100%; white-space: normal; }
+.getgo-math-block { display: block; width: 100%; max-width: 100%; white-space: normal; }
+.getgo-math-nowrap { display: inline-block; white-space: nowrap; }
+.getgo-math-wrap .katex-display > .katex,
+.getgo-math-wrap .katex-html { white-space: normal; }
+.getgo-math-wrap .katex-html > .base {
+  display: inline;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .getgo-markdown img { display: block; width: auto; max-width: 100%; height: auto; margin: 0.75em auto; }
 
 .getgo-text-preserve-lines {
