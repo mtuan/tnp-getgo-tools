@@ -56,19 +56,34 @@ async function loadWikiPage(window: BrowserWindow, url: string): Promise<void> {
   throw new Error("AoPS did not finish loading. Complete any verification shown in the AoPS window, then try again.");
 }
 
-const archiveScript = String.raw`(() => {
-  const contests = new Set(['AMC 8', 'AMC 10A', 'AMC 10B', 'AMC 12A', 'AMC 12B']);
+const paperArchiveScript = String.raw`(() => {
   const found = new Map();
-  for (const anchor of document.querySelectorAll('a[href*="title="]')) {
-    const label = (anchor.textContent || '').replace(/\s+/g, ' ').trim();
-    const match = label.match(/^(\d{4})\s+(AMC\s+(?:8|10A|10B|12A|12B))\s+Problems$/i);
+  for (const anchor of document.querySelectorAll('#mw-content-text a[href], .mw-parser-output a[href]')) {
+    const url = new URL(anchor.href, location.href);
+    const decoded = decodeURIComponent(url.href).replace(/\+/g, ' ');
+    const problemMatch = decoded.match(/(?:title=|index\.php\/)(\d{4})[_ ]([^?#&/]+?)[_ ]Problems(?:[&#/]|$)/i);
+    const landingMatch = decoded.match(/(?:title=|index\.php\/)(\d{4})[_ ]([^?#&/]+?)(?:[&#/]|$)/i);
+    const match = problemMatch || landingMatch;
     if (!match) continue;
-    const contest = match[2].toUpperCase().replace(/AMC\s+/, 'AMC ');
-    if (!contests.has(contest)) continue;
-    const url = new URL(anchor.href, location.href).href;
-    found.set(contest + ':' + match[1], { contest, year: Number(match[1]), title: label, url });
+    const contest = match[2].replace(/_/g, ' ').replace(/\s+/g, ' ').trim().replace(/\s+(?:Answer Key|Problems)$/i, '');
+    if (!contest || contest.length > 80) continue;
+    const year = Number(match[1]);
+    const paperUrl = problemMatch ? url.href.split('#')[0] : location.origin + '/wiki/index.php?title=' + encodeURIComponent(year + '_' + contest.replace(/\s+/g, '_') + '_Problems');
+    found.set(contest + ':' + year, { contest, year, title: year + ' ' + contest, url: paperUrl });
   }
   return [...found.values()].sort((a, b) => a.contest.localeCompare(b.contest) || b.year - a.year);
+})()`;
+
+const contestArchiveLinksScript = String.raw`(() => {
+  const links = new Set();
+  for (const anchor of document.querySelectorAll('#mw-content-text a[href], .mw-parser-output a[href]')) {
+    const url = new URL(anchor.href, location.href);
+    const decoded = decodeURIComponent(url.href).replace(/\+/g, ' ');
+    if (!/(?:title=|index\.php\/)[^?#&/]*(?:Problems[_ ]and[_ ]Solutions|Problem[_ ]Archive)(?:[&#/]|$)/i.test(decoded)) continue;
+    if (url.href === location.href) continue;
+    links.add(url.href.split('#')[0]);
+  }
+  return [...links];
 })()`;
 
 const problemLinksScript = String.raw`(() => {
@@ -143,13 +158,35 @@ export async function discoverAmcArchive(): Promise<AmcArchiveEntry[]> {
   const window = createSourceWindow();
   try {
     await loadWikiPage(window, amcIndexUrl);
-    return await window.webContents.executeJavaScript(archiveScript) as AmcArchiveEntry[];
+    const found = new Map<string, AmcArchiveEntry>();
+    const collectCurrentPage = async () => {
+      const entries = await window.webContents.executeJavaScript(paperArchiveScript) as AmcArchiveEntry[];
+      for (const entry of entries) found.set(`${entry.contest}:${entry.year}`, entry);
+    };
+    await collectCurrentPage();
+    const archiveLinks = await window.webContents.executeJavaScript(contestArchiveLinksScript) as string[];
+    for (const archiveUrl of archiveLinks) {
+      await loadWikiPage(window, archiveUrl);
+      await collectCurrentPage();
+    }
+    const entries = [...found.values()].sort((left, right) => left.contest.localeCompare(right.contest, undefined, { numeric: true }) || right.year - left.year);
+    if (!entries.length) {
+      const diagnostic = await window.webContents.executeJavaScript(String.raw`(() => ({
+        url: location.href,
+        title: document.title,
+        contentRoot: Boolean(document.querySelector('#mw-content-text, .mw-parser-output')),
+        anchorCount: document.querySelectorAll('a').length,
+        sampleLinks: [...document.querySelectorAll('a')].slice(0, 12).map((anchor) => (anchor.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
+      }))()`).catch(() => null) as { url: string; title: string; contentRoot: boolean; anchorCount: number; sampleLinks: string[] } | null;
+      throw new Error(`AoPS loaded, but no contest links were found.${diagnostic ? ` Page: "${diagnostic.title}" (${diagnostic.url}); content root: ${diagnostic.contentRoot}; links: ${diagnostic.anchorCount}; samples: ${diagnostic.sampleLinks.join(" | ") || "none"}.` : ""}`);
+    }
+    return entries;
   } finally {
     if (!window.isDestroyed()) window.destroy();
   }
 }
 
-export async function previewAmcPaper(contest: AmcContestName, year: number): Promise<AmcImportPreview> {
+export async function previewAmcPaper(contest: AmcContestName, year: number, onProgress?: (progress: { processed: number; total: number }) => Promise<void> | void): Promise<AmcImportPreview> {
   const sourcePaperUrl = amcPaperUrl(contest, year);
   const window = createSourceWindow();
   try {
@@ -158,6 +195,7 @@ export async function previewAmcPaper(contest: AmcContestName, year: number): Pr
     if (pageMissing) throw new Error(`${year} ${contest} Problems does not exist on AoPS.`);
     const links = await window.webContents.executeJavaScript(problemLinksScript) as Array<{ number: number; url: string }>;
     if (!links.length) throw new Error("No problem links were found on this AoPS paper page.");
+    await onProgress?.({ processed: 0, total: links.length });
     const questions: AmcImportedQuestion[] = [];
     const warnings: string[] = [];
     for (const link of links) {
@@ -170,6 +208,7 @@ export async function previewAmcPaper(contest: AmcContestName, year: number): Pr
       if (!extracted.solutions.length) warnings.push(`Problem ${link.number}: no solution section found.`);
       if (!correct) warnings.push(`Problem ${link.number}: correct choice could not be detected; review it before publishing.`);
       questions.push({ id: `q${link.number}`, number: link.number, sourceUrl: link.url, text: extracted.text, choices, correct, solutions: extracted.solutions });
+      await onProgress?.({ processed: questions.length, total: links.length });
     }
     return {
       sourceIndexUrl: amcIndexUrl,

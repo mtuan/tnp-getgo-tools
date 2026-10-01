@@ -16,6 +16,8 @@ const api: DesktopApi = {
   discoverAmcArchive: () => ipcRenderer.invoke("amc-import:archive:discover"),
   previewAmcPaper: (contest, year) => ipcRenderer.invoke("amc-import:paper:preview", contest, year),
   importAmcPaper: (preview, overwrite) => ipcRenderer.invoke("amc-import:paper:import", preview, overwrite),
+  loadAmcImportDashboard: (refreshArchive) => ipcRenderer.invoke("amc-import:dashboard:load", refreshArchive),
+  startAmcImport: (input) => ipcRenderer.invoke("amc-import:run", input),
   onOpenRoute: (listener) => {
     routeListeners.add(listener);
     pendingRoutes.splice(0).forEach((route) => listener(route));

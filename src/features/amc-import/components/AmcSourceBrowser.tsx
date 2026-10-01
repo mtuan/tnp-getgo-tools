@@ -14,7 +14,7 @@ interface SourceWebview extends HTMLElement {
   reload(): void;
 }
 
-export function AmcSourceBrowser({ locale, paperUrl, onSessionChange }: { locale: "en" | "vi"; paperUrl: string; onSessionChange(ready: boolean): void }) {
+export function AmcSourceBrowser({ locale, paperUrl, onSessionChange = () => undefined }: { locale: "en" | "vi"; paperUrl: string; onSessionChange?(ready: boolean): void }) {
   const vi = locale === "vi";
   const webviewRef = useRef<SourceWebview | null>(null);
   const [ready, setReady] = useState(false);

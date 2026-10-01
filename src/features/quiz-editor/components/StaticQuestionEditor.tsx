@@ -13,6 +13,7 @@ import { QuestionPreview } from "../../../shared/ui/QuestionPreview";
 import { QuestionAssetInput } from "../../../shared/ui/QuestionAssetInput";
 import { questionService } from "./question-service";
 import { QuestionFeedback } from "./QuestionFeedback";
+import { QuestionSourcePanel } from "./QuestionSourcePanel";
 
 const answerOf = (record: ContestQuizQuestionRecord): EditableAnswer =>
   record.answer &&
@@ -238,6 +239,12 @@ export function StaticQuestionEditor({
             />
           </div>
         </AccordionSection>
+        <QuestionSourcePanel
+          sourceValue={record.source}
+          solutionsValue={record.solutions}
+          expanded={panelExpanded("source")}
+          onExpandedChange={(expanded) => setPanelExpanded("source", expanded)}
+        />
         <AccordionSection
           className="static-question-form-panel"
           title="Question images"

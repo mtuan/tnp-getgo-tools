@@ -181,6 +181,8 @@ function toManagerQuestion(question: ContentV2Question): QuizQuestionRecord {
     image_datas: question.assets,
     answer: question.answer,
     explanation: question.explanation,
+    source: question.source,
+    solutions: question.solutions,
     feedback: question.feedback,
     ...(question.authoringMode === "reference" && question.reference
       ? { authoringMode: "reference", reference: question.reference }

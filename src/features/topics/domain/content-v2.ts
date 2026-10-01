@@ -36,6 +36,14 @@ const hashSchema = z
   .string()
   .regex(/^[a-f0-9]{64}$/)
   .optional();
+export const contentSourceSchema = z.object({
+  provider: z.string().min(1),
+  url: z.string().url(),
+  indexUrl: z.string().url().optional(),
+  externalId: z.string().min(1).optional(),
+  importedAt: z.string().datetime().optional(),
+});
+export type ContentSource = z.infer<typeof contentSourceSchema>;
 export const localizedTextSchema = z.union([
   z.string(),
   z.object({ en: z.string(), vi: z.string() }),
@@ -228,6 +236,7 @@ const baseRecord = {
     verified: z.boolean().default(false),
   }).optional(),
   marketplace: marketplaceTopicMetadataSchema.partial().passthrough().optional(),
+  source: contentSourceSchema.optional(),
 };
 
 export const competitionTopicSchema = z.object({
@@ -345,6 +354,7 @@ const questionBase = {
   id: idSchema,
   order: z.number().int().nonnegative(),
   status: z.enum(contentV2ReviewStatuses).default("pending"),
+  source: contentSourceSchema.optional(),
 };
 
 export const competitionQuestionV2Schema = z.object({
@@ -360,6 +370,11 @@ export const competitionQuestionV2Schema = z.object({
   explanation: z
     .object({ en: z.string().optional(), vi: z.string().optional() })
     .optional(),
+  solutions: z.array(z.object({
+    title: localizedTextSchema,
+    text: localizedTextSchema,
+    sourceUrl: z.string().url().optional(),
+  })).optional(),
   feedback: z
     .object({
       issues: z.array(

@@ -67,7 +67,7 @@ async function resolveYoutubeUrl(requestedUrl: string) {
 function assertAllowedExternalUrl(requestedUrl: unknown): URL {
   if (typeof requestedUrl !== "string") throw new Error("Invalid URL");
   const url = new URL(requestedUrl);
-  const hosts = new Set(["tnp-getgo-dev.web.app", "tnp-getgo-stg.web.app", "tnp-getgo.web.app", "platform.openai.com", "youtube.com", "www.youtube.com", "youtu.be"]);
+  const hosts = new Set(["tnp-getgo-dev.web.app", "tnp-getgo-stg.web.app", "tnp-getgo.web.app", "platform.openai.com", "artofproblemsolving.com", "youtube.com", "www.youtube.com", "youtu.be"]);
   const firebasePaths = ["/project/tnp-getgo-dev/", "/project/tnp-getgo-stg/", "/project/tnp-getgo/"];
   const firebase = url.hostname === "console.firebase.google.com" && firebasePaths.some((prefix) => url.pathname.startsWith(prefix));
   const local = url.protocol === "http:"

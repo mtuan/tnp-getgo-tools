@@ -1,89 +1,87 @@
-import { useCallback, useMemo, useState } from "react";
-import { ExternalLink, FileDown, RefreshCw } from "lucide-react";
-import { amcContestNames, amcPaperUrl, type AmcContestName, type AmcImportPreview } from "../domain/amc-import";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ExternalLink, Globe2, Play, RefreshCw } from "lucide-react";
+import * as ui from "../../../shared/ui";
+import { amcPaperUrl, amcTopicId, type AmcImportDashboard, type AmcPaperImportProgress, type AmcTopicImportProgress, type StartAmcImportInput } from "../domain/amc-import";
 import { AmcSourceBrowser } from "../components/AmcSourceBrowser";
-import { Button } from "../../../shared/ui/Button";
-import { Checkbox } from "../../../shared/ui/Checkbox";
-import { DataTable, type DataColumn } from "../../../shared/ui/DataTable";
-import { Input } from "../../../shared/ui/Input";
-import { PageHeader } from "../../../shared/ui/PageHeader";
-import { Panel, PanelBody } from "../../../shared/ui/Panel";
-import { ProcessingOverlay } from "../../../shared/ui/ProcessingOverlay";
-import { Select } from "../../../shared/ui/Select";
-import { StatusBadge } from "../../../shared/ui/StatusBadge";
-import { useToast } from "../../../shared/ui/Toast";
 
 type Locale = "en" | "vi";
+type DashboardRow = { kind: "topic"; topic: AmcTopicImportProgress } | { kind: "paper"; paper: AmcPaperImportProgress };
+const statusTone = (status: AmcPaperImportProgress["status"]): ui.StatusBadgeTone => status === "imported" ? "success" : status === "parsed" ? "info" : status === "failed" ? "danger" : ["parsing", "importing"].includes(status) ? "primary" : "neutral";
 
 export function AmcImportPage({ locale, onOpenQuiz }: { locale: Locale; onOpenQuiz(route: string): void }) {
   const vi = locale === "vi";
-  const toast = useToast();
-  const [contest, setContest] = useState<AmcContestName>("AMC 8");
-  const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [preview, setPreview] = useState<AmcImportPreview | null>(null);
-  const [busy, setBusy] = useState<"discover" | "preview" | "import" | null>(null);
-  const [overwrite, setOverwrite] = useState(false);
-  const [available, setAvailable] = useState<Array<{ contest: AmcContestName; year: number }>>([]);
-  const [sourceSessionReady, setSourceSessionReady] = useState(false);
-  const onSourceSessionChange = useCallback((ready: boolean) => setSourceSessionReady(ready), []);
-
-  const fail = (cause: unknown) => toast.show({
-    title: vi ? "Không thể nhập dữ liệu AMC" : "AMC import failed",
-    description: cause instanceof Error ? cause.message : String(cause), variant: "error",
-  });
-  const discover = async () => {
-    setBusy("discover");
+  const toast = ui.useToast();
+  const [dashboard, setDashboard] = useState<AmcImportDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [browserPaperUrl, setBrowserPaperUrl] = useState(amcPaperUrl("AMC 8", new Date().getFullYear()));
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    setLoadError("");
     try {
-      const entries = await window.getgo.discoverAmcArchive();
-      setAvailable(entries);
-      const first = entries.find((entry) => entry.contest === contest) ?? entries[0];
-      if (first) { setContest(first.contest); setYear(String(first.year)); }
-      toast.show({ title: vi ? "Đã tải danh mục AMC" : "AMC archive loaded", description: vi ? `${entries.length} đề thi có sẵn.` : `${entries.length} available papers found.` });
-    } catch (cause) { fail(cause); } finally { setBusy(null); }
+      const next = await window.getgo.loadAmcImportDashboard(refresh);
+      setDashboard(next);
+      const latestFailure = [...(next.logs ?? [])].reverse().find((entry) => entry.level === "error");
+      if (!next.total && latestFailure) setLoadError(latestFailure.detail ?? latestFailure.message);
+    }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setLoadError(message);
+      toast.show({ title: vi ? "Không thể tải danh mục AMC" : "Could not load the AMC archive", description: message, variant: "error" });
+    }
+    finally { setLoading(false); setRefreshing(false); }
+  }, [toast, vi]);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (!dashboard?.active) return; const timer = window.setInterval(() => void load(), 1_000); return () => window.clearInterval(timer); }, [dashboard?.active, load]);
+  const start = (input: StartAmcImportInput) => {
+    if (dashboard?.active) return;
+    setDashboard((current) => current ? { ...current, active: { scope: input.scope, contest: input.contest, year: input.year } } : current);
+    void window.getgo.startAmcImport(input).then(setDashboard).catch((cause) => { toast.show({ title: vi ? "Nhập AMC thất bại" : "AMC import failed", description: cause instanceof Error ? cause.message : String(cause), variant: "error" }); void load(); });
   };
-  const loadPreview = async () => {
-    const numericYear = Number(year);
-    if (!Number.isInteger(numericYear) || numericYear < 1950 || numericYear > 2100) { fail(new Error(vi ? "Nhập năm AMC hợp lệ." : "Enter a valid AMC year.")); return; }
-    setBusy("preview"); setPreview(null);
-    try { setPreview(await window.getgo.previewAmcPaper(contest, numericYear)); }
-    catch (cause) { fail(cause); } finally { setBusy(null); }
-  };
-  const importPaper = async () => {
-    if (!preview) return;
-    setBusy("import");
-    try {
-      const result = await window.getgo.importAmcPaper(preview, overwrite);
-      toast.show({ title: vi ? "Đã nhập đề AMC" : "AMC paper imported", description: vi ? `${result.questionCount} câu hỏi và toàn bộ lời giải đã được lưu.` : `${result.questionCount} questions and all solutions were saved.` });
-      onOpenQuiz(result.route);
-    } catch (cause) { fail(cause); } finally { setBusy(null); }
-  };
-  const columns = useMemo<DataColumn<AmcImportPreview["questions"][number]>[]>(() => [
-    { key: "number", title: vi ? "Câu" : "Problem", width: 86, sortValue: (row) => row.number, render: (row) => <strong>#{row.number}</strong> },
-    { key: "problem", title: vi ? "Nội dung" : "Question", render: (row) => <span className="amc-import-question-copy">{row.text}</span> },
-    { key: "answer", title: vi ? "Đáp án" : "Answer", width: 100, render: (row) => row.correct ? <StatusBadge tone="success">{row.correct}</StatusBadge> : <StatusBadge tone="warning">{vi ? "Kiểm tra" : "Review"}</StatusBadge> },
-    { key: "solutions", title: vi ? "Lời giải" : "Solutions", width: 105, sortValue: (row) => row.solutions.length, render: (row) => <StatusBadge tone={row.solutions.length ? "info" : "danger"}>{row.solutions.length}</StatusBadge> },
-    { key: "source", title: "AoPS", width: 72, align: "center", render: (row) => <button type="button" className="amc-import-source-link" onClick={() => void window.getgo.openExternal(row.sourceUrl)} aria-label={`${vi ? "Mở nguồn câu" : "Open source problem"} ${row.number}`}><ExternalLink size={16} /></button> },
-  ], [vi]);
-  const yearOptions = available.filter((entry) => entry.contest === contest);
-
-  return <div className="amc-import-page">
-    <PageHeader eyebrow={vi ? "Công cụ khác" : "Other Tools"} title={vi ? "Nhập đề AMC từ AoPS" : "AoPS AMC importer"} description={vi ? "Xem trước và nhập chủ đề, đề thi, câu hỏi cùng toàn bộ lời giải vào kho nội dung GetGo." : "Preview and import topics, papers, questions, and every solution into the GetGo content repository."} actions={<Button variant="secondary" loading={busy === "discover"} disabled={Boolean(busy)} onClick={() => void discover()}><RefreshCw size={16} />{vi ? "Tải danh mục" : "Load archive"}</Button>} />
-    <Panel title={vi ? "Chọn đề thi" : "Choose a paper"} description={vi ? "Dữ liệu chỉ được ghi sau khi bạn kiểm tra bản xem trước và bấm Nhập." : "Nothing is written until you review the preview and choose Import."}>
-      <PanelBody className="amc-import-picker">
-        <label><span>{vi ? "Kỳ thi" : "Contest"}</span><Select value={contest} options={amcContestNames.map((value) => ({ value, label: value }))} disabled={Boolean(busy)} onValueChange={(value) => { setContest(value as AmcContestName); setPreview(null); }} /></label>
-        <label><span>{vi ? "Năm" : "Year"}</span>{yearOptions.length ? <Select value={year} options={yearOptions.map((entry) => ({ value: String(entry.year), label: String(entry.year) }))} disabled={Boolean(busy)} onValueChange={(value) => { setYear(value); setPreview(null); }} /> : <Input type="number" min={1950} max={2100} value={year} disabled={Boolean(busy)} onChange={(event) => { setYear(event.target.value); setPreview(null); }} />}</label>
-        <Button variant="primary" loading={busy === "preview"} disabled={Boolean(busy) || !sourceSessionReady} title={!sourceSessionReady ? (vi ? "Xác minh và kiểm tra phiên AoPS trước" : "Verify and test the AoPS session first") : undefined} onClick={() => void loadPreview()}><FileDown size={16} />{vi ? "Xem trước" : "Preview"}</Button>
-      </PanelBody>
-    </Panel>
-    <AmcSourceBrowser locale={locale} paperUrl={amcPaperUrl(contest, Number(year) || new Date().getFullYear())} onSessionChange={onSourceSessionChange} />
-    {preview && <Panel className="amc-import-preview" title={preview.quiz.title} description={`${preview.topic.title} · ${preview.questions.length} ${vi ? "câu hỏi" : "questions"}`} meta={<Button variant="secondary" onClick={() => void window.getgo.openExternal(preview.sourcePaperUrl)}>{vi ? "Mở trang nguồn" : "Open source"}<ExternalLink size={14} /></Button>}>
-      {preview.warnings.length > 0 && <div className="amc-import-warnings" role="status"><strong>{vi ? "Cần kiểm tra" : "Review needed"}</strong><span>{preview.warnings.join(" ")}</span></div>}
-      <DataTable rows={preview.questions} columns={columns} rowKey={(row) => row.id} ariaLabel={vi ? "Câu hỏi AMC đã trích xuất" : "Extracted AMC questions"} emptyText={vi ? "Không tìm thấy câu hỏi." : "No questions found."} horizontalScroll />
-      <div className="amc-import-footer">
-        <label className="amc-import-overwrite"><Checkbox checked={overwrite} disabled={Boolean(busy)} ariaLabel={vi ? "Ghi đè đề thi hiện có" : "Overwrite existing paper"} onCheckedChange={setOverwrite} /><span>{vi ? "Ghi đè bản ghi đã nhập nếu đề thi này đã tồn tại" : "Overwrite imported records if this paper already exists"}</span></label>
-        <Button variant="primary" loading={busy === "import"} disabled={Boolean(busy)} onClick={() => void importPaper()}>{vi ? "Nhập vào GetGo" : "Import into GetGo"}</Button>
+  const openVerification = (url?: string) => { if (url) setBrowserPaperUrl(url); setShowBrowser(true); };
+  const rows = useMemo<ui.TreeDataRow<DashboardRow>[]>(() => dashboard?.topics.map((topic) => ({ row: { kind: "topic", topic }, children: topic.papers.map((paper) => ({ row: { kind: "paper", paper } })) })) ?? [], [dashboard]);
+  const active = Boolean(dashboard?.active);
+  const columns = useMemo<ui.DataColumn<DashboardRow>[]>(() => [
+    { key: "name", title: vi ? "Chủ đề / Đề thi" : "Topic / Quiz", render: (row) => row.kind === "topic" ? <strong>{row.topic.contest}</strong> : <div className="amc-dashboard-paper-name"><strong>{row.paper.title}</strong><span>{row.paper.error ?? (row.paper.totalQuestions ? `${row.paper.processedQuestions}/${row.paper.totalQuestions} ${vi ? "câu đã phân tích" : "questions parsed"}` : row.paper.questionCount ? `${row.paper.questionCount} ${vi ? "câu" : "questions"}` : row.paper.url)}</span></div> },
+    { key: "status", title: vi ? "Trạng thái" : "Status", width: 130, render: (row) => row.kind === "topic" ? <ui.StatusBadge tone={row.topic.remaining ? "warning" : "success"}>{row.topic.remaining ? (vi ? "Chưa xong" : "Incomplete") : (vi ? "Hoàn tất" : "Complete")}</ui.StatusBadge> : <ui.StatusBadge tone={statusTone(row.paper.status)}>{row.paper.status}</ui.StatusBadge> },
+    { key: "parsed", title: vi ? "Đã phân tích" : "Parsed", width: 110, align: "right", render: (row) => row.kind === "topic" ? `${row.topic.parsed}/${row.topic.total}` : row.paper.parsed ? "1/1" : "0/1" },
+    { key: "imported", title: vi ? "Đã nhập" : "Imported", width: 110, align: "right", render: (row) => row.kind === "topic" ? `${row.topic.imported}/${row.topic.total}` : row.paper.imported ? "1/1" : "0/1" },
+    { key: "remaining", title: vi ? "Còn lại" : "Remaining", width: 95, align: "right", render: (row) => row.kind === "topic" ? row.topic.remaining : row.paper.imported ? 0 : 1 },
+    { key: "actions", title: "", width: 230, role: "actions", render: (row) => row.kind === "topic"
+      ? <ui.Button variant="primary" disabled={active} icon={<Play size={15} />} onClick={() => start({ scope: "topic", contest: row.topic.contest, overwrite: row.topic.remaining === 0 })}>{row.topic.remaining === 0 ? (vi ? "Nhập lại chủ đề" : "Re-import topic") : (vi ? "Nhập chủ đề" : "Import topic")}</ui.Button>
+      : <div className="amc-dashboard-row-actions"><ui.Button variant="icon" icon={<Globe2 />} aria-label={vi ? "Mở trong trình duyệt nguồn" : "Open in source browser"} onClick={() => openVerification(row.paper.url)} />{row.paper.imported && <ui.Button variant="secondary" onClick={() => onOpenQuiz(`/topics/${amcTopicId(row.paper.contest)}/quizzes/${row.paper.id}`)}>{vi ? "Mở" : "Open"}</ui.Button>}<ui.Button variant="primary" disabled={active} icon={<Play size={15} />} onClick={() => start({ scope: "quiz", contest: row.paper.contest, year: row.paper.year, overwrite: row.paper.imported })}>{row.paper.imported ? (vi ? "Nhập lại" : "Re-import") : (vi ? "Nhập" : "Import")}</ui.Button></div> },
+  ], [active, onOpenQuiz, vi]);
+  if (loading) return <ui.PageLoading label={vi ? "Đang tải trạng thái nhập AMC" : "Loading AMC import status"} />;
+  const current = dashboard?.active?.current;
+  return <div className="amc-import-page amc-dashboard-page">
+    <ui.PageHeader eyebrow={vi ? "Công cụ khác" : "Other Tools"} title={vi ? "Nhập đề AMC từ AoPS" : "AoPS AMC importer"} description={current ? `${vi ? "Đang xử lý" : "Processing"}: ${current}` : (vi ? "Theo dõi và nhập một đề thi, một chủ đề hoặc toàn bộ kho AMC." : "Track and import one quiz, one contest topic, or the complete AMC archive.")} actions={<><ui.Button variant="secondary" icon={<Globe2 size={16} />} onClick={() => setShowBrowser((value) => !value)}>{showBrowser ? (vi ? "Ẩn trình duyệt" : "Hide browser") : (vi ? "Xác minh AoPS" : "Verify AoPS")}</ui.Button><ui.Button variant="secondary" loading={refreshing} disabled={active} icon={<RefreshCw size={16} />} onClick={() => void load(true)}>{vi ? "Cập nhật danh mục" : "Refresh archive"}</ui.Button><ui.Button variant="primary" disabled={active || !dashboard?.total} icon={<Play size={16} />} onClick={() => start({ scope: "all", overwrite: dashboard?.remaining === 0 })}>{dashboard?.remaining === 0 && dashboard.total ? (vi ? "Nhập lại tất cả" : "Re-import all") : (vi ? "Nhập tất cả" : "Import all")}</ui.Button></>} />
+    {showBrowser && <AmcSourceBrowser locale={locale} paperUrl={browserPaperUrl} />}
+    <div className="amc-dashboard-summary"><ui.SummaryCard label={vi ? "Đề thi tìm thấy" : "Discovered quizzes"} value={dashboard?.total ?? 0} detail={dashboard?.archiveLoadedAt ? `${vi ? "Cập nhật" : "Updated"} ${new Date(dashboard.archiveLoadedAt).toLocaleString(locale)}` : (vi ? "Chưa tải danh mục" : "Archive not loaded")} /><ui.SummaryCard label={vi ? "Đã phân tích" : "Parsed"} value={`${dashboard?.parsed ?? 0}/${dashboard?.total ?? 0}`} detail={vi ? "Dữ liệu đã lưu vào bộ nhớ đệm" : "Question data cached"} /><ui.SummaryCard label={vi ? "Đã nhập" : "Imported"} value={`${dashboard?.imported ?? 0}/${dashboard?.total ?? 0}`} detail={vi ? "Có trong trang Chủ đề" : "Available in Topics"} /><ui.SummaryCard label={vi ? "Công việc còn lại" : "Remaining work"} value={dashboard?.remaining ?? 0} detail={vi ? "Đề thi chưa được nhập" : "Quizzes not imported"} /></div>
+    {active && <div className="amc-dashboard-active" role="status"><span className="mini-spinner" /><strong>{vi ? "Đang chạy tác vụ nhập" : "Import is running"}</strong><span>{current ?? (vi ? "Đang chuẩn bị…" : "Preparing…")}</span></div>}
+    <ui.Panel title={vi ? "Tiến độ theo chủ đề" : "Progress by contest"} description={vi ? "Mở rộng một chủ đề để xem và nhập từng đề thi." : "Expand a contest to inspect and import individual quizzes."} meta={<ui.Button variant="secondary" icon={<ExternalLink size={14} />} onClick={() => void window.getgo.openExternal(dashboard?.sourceUrl ?? "https://artofproblemsolving.com")}>{vi ? "Trang nguồn" : "Source page"}</ui.Button>}>
+      {!rows.length ? <div className="amc-dashboard-empty">
+        <Globe2 size={30} aria-hidden="true" />
+        <strong>{loadError ? (vi ? "Không thể phân tích danh mục AoPS" : "AoPS archive parsing failed") : (vi ? "Không tìm thấy đề thi" : "No quizzes were discovered")}</strong>
+        <p>{loadError
+          ? (vi ? "Xem lỗi bên dưới. Chỉ mở xác minh nếu AoPS thực sự hiển thị kiểm tra bảo mật, sau đó thử lại." : "Review the error below. Open verification only if AoPS actually shows a security check, then retry.")
+          : (vi ? "Thử tải lại danh mục đề thi từ AoPS." : "Retry loading the contest archive from AoPS.")}</p>
+        {loadError && <code>{loadError}</code>}
+        <div className="amc-dashboard-empty-actions">
+          {loadError && <ui.Button variant="secondary" icon={<Globe2 size={16} />} onClick={() => setShowBrowser(true)}>{vi ? "Mở trình duyệt AoPS" : "Open AoPS browser"}</ui.Button>}
+          <ui.Button variant="primary" loading={refreshing} icon={<RefreshCw size={16} />} onClick={() => void load(true)}>{vi ? "Thử tải lại danh mục" : "Retry archive discovery"}</ui.Button>
+        </div>
+      </div> : <ui.TreeDataTable rows={rows} columns={columns} rowKey={(row) => row.kind === "topic" ? `topic:${row.topic.contest}` : `paper:${row.paper.id}`} ariaLabel={vi ? "Tiến độ nhập AMC" : "AMC import progress"} emptyText={vi ? "Không có đề thi." : "No quizzes."} defaultExpandedKeys={rows.slice(0, 1).map((item) => item.row.kind === "topic" ? `topic:${item.row.topic.contest}` : "")} horizontalScroll renderIdentity={(row, _depth, toggle) => <span className="amc-dashboard-identity">{toggle}{columns[0].render(row, 0)}</span>} />}
+    </ui.Panel>
+    <ui.Panel title={vi ? "Nhật ký hoạt động" : "Activity log"} description={vi ? "Các bước tải, phân tích và nhập gần nhất." : "Recent archive discovery, parsing, and import activity."}>
+      <div className="amc-dashboard-log" aria-live="polite">
+        {dashboard?.logs?.length ? [...dashboard.logs].reverse().map((entry, index) => <div className={`amc-dashboard-log-entry is-${entry.level}`} key={`${entry.at}:${index}`}>
+          <time>{new Date(entry.at).toLocaleString(locale)}</time>
+          <strong>{entry.message}</strong>
+          {entry.detail && <code>{entry.detail}</code>}
+        </div>) : <p>{vi ? "Chưa có hoạt động." : "No activity yet."}</p>}
       </div>
-    </Panel>}
-    <ProcessingOverlay open={Boolean(busy)} showElapsed={busy === "preview"} title={busy === "preview" ? (vi ? "Đang trích xuất đề AMC" : "Extracting AMC paper") : busy === "import" ? (vi ? "Đang lưu vào GetGo" : "Saving to GetGo") : (vi ? "Đang tải danh mục AoPS" : "Loading AoPS archive")} description={busy === "preview" ? (vi ? "GetGo đang tải tuần tự từng câu hỏi và tự chờ khi AoPS giới hạn tốc độ. Quá trình có thể mất vài phút." : "GetGo is loading problems sequentially and automatically waiting when AoPS rate-limits requests. This can take a few minutes.") : undefined} />
+    </ui.Panel>
   </div>;
 }

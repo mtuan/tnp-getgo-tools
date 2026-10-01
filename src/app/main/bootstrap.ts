@@ -495,7 +495,7 @@ app.whenReady().then(async () => {
   registerAvatarSetIpc(ipcMain, { mainWindow: mainWindow!, appPath: app.getAppPath(), firebase: firebaseAuth });
   registerScreenshotProjectIpc(ipcMain, app.getAppPath());
   registerDesignProjectIpc(ipcMain, app.getAppPath(), { apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY, model: process.env.GETGO_AI_OPENAI_MODEL, imageModel: process.env.GETGO_AI_OPENAI_IMAGE_MODEL });
-  registerAmcImportIpc(ipcMain, { repositoryRoot });
+  registerAmcImportIpc(ipcMain, { repositoryRoot, userDataPath: app.getPath("userData") });
   setContentSafetyWarningHandler((warning) => mainWindow?.webContents.send("content-safety:warning", warning));
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });

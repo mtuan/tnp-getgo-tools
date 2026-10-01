@@ -1,5 +1,5 @@
 export const amcContestNames = ["AMC 8", "AMC 10A", "AMC 10B", "AMC 12A", "AMC 12B"] as const;
-export type AmcContestName = (typeof amcContestNames)[number];
+export type AmcContestName = string;
 
 export interface AmcArchiveEntry {
   contest: AmcContestName;
@@ -34,10 +34,56 @@ export interface AmcImportResult {
   route: string;
 }
 
+export type AmcPaperImportStatus = "pending" | "parsing" | "parsed" | "importing" | "imported" | "failed";
+export interface AmcPaperImportProgress extends AmcArchiveEntry {
+  id: string;
+  status: AmcPaperImportStatus;
+  parsed: boolean;
+  imported: boolean;
+  questionCount: number;
+  processedQuestions: number;
+  totalQuestions: number;
+  error?: string;
+  updatedAt?: string;
+}
+export interface AmcTopicImportProgress {
+  contest: AmcContestName;
+  papers: AmcPaperImportProgress[];
+  total: number;
+  parsed: number;
+  imported: number;
+  remaining: number;
+}
+export interface AmcImportLogEntry {
+  at: string;
+  level: "info" | "success" | "error";
+  message: string;
+  detail?: string;
+}
+export interface AmcImportDashboard {
+  sourceUrl: string;
+  archiveLoadedAt?: string;
+  active?: { scope: "quiz" | "topic" | "all"; contest?: AmcContestName; year?: number; current?: string };
+  topics: AmcTopicImportProgress[];
+  total: number;
+  parsed: number;
+  imported: number;
+  remaining: number;
+  logs: AmcImportLogEntry[];
+}
+export interface StartAmcImportInput {
+  scope: "quiz" | "topic" | "all";
+  contest?: AmcContestName;
+  year?: number;
+  overwrite?: boolean;
+}
+
 export interface AmcImportDesktopApi {
   discoverAmcArchive(): Promise<AmcArchiveEntry[]>;
   previewAmcPaper(contest: AmcContestName, year: number): Promise<AmcImportPreview>;
   importAmcPaper(preview: AmcImportPreview, overwrite: boolean): Promise<AmcImportResult>;
+  loadAmcImportDashboard(refreshArchive?: boolean): Promise<AmcImportDashboard>;
+  startAmcImport(input: StartAmcImportInput): Promise<AmcImportDashboard>;
 }
 
 export const amcIndexUrl = "https://artofproblemsolving.com/wiki/index.php?title=AMC_Problems_and_Solutions";
@@ -51,7 +97,8 @@ export function amcPaperUrl(contest: AmcContestName, year: number): string {
 }
 
 export function amcTopicId(contest: AmcContestName): string {
-  return contest.toLowerCase().replaceAll(" ", "-");
+  const slug = contest.normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return /^[a-z]/.test(slug) ? slug : `contest-${slug || "amc"}`;
 }
 
 export function amcQuizId(contest: AmcContestName, year: number): string {
