@@ -3,7 +3,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import ReactMarkdown from "react-markdown";
 import { parseMathText } from "@tnp/getgo-logics/quiz-builder";
-import { calculateMathFitScale } from "./mathFit";
+import { calculateMathFitScale, normalizeInlineFractionStyle } from "./mathFit";
 import { protectMarkdownMath } from "./markdownMath";
 
 function MarkdownChildren({ children }: { children: ReactNode }) {
@@ -83,7 +83,8 @@ export function MathText({ value, markdown = false }: { value: unknown; markdown
       ...(segment.value.fontSize ? { fontSize: segment.value.fontSize } : {}),
       ...(segment.value.color ? { color: segment.value.color } : {}),
     };
-    const html = katex.renderToString(segment.value.latex, {
+    const renderedLatex = normalizeInlineFractionStyle(segment.value.latex, segment.value.inline);
+    const html = katex.renderToString(renderedLatex, {
       displayMode: !segment.value.inline,
       throwOnError: false,
       strict: "warn",

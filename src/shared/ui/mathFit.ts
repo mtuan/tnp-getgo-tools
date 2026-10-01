@@ -3,3 +3,9 @@ export function calculateMathFitScale(availableWidth: number, contentWidth: numb
   if (availableWidth <= 0 || contentWidth <= 0 || contentWidth <= availableWidth) return 1;
   return availableWidth / contentWidth;
 }
+
+/** Keep ordinary inline fractions legible without changing explicit text/display fraction commands. */
+export function normalizeInlineFractionStyle(latex: string, inline: boolean): string {
+  if (!inline || !/\\frac\b/.test(latex)) return latex;
+  return latex.replace(/\\frac\b/g, "\\dfrac");
+}

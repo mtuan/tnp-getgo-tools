@@ -28,7 +28,7 @@ test("extracts AoPS multiple-choice labels and values", () => {
   });
   assert.deepEqual(extractChoiceMap("Find x. \\textbf{(A) } 1 \\textbf{(B) } 2"), { A: "1", B: "2" });
   const formatted = String.raw`Problem $1-2+3= ?$ $\mathrm{\textbf{(A)} \ -50 } \qquad \mathrm{\textbf{(B)} \ 50 }$`;
-  assert.deepEqual(extractChoiceMap(formatted), { A: "$-50$", B: "$50$" });
+  assert.deepEqual(extractChoiceMap(formatted), { A: "-50", B: "50" });
   assert.equal(extractAopsQuestionText(formatted), "$1-2+3= ?$");
   const duplicated = String.raw`Problem What is $2^{1999}\cdot5^{2001}$? (A) 2 (B) 4 (C) 5 (D) 7 (E) 10 $\mathrm{\textbf{(A)}\ 2}\qquad\mathrm{\textbf{(B)}\ 4}$`;
   assert.deepEqual(extractChoiceMap(duplicated), { A: "2", B: "4", C: "5", D: "7", E: "10" });
@@ -63,7 +63,7 @@ test("extracts AoPS multiple-choice labels and values", () => {
   });
   const solutionAfterOptions = String.raw`Problem $\mathrm{(A)}7\qquad\mathrm{(B)}8\qquad\mathrm{(C)}10\qquad\mathrm{(D)}13\qquad\mathrm{(E)}18$ = Solution 1 Work follows.`;
   assert.deepEqual(extractChoiceMap(solutionAfterOptions), {
-    A: "$7$", B: "$8$", C: "$10$", D: "$13$", E: "$18$",
+    A: "7", B: "8", C: "10", D: "13", E: "18",
   });
   assert.deepEqual(extractChoiceMap("Pick one. (A) No solution (B) One solution"), {
     A: "No solution", B: "One solution",
@@ -72,7 +72,7 @@ test("extracts AoPS multiple-choice labels and values", () => {
   assert.equal(extractAopsQuestionText(currencyBeforeMathOptions), String.raw`The lockers cost \$137.94 to label.`);
   const textrmOptions = String.raw`Problem Find the value. $\textrm{(A)}\ 9\qquad\textrm{(B)}\ 10$`;
   assert.equal(extractAopsQuestionText(textrmOptions), "Find the value.");
-  assert.deepEqual(extractChoiceMap(textrmOptions), { A: "$9$", B: "$10$" });
+  assert.deepEqual(extractChoiceMap(textrmOptions), { A: "9", B: "10" });
   const imageOptions = String.raw`Problem Choose. $\mathrm{(A)}[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fa.png]]\qquad\mathrm{(B)}[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fb.png]]$`;
   assert.deepEqual(extractChoiceMap(imageOptions), {
     A: "[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fa.png]]",

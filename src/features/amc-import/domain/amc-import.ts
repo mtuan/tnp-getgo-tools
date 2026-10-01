@@ -148,6 +148,8 @@ function normalizeExtractedChoice(source: string, inheritedMath: boolean): strin
   const pureText = possibleText.match(/^\\text\s*\{([\s\S]*)\}$/);
   if (pureText)
     return pureText[1].replace(/\\(?=\s)/g, "").replace(/\s+/g, " ").trim();
+  if (/^[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(possibleText))
+    return possibleText;
   if (value.includes("$")) return value;
   if (/\\\s/.test(value) && !/\\(?!\s)/.test(value))
     return value.replace(/\\(?=\s)/g, "").replace(/\s+/g, " ").trim();
