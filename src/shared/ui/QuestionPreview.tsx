@@ -135,7 +135,7 @@ function PreviewValue({
     (value.startsWith("asset:") || value.startsWith("data:image/"))
   )
     return <PreviewAsset manifestPath={manifestPath} value={value} alt={alt} />;
-  return <MathText value={questionText(value)} />;
+  return <MathText value={questionText(value)} markdown />;
 }
 
 function CorrectAnswerPreview({ value, unit }: { value: unknown; unit?: unknown }) {

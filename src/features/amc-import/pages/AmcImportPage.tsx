@@ -3,6 +3,8 @@ import { ExternalLink, Globe2, Play, RefreshCw } from "lucide-react";
 import * as ui from "../../../shared/ui";
 import { amcPaperUrl, amcTopicId, type AmcImportDashboard, type AmcPaperImportProgress, type AmcTopicImportProgress, type StartAmcImportInput } from "../domain/amc-import";
 import { AmcSourceBrowser } from "../components/AmcSourceBrowser";
+import type { BackgroundJob } from "../../../shared/domain/models";
+import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
 
 type Locale = "en" | "vi";
 type DashboardRow = { kind: "topic"; topic: AmcTopicImportProgress } | { kind: "paper"; paper: AmcPaperImportProgress };
@@ -12,6 +14,8 @@ export function AmcImportPage({ locale, onOpenQuiz }: { locale: Locale; onOpenQu
   const vi = locale === "vi";
   const toast = ui.useToast();
   const [dashboard, setDashboard] = useState<AmcImportDashboard | null>(null);
+  const [jobs, setJobs] = useState<BackgroundJob[]>([]);
+  const [busyJob, setBusyJob] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -21,8 +25,12 @@ export function AmcImportPage({ locale, onOpenQuiz }: { locale: Locale; onOpenQu
     if (refresh) setRefreshing(true);
     setLoadError("");
     try {
-      const next = await window.getgo.loadAmcImportDashboard(refresh);
+      const [next, jobSnapshot] = await Promise.all([
+        window.getgo.loadAmcImportDashboard(refresh),
+        window.getgo.getBackgroundJobs(),
+      ]);
       setDashboard(next);
+      setJobs(jobSnapshot.jobs.filter((job) => job.kind === "amc-import"));
       const latestFailure = [...(next.logs ?? [])].reverse().find((entry) => entry.level === "error");
       if (!next.total && latestFailure) setLoadError(latestFailure.detail ?? latestFailure.message);
     }
@@ -34,20 +42,37 @@ export function AmcImportPage({ locale, onOpenQuiz }: { locale: Locale; onOpenQu
     finally { setLoading(false); setRefreshing(false); }
   }, [toast, vi]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { const timer = window.setInterval(() => void load(), dashboard?.active ? 1_000 : 2_500); return () => window.clearInterval(timer); }, [dashboard?.active, load]);
+  const activeJobs = jobs.filter((job) => ["queued", "running", "paused"].includes(job.status));
+  useEffect(() => { const timer = window.setInterval(() => void load(), dashboard?.active || activeJobs.length ? 750 : 2_500); return () => window.clearInterval(timer); }, [activeJobs.length, dashboard?.active, load]);
   const start = (input: StartAmcImportInput) => {
     void window.getgo.startAmcImport(input).then((next) => {
       setDashboard(next);
+      void window.getgo.getBackgroundJobs().then((snapshot) => setJobs(snapshot.jobs.filter((job) => job.kind === "amc-import")));
       toast.show({ title: vi ? "Đã thêm công việc nhập AMC" : "AMC import job queued", description: vi ? "Theo dõi tiến độ và nhật ký chi tiết trong trang Công việc." : "Track detailed progress and logs on the Jobs page.", variant: "success" });
     }).catch((cause) => { toast.show({ title: vi ? "Không thể thêm công việc AMC" : "Could not queue AMC import", description: cause instanceof Error ? cause.message : String(cause), variant: "error" }); void load(); });
   };
+  const controlJob = async (job: BackgroundJob, action: BackgroundJobAction) => {
+    setBusyJob(job.id);
+    try {
+      const snapshot = action === "pause" ? await window.getgo.pauseBackgroundJob(job.id)
+        : action === "resume" ? await window.getgo.resumeBackgroundJob(job.id)
+          : action === "cancel" ? await window.getgo.cancelBackgroundJob(job.id)
+            : action === "retry" ? await window.getgo.retryBackgroundJob(job.id)
+              : await window.getgo.deleteBackgroundJob(job.id);
+      setJobs(snapshot.jobs.filter((item) => item.kind === "amc-import"));
+    } finally { setBusyJob(null); }
+  };
   const openVerification = (url?: string) => { if (url) setBrowserPaperUrl(url); setShowBrowser(true); };
   const rows = useMemo<ui.TreeDataRow<DashboardRow>[]>(() => dashboard?.topics.map((topic) => ({ row: { kind: "topic", topic }, children: topic.papers.map((paper) => ({ row: { kind: "paper", paper } })) })) ?? [], [dashboard]);
-  const active = Boolean(dashboard?.active);
   const columns = useMemo<ui.DataColumn<DashboardRow>[]>(() => [
     { key: "name", title: vi ? "Chủ đề / Đề thi" : "Topic / Quiz", render: (row) => row.kind === "topic" ? <strong>{row.topic.contest}</strong> : <div className="amc-dashboard-paper-name"><strong>{row.paper.title}</strong><span>{row.paper.error ?? (row.paper.totalQuestions ? `${row.paper.processedQuestions}/${row.paper.totalQuestions} ${vi ? "câu đã phân tích" : "questions parsed"}` : row.paper.questionCount ? `${row.paper.questionCount} ${vi ? "câu" : "questions"}` : row.paper.url)}</span></div> },
     { key: "status", title: vi ? "Trạng thái" : "Status", width: 130, render: (row) => row.kind === "topic" ? <ui.StatusBadge tone={row.topic.remaining ? "warning" : "success"}>{row.topic.remaining ? (vi ? "Chưa xong" : "Incomplete") : (vi ? "Hoàn tất" : "Complete")}</ui.StatusBadge> : <ui.StatusBadge tone={statusTone(row.paper.status)}>{row.paper.status}</ui.StatusBadge> },
-    { key: "parsed", title: vi ? "Đã phân tích" : "Parsed", width: 110, align: "right", render: (row) => row.kind === "topic" ? `${row.topic.parsed}/${row.topic.total}` : row.paper.parsed ? "1/1" : "0/1" },
+    { key: "parsed", title: vi ? "Đã phân tích" : "Parsed", width: 110, align: "right", render: (row) => {
+      if (row.kind === "paper") return row.paper.totalQuestions ? `${row.paper.processedQuestions}/${row.paper.totalQuestions}` : "—";
+      const processed = row.topic.papers.reduce((sum, paper) => sum + paper.processedQuestions, 0);
+      const total = row.topic.papers.reduce((sum, paper) => sum + paper.totalQuestions, 0);
+      return total ? `${processed}/${total}` : "—";
+    } },
     { key: "imported", title: vi ? "Đã nhập" : "Imported", width: 110, align: "right", render: (row) => row.kind === "topic" ? `${row.topic.imported}/${row.topic.total}` : row.paper.imported ? "1/1" : "0/1" },
     { key: "remaining", title: vi ? "Còn lại" : "Remaining", width: 95, align: "right", render: (row) => row.kind === "topic" ? row.topic.remaining : row.paper.imported ? 0 : 1 },
     { key: "actions", title: "", width: 230, role: "actions", render: (row) => row.kind === "topic"
@@ -60,7 +85,9 @@ export function AmcImportPage({ locale, onOpenQuiz }: { locale: Locale; onOpenQu
     <ui.PageHeader eyebrow={vi ? "Công cụ khác" : "Other Tools"} title={vi ? "Nhập đề AMC từ AoPS" : "AoPS AMC importer"} description={current ? `${vi ? "Đang xử lý" : "Processing"}: ${current}` : (vi ? "Theo dõi và nhập một đề thi, một chủ đề hoặc toàn bộ kho AMC." : "Track and import one quiz, one contest topic, or the complete AMC archive.")} actions={<><ui.Button variant="secondary" icon={<Globe2 size={16} />} onClick={() => setShowBrowser((value) => !value)}>{showBrowser ? (vi ? "Ẩn trình duyệt" : "Hide browser") : (vi ? "Xác minh AoPS" : "Verify AoPS")}</ui.Button><ui.Button variant="secondary" loading={refreshing} icon={<RefreshCw size={16} />} onClick={() => void load(true)}>{vi ? "Cập nhật danh mục" : "Refresh archive"}</ui.Button><ui.Button variant="primary" disabled={!dashboard?.total} icon={<Play size={16} />} onClick={() => start({ scope: "all", overwrite: dashboard?.remaining === 0 })}>{dashboard?.remaining === 0 && dashboard.total ? (vi ? "Nhập lại tất cả" : "Re-import all") : (vi ? "Nhập tất cả" : "Import all")}</ui.Button></>} />
     {showBrowser && <AmcSourceBrowser locale={locale} paperUrl={browserPaperUrl} />}
     <div className="amc-dashboard-summary"><ui.SummaryCard label={vi ? "Đề thi tìm thấy" : "Discovered quizzes"} value={dashboard?.total ?? 0} detail={dashboard?.archiveLoadedAt ? `${vi ? "Cập nhật" : "Updated"} ${new Date(dashboard.archiveLoadedAt).toLocaleString(locale)}` : (vi ? "Chưa tải danh mục" : "Archive not loaded")} /><ui.SummaryCard label={vi ? "Đã phân tích" : "Parsed"} value={`${dashboard?.parsed ?? 0}/${dashboard?.total ?? 0}`} detail={vi ? "Dữ liệu đã lưu vào bộ nhớ đệm" : "Question data cached"} /><ui.SummaryCard label={vi ? "Đã nhập" : "Imported"} value={`${dashboard?.imported ?? 0}/${dashboard?.total ?? 0}`} detail={vi ? "Có trong trang Chủ đề" : "Available in Topics"} /><ui.SummaryCard label={vi ? "Công việc còn lại" : "Remaining work"} value={dashboard?.remaining ?? 0} detail={vi ? "Đề thi chưa được nhập" : "Quizzes not imported"} /></div>
-    {active && <div className="amc-dashboard-active" role="status"><span className="mini-spinner" /><strong>{vi ? "Đang chạy tác vụ nhập" : "Import is running"}</strong><span>{current ?? (vi ? "Đang chuẩn bị…" : "Preparing…")}</span></div>}
+    {activeJobs.length > 0 && <ui.Panel title={vi ? "Công việc nhập đang chạy" : "Running import job"} description={vi ? "Trạng thái và tiến độ trực tiếp của công việc AMC." : "Live status and question-level progress for the AMC job."}>
+      <BackgroundJobsTable locale={locale} ariaLabel={vi ? "Công việc nhập AMC đang chạy" : "Running AMC import job"} rows={activeJobs} busyJob={busyJob} emptyText="" onAction={(job, action) => void controlJob(job, action)} />
+    </ui.Panel>}
     <ui.Panel title={vi ? "Tiến độ theo chủ đề" : "Progress by contest"} description={vi ? "Mở rộng một chủ đề để xem và nhập từng đề thi." : "Expand a contest to inspect and import individual quizzes."} meta={<ui.Button variant="secondary" icon={<ExternalLink size={14} />} onClick={() => void window.getgo.openExternal(dashboard?.sourceUrl ?? "https://artofproblemsolving.com")}>{vi ? "Trang nguồn" : "Source page"}</ui.Button>}>
       {!rows.length ? <div className="amc-dashboard-empty">
         <Globe2 size={30} aria-hidden="true" />

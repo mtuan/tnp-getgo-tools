@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCheck, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3 } from "lucide-react";
+import { CheckCheck, ExternalLink, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3 } from "lucide-react";
 import type { BackgroundJob, MarketplaceStateUpdateResult, MarketplaceSyncJobItem, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import * as ui from "../../../../shared/ui";
@@ -78,6 +78,9 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 export function ManagerHeaderControls(context: Context) {
   const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setTopicGrades, setTopicSubjects, setTopicsView, snapshot, toast, topicGradeOptions, topicGrades, topicMode, topicSubjectOptions, topicSubjects, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
+  const selectedTopic = isContest
+    ? snapshot.contentV2.topics.find((topic) => topic.id === selectedContest?.id)
+    : undefined;
   const refreshAfterSync = useCallback(async () => {
     const route = await window.getgo.loadContentV2Route();
     onSnapshotChange({ ...snapshot, loadedAt: route.loadedAt, contentV2: route.content });
@@ -192,6 +195,7 @@ export function ManagerHeaderControls(context: Context) {
   });
   if (!topicMode) return null;
   const items = [
+    ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),
     { id: "create", label: isContest ? "Create quiz" : "Create topic", icon: Plus, onSelect: () => isContest ? setQuizDialog("create") : setContestDialog("create") },
     ...(!isContest && allLegacyQuizCount > 0 ? [{ id: "migrate-all", label: `Migrate all ${allLegacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateAllLegacyQuizzes() }] : []),
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),

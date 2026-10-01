@@ -224,6 +224,7 @@ export function sanitizeMarketplaceTopic(
 const baseRecord = {
   schemaVersion: z.literal(2),
   id: idSchema,
+  src: z.string().trim().min(1).optional(),
   icon: iconSchema,
   status: z.enum(contentV2ReviewStatuses).default("draft"),
   order: z.number().int().nonnegative().default(0),
@@ -352,6 +353,7 @@ export type ContentV2QuizType = ContentV2Quiz["type"];
 const questionBase = {
   schemaVersion: z.literal(2),
   id: idSchema,
+  src: z.string().trim().min(1).optional(),
   order: z.number().int().nonnegative(),
   status: z.enum(contentV2ReviewStatuses).default("pending"),
   source: contentSourceSchema.optional(),
@@ -446,11 +448,36 @@ export const pronunciationSoundV2Schema = z.object({
   })).min(1),
 });
 
-export const contentV2QuestionSchema = z.discriminatedUnion("type", [
+export function contentSourceFromExplanation(
+  explanation: { en?: string; vi?: string } | undefined,
+): string | undefined {
+  const values = [explanation?.en, explanation?.vi].filter(
+    (value): value is string => typeof value === "string" && Boolean(value.trim()),
+  );
+  for (const value of values) {
+    const labelledMarkdown = value.match(
+      /\[(?:source|nguồn)\]\(\s*(?:<([^>]+)>|([^\s)]+))/iu,
+    );
+    const markdownTarget = labelledMarkdown?.[1] ?? labelledMarkdown?.[2];
+    if (markdownTarget?.trim()) return markdownTarget.trim();
+    const labelledUrl = value.match(
+      /(?:source|nguồn)\s*:?\s*((?:https?|file):\/\/[^\s<>)\]]+)/iu,
+    );
+    if (labelledUrl?.[1]) return labelledUrl[1].replace(/[.,;:]+$/u, "");
+  }
+  return undefined;
+}
+
+const contentV2QuestionUnion = z.discriminatedUnion("type", [
   competitionQuestionV2Schema,
   alphabetLetterV2Schema,
   pronunciationSoundV2Schema,
 ]);
+export const contentV2QuestionSchema = contentV2QuestionUnion.transform((record) => {
+  if (record.src || record.type !== "competition-question") return record;
+  const src = contentSourceFromExplanation(record.explanation);
+  return src ? { ...record, src } : record;
+});
 export type ContentV2Question = z.infer<typeof contentV2QuestionSchema>;
 export type ContentV2QuestionType = ContentV2Question["type"];
 

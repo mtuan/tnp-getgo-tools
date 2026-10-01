@@ -9,8 +9,6 @@ import {
   amcTopicId,
   extractChoiceMap,
   extractCorrectChoice,
-  convertAopsText,
-  aopsMarkdown,
   extractAopsQuestionText,
 } from "../src/features/amc-import/domain/amc-import.js";
 import { contentV2QuestionSchema, contentV2QuizSchema, contentV2TopicSchema } from "../src/features/topics/domain/content-v2.js";
@@ -30,24 +28,61 @@ test("extracts AoPS multiple-choice labels and values", () => {
   });
   assert.deepEqual(extractChoiceMap("Find x. \\textbf{(A) } 1 \\textbf{(B) } 2"), { A: "1", B: "2" });
   const formatted = String.raw`Problem $1-2+3= ?$ $\mathrm{\textbf{(A)} \ -50 } \qquad \mathrm{\textbf{(B)} \ 50 }$`;
-  assert.deepEqual(extractChoiceMap(formatted), { A: "-50", B: "50" });
-  assert.equal(extractAopsQuestionText(formatted), "Problem $1-2+3= ?$");
+  assert.deepEqual(extractChoiceMap(formatted), { A: "$-50$", B: "$50$" });
+  assert.equal(extractAopsQuestionText(formatted), "$1-2+3= ?$");
+  const duplicated = String.raw`Problem What is $2^{1999}\cdot5^{2001}$? (A) 2 (B) 4 (C) 5 (D) 7 (E) 10 $\mathrm{\textbf{(A)}\ 2}\qquad\mathrm{\textbf{(B)}\ 4}$`;
+  assert.deepEqual(extractChoiceMap(duplicated), { A: "2", B: "4", C: "5", D: "7", E: "10" });
+  assert.equal(extractAopsQuestionText(duplicated), String.raw`What is $2^{1999}\cdot5^{2001}$?`);
+  const markdownChoices = "Choose. (A) **bold** (B) $x^2$ (C) `code`";
+  assert.deepEqual(extractChoiceMap(markdownChoices), { A: "**bold**", B: "$x^2$", C: "`code`" });
+  const percentageChoices = String.raw`Problem What percent did Alice pay? $\mathrm{(A)\ }25\%\qquad\mathrm{(B)\ }30\%\qquad\mathrm{(C)\ }35\%\qquad\mathrm{(D)\ }60\%\qquad\mathrm{(E)\ }65\%$`;
+  assert.deepEqual(extractChoiceMap(percentageChoices), {
+    A: "$25\\%$", B: "$30\\%$", C: "$35\\%$", D: "$60\\%$", E: "$65\\%$",
+  });
+  assert.equal(extractAopsQuestionText(percentageChoices), "What percent did Alice pay?");
+  const proseChoices = String.raw`Problem Which is true? $\mathrm{(A)}\ All\ equilateral\ triangles\ are\ congruent\ to\ each\ other.\qquad\mathrm{(B)}\ None\ of\ these.$`;
+  assert.deepEqual(extractChoiceMap(proseChoices), {
+    A: "All equilateral triangles are congruent to each other.",
+    B: "None of these.",
+  });
+  const complexChoice = String.raw`Problem Choose. $\mathrm{(A)}\ \text{infinitely\ many}\qquad\mathrm{(B)}\ \frac{1}{2}$`;
+  assert.deepEqual(extractChoiceMap(complexChoice), {
+    A: "infinitely many",
+    B: String.raw`$\frac{1}{2}$`,
+  });
+  const textAndMathChoice = String.raw`Problem Choose. $\mathrm{(A)}\text{I is true.}\qquad\mathrm{(B)}x+\text{ units}$`;
+  assert.deepEqual(extractChoiceMap(textAndMathChoice), {
+    A: "I is true.",
+    B: String.raw`$x+\text{ units}$`,
+  });
+  const sharedMathBlock = String.raw`Problem Pick one. $\mathrm{(A)}\frac 1{80}\qquad\mathrm{(B)}x^2\qquad\mathrm{(C)}\frac 9{80}$ Solutions`;
+  assert.deepEqual(extractChoiceMap(sharedMathBlock), {
+    A: String.raw`$\frac 1{80}$`,
+    B: "$x^2$",
+    C: String.raw`$\frac 9{80}$`,
+  });
+  const solutionAfterOptions = String.raw`Problem $\mathrm{(A)}7\qquad\mathrm{(B)}8\qquad\mathrm{(C)}10\qquad\mathrm{(D)}13\qquad\mathrm{(E)}18$ = Solution 1 Work follows.`;
+  assert.deepEqual(extractChoiceMap(solutionAfterOptions), {
+    A: "$7$", B: "$8$", C: "$10$", D: "$13$", E: "$18$",
+  });
+  assert.deepEqual(extractChoiceMap("Pick one. (A) No solution (B) One solution"), {
+    A: "No solution", B: "One solution",
+  });
+  const currencyBeforeMathOptions = String.raw`Problem The lockers cost $137.94 to label. $\mathrm{(A)}2001\qquad\mathrm{(B)}2010$`;
+  assert.equal(extractAopsQuestionText(currencyBeforeMathOptions), String.raw`The lockers cost \$137.94 to label.`);
+  const textrmOptions = String.raw`Problem Find the value. $\textrm{(A)}\ 9\qquad\textrm{(B)}\ 10$`;
+  assert.equal(extractAopsQuestionText(textrmOptions), "Find the value.");
+  assert.deepEqual(extractChoiceMap(textrmOptions), { A: "$9$", B: "$10$" });
 });
 
 test("extracts the correct choice from any solution", () => {
   assert.equal(extractCorrectChoice([{ text: "Therefore the answer is (C)." }]), "C");
   assert.equal(extractCorrectChoice([{ text: "We obtain \\boxed{D}." }]), "D");
   assert.equal(extractCorrectChoice([{ text: "Thus \\boxed{\\textbf{(B)}}." }]), "B");
+  assert.equal(extractCorrectChoice([{ text: "Thus \\boxed{\\text{D}}." }]), "D");
   assert.equal(extractCorrectChoice([{ text: "No final choice yet." }]), "");
   assert.equal(extractCorrectChoice([{ text: "50 \\Rightarrow \\mathrm{\\textbf{(E)}}" }]), "E");
-});
-
-test("converts AoPS math and Markdown to canonical GetGo tokens", () => {
-  const converted = convertAopsText("Compute $1-2+3$ and $$S=50$$.");
-  assert.match(converted, /#math:\{"latex":"1-2\+3","inline":true\}#/);
-  assert.match(converted, /#math:\{"latex":"S=50","inline":false\}#/);
-  assert.match(aopsMarkdown("## Solution\n\n$S=50$"), /^#md:/);
-  assert.match(aopsMarkdown("## Solution\n\n$S=50$"), /#math:/);
+  assert.equal(extractCorrectChoice([{ text: "Therefore \\mathrm{(C)}." }]), "C");
 });
 
 test("AMC provenance and multiple solutions use typed content-v2 records", () => {
@@ -63,13 +98,14 @@ test("AMC import jobs are persisted and run one at a time", async () => {
   let active = 0;
   let maximumActive = 0;
   const service = {
-    async start(_input: unknown, control: { setTotal(total: number, label: string): Promise<void>; report(label: string): Promise<void>; advance(label: string): Promise<void> }) {
+    async start(_input: unknown, control: { setProgress(completed: number, total: number, label: string): Promise<void>; report(label: string): Promise<void> }) {
       active += 1;
       maximumActive = Math.max(maximumActive, active);
-      await control.setTotal(1, "One paper selected");
-      await control.report("Parsing paper");
+      await control.setProgress(0, 30, "Parsing 0/30 questions");
+      await control.setProgress(6, 30, "Parsing 6/30 questions");
       await new Promise((resolve) => setTimeout(resolve, 20));
-      await control.advance("Imported paper");
+      await control.setProgress(30, 30, "Parsing 30/30 questions");
+      await control.report("Imported paper");
       active -= 1;
       return {};
     },
@@ -88,7 +124,8 @@ test("AMC import jobs are persisted and run one at a time", async () => {
     const jobs = await manager.list();
     assert.equal(maximumActive, 1);
     assert.equal(jobs.length, 3);
-    assert.ok(jobs.every((job) => job.status === "completed" && job.completed === 1));
+    assert.ok(jobs.every((job) => job.status === "completed" && job.completed === 30 && job.total === 30));
+    assert.ok(jobs.every((job) => job.logs?.some((entry) => entry.message.includes("6/30"))));
     assert.ok(JSON.parse(await fs.readFile(path.join(directory, "amc-import-jobs.json"), "utf8")).jobs.length === 3);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });

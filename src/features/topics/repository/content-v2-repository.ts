@@ -239,6 +239,7 @@ export async function loadContentV2WorkspaceFromFiles(
               topicId: topic.id,
               quizId: quiz.id,
               id: question.id,
+              src: question.src,
               type: question.type,
               order: question.order,
               status: question.status,
@@ -344,6 +345,7 @@ export async function loadContentV2WorkspaceFromFiles(
         key: `${topic.id}/${quiz.id}`,
         topicId: topic.id,
         id: quiz.id,
+        src: quiz.src,
         type: quiz.type,
         title: quiz.title,
         icon: quiz.icon,
@@ -410,6 +412,7 @@ export async function loadContentV2WorkspaceFromFiles(
       : await loadContentV2TopicAssets(repositoryPath, topic, false);
     topics.push({
       id: topic.id,
+      src: topic.src,
       type: topic.type,
       title: localizedText(topic.title),
       localizedTitle: topic.title,

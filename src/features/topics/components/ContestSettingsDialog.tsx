@@ -145,7 +145,7 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     const incompleteRound = roundsToSave.find(round => !text(round.roundCode).trim() || !text(round.roundName).trim())
     if ((scope === "rounds" || scope === "all") && incompleteRound) { setTab("rounds"); setExpanded("rounds"); setError("Every round row needs a round code and round name."); return }
     setBusy(true)
-    try { const saved = { ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), title: settings.book.title.trim(), titleVi: settings.book.titleVi?.trim(), description: settings.book.description?.trim(), descriptionVi: settings.book.descriptionVi?.trim() } }; await onSaved(saved); setSettings(saved); setPersistedSettings(structuredClone(saved)); setBusy(false) }
+    try { const saved = { ...settings, rounds: roundsToSave, grades: gradesToSave, $schema: "../settings.schema.json", book: { ...settings.book, code: settings.book.code.trim().toLowerCase(), src: settings.book.src?.trim() || undefined, title: settings.book.title.trim(), titleVi: settings.book.titleVi?.trim(), description: settings.book.description?.trim(), descriptionVi: settings.book.descriptionVi?.trim() } }; await onSaved(saved); setSettings(saved); setPersistedSettings(structuredClone(saved)); setBusy(false) }
     catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : String(cause)) }
   }
 

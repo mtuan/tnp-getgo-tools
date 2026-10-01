@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { shell, type IpcMain } from "electron";
 import {
   loadContentV2Quiz,
@@ -24,6 +25,32 @@ function validId(value: unknown, label: string): string {
 }
 
 export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: Dependencies): void {
+  ipcMain.handle("content-v2:source:open", async (_event, srcValue: unknown, ownerPathValue: unknown) => {
+    if (typeof srcValue !== "string" || !srcValue.trim() || srcValue.length > 8192)
+      throw new Error("Invalid content source.");
+    if (typeof ownerPathValue !== "string" || !path.isAbsolute(ownerPathValue))
+      throw new Error("Invalid content file path.");
+    const root = await repositoryRoot();
+    const ownerRelative = path.relative(root, ownerPathValue);
+    if (ownerRelative.startsWith("..") || path.isAbsolute(ownerRelative))
+      throw new Error("Content file is outside the selected repository.");
+    const src = srcValue.trim();
+    let parsed: URL | undefined;
+    try { parsed = new URL(src); } catch { /* Local filesystem path. */ }
+    if (parsed?.protocol === "http:" || parsed?.protocol === "https:") {
+      await shell.openExternal(parsed.toString());
+      return;
+    }
+    if (parsed && parsed.protocol !== "file:")
+      throw new Error(`Unsupported source protocol “${parsed.protocol}”.`);
+    const sourcePath = parsed
+      ? fileURLToPath(parsed)
+      : path.isAbsolute(src) ? path.normalize(src) : path.resolve(path.dirname(ownerPathValue), src);
+    await fs.access(sourcePath).catch(() => { throw new Error(`Source file does not exist: ${sourcePath}`); });
+    const error = await shell.openPath(sourcePath);
+    if (error) throw new Error(error);
+  });
+
   ipcMain.handle("content-v2:quiz:source-pdf:open", async (_event, manifestPathValue: unknown) => {
     if (typeof manifestPathValue !== "string" || !path.isAbsolute(manifestPathValue) || !["manifest.json", "quiz.json"].includes(path.basename(manifestPathValue)))
       throw new Error("Invalid quiz path.");

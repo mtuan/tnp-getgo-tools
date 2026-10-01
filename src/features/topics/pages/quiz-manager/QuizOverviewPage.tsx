@@ -1,4 +1,4 @@
-import { CheckCheck, FolderOpen, ListOrdered, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
+import { CheckCheck, ExternalLink, FolderOpen, ListOrdered, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 import type { QuizSummary } from "../../../../shared/domain/models";
 import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { Button } from "../../../../shared/ui/Button";
@@ -186,6 +186,15 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                   label={quizPublishCopy.more}
                   disabled={sourceLoading || Boolean(buttonAction)}
                   items={[
+                    ...(contentQuiz?.src
+                      ? [{
+                          id: "view-source",
+                          label: "View source",
+                          icon: ExternalLink,
+                          onSelect: () => void runButtonAction("view-source", () =>
+                            window.getgo.openContentSource(contentQuiz.src!, contentQuiz.filePath)),
+                        }]
+                      : []),
                     ...(contentQuiz && managerApi.forceSyncContentV2Quiz
                       ? [{
                           id: "force-sync",

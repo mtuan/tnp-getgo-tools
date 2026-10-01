@@ -9,6 +9,7 @@ import {
   contentV2QuizPublishContractVersion,
   contentV2TopicPublishContractVersion,
   contentV2QuestionSchema,
+  contentSourceFromExplanation,
   competitionPaperQuizSchema,
   contentV2TopicSchema,
   hashContentV2,
@@ -81,6 +82,37 @@ test("content v2 competition quizzes persist supported languages and default leg
     competitionPaperQuizSchema.parse({ ...base, supportedLanguages: ["vi"] }).supportedLanguages,
     ["vi"],
   );
+});
+
+test("content v2 source locators support remote and local topic, quiz, and question sources", () => {
+  const topic = contentV2TopicSchema.parse({
+    schemaVersion: 2, id: "amc-8", src: "https://example.com/amc.pdf", type: "competition",
+    title: "AMC 8", subject: "mathematics", rounds: [], gradeGroups: [],
+  });
+  const quiz = competitionPaperQuizSchema.parse({
+    schemaVersion: 2, id: "amc-8-2026", src: "./paper.pdf", topicId: topic.id,
+    type: "competition-paper", title: "2026 AMC 8", description: "", sharedCode: "",
+    grade: "8", round: "amc-8", year: "2026",
+  });
+  const question = contentV2QuestionSchema.parse({
+    schemaVersion: 2, id: "q1", src: "/tmp/amc-8-q1.pdf", order: 0,
+    type: "competition-question", text: { en: "Question" }, assets: [], answer: {},
+  });
+  assert.equal(topic.src, "https://example.com/amc.pdf");
+  assert.equal(quiz.src, "./paper.pdf");
+  assert.equal(question.src, "/tmp/amc-8-q1.pdf");
+});
+
+test("an empty question source is derived from a labelled explanation link", () => {
+  const sourceUrl = "https://artofproblemsolving.com/wiki/example";
+  const question = contentV2QuestionSchema.parse({
+    schemaVersion: 2, id: "q1", order: 0, type: "competition-question",
+    text: { en: "Question" }, assets: [], answer: {},
+    explanation: { en: `A solution.\n\n[Source](${sourceUrl})` },
+  });
+  assert.equal(question.src, sourceUrl);
+  assert.equal(contentSourceFromExplanation({ vi: `Nguồn: ${sourceUrl}.` }), sourceUrl);
+  assert.equal(contentV2QuestionSchema.parse({ ...question, src: "./local.pdf" }).src, "./local.pdf");
 });
 
 test("content v2 text icons use an extensible object and accept legacy strings", () => {

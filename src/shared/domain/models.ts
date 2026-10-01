@@ -49,6 +49,7 @@ export interface QuizSummary {
   relativePath: string;
   manifestPath: string;
   id: string;
+  src?: string;
   legacyId: string;
   contest: string;
   title: string;
@@ -97,6 +98,7 @@ export interface RepositoryViewData {
 
 export interface ContentV2TopicSummary {
   id: string;
+  src?: string;
   type: "competition" | "kid-learning";
   title: string;
   description: string;
@@ -145,6 +147,7 @@ export interface ContentV2QuizSummary {
   key: string;
   topicId: string;
   id: string;
+  src?: string;
   type: "competition-paper" | "alphabet" | "spelling" | "pronunciation";
   title: string;
   description: string;
@@ -175,6 +178,7 @@ export interface ContentV2QuestionSummary {
   topicId: string;
   quizId: string;
   id: string;
+  src?: string;
   type: "competition-question" | "alphabet-letter" | "pronunciation-sound";
   order: number;
   status: "draft" | "pending" | "reviewed" | "rejected";
@@ -210,6 +214,7 @@ export interface ContestSettings {
   $comment?: string;
   book: {
     code: string;
+    src?: string;
     title: string;
     titleVi?: string;
     description?: string;
@@ -240,6 +245,7 @@ export interface ContestSummary {
 
 export interface QuizCrudInput {
   id: string;
+  src?: string;
   title: string;
   icon?: ContentIcon;
   sharedCode?: string;
@@ -255,6 +261,7 @@ export interface QuizCrudInput {
 
 export interface QuestionRecordBase extends Record<string, unknown> {
   question_no: number | string;
+  src?: string;
   status?: string;
   /** @deprecated Legacy compatibility only. Use status. */
   verified?: boolean;
@@ -926,6 +933,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
     question: QuizQuestionRecord,
   ): Promise<QuizQuestionRecord>;
   openExternal(url: string): Promise<void>;
+  openContentSource(src: string, ownerPath: string): Promise<void>;
   copyText(text: string): Promise<void>;
   resolveYouTubeResources(
     urls: string[],

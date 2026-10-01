@@ -25,6 +25,10 @@ export interface AmcImportPreview {
   quiz: { id: string; title: string; year: number; contest: AmcContestName };
   questions: AmcImportedQuestion[];
   warnings: string[];
+  rawSource?: {
+    capturedAt: string;
+    questions: Array<{ number: number; sourceUrl: string; html: string }>;
+  };
 }
 
 export interface AmcImportResult {
@@ -105,66 +109,106 @@ export function amcQuizId(contest: AmcContestName, year: number): string {
   return `${amcTopicId(contest)}-${year}`;
 }
 
+function removeUnmatchedBoundaryBraces(value: string): string {
+  const balance = (source: string) => {
+    let result = 0;
+    for (let index = 0; index < source.length; index += 1) {
+      if (source[index - 1] === "\\") continue;
+      if (source[index] === "{") result += 1;
+      else if (source[index] === "}") result -= 1;
+    }
+    return result;
+  };
+  let normalized = value;
+  while (normalized.startsWith("}") && balance(normalized) < 0)
+    normalized = normalized.slice(1).trimStart();
+  while (normalized.endsWith("}") && balance(normalized) < 0)
+    normalized = normalized.slice(0, -1).trimEnd();
+  return normalized;
+}
+
+function isInsideMath(source: string, targetIndex: number): boolean {
+  let delimiter: "$" | "$$" | null = null;
+  for (let index = 0; index < targetIndex; index += 1) {
+    if (source[index] !== "$" || source[index - 1] === "\\") continue;
+    const token = source[index + 1] === "$" ? "$$" : "$";
+    if (token === "$$") index += 1;
+    if (delimiter === token) delimiter = null;
+    else if (delimiter === null) delimiter = token;
+  }
+  return delimiter !== null;
+}
+
+function normalizeExtractedChoice(source: string, inheritedMath: boolean): string {
+  const value = source.replace(/^(?:\\\s+)+/, "").trimStart();
+  const possibleText = value.startsWith("$") && value.endsWith("$") ? value.slice(1, -1).trim() : value;
+  const pureText = possibleText.match(/^\\text\s*\{([\s\S]*)\}$/);
+  if (pureText)
+    return pureText[1].replace(/\\(?=\s)/g, "").replace(/\s+/g, " ").trim();
+  if (value.includes("$")) return value;
+  if (/\\\s/.test(value) && !/\\(?!\s)/.test(value))
+    return value.replace(/\\(?=\s)/g, "").replace(/\s+/g, " ").trim();
+  return inheritedMath || /\\(?:[A-Za-z]+|[%$#&_{}])/.test(value) ? `$${value}$` : value;
+}
+
 export function extractChoiceMap(text: string): Record<string, string> {
   const normalized = text.replace(/\\textbf\s*\{\s*\(([A-E])\)\s*\}/g, "($1)");
-  const matches = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
+  const allMatches = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
+  const firstA = allMatches.findIndex((match) => match[1] === "A");
+  if (firstA < 0) return {};
+  const matches = allMatches.slice(firstA, firstA + 5).filter(
+    (match, index) => match[1] === String.fromCharCode(65 + index),
+  );
   if (matches.length < 2) return {};
   return Object.fromEntries(matches.map((match, index) => {
     const start = (match.index ?? 0) + match[0].length;
-    const end = matches[index + 1]?.index ?? normalized.length;
-    const raw = normalized.slice(start, end).replace(/\\q+uad[\s\S]*$/i, "");
+    const end = matches[index + 1]?.index
+      ?? allMatches[firstA + matches.length]?.index
+      ?? normalized.length;
+    let raw = normalized.slice(start, end)
+      .replace(/\\q+uad[\s\S]*$/i, "")
+      .replace(/\s*\$?\s*\\(?:mathrm|textrm|mathbf|textbf)\s*\{?\s*$/i, "");
+    if (index === matches.length - 1)
+      raw = raw.replace(/\s*(?:=\s*(?:Video\s+)?Solutions?(?:\s+\d+)?|(?:Video\s+)?Solutions(?:\s+\d+)?)(?:\s|$)[\s\S]*$/i, "");
     let value = raw
-      .replace(/^\s*(?:\\[ ,;:!])+/, "")
+      .replace(/^\s*(?:(?:\\[ ,;:!])\s*)+}?\s*/, "")
       .trim()
       .replace(/\s+/g, " ");
     if (value.endsWith("$") && !value.startsWith("$")) value = value.slice(0, -1).trim();
-    value = value.replace(/[}\s]+$/g, "").trim();
-    return [match[1], /\\[A-Za-z]+/.test(value) ? `$${value}$` : value];
+    value = removeUnmatchedBoundaryBraces(value).trim();
+    return [match[1], normalizeExtractedChoice(value, isInsideMath(normalized, match.index ?? 0))];
   }).filter(([, value]) => value.length > 0));
+}
+
+function normalizeAopsQuestionText(value: string): string {
+  let normalized = value
+    .replace(/^\s*Problem(?:\s+\d+)?\s*/i, "")
+    .replace(/\s+\$\s*$/, "")
+    .trim();
+  const dollars = [...normalized.matchAll(/(?<!\\)\$/g)];
+  if (dollars.length % 2 === 1)
+    normalized = normalized.replace(/\$(\d+(?:\.\d+)?)(?=\s+[A-Za-z])/g, (_match, amount: string) => `\\$${amount}`);
+  return normalized;
 }
 
 /** Remove the answer-choice block after choices have been extracted separately. */
 export function extractAopsQuestionText(text: string): string {
   const normalized = text.replace(/\\textbf\s*\{\s*\(([A-E])\)\s*\}/g, "($1)");
   const labels = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
-  if (labels.length < 2) return text.trim();
+  if (labels.length < 2) return normalizeAopsQuestionText(text);
   const firstLabel = labels[0].index ?? 0;
   const mathStart = normalized.lastIndexOf("$", firstLabel);
-  return normalized.slice(0, mathStart >= 0 ? mathStart : firstLabel).trim();
+  const optionMathPrefix = mathStart < 0 ? "" : normalized.slice(mathStart + 1, firstLabel);
+  const optionBlockStartsInMath = mathStart >= 0
+    && /^\s*(?:\\(?:mathrm|textrm|mathbf|textbf)\s*\{\s*)*$/.test(optionMathPrefix);
+  return normalizeAopsQuestionText(normalized.slice(0, optionBlockStartsInMath ? mathStart : firstLabel));
 }
 
 export function extractCorrectChoice(solutions: Array<{ text: string }>): string {
   const source = solutions.map((solution) => solution.text).join("\n");
-  return source.match(/\\boxed\s*\{(?:\s*\\textbf\s*\{)?\s*\(?([A-E])\)?/i)?.[1]?.toUpperCase()
-    ?? source.match(/\\(?:Rightarrow|implies)[\s\S]{0,80}?\\(?:textbf|mathbf)\s*\{?\s*\(?([A-E])\)?/i)?.[1]?.toUpperCase()
-    ?? source.match(/\\(?:textbf|mathbf)\s*\{\s*\(?([A-E])\)?\s*\}/i)?.[1]?.toUpperCase()
+  return source.match(/\\boxed\s*\{(?:\s*\\(?:textbf|mathbf|text|mathrm|textrm)\s*\{)?\s*\(?([A-E])\)?/i)?.[1]?.toUpperCase()
+    ?? source.match(/\\(?:Rightarrow|implies)[\s\S]{0,80}?\\(?:textbf|mathbf|mathrm|textrm)\s*\{?\s*\(?([A-E])\)?/i)?.[1]?.toUpperCase()
+    ?? source.match(/\\(?:textbf|mathbf|mathrm|textrm)\s*\{\s*\(?([A-E])\)?\s*\}/i)?.[1]?.toUpperCase()
     ?? source.match(/(?:answer|choice)\s+(?:is\s+)?\(?([A-E])\)?/i)?.[1]?.toUpperCase()
     ?? "";
-}
-
-function mathToken(latex: string, inline: boolean): string {
-  const normalized = latex
-    .replace(/\\textbf\s*\(([^)]*)\)/g, "\\textbf{$1}")
-    .trim();
-  return `#math:${JSON.stringify({ latex: normalized, inline })}#`;
-}
-
-/** Convert AoPS MediaWiki math delimiters into GetGo's canonical KaTeX tokens. */
-export function convertAopsText(value: string): string {
-  const source = String(value ?? "");
-  let output = "";
-  let cursor = 0;
-  const pattern = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]|\$([^$\n]+?)\$|\\\(([^\n]*?)\\\)/g;
-  for (const match of source.matchAll(pattern)) {
-    const index = match.index ?? 0;
-    output += source.slice(cursor, index);
-    const display = match[1] !== undefined || match[2] !== undefined;
-    output += mathToken(match[1] ?? match[2] ?? match[3] ?? match[4] ?? "", !display);
-    cursor = index + match[0].length;
-  }
-  return output + source.slice(cursor);
-}
-
-export function aopsMarkdown(value: string): string {
-  return `#md:${JSON.stringify({ markdown: convertAopsText(value) })}#`;
 }

@@ -47,7 +47,7 @@ export class AmcImportJobManager {
     const job: AmcImportJob = {
       id: randomUUID(), kind: "amc-import", input: structuredClone(input), name: `AMC import · ${scope}`,
       description: input.scope === "quiz" ? "Import one AoPS quiz" : input.scope === "topic" ? "Import every quiz in this contest" : "Import the complete discovered AoPS archive",
-      route: "/amc-import", status: "queued", completed: 0, total: 1, progressLabel: "Waiting for earlier AMC imports",
+      route: "/amc-import", status: "queued", completed: 0, total: 0, progressLabel: "Waiting for earlier AMC imports",
       cancellable: true, retryable: false, createdAt: new Date().toISOString(), logs: [],
     };
     this.log(job, "system", "AMC import queued. AMC imports run one at a time.");
@@ -77,6 +77,7 @@ export class AmcImportJobManager {
       await this.service.start(job.input, {
         checkpoint,
         setTotal: async (total, label) => { job.total = Math.max(1, total); job.progressLabel = label; this.log(job, "stdout", label); await this.persist(); },
+        setProgress: async (completed, total, label) => { job.total = Math.max(0, total); job.completed = Math.max(0, Math.min(job.total, completed)); job.progressLabel = label; this.log(job, "stdout", label); await this.persist(); },
         report: async (label) => { job.progressLabel = label; this.log(job, "stdout", label); await this.persist(); await checkpoint(); },
         advance: async (label) => { job.completed = Math.min(job.total, job.completed + 1); job.progressLabel = label; this.log(job, "stdout", label); await this.persist(); await checkpoint(); },
       });

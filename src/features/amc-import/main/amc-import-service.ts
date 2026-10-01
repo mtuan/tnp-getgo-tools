@@ -13,7 +13,7 @@ import {
   type AmcPaperImportProgress,
   type StartAmcImportInput,
 } from "../domain/amc-import.js";
-import { discoverAmcArchive, previewAmcPaper } from "./amc-browser.js";
+import { discoverAmcArchive, previewAmcPaper, reparseAmcPreview } from "./amc-browser.js";
 import { amcQuizExists, importAmcPreview } from "./amc-import-repository.js";
 
 interface StoredPaper extends AmcArchiveEntry { status?: AmcPaperImportProgress["status"]; questionCount?: number; processedQuestions?: number; totalQuestions?: number; error?: string; updatedAt?: string }
@@ -23,6 +23,7 @@ const paperId = (contest: AmcContestName, year: number) => `${amcTopicId(contest
 export interface AmcImportRunControl {
   checkpoint(): Promise<void>;
   setTotal(total: number, label: string): Promise<void>;
+  setProgress(completed: number, total: number, label: string): Promise<void>;
   report(label: string): Promise<void>;
   advance(label: string): Promise<void>;
 }
@@ -117,12 +118,14 @@ export class AmcImportService {
     const state = await this.read(root);
     const selected = state.papers.filter((paper) => input.scope === "all" || (paper.contest === input.contest && (input.scope === "topic" || paper.year === input.year)));
     if (!selected.length) throw new Error("No AMC papers match this import selection. Load the archive first.");
-    await control?.setTotal(selected.length, `${selected.length} AMC ${selected.length === 1 ? "quiz" : "quizzes"} selected`);
+    await control?.setProgress(0, 0, `${selected.length} AMC ${selected.length === 1 ? "quiz" : "quizzes"} selected`);
     this.running = true;
     let failedPapers = 0;
     state.active = { scope: input.scope, contest: input.contest, year: input.year };
     await this.write(root, state);
     try {
+      let completedQuestions = 0;
+      let discoveredQuestions = 0;
       for (const paper of selected) {
         await control?.checkpoint();
         if (!input.overwrite && await amcQuizExists(root, amcTopicId(paper.contest), amcQuizId(paper.contest, paper.year))) {
@@ -135,24 +138,37 @@ export class AmcImportService {
         await control?.report(`Parsing ${paper.title}`);
         try {
           let preview = await this.cachedPreview(root, paper);
-          if (!preview || input.overwrite) {
-            preview = await previewAmcPaper(paper.contest, paper.year, async ({ processed, total }) => {
+          await control?.report(preview?.rawSource?.questions.length
+            ? `Reparsing ${paper.title} from saved source content`
+            : `Fetching and saving original source content for ${paper.title}`);
+          let paperTotalKnown = false;
+          const updateParseProgress = async ({ processed, total }: { processed: number; total: number }) => {
+              if (!paperTotalKnown) {
+                discoveredQuestions += total;
+                paperTotalKnown = true;
+              }
               paper.processedQuestions = processed; paper.totalQuestions = total; paper.updatedAt = new Date().toISOString();
               await this.write(root, state);
-              await control?.report(`${paper.title} · parsed ${processed}/${total} questions`);
-            });
-            await this.savePreview(root, preview);
-          }
+              await control?.setProgress(completedQuestions + processed, discoveredQuestions, `${paper.title} · parsed ${processed}/${total} questions`);
+              await control?.checkpoint();
+          };
+          preview = preview?.rawSource?.questions.length
+            ? await reparseAmcPreview(preview, updateParseProgress)
+            : await previewAmcPaper(paper.contest, paper.year, updateParseProgress);
+          await this.savePreview(root, preview);
+          if (!paperTotalKnown) discoveredQuestions += preview.questions.length;
+          completedQuestions += preview.questions.length;
+          await control?.setProgress(completedQuestions, discoveredQuestions, `${paper.title} · parsed ${preview.questions.length}/${preview.questions.length} questions`);
           paper.status = "importing"; paper.questionCount = preview.questions.length; paper.updatedAt = new Date().toISOString();
           await this.write(root, state);
           await control?.report(`Writing ${paper.title} to Topics`);
           await importAmcPreview(root, preview, input.overwrite === true);
           paper.status = "imported"; paper.error = undefined; paper.updatedAt = new Date().toISOString();
-          await control?.advance(`Imported ${paper.title} · ${preview.questions.length} questions`);
+          await control?.report(`Imported ${paper.title} · ${preview.questions.length} questions`);
         } catch (cause) {
           failedPapers += 1;
           paper.status = "failed"; paper.error = cause instanceof Error ? cause.message : String(cause); paper.updatedAt = new Date().toISOString();
-          await control?.advance(`Failed ${paper.title}: ${paper.error}`);
+          await control?.report(`Failed ${paper.title}: ${paper.error}`);
         }
         await this.write(root, state);
       }

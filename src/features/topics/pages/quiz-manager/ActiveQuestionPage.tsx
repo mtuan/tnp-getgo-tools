@@ -338,6 +338,11 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
       const letter = questionDraftRecord
         ? alphabetData(questionDraftRecord).letter
         : "";
+      const questionSummary = snapshot.contentV2.questions.find(
+        (item) => item.topicId === quiz.contest && item.quizId === quiz.id
+          && String(item.id.match(/^(?:q|letter-)(\d+)$/i)?.[1] ?? item.order + 1)
+            === String(activeQuestion.number),
+      );
       const createNewQuestionFromDetail = () => {
         if (
           questionHasChanges &&
@@ -529,6 +534,15 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                             onSelect: () => void resetQuestion(),
                           },
                         ]
+                      : []),
+                    ...(questionDraftRecord?.src && questionSummary
+                      ? [{
+                          id: "view-source",
+                          label: "View source",
+                          icon: FileText,
+                          onSelect: () => void runButtonAction("view-source", () =>
+                            window.getgo.openContentSource(questionDraftRecord.src!, questionSummary.filePath)),
+                        }]
                       : []),
                     {
                       id: "delete-question",

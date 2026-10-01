@@ -10197,6 +10197,7 @@ button.danger svg {
 
 .getgo-math-inline { white-space: normal; }
 .getgo-math-block { display: block; max-width: 100%; overflow-x: auto; }
+.getgo-markdown img { display: block; width: auto; max-width: 100%; height: auto; margin: 0.75em auto; }
 
 .getgo-text-preserve-lines {
   white-space: pre-wrap;

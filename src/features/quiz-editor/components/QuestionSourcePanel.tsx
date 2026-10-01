@@ -32,7 +32,7 @@ export function QuestionSourcePanel({ sourceValue, solutionsValue, expanded, onE
       {source?.externalId && <p><strong>External ID</strong><span>{source.externalId}</span></p>}
       {source?.importedAt && <p><strong>Imported</strong><span>{new Date(source.importedAt).toLocaleString()}</span></p>}
       {solutions.map((solution, index) => <section key={`${localized(solution.title)}-${index}`}>
-        <h3>{localized(solution.title)}</h3>
+        {solutions.length > 1 && <h3>{localized(solution.title)}</h3>}
         <pre>{localized(solution.text)}</pre>
       </section>)}
     </div>

@@ -75,6 +75,7 @@ function managerSettings(topic: RepositoryViewData["contentV2"]["topics"][number
   return {
     book: {
       code: topic.id,
+      src: topic.src,
       title: topic.title,
       titleVi: typeof topic.localizedTitle === "object" ? topic.localizedTitle.vi : topic.title,
       description: topic.description,
@@ -121,6 +122,7 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     relativePath: `content-v2/topics/${quiz.topicId}/quizzes/${quiz.id}`,
     manifestPath: quiz.filePath,
     id: quiz.id,
+    src: quiz.src,
     legacyId: quiz.id,
     contest: quiz.topicId,
     title: quiz.title,
@@ -164,6 +166,7 @@ function toManagerQuestion(question: ContentV2Question): QuizQuestionRecord {
     return {
       type: "alphabet",
       question_no: questionNumber(question.id, question.order),
+      src: question.src,
       letter: question.letter,
       uppercase: question.uppercase,
       lowercase: question.lowercase,
@@ -172,9 +175,10 @@ function toManagerQuestion(question: ContentV2Question): QuizQuestionRecord {
       ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}),
     };
   if (question.type === "pronunciation-sound")
-    return { type: "pronunciation-sound", question_no: questionNumber(question.id, question.order), title: question.title, letter: question.letter, tones: question.tones, sounds: question.sounds, ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}) };
+    return { type: "pronunciation-sound", question_no: questionNumber(question.id, question.order), src: question.src, title: question.title, letter: question.letter, tones: question.tones, sounds: question.sounds, ...(question.status === "reviewed" ? { status: "verified" } : question.status === "rejected" ? { status: "rejected" } : {}) };
   return {
     question_no: questionNumber(question.id, question.order),
+    src: question.src,
     category: question.category,
     text_en: question.text.en,
     text_vn: question.text.vi,
@@ -203,9 +207,9 @@ function fromManagerQuestion(
   compiledJs?: string,
 ): ContentV2Question {
   if (stored.type === "alphabet-letter" && question.type === "alphabet")
-    return { ...stored, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined, resources: Array.isArray(question.resources) ? question.resources : [] };
+    return { ...stored, src: question.src?.trim() || undefined, status: reviewStatus(question), letter: question.letter, uppercase: question.uppercase, lowercase: question.lowercase, pronunciation: question.pronunciation || undefined, resources: Array.isArray(question.resources) ? question.resources : [] };
   if (stored.type === "pronunciation-sound" && question.type === "pronunciation-sound")
-    return { ...stored, status: reviewStatus(question), title: question.title || undefined, letter: question.letter ?? stored.letter, tones: question.tones ?? stored.tones, sounds: question.sounds ?? stored.sounds };
+    return { ...stored, src: question.src?.trim() || undefined, status: reviewStatus(question), title: question.title || undefined, letter: question.letter ?? stored.letter, tones: question.tones ?? stored.tones, sounds: question.sounds ?? stored.sounds };
   if (stored.type !== "competition-question" || question.type === "alphabet")
     throw new Error("Question type does not match its stored v2 contract.");
   const dynamic = question.advancedDynamic;
@@ -220,6 +224,7 @@ function fromManagerQuestion(
     : undefined;
   return {
     ...stored,
+    src: question.src?.trim() || undefined,
     status: reviewStatus(question),
     category: typeof question.category === "string" && question.category ? question.category : undefined,
     text: { en: (question.text_en ?? "") as string | string[], ...(question.text_vn ? { vi: question.text_vn as string | string[] } : {}) },
@@ -464,7 +469,7 @@ export function ContentV2QuizManager(props: Props) {
         // An editor for one quiz concern must preserve every unrelated field,
         // especially marketplace state. Reconstructing a partial quiz here used
         // to drop marketplace and let its default resolve to "unlisted".
-        const common = { ...stored, title: input.title, icon: input.icon || undefined, sharedCode: input.sharedCode ?? stored.sharedCode, status: input.status === "reviewed" ? "reviewed" as const : stored.status };
+        const common = { ...stored, src: input.src?.trim() || undefined, title: input.title, icon: input.icon || undefined, sharedCode: input.sharedCode ?? stored.sharedCode, status: input.status === "reviewed" ? "reviewed" as const : stored.status };
         const next: ContentV2Quiz = input.type === "contest"
           ? { ...common, type: "competition-paper", supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : stored.type === "competition-paper" ? stored.supportedLanguages : ["en", "vi"], grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
           : input.type === "pronunciation"
@@ -478,17 +483,17 @@ export function ContentV2QuizManager(props: Props) {
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
           ? input.type === "pronunciation"
-            ? { schemaVersion: 2, id: input.id, topicId, type: "pronunciation", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: "vi", speech: defaultAlphabetQuizSpeechSettings }
-            : { schemaVersion: 2, id: input.id, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
-          : { schemaVersion: 2, id: input.id, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : ["en", "vi"], grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
+            ? { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "pronunciation", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: "vi", speech: defaultAlphabetQuizSpeechSettings }
+            : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
+          : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : ["en", "vi"], grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         await window.getgo.saveContentV2Quiz(topicId, quiz);
         return reloadFromFiles(topicId);
       },
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
         const topic: ContentV2Topic = settings.book.topicType === "kid-learning"
-          ? { schemaVersion: 2, id: settings.book.code, type: "kid-learning", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? [], grades: settings.book.supportedGrades ?? [], status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
-          : { schemaVersion: 2, id: settings.book.code, type: "competition", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? ["mathematics"], grades: settings.book.supportedGrades ?? [], status: "pending", order, subject: settings.book.subjects?.[0] ?? "mathematics", rounds: [], gradeGroups: [] };
+          ? { schemaVersion: 2, id: settings.book.code, src: settings.book.src?.trim() || undefined, type: "kid-learning", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? [], grades: settings.book.supportedGrades ?? [], status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
+          : { schemaVersion: 2, id: settings.book.code, src: settings.book.src?.trim() || undefined, type: "competition", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? ["mathematics"], grades: settings.book.supportedGrades ?? [], status: "pending", order, subject: settings.book.subjects?.[0] ?? "mathematics", rounds: [], gradeGroups: [] };
         await window.getgo.saveContentV2Topic(topic);
         return reloadFromFiles();
       },
@@ -497,6 +502,7 @@ export function ContentV2QuizManager(props: Props) {
         const common = {
           schemaVersion: 2 as const,
           id: stored.id,
+          src: settings.book.src?.trim() || undefined,
           title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title },
           icon: settings.book.icon || undefined,
           description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" },
