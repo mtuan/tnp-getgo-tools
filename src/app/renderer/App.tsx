@@ -22,7 +22,6 @@ import type {
   SpeechLanguage,
   SpeechLanguageSettings,
   EnvironmentReadiness,
-  QuizSummary,
 } from "../../shared/domain/models";
 import { defaultSpeechSettings } from "../../features/speech/domain/speech-settings";
 import { useAuth } from "../../features/authentication/components/AuthContext";
@@ -32,18 +31,14 @@ import { StartupLoadingScreen } from "../../shared/components/StartupLoadingScre
 import { PageTransition } from "../../shared/components/PageTransition";
 import { Button } from "../../shared/ui/Button";
 import { DialogFrame } from "../../shared/ui/DialogFrame";
-import { PageHeader } from "../../shared/ui/PageHeader";
 import { PageLoading } from "../../shared/ui/PageLoading";
-import { Panel } from "../../shared/ui/Panel";
-import { SummaryCard } from "../../shared/ui/SummaryCard";
 import { Select } from "../../shared/ui/Select";
-import { environmentOptions, featureNavigation, primaryNavigation, utilityNavigation, type NavigableView, type View } from "./navigation";
+import { environmentOptions, type NavigableView, type View } from "./navigation";
+import { SidebarNavigation } from "./SidebarNavigation";
 import { useToast } from "../../shared/ui/Toast";
 import { StartupEnvironmentPage } from "../../features/settings/components/StartupEnvironmentPage";
 import { useStartupEnvironment } from "../../features/settings/components/useStartupEnvironment";
 import { SettingsPage } from "../../features/settings/components/SettingsPage";
-import en from "../../shared/localization/en.json";
-import vi from "../../shared/localization/vi.json";
 
 const rendererStartedAt = performance.now();
 const rendererStartupLog = (
@@ -78,9 +73,10 @@ const lastRouteKey = "getgo-tools:last-route";
 const sidebarCollapsedKey = "getgo-tools:sidebar-collapsed";
 const readLastRoute = () => {
   try {
-    return localStorage.getItem(lastRouteKey) || "/dashboard";
+    const route = localStorage.getItem(lastRouteKey);
+    return !route || route === "/dashboard" ? "/deploy" : route;
   } catch {
-    return "/dashboard";
+    return "/deploy";
   }
 };
 const readSidebarCollapsed = () => {
@@ -98,7 +94,6 @@ function viewFromRoute(route: string): View {
     pathname = route.split("?")[0];
   }
   const staticView = [
-    "dashboard",
     "feedbacks",
     "jobs",
     "deploy",
@@ -145,7 +140,7 @@ function viewFromRoute(route: string): View {
 }
 const normalizedRoute = (route: string) => {
   const value = route.trim();
-  if (!value) return "/dashboard";
+  if (!value) return "/deploy";
   return value.startsWith("/") ? value : `/${value}`;
 };
 export function App() {
@@ -161,8 +156,6 @@ export function App() {
     speech: structuredClone(defaultSpeechSettings),
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const contentCopy = (settings.locale === "vi" ? vi : en).contentV2;
-  const imagePdfCopy = (settings.locale === "vi" ? vi : en).imagePdf;
   const [loading, setLoading] = useState(true);
   const [choosingRepository, setChoosingRepository] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -466,12 +459,6 @@ export function App() {
     );
   }
 
-  const quizzes: QuizSummary[] = [];
-  const built = quizzes.filter((q) => q.hasGeneratedArtifact).length;
-  const ready = quizzes.filter((q) =>
-    ["reviewed", "validated", "published"].includes(q.contentStatus),
-  ).length;
-  const contests = 0;
   if (loading || !startupEnvironment.readiness)
     return <StartupLoadingScreen settingsLoaded={settingsLoaded} />;
 
@@ -548,44 +535,7 @@ export function App() {
             <span>TOOLS</span>
           </div>
         </div>
-        <nav className="sidebar-navigation">
-          {[primaryNavigation, featureNavigation, utilityNavigation].map((group, groupIndex) => <div
-            className={`sidebar-navigation-group sidebar-navigation-group-${groupIndex}`}
-            key={groupIndex}
-          >
-          {group.map((item) => {
-            const Icon = item.icon;
-            const label =
-              item.id === "topics"
-                ? contentCopy.nav
-                : item.id === "quizzes"
-                  ? contentCopy.legacyNav
-                  : item.id === "image-pdf"
-                    ? imagePdfCopy.nav
-                    : item.id === "screenshots"
-                      ? (settings.locale === "vi" ? vi : en).screenshotManager.nav
-                    : item.id === "designs"
-                      ? settings.locale === "vi" ? "Thiết kế" : "Design"
-                    : item.id === "avatar-sets"
-                      ? settings.locale === "vi" ? "Bộ ảnh đại diện" : "Avatar sets"
-                    : item.label;
-            return (
-              <button
-                key={item.id}
-                className={view === item.id ? "active" : ""}
-                aria-label={label}
-                title={sidebarCollapsed ? label : undefined}
-                onClick={() => navigate(item.id)}
-              >
-                <i>
-                  <Icon size={18} strokeWidth={1.8} />
-                </i>
-                <span>{label}</span>
-              </button>
-            );
-          })}
-          </div>)}
-        </nav>
+        <SidebarNavigation locale={settings.locale} view={view} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} onNavigate={navigate} />
         <div className="sidebar-footer">
           <span className="sidebar-workspace">
             <span className="status-dot" />
@@ -655,8 +605,8 @@ export function App() {
                 <p>
                   No GetGo Tools page matches <code>{currentRoute}</code>.
                 </p>
-                <Button variant="primary" onClick={() => navigate("dashboard")}>
-                  Go to dashboard
+                <Button variant="primary" onClick={() => navigate("deploy")}>
+                  Go to deploy
                 </Button>
               </section>
             )}
@@ -684,81 +634,6 @@ export function App() {
                 </Button>
               </section>
             ) : null}
-            {settings.repositoryPath && view === "dashboard" && (
-              <>
-                <PageHeader
-                  eyebrow="Workspace overview"
-                  title="Quiz operations"
-                  description="Local repository health and publishing readiness."
-                  actions={
-                    <Button
-                      variant="primary"
-                      onClick={() => navigate("quizzes")}
-                    >
-                      Browse quizzes
-                    </Button>
-                  }
-                />
-                <section className="metrics">
-                  <SummaryCard
-                    label="Total quizzes"
-                    value={quizzes.length}
-                    detail={`across ${contests} contests`}
-                  />
-                  <SummaryCard
-                    label="Ready to publish"
-                    value={ready}
-                    detail="reviewed or validated"
-                  />
-                  <SummaryCard
-                    label="Local builds"
-                    value={built}
-                    detail={`${quizzes.length - built} require a build`}
-                  />
-                  <SummaryCard
-                    label="Filesystem"
-                    value={settings.repositoryPath ? 1 : 0}
-                    detail="loaded on demand"
-                  />
-                </section>
-                <Panel
-                  title="Lifecycle distribution"
-                  description="Current manifest status across the repository"
-                  meta={
-                    <>
-                      Filesystem data loads with each page
-                    </>
-                  }
-                >
-                  <div className="lifecycle">
-                    {[
-                      "imported",
-                      "normalized",
-                      "generated",
-                      "reviewed",
-                      "validated",
-                      "published",
-                    ].map((status) => {
-                      const count = quizzes.filter(
-                        (q) => q.contentStatus === status,
-                      ).length;
-                      return (
-                        <div key={status}>
-                          <div>
-                            <span>{status}</span>
-                            <strong>{count}</strong>
-                          </div>
-                          <progress
-                            max={Math.max(quizzes.length, 1)}
-                            value={count}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Panel>
-              </>
-            )}
             {settings.repositoryPath && view === "quizzes" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <FilesystemLegacyManager
