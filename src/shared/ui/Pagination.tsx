@@ -22,18 +22,27 @@ export function Pagination({
   locale,
   page,
   pageCount,
+  hasNextPage,
+  disabled = false,
   onPageChange,
 }: {
   locale: "en" | "vi";
   page: number;
-  pageCount: number;
+  pageCount?: number;
+  /** Use for cursor-backed lists where the total number of pages is unknown. */
+  hasNextPage?: boolean;
+  disabled?: boolean;
   onPageChange(page: number): void;
 }) {
-  if (pageCount <= 1) return null;
+  const cursorMode = pageCount === undefined;
+  const canGoBack = page > 1;
+  const canGoForward = cursorMode ? Boolean(hasNextPage) : page < pageCount;
+  if (!canGoBack && !canGoForward) return null;
 
   const previousLabel = locale === "vi" ? "Trang trước" : "Previous page";
   const nextLabel = locale === "vi" ? "Trang sau" : "Next page";
   const paginationLabel = locale === "vi" ? "Phân trang" : "Pagination";
+  const pageLabel = locale === "vi" ? `Trang ${page}` : `Page ${page}`;
 
   return <nav className="ui-pagination" aria-label={paginationLabel}>
     <Button
@@ -41,16 +50,16 @@ export function Pagination({
       icon={<ChevronLeft />}
       aria-label={previousLabel}
       title={previousLabel}
-      disabled={page === 1}
+      disabled={disabled || !canGoBack}
       onClick={() => onPageChange(page - 1)}
     />
-    <span className="ui-pagination-status" aria-live="polite">{page} / {pageCount}</span>
+    <span className="ui-pagination-status" aria-live="polite">{cursorMode ? pageLabel : `${page} / ${pageCount}`}</span>
     <Button
       variant="icon"
       icon={<ChevronRight />}
       aria-label={nextLabel}
       title={nextLabel}
-      disabled={page === pageCount}
+      disabled={disabled || !canGoForward}
       onClick={() => onPageChange(page + 1)}
     />
   </nav>;

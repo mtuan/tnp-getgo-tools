@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ChevronLeft, ChevronRight, Pencil, RefreshCw } from "lucide-react";
+import { Pencil, RefreshCw } from "lucide-react";
 import type { AppSettings, GetGoMemberAccount, GetGoMemberPage, GetGoMembershipTier } from "../../../shared/domain/models";
 import { useAuth } from "../../authentication/components/AuthContext";
 import * as ui from "../../../shared/ui";
@@ -90,21 +90,38 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
     && dateInputValue(editing.subscriptionExpiresAt) === (membership === "premium" ? expiresAt : "");
 
   if (result === null && loading && !error) return <ui.PageLoading label={copy.loading} />;
-  return <section>
-    <ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={<ui.Button icon={<RefreshCw />} loading={loading} onClick={() => setRefresh(value => value + 1)}>{copy.refresh}</ui.Button>} />
+  return <section className="manager members-page">
+    <ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={<>
+      <ui.ControlGroup className="manager-topic-header-controls">
+        <ui.SearchField className="members-header-search ui-page-header-control" value={search} placeholder={copy.search} ariaLabel={copy.search} clearLabel={copy.clear} onValueChange={setSearch} />
+        <ui.Select
+          className="manager-topic-filter"
+          value={filter}
+          options={(["all", "free", "premium", "admin"] as MemberFilter[]).map(value => ({ value, label: copy[value] }))}
+          ariaLabel={copy.membership}
+          onValueChange={value => { setFilter(value as MemberFilter); setPage(1); setCursors([null]); }}
+        />
+      </ui.ControlGroup>
+      <ui.Button icon={<RefreshCw />} loading={loading} onClick={() => setRefresh(value => value + 1)}>{copy.refresh}</ui.Button>
+    </>} />
     {error && !editing && <ui.ErrorFrame message={error} />}
-    <ui.Panel title={copy.title} description={`${copy.page} ${page} · ${copy.pageSize}`}>
-      <ui.PanelBody className="members-toolbar">
-        <ui.SearchField value={search} placeholder={copy.search} ariaLabel={copy.search} clearLabel={copy.clear} onValueChange={setSearch} />
-        <ui.SegmentedControl value={filter} options={(["all", "free", "premium", "admin"] as MemberFilter[]).map(value => ({ value, label: copy[value] }))} ariaLabel={copy.membership} onValueChange={value => { setFilter(value as MemberFilter); setPage(1); setCursors([null]); }} />
-      </ui.PanelBody>
-      <ui.DataTable horizontalScroll rows={result?.items ?? []} columns={columns} rowKey={item => item.id} ariaLabel={copy.title} emptyText={copy.empty} />
-      <div className="members-pagination">
-        <ui.Button variant="icon" icon={<ChevronLeft />} aria-label={copy.previous} title={copy.previous} disabled={page === 1 || loading} onClick={() => setPage(value => Math.max(1, value - 1))} />
-        <span>{copy.page} {page}</span>
-        <ui.Button variant="icon" icon={<ChevronRight />} aria-label={copy.next} title={copy.next} disabled={!result?.nextCursor || loading} onClick={() => { if (!result?.nextCursor) return; setCursors(current => [...current.slice(0, page), result.nextCursor]); setPage(value => value + 1); }} />
-      </div>
-    </ui.Panel>
+    <ui.DataTable horizontalScroll rows={result?.items ?? []} columns={columns} rowKey={item => item.id} ariaLabel={copy.title} emptyText={copy.empty} />
+    <div className="members-table-footer">
+      <span>{copy.pageSize}</span>
+      <ui.Pagination
+        locale={locale}
+        page={page}
+        hasNextPage={Boolean(result?.nextCursor)}
+        disabled={loading}
+        onPageChange={nextPage => {
+          if (nextPage > page) {
+            if (!result?.nextCursor) return;
+            setCursors(current => [...current.slice(0, page), result.nextCursor]);
+          }
+          setPage(nextPage);
+        }}
+      />
+    </div>
     {editing && <ui.DialogFrame presentation="modal" title={copy.edit} busy={busy} error={error} cancelLabel={copy.cancel} submitLabel={copy.save} submitDisabled={Boolean(unchanged)} onClose={() => !busy && setEditing(null)} onSubmit={save}>
       <ui.Form fields={[
         { type: "custom", name: "member", label: copy.name, render: () => <div><strong>{editing.name}</strong><div>{editing.email}</div><small>{editing.id}</small></div> },
