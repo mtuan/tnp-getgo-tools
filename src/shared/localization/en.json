@@ -402,6 +402,7 @@
     "aiMigration": "AI migration",
     "publishing": "Publishing",
     "webDeployment": "Deployment",
+    "amcImport": "AMC import",
     "cancel": "Cancel",
     "pause": "Pause",
     "resume": "Resume",

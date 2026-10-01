@@ -3,6 +3,7 @@ import type { AmcContestName, AmcImportPreview } from "../domain/amc-import.js";
 import { discoverAmcArchive, previewAmcPaper } from "./amc-browser.js";
 import { importAmcPreview } from "./amc-import-repository.js";
 import { AmcImportService } from "./amc-import-service.js";
+import { AmcImportJobManager } from "./amc-import-jobs.js";
 
 interface Dependencies { repositoryRoot(): Promise<string>; userDataPath: string }
 
@@ -17,8 +18,9 @@ function validatePreview(value: unknown): AmcImportPreview {
   return preview;
 }
 
-export function registerAmcImportIpc(ipcMain: IpcMain, { repositoryRoot, userDataPath }: Dependencies): void {
+export function registerAmcImportIpc(ipcMain: IpcMain, { repositoryRoot, userDataPath }: Dependencies): AmcImportJobManager {
   const service = new AmcImportService(repositoryRoot, userDataPath);
+  const jobs = new AmcImportJobManager(userDataPath, service);
   ipcMain.handle("amc-import:archive:discover", () => discoverAmcArchive());
   ipcMain.handle("amc-import:paper:preview", (_event, contest: unknown, year: unknown) => {
     if (typeof contest !== "string" || !contest.trim() || contest.length > 80) throw new Error("Invalid AMC contest.");
@@ -30,5 +32,11 @@ export function registerAmcImportIpc(ipcMain: IpcMain, { repositoryRoot, userDat
     return importAmcPreview(await repositoryRoot(), preview, overwriteValue === true);
   });
   ipcMain.handle("amc-import:dashboard:load", (_event, refresh: unknown) => service.dashboard(refresh === true));
-  ipcMain.handle("amc-import:run", (_event, input: unknown) => service.start(input));
+  ipcMain.handle("amc-import:run", async (_event, input: unknown) => {
+    const value = input as import("../domain/amc-import.js").StartAmcImportInput;
+    if (!value || !["quiz", "topic", "all"].includes(value.scope)) throw new Error("Invalid AMC import scope.");
+    await jobs.start(value);
+    return service.dashboard(false);
+  });
+  return jobs;
 }

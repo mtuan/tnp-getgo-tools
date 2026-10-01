@@ -5,6 +5,7 @@ import type { PublishJobManager } from "./publish-jobs.js";
 import type { WebDeploymentJobManager } from "../../deployment/main/web-deployment-jobs.js";
 import type { NativeDeploymentJobManager } from "../../deployment/main/native-deployment-jobs.js";
 import type { BackgroundJob } from "../../../shared/domain/models.js";
+import type { AmcImportJobManager } from "../../amc-import/main/amc-import-jobs.js";
 
 export function registerBackgroundJobsIpc(
   ipcMain: IpcMain,
@@ -16,6 +17,7 @@ export function registerBackgroundJobsIpc(
   appNativeRuntimeJobs: NativeDeploymentJobManager,
   localAppRuntime: LocalWebRuntimeManager,
   localDesignRuntime: LocalWebRuntimeManager,
+  amcImportJobs: AmcImportJobManager,
 ) {
   const deploymentProduct = (value: unknown) => {
     if (value === undefined || value === "web") return "web" as const;
@@ -23,8 +25,8 @@ export function registerBackgroundJobsIpc(
     throw new Error("Invalid deployment product.");
   };
   const snapshot = async () => {
-    const [migration, published, deployments, nativeDeployments, appNativeJobs] = await Promise.all([
-      aiMigrationJobs.list(), publishJobs.list(), webDeploymentJobs.list(), nativeDeploymentJobs.list(), appNativeRuntimeJobs.list(),
+    const [migration, published, deployments, nativeDeployments, appNativeJobs, amcImports] = await Promise.all([
+      aiMigrationJobs.list(), publishJobs.list(), webDeploymentJobs.list(), nativeDeploymentJobs.list(), appNativeRuntimeJobs.list(), amcImportJobs.list(),
     ]);
     const migrated = migration.jobs.map((job) => ({
       id: job.id, kind: "ai-migrate" as const,
@@ -56,7 +58,7 @@ export function registerBackgroundJobsIpc(
         ],
       };
     };
-    const jobs = [...migrated, ...published, ...deployments, ...nativeDeployments, ...appNativeJobs]
+    const jobs = [...migrated, ...published, ...deployments, ...nativeDeployments, ...appNativeJobs, ...amcImports]
       .map(withFallbackLogs)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     return { aiConcurrency: migration.concurrency, jobs };
@@ -69,6 +71,7 @@ export function registerBackgroundJobsIpc(
       webDeploymentJobs.clearFinished(),
       nativeDeploymentJobs.clearFinished(),
       appNativeRuntimeJobs.clearFinished(),
+      amcImportJobs.clearFinished(),
     ]);
     return snapshot();
   });
@@ -122,7 +125,7 @@ export function registerBackgroundJobsIpc(
   for (const action of ["cancel", "pause", "resume", "retry", "delete"] as const)
     ipcMain.handle(`jobs:${action}`, async (_event, jobId: unknown) => {
       if (typeof jobId !== "string") throw new Error("Invalid job ID.");
-      await Promise.all([aiMigrationJobs[action](jobId), publishJobs[action](jobId), webDeploymentJobs[action](jobId), nativeDeploymentJobs[action](jobId), appNativeRuntimeJobs[action](jobId)]);
+      await Promise.all([aiMigrationJobs[action](jobId), publishJobs[action](jobId), webDeploymentJobs[action](jobId), nativeDeploymentJobs[action](jobId), appNativeRuntimeJobs[action](jobId), amcImportJobs[action](jobId)]);
       return snapshot();
     });
   return snapshot;

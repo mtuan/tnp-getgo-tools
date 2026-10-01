@@ -20,6 +20,12 @@ interface StoredPaper extends AmcArchiveEntry { status?: AmcPaperImportProgress[
 interface StoredState { archiveLoadedAt?: string; active?: AmcImportDashboard["active"]; papers: StoredPaper[]; logs?: AmcImportLogEntry[] }
 
 const paperId = (contest: AmcContestName, year: number) => `${amcTopicId(contest)}-${year}`;
+export interface AmcImportRunControl {
+  checkpoint(): Promise<void>;
+  setTotal(total: number, label: string): Promise<void>;
+  report(label: string): Promise<void>;
+  advance(label: string): Promise<void>;
+}
 
 export class AmcImportService {
   private running = false;
@@ -101,7 +107,7 @@ export class AmcImportService {
     }
     return this.dashboardFrom(root, state);
   }
-  async start(value: unknown): Promise<AmcImportDashboard> {
+  async start(value: unknown, control?: AmcImportRunControl): Promise<AmcImportDashboard> {
     const input = value as StartAmcImportInput;
     if (!input || !["quiz", "topic", "all"].includes(input.scope)) throw new Error("Invalid AMC import scope.");
     if (input.scope !== "all" && (!input.contest || typeof input.contest !== "string" || input.contest.length > 80)) throw new Error("Select an AMC contest.");
@@ -111,33 +117,46 @@ export class AmcImportService {
     const state = await this.read(root);
     const selected = state.papers.filter((paper) => input.scope === "all" || (paper.contest === input.contest && (input.scope === "topic" || paper.year === input.year)));
     if (!selected.length) throw new Error("No AMC papers match this import selection. Load the archive first.");
+    await control?.setTotal(selected.length, `${selected.length} AMC ${selected.length === 1 ? "quiz" : "quizzes"} selected`);
     this.running = true;
+    let failedPapers = 0;
     state.active = { scope: input.scope, contest: input.contest, year: input.year };
     await this.write(root, state);
     try {
       for (const paper of selected) {
-        if (!input.overwrite && await amcQuizExists(root, amcTopicId(paper.contest), amcQuizId(paper.contest, paper.year))) continue;
+        await control?.checkpoint();
+        if (!input.overwrite && await amcQuizExists(root, amcTopicId(paper.contest), amcQuizId(paper.contest, paper.year))) {
+          await control?.advance(`Skipped ${paper.title} · already imported`);
+          continue;
+        }
         state.active.current = paper.title;
         paper.status = "parsing"; paper.error = undefined; paper.updatedAt = new Date().toISOString();
         await this.write(root, state);
+        await control?.report(`Parsing ${paper.title}`);
         try {
           let preview = await this.cachedPreview(root, paper);
           if (!preview || input.overwrite) {
             preview = await previewAmcPaper(paper.contest, paper.year, async ({ processed, total }) => {
               paper.processedQuestions = processed; paper.totalQuestions = total; paper.updatedAt = new Date().toISOString();
               await this.write(root, state);
+              await control?.report(`${paper.title} · parsed ${processed}/${total} questions`);
             });
             await this.savePreview(root, preview);
           }
           paper.status = "importing"; paper.questionCount = preview.questions.length; paper.updatedAt = new Date().toISOString();
           await this.write(root, state);
+          await control?.report(`Writing ${paper.title} to Topics`);
           await importAmcPreview(root, preview, input.overwrite === true);
           paper.status = "imported"; paper.error = undefined; paper.updatedAt = new Date().toISOString();
+          await control?.advance(`Imported ${paper.title} · ${preview.questions.length} questions`);
         } catch (cause) {
+          failedPapers += 1;
           paper.status = "failed"; paper.error = cause instanceof Error ? cause.message : String(cause); paper.updatedAt = new Date().toISOString();
+          await control?.advance(`Failed ${paper.title}: ${paper.error}`);
         }
         await this.write(root, state);
       }
+      if (failedPapers) throw new Error(`${failedPapers} of ${selected.length} AMC ${selected.length === 1 ? "quiz" : "quizzes"} failed. Open the job log for details.`);
     } finally {
       state.active = undefined; this.running = false; await this.write(root, state);
     }

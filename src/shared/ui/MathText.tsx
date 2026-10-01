@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { parseMathText } from "@tnp/getgo-logics/quiz-builder";
 
 function MarkdownChildren({ children }: { children: ReactNode }) {
-  if (typeof children === "string") return <MathText value={children} />;
+  if (typeof children === "string") return <MathText value={children} markdown={false} />;
   if (Array.isArray(children)) {
     return <>{children.map((child, index) => <MarkdownChildren key={index}>{child}</MarkdownChildren>)}</>;
   }
@@ -21,9 +21,10 @@ function MarkdownContent({ value }: { value: string }) {
   </div>;
 }
 
-export function MathText({ value }: { value: unknown }) {
+export function MathText({ value, markdown = false }: { value: unknown; markdown?: boolean }) {
   return <>{parseMathText(value).map((segment, index) => {
     if (segment.type === "text") {
+      if (markdown) return <MarkdownContent key={`markdown-text-${index}`} value={segment.value} />;
       return <span className="getgo-text-preserve-lines" key={`text-${index}`}>{segment.value}</span>;
     }
     if (segment.type === "markdown") {

@@ -48,7 +48,7 @@ export function BackgroundJobsTable({
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [hasActive]);
-  const jobKind = (job: BackgroundJob) => job.kind === "ai-migrate" ? copy.aiMigration : job.kind === "publish" ? copy.publishing : copy.webDeployment;
+  const jobKind = (job: BackgroundJob) => job.kind === "ai-migrate" ? copy.aiMigration : job.kind === "publish" ? copy.publishing : job.kind === "amc-import" ? copy.amcImport : copy.webDeployment;
   const columns: ui.DataColumn<BackgroundJob>[] = [
     { key: "name", title: copy.name, width: "22%", render: (job) => <div className="job-table-name"><strong>{job.name}</strong><small>{jobKind(job)}</small></div> },
     { key: "description", title: copy.description, render: (job) => <div className="job-table-description"><span>{job.description}</span>{job.progressLabel && <small className="job-table-current-step">{job.progressLabel}</small>}{job.error && <small className="job-table-error">{job.error}</small>}</div> },

@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { AmcImportPreview, AmcImportResult } from "../domain/amc-import.js";
+import { aopsMarkdown, convertAopsText, extractAopsQuestionText, type AmcImportPreview, type AmcImportResult } from "../domain/amc-import.js";
 import { contentTopicsRoot } from "../../topics/repository/content-source.js";
 import { loadContentV2Topic, saveContentV2Question, saveContentV2Quiz, saveContentV2Topic } from "../../topics/repository/content-v2-repository.js";
 
@@ -31,16 +31,17 @@ export async function importAmcPreview(root: string, preview: AmcImportPreview, 
     source: { provider: "AoPS", url: preview.sourcePaperUrl, indexUrl: preview.sourceIndexUrl, externalId: `${preview.quiz.year} ${preview.quiz.contest}`, importedAt },
   });
   for (const [index, imported] of preview.questions.entries()) {
-    const solutions = imported.solutions.map((solution) => `## ${solution.title}\n\n${solution.text}`).join("\n\n");
+    const solutions = imported.solutions.map((solution) => `## ${solution.title}\n\n${convertAopsText(solution.text)}`).join("\n\n");
+    const convertedChoices = Object.fromEntries(Object.entries(imported.choices).map(([key, value]) => [key, convertAopsText(value)]));
     const answer = Object.keys(imported.choices).length >= 2
-      ? { type: "text_choice", correct: imported.correct, choices: imported.choices }
+      ? { type: "text_choice", correct: imported.correct, choices: convertedChoices }
       : { type: "input", correct: imported.correct };
     await saveContentV2Question(root, topic, quiz, {
       schemaVersion: 2, id: imported.id, type: "competition-question", order: index, status: "pending",
-      category: preview.quiz.contest, text: { en: imported.text }, assets: [], answer,
-      explanation: { en: `${solutions}${solutions ? "\n\n" : ""}Source: ${imported.sourceUrl}` },
+      category: preview.quiz.contest, text: { en: convertAopsText(extractAopsQuestionText(imported.text)) }, assets: [], answer,
+      explanation: { en: aopsMarkdown(`${solutions}${solutions ? "\n\n" : ""}[Source](${imported.sourceUrl})`) },
       source: { provider: "AoPS", url: imported.sourceUrl, indexUrl: preview.sourceIndexUrl, externalId: `${preview.quiz.id}/problem-${imported.number}`, importedAt },
-      solutions: imported.solutions.map((solution) => ({ title: solution.title, text: solution.text, sourceUrl: imported.sourceUrl })),
+      solutions: imported.solutions.map((solution) => ({ title: solution.title, text: convertAopsText(solution.text), sourceUrl: imported.sourceUrl })),
     });
   }
   return { topicId: topic.id, quizId: quiz.id, questionCount: preview.questions.length, route: `/topics/${topic.id}/quizzes/${quiz.id}` };

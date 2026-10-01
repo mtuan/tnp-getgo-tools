@@ -107,18 +107,64 @@ export function amcQuizId(contest: AmcContestName, year: number): string {
 
 export function extractChoiceMap(text: string): Record<string, string> {
   const normalized = text.replace(/\\textbf\s*\{\s*\(([A-E])\)\s*\}/g, "($1)");
-  const matches = [...normalized.matchAll(/(?:^|\s)\(([A-E])\)\s*/g)];
+  const matches = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
   if (matches.length < 2) return {};
   return Object.fromEntries(matches.map((match, index) => {
     const start = (match.index ?? 0) + match[0].length;
     const end = matches[index + 1]?.index ?? normalized.length;
-    return [match[1], normalized.slice(start, end).trim().replace(/\s+/g, " ")];
+    const raw = normalized.slice(start, end).replace(/\\q+uad[\s\S]*$/i, "");
+    let value = raw
+      .replace(/^\s*(?:\\[ ,;:!])+/, "")
+      .trim()
+      .replace(/\s+/g, " ");
+    if (value.endsWith("$") && !value.startsWith("$")) value = value.slice(0, -1).trim();
+    value = value.replace(/[}\s]+$/g, "").trim();
+    return [match[1], /\\[A-Za-z]+/.test(value) ? `$${value}$` : value];
   }).filter(([, value]) => value.length > 0));
+}
+
+/** Remove the answer-choice block after choices have been extracted separately. */
+export function extractAopsQuestionText(text: string): string {
+  const normalized = text.replace(/\\textbf\s*\{\s*\(([A-E])\)\s*\}/g, "($1)");
+  const labels = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
+  if (labels.length < 2) return text.trim();
+  const firstLabel = labels[0].index ?? 0;
+  const mathStart = normalized.lastIndexOf("$", firstLabel);
+  return normalized.slice(0, mathStart >= 0 ? mathStart : firstLabel).trim();
 }
 
 export function extractCorrectChoice(solutions: Array<{ text: string }>): string {
   const source = solutions.map((solution) => solution.text).join("\n");
   return source.match(/\\boxed\s*\{(?:\s*\\textbf\s*\{)?\s*\(?([A-E])\)?/i)?.[1]?.toUpperCase()
+    ?? source.match(/\\(?:Rightarrow|implies)[\s\S]{0,80}?\\(?:textbf|mathbf)\s*\{?\s*\(?([A-E])\)?/i)?.[1]?.toUpperCase()
+    ?? source.match(/\\(?:textbf|mathbf)\s*\{\s*\(?([A-E])\)?\s*\}/i)?.[1]?.toUpperCase()
     ?? source.match(/(?:answer|choice)\s+(?:is\s+)?\(?([A-E])\)?/i)?.[1]?.toUpperCase()
     ?? "";
+}
+
+function mathToken(latex: string, inline: boolean): string {
+  const normalized = latex
+    .replace(/\\textbf\s*\(([^)]*)\)/g, "\\textbf{$1}")
+    .trim();
+  return `#math:${JSON.stringify({ latex: normalized, inline })}#`;
+}
+
+/** Convert AoPS MediaWiki math delimiters into GetGo's canonical KaTeX tokens. */
+export function convertAopsText(value: string): string {
+  const source = String(value ?? "");
+  let output = "";
+  let cursor = 0;
+  const pattern = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]|\$([^$\n]+?)\$|\\\(([^\n]*?)\\\)/g;
+  for (const match of source.matchAll(pattern)) {
+    const index = match.index ?? 0;
+    output += source.slice(cursor, index);
+    const display = match[1] !== undefined || match[2] !== undefined;
+    output += mathToken(match[1] ?? match[2] ?? match[3] ?? match[4] ?? "", !display);
+    cursor = index + match[0].length;
+  }
+  return output + source.slice(cursor);
+}
+
+export function aopsMarkdown(value: string): string {
+  return `#md:${JSON.stringify({ markdown: convertAopsText(value) })}#`;
 }

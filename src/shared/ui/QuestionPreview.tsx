@@ -27,11 +27,11 @@ function LocalizedPreviewText({
   if (!text.primary) return null;
   return (
     <>
-      <p><MathText value={text.primary} /></p>
+      <div><MathText value={text.primary} markdown /></div>
       {text.secondary && (
-        <p className="question-preview-translation">
-          <MathText value={text.secondary} />
-        </p>
+        <div className="question-preview-translation">
+          <MathText value={text.secondary} markdown />
+        </div>
       )}
     </>
   );
@@ -292,7 +292,7 @@ function QuestionPreviewContent({
             <strong>Explanation</strong>
             {showEnglish && englishExplanation.trim() && (
               <div className="question-preview-explanation-text">
-                <MathText value={englishExplanation} />
+                <MathText value={englishExplanation} markdown />
               </div>
             )}
             {showVietnamese && vietnameseExplanation.trim() && (
@@ -300,7 +300,7 @@ function QuestionPreviewContent({
                 ? "question-preview-explanation-text question-preview-translation"
                 : "question-preview-explanation-text"}
               >
-                <MathText value={vietnameseExplanation} />
+                <MathText value={vietnameseExplanation} markdown />
               </div>
             )}
           </section>
