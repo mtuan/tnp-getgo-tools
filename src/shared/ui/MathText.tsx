@@ -22,6 +22,12 @@ function MarkdownContent({ value }: { value: string }) {
 }
 
 export function MathText({ value, markdown = false }: { value: unknown; markdown?: boolean }) {
+  const source = String(value ?? "");
+  // Markdown must own the complete document. Splitting it around inline math
+  // creates separate block containers and forces otherwise-inline formulas
+  // onto new lines. MarkdownChildren delegates each text node back here with
+  // markdown disabled, where raw/canonical math is rendered inline.
+  if (markdown && !source.includes("#md:")) return <MarkdownContent value={source} />;
   return <>{parseMathText(value).map((segment, index) => {
     if (segment.type === "text") {
       if (markdown) return <MarkdownContent key={`markdown-text-${index}`} value={segment.value} />;

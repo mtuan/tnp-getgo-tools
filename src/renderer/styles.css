@@ -8565,8 +8565,12 @@ button.danger svg {
 .question-preview-content {
   display: grid;
   gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   padding: 18px;
 }
+.question-preview-content > * { min-width: 0; max-width: 100%; }
 .question-preview-content p {
   margin: 0;
   line-height: 1.6;
@@ -10186,7 +10190,13 @@ button.danger svg {
 /* Quiz Markdown emitted by QB.md. Keep list geometry independent of CSS resets. */
 .getgo-markdown {
   display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
+
+.getgo-math-inline { white-space: normal; }
+.getgo-math-block { display: block; max-width: 100%; overflow-x: auto; }
 
 .getgo-text-preserve-lines {
   white-space: pre-wrap;
