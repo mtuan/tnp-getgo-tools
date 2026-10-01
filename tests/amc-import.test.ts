@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   amcPaperTitle,
+  amcContestGrade,
   amcQuizId,
   amcTopicId,
   extractChoiceMap,
@@ -20,6 +21,10 @@ test("AMC identifiers map to valid content-v2 topic and quiz IDs", () => {
   assert.equal(amcQuizId("AMC 10A", 2026), "amc-10a-2026");
   assert.equal(amcPaperTitle("AMC 10A", 2026), "2026_AMC_10A_Problems");
   assert.equal(amcTopicId("USA(J)MO"), "usa-j-mo");
+  assert.equal(amcContestGrade("AMC 8"), 8);
+  assert.equal(amcContestGrade("AMC 10A"), 10);
+  assert.equal(amcContestGrade("AMC 12B"), 12);
+  assert.equal(amcContestGrade("AHSME"), 12);
 });
 
 test("extracts AoPS multiple-choice labels and values", () => {

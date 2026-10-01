@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { extractAopsQuestionText, type AmcImportPreview, type AmcImportResult } from "../domain/amc-import.js";
+import { amcContestGrade, extractAopsQuestionText, type AmcImportPreview, type AmcImportResult } from "../domain/amc-import.js";
 import { contentTopicsRoot } from "../../topics/repository/content-source.js";
 import { loadContentV2Topic, saveContentV2Question, saveContentV2Quiz, saveContentV2Topic } from "../../topics/repository/content-v2-repository.js";
 
@@ -35,15 +35,21 @@ export async function importAmcPreview(root: string, preview: AmcImportPreview, 
   if (await amcQuizExists(root, preview.topic.id, preview.quiz.id) && !overwrite)
     throw new Error(`Quiz ${preview.quiz.title} already exists.`);
   const importedAt = new Date().toISOString();
-  const grade = Number(preview.quiz.contest.match(/AMC\s*(8|10|12)/i)?.[1] ?? 12);
+  const grade = amcContestGrade(preview.quiz.contest);
   const topicSource = { provider: "AoPS", url: preview.sourceIndexUrl, indexUrl: preview.sourceIndexUrl, externalId: preview.topic.title, importedAt };
   const existingTopic = await loadContentV2Topic(root, preview.topic.id).catch(() => null);
   const topic = existingTopic
-    ? await saveContentV2Topic(root, { ...existingTopic, src: preview.sourceIndexUrl, source: topicSource })
+    ? await saveContentV2Topic(root, {
+        ...existingTopic,
+        grades: [grade],
+        marketplace: { ...existingTopic.marketplace, experimental: true },
+        src: preview.sourceIndexUrl,
+        source: topicSource,
+      })
     : await saveContentV2Topic(root, {
         schemaVersion: 2, id: preview.topic.id, type: "competition", title: preview.topic.title,
         description: `American Mathematics Competitions ${preview.topic.title} papers imported from AoPS.`,
-        subject: "Mathematics", subjects: ["Mathematics"], grades: Array.from({ length: grade }, (_, index) => index + 1),
+        subject: "Mathematics", subjects: ["Mathematics"], grades: [grade], marketplace: { experimental: true },
         rounds: [{ id: preview.topic.id, title: preview.topic.title }], gradeGroups: [], status: "draft", order: 0, src: preview.sourceIndexUrl, source: topicSource,
       });
   const quiz = await saveContentV2Quiz(root, topic, {

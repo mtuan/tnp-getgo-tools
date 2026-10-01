@@ -111,6 +111,10 @@ export function amcQuizId(contest: AmcContestName, year: number): string {
   return `${amcTopicId(contest)}-${year}`;
 }
 
+export function amcContestGrade(contest: AmcContestName): number {
+  return Number(contest.match(/AMC\s*(8|10|12)/i)?.[1] ?? 12);
+}
+
 function removeUnmatchedBoundaryBraces(value: string): string {
   const balance = (source: string) => {
     let result = 0;
