@@ -32,6 +32,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
     period: "Thời hạn", starts: "Bắt đầu", expires: "Kết thúc", immediate: "Ngay lập tức", never: "Không hết hạn", edit: "Đổi loại thành viên", refresh: "Làm mới",
     search: "Tên bắt đầu bằng…, email chính xác hoặc UID", clear: "Xóa tìm kiếm", empty: "Không có thành viên phù hợp.", loading: "Đang tải thành viên",
     save: "Lưu thay đổi", cancel: "Hủy", saved: "Đã cập nhật thành viên", loadFailed: "Không thể tải thành viên", saveFailed: "Không thể cập nhật thành viên",
+    delete: "Xóa thành viên", deleteConfirm: "Xóa vĩnh viễn thành viên này cùng toàn bộ dữ liệu?", deleteConfirmAction: "Xóa vĩnh viễn", deleting: "Đang xóa thành viên và toàn bộ dữ liệu…", deleted: "Đã xóa thành viên", deleteFailed: "Không thể xóa thành viên",
     confirm: "Thay đổi này cập nhật quyền truy cập, lịch sử gói thành viên và nhật ký quản trị.", previous: "Trang trước", next: "Trang sau", page: "Trang", pageSize: "Tối đa 50 tài khoản mỗi trang",
   }) : ({
     eyebrow: "Users", title: "GetGo members", description: "Manage Free, Premium, and Admin members.",
@@ -39,6 +40,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
     period: "Effective period", starts: "Starts", expires: "Ends", immediate: "Immediately", never: "Never", edit: "Change membership", refresh: "Refresh",
     search: "Name starts with…, exact email, or UID", clear: "Clear search", empty: "No matching members.", loading: "Loading members",
     save: "Save changes", cancel: "Cancel", saved: "Membership updated", loadFailed: "Could not load members", saveFailed: "Could not update membership",
+    delete: "Delete member", deleteConfirm: "Permanently delete this member and all of their data?", deleteConfirmAction: "Delete permanently", deleting: "Deleting member and all associated data…", deleted: "Member deleted", deleteFailed: "Could not delete member",
     confirm: "This updates account access, subscription history, and the administration audit log.", previous: "Previous page", next: "Next page", page: "Page", pageSize: "Up to 50 accounts per page",
   }), [vi]);
 
@@ -86,6 +88,20 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
     } catch (cause) { const message = String(cause); setError(message); toast.show({ title: copy.saveFailed, description: message, variant: "error" }); }
     finally { setBusy(false); }
   });
+  const remove = async () => {
+    if (!editing) return;
+    setBusy(true); setError(null);
+    try {
+      await window.getgo.deleteGetGoMember(editing.id);
+      setResult(current => current ? { ...current, items: current.items.filter(item => item.id !== editing.id) } : current);
+      setEditing(null);
+      toast.show({ title: copy.deleted, variant: "success" });
+    } catch (cause) {
+      const message = String(cause); setError(message);
+      toast.show({ title: copy.deleteFailed, description: message, variant: "error" });
+      throw cause;
+    } finally { setBusy(false); }
+  };
   const unchanged = editing?.membership === membership
     && dateInputValue(editing.subscriptionStartsAt) === (membership === "premium" ? startsAt : "")
     && dateInputValue(editing.subscriptionExpiresAt) === (membership === "premium" ? expiresAt : "");
@@ -123,7 +139,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
         }}
       />
     </div>
-    {editing && <ui.DialogFrame presentation="modal" title={copy.edit} busy={busy} error={error} cancelLabel={copy.cancel} submitLabel={copy.save} submitDisabled={Boolean(unchanged)} onClose={() => !busy && setEditing(null)} onSubmit={save}>
+    {editing && <ui.DialogFrame presentation="modal" title={copy.edit} busy={busy} error={error} cancelLabel={copy.cancel} submitLabel={copy.save} submitDisabled={Boolean(unchanged)} processingLabel={copy.deleting} onClose={() => !busy && setEditing(null)} onSubmit={save} leadingAction={<ui.ConfirmPopover label={copy.delete} description={copy.deleteConfirm} triggerLabel={copy.delete} confirmLabel={copy.deleteConfirmAction} cancelLabel={copy.cancel} busy={busy} onConfirm={remove} />}>
       <ui.Form fields={[
         { type: "custom", name: "member", label: copy.name, render: () => <div><strong>{editing.name}</strong><div>{editing.email}</div><small>{editing.id}</small></div> },
         { type: "select", name: "membership", label: copy.membership, required: true, presentation: "segmented", options: (["free", "premium", "admin"] as GetGoMembershipTier[]).map(value => ({ value, label: membershipLabel(value) })) },

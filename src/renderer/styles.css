@@ -4625,6 +4625,7 @@ tbody tr:hover {
   animation: fade-in 0.2s ease both;
 }
 .crud-dialog {
+  position: relative;
   width: min(620px, calc(100vw - 40px));
   height: 100%;
   display: flex;
@@ -4633,6 +4634,29 @@ tbody tr:hover {
   background: white;
   box-shadow: -20px 0 60px #0f172a30;
   animation: drawer-in 0.35s var(--ease-out) both;
+}
+.crud-dialog-processing {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(3px);
+  text-align: center;
+}
+.crud-dialog-processing .ui-button-spinner {
+  width: 24px;
+  height: 24px;
+  color: var(--primary);
+}
+.crud-dialog-processing strong {
+  max-width: 320px;
+  font-size: 13px;
 }
 .crud-backdrop {
   overscroll-behavior: contain;
@@ -7978,6 +8002,45 @@ button.danger svg {
 .ui-popover:focus-visible {
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.24), 0 18px 44px rgba(15, 23, 42, 0.2);
 }
+.ui-confirm-popover-content {
+  display: grid;
+  gap: 16px;
+}
+.ui-confirm-popover-message {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+}
+.ui-confirm-popover-message > i {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  color: #e11d48;
+  background: #fff1f2;
+}
+.ui-confirm-popover-message svg {
+  width: 18px;
+  height: 18px;
+}
+.ui-confirm-popover-message strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+}
+.ui-confirm-popover-message p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ui-confirm-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .local-network-access {
   display: grid;
   justify-items: center;
@@ -8041,6 +8104,13 @@ button.danger svg {
   .ui-popover {
     background: #0f172a;
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  }
+  .ui-confirm-popover-message > i {
+    color: #fda4af;
+    background: #88133766;
+  }
+  .crud-dialog-processing {
+    background: rgba(15, 23, 42, 0.9);
   }
 }
 .deployment-active-progress {

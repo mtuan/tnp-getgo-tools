@@ -64,6 +64,7 @@ export interface DialogFrameProps {
   hideFooter?: boolean;
   footer?: ReactNode;
   leadingAction?: ReactNode;
+  processingLabel?: string;
 }
 
 export function DialogFrame({
@@ -91,6 +92,7 @@ export function DialogFrame({
   hideFooter = false,
   footer,
   leadingAction,
+  processingLabel,
 }: DialogFrameProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -242,6 +244,10 @@ export function DialogFrame({
           </footer>
         )}
       </form>
+      {busy && processingLabel && <div className="crud-dialog-processing" role="status" aria-live="polite" aria-busy="true">
+        <span className="ui-button-spinner" aria-hidden="true" />
+        <strong>{processingLabel}</strong>
+      </div>}
     </section>
   );
   if (presentation === "embedded") return dialog;

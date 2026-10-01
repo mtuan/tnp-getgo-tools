@@ -4,6 +4,7 @@ export * from "./Breadcrumbs";
 export * from "./Button";
 export * from "./Checkbox";
 export * from "./ControlGroup";
+export * from "./ConfirmPopover";
 export * from "./Input";
 export * from "./MultiSelect";
 export * from "./MultiTagEditor";

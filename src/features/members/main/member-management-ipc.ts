@@ -225,4 +225,8 @@ export function registerMemberManagementIpc(ipcMain: IpcMain, auth: FirebaseAuth
     if (expiresAt != null && typeof expiresAt !== "string") throw new Error("Invalid membership end date.");
     return setMembership(auth, memberId, membership as GetGoMembershipTier, startsAt, expiresAt);
   });
+  ipcMain.handle("members:delete", (_event, memberId: unknown) => {
+    if (typeof memberId !== "string" || !memberId || memberId.includes("/")) throw new Error("Invalid member ID.");
+    return auth.callableRequest<{ deleted: true; authenticationDeleted: boolean }>("adminDeleteGetGoMember", { memberId });
+  });
 }

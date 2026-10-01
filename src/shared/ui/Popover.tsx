@@ -13,7 +13,7 @@ interface PopoverTriggerProps {
 interface PopoverProps {
   label: string;
   trigger(props: PopoverTriggerProps): ReactNode;
-  children: ReactNode;
+  children: ReactNode | ((controls: { close(restoreFocus?: boolean): void }) => ReactNode);
   className?: string;
   width?: number;
 }
@@ -87,6 +87,6 @@ export function Popover({ label, trigger, children, className = "", width = 300 
           close(true);
         }
       }}
-    >{children}</div>, document.body)}
+    >{typeof children === "function" ? children({ close }) : children}</div>, document.body)}
   </>;
 }

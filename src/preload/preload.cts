@@ -70,6 +70,7 @@ const api: DesktopApi = {
   syncPaymentSales: () => ipcRenderer.invoke("payment-sales:sync"),
   listGetGoMembers: (query) => ipcRenderer.invoke("members:list", query),
   setGetGoMembership: (memberId, membership, startsAt, expiresAt) => ipcRenderer.invoke("members:set-membership", memberId, membership, startsAt, expiresAt),
+  deleteGetGoMember: (memberId) => ipcRenderer.invoke("members:delete", memberId),
   loadSafeWordDictionary: () => ipcRenderer.invoke("content-safety:dictionary:load"),
   saveSafeWordDictionary: (dictionary) => ipcRenderer.invoke("content-safety:dictionary:save", dictionary),
   getSafeWordSyncStatus: () => ipcRenderer.invoke("content-safety:dictionary:sync-status"),

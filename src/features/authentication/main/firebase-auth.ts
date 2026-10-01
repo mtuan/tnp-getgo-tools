@@ -372,6 +372,43 @@ export class FirebaseAuthService {
     return { projectId, response };
   }
 
+  async callableRequest<Result>(functionName: string, data: Record<string, unknown>): Promise<Result> {
+    let session = await this.activeSession();
+    if (!session) throw new Error("Sign in before managing members.");
+    const { environment, firebase } = await this.config();
+    const region = environment === "development" ? "asia-southeast1" : "us-central1";
+    const invoke = (active: Session) => fetchWithRetry(
+      `https://${region}-${firebase.projectId}.cloudfunctions.net/${functionName}`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${active.idToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ data }),
+      },
+      `Callable Function ${functionName}`,
+      540_000,
+    );
+    let response = await invoke(session);
+    if (response.status === 401) {
+      await response.body?.cancel().catch(() => undefined);
+      session = await this.activeSession(true);
+      if (!session) throw new Error("Your Firebase session expired. Sign in again before managing members.");
+      response = await invoke(session);
+    }
+    const payload = await response.json().catch(() => ({})) as {
+      result?: Result;
+      data?: Result;
+      error?: { message?: string; status?: string };
+    };
+    if (!response.ok || payload.error) {
+      throw new Error(payload.error?.message ?? `Cloud Function returned HTTP ${response.status}.`);
+    }
+    if (payload.result === undefined && payload.data === undefined) throw new Error("Cloud Function returned no result.");
+    return (payload.result ?? payload.data) as Result;
+  }
+
   async authorizationContext(): Promise<{
     environment: GetGoEnvironment;
     projectId: string;

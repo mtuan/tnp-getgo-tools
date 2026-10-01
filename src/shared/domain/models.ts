@@ -802,6 +802,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   syncPaymentSales(): Promise<{ count: number; syncedAt: string }>;
   listGetGoMembers(query: GetGoMemberQuery): Promise<GetGoMemberPage>;
   setGetGoMembership(memberId: string, membership: GetGoMembershipTier, startsAt?: string | null, expiresAt?: string | null): Promise<void>;
+  deleteGetGoMember(memberId: string): Promise<{ deleted: true; authenticationDeleted: boolean }>;
   loadSafeWordDictionary(): Promise<SafeWordDictionary>;
   saveSafeWordDictionary(dictionary: SafeWordDictionary): Promise<SafeWordDictionary>;
   getSafeWordSyncStatus(): Promise<SafeWordSyncStatus>;
