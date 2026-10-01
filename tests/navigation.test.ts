@@ -8,6 +8,7 @@ test("sidebar keeps common tools at the top level", () => {
 
 test("sidebar groups secondary tools and keeps Settings last", () => {
   assert.deepEqual(otherToolsNavigation.map((item) => item.id), [
+    "amc-import",
     "image-pdf",
     "screenshots",
     "avatar-sets",
@@ -16,5 +17,5 @@ test("sidebar groups secondary tools and keeps Settings last", () => {
     "safe-words",
   ]);
   assert.deepEqual(settingsNavigation.map((item) => item.id), ["settings"]);
-  assert.equal(new Set([...primaryNavigation, ...otherToolsNavigation, ...settingsNavigation].map((item) => item.id)).size, 11);
+  assert.equal(new Set([...primaryNavigation, ...otherToolsNavigation, ...settingsNavigation].map((item) => item.id)).size, 12);
 });

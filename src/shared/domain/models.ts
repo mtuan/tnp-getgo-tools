@@ -1,6 +1,7 @@
 import type { ContentIcon } from "./content-icon.js";
 import type { StartupEnvironmentDesktopApi } from "../../features/settings/domain/startup-environment.js"; import type { AvatarSetDesktopApi } from "../../features/avatar-sets/domain/avatar-set.js";
 import type { ScreenshotManagerDesktopApi } from "../../features/screenshot-manager/domain/screenshot-project.js"; import type { DesignProjectsDesktopApi } from "../../features/design-projects/domain/design-project.js";
+import type { AmcImportDesktopApi } from "../../features/amc-import/domain/amc-import.js";
 
 export const contentStatuses = [
   "imported",
@@ -782,7 +783,7 @@ export interface SafeWordSyncStatus {
   sourcePath: string;
   sharedPath: string;
 }
-export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi, ScreenshotManagerDesktopApi, DesignProjectsDesktopApi {
+export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDesktopApi, ScreenshotManagerDesktopApi, DesignProjectsDesktopApi, AmcImportDesktopApi {
   restartApp(): Promise<void>;
   onOpenRoute(listener: (route: string) => void): () => void;
   browseImagePdfInputs(mode: "files" | "folder"): Promise<ImagePdfSelection | null>;

@@ -13,6 +13,9 @@ ipcRenderer.on("app:open-route", (_event, route: string) => {
 });
 
 const api: DesktopApi = {
+  discoverAmcArchive: () => ipcRenderer.invoke("amc-import:archive:discover"),
+  previewAmcPaper: (contest, year) => ipcRenderer.invoke("amc-import:paper:preview", contest, year),
+  importAmcPaper: (preview, overwrite) => ipcRenderer.invoke("amc-import:paper:import", preview, overwrite),
   onOpenRoute: (listener) => {
     routeListeners.add(listener);
     pendingRoutes.splice(0).forEach((route) => listener(route));

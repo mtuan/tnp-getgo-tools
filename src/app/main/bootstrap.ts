@@ -33,6 +33,7 @@ import { registerContentSafetyIpc } from "../../features/content-safety/main/con
 import { registerAvatarSetIpc } from "../../features/avatar-sets/main/avatar-set-ipc.js";
 import { registerScreenshotProjectIpc } from "../../features/screenshot-manager/main/screenshot-project-ipc.js";
 import { registerDesignProjectIpc } from "../../features/design-projects/main/design-project-ipc.js";
+import { registerAmcImportIpc } from "../../features/amc-import/main/amc-import-ipc.js";
 import { assertRepositoryContentSafe, setContentSafetyWarningHandler } from "../../features/content-safety/repository/content-safety-repository.js";
 import {
   GETGO_TOOLS_PROTOCOL,
@@ -149,7 +150,7 @@ function createWindow(): void {
   nativeTheme.on("updated", syncWindowTheme);
   mainWindow.once("closed", () => nativeTheme.off("updated", syncWindowTheme));
   mainWindow.webContents.on("will-attach-webview", (event, webPreferences, params) => {
-    if (!isAllowedDevicePreviewUrl(params.src)) {
+    if (!isAllowedEmbeddedBrowserUrl(params.src)) {
       event.preventDefault();
       return;
     }
@@ -259,11 +260,12 @@ function createWindow(): void {
   });
 }
 
-const isAllowedDevicePreviewUrl = (value: string): boolean => {
+const isAllowedEmbeddedBrowserUrl = (value: string): boolean => {
   try {
     const url = new URL(value);
     return (url.protocol === "http:" || url.protocol === "https:")
-      && ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+      && (["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+        || (url.protocol === "https:" && url.hostname === "artofproblemsolving.com"));
   } catch {
     return false;
   }
@@ -273,7 +275,7 @@ app.on("web-contents-created", (_event, contents) => {
   if (contents.getType() !== "webview") return;
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
   contents.on("will-navigate", (event, navigationUrl) => {
-    if (!isAllowedDevicePreviewUrl(navigationUrl)) event.preventDefault();
+    if (!isAllowedEmbeddedBrowserUrl(navigationUrl)) event.preventDefault();
   });
 });
 
@@ -493,6 +495,7 @@ app.whenReady().then(async () => {
   registerAvatarSetIpc(ipcMain, { mainWindow: mainWindow!, appPath: app.getAppPath(), firebase: firebaseAuth });
   registerScreenshotProjectIpc(ipcMain, app.getAppPath());
   registerDesignProjectIpc(ipcMain, app.getAppPath(), { apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY, model: process.env.GETGO_AI_OPENAI_MODEL, imageModel: process.env.GETGO_AI_OPENAI_IMAGE_MODEL });
+  registerAmcImportIpc(ipcMain, { repositoryRoot });
   setContentSafetyWarningHandler((warning) => mainWindow?.webContents.send("content-safety:warning", warning));
   registerSettingsIpc(ipcMain, settings, localAi, aiMigrationJobs);
   registerLegacyQuizIpc(ipcMain, { settings, loadLegacyFiles, replaceQuiz });

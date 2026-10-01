@@ -56,6 +56,7 @@ const DeploymentPage = lazy(() => import("../../features/deployment/pages/Deploy
 const ImagePdfPage = lazy(() =>
   import("../../features/image-pdf/pages/ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
+const AmcImportPage = lazy(() => import("../../features/amc-import/pages/AmcImportPage").then((module) => ({ default: module.AmcImportPage })));
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
 const MembersPage = lazy(() => import("../../features/members/pages/MembersPage").then((module) => ({ default: module.MembersPage })));
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
@@ -97,6 +98,7 @@ function viewFromRoute(route: string): View {
     "feedbacks",
     "jobs",
     "deploy",
+    "amc-import",
     "image-pdf",
     "screenshots", "designs",
     "avatar-sets",
@@ -614,6 +616,7 @@ export function App() {
             !loading &&
             view !== "not-found" &&
             view !== "image-pdf" &&
+            view !== "amc-import" &&
             view !== "screenshots" && view !== "designs" &&
             view !== "avatar-sets" ? (
               <section className="welcome">
@@ -690,6 +693,11 @@ export function App() {
             {view === "image-pdf" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <ImagePdfPage locale={settings.locale} />
+              </Suspense>
+            )}
+            {settings.repositoryPath && view === "amc-import" && (
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <AmcImportPage locale={settings.locale} onOpenQuiz={(route) => goToRoute(route)} />
               </Suspense>
             )}
             {view === "screenshots" && (
