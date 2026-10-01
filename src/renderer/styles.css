@@ -10250,6 +10250,13 @@ button.danger svg {
   --theme-text-strong: #0f172a;
   --theme-text: #334155;
   --theme-text-muted: #64748b;
+  /* Keep legacy feature styles on the same semantic palette. */
+  --surface: var(--theme-surface);
+  --surface-raised: var(--theme-surface-raised);
+  --surface-muted: var(--theme-surface-muted);
+  --border-subtle: var(--theme-border);
+  --text-primary: var(--theme-text-strong);
+  --text-secondary: var(--theme-text-muted);
 }
 
 ::selection {
@@ -10349,6 +10356,95 @@ button.danger svg {
 
   .manager-table tbody tr:hover td:last-child {
     color: #a5b4fc;
+  }
+
+  /* Topics manager: list, tree, filters and status controls share one dark
+     surface hierarchy instead of retaining their light-only feature colors. */
+  .manager-table th {
+    color: var(--theme-text-muted);
+    border-color: var(--theme-border);
+    background: var(--theme-surface);
+  }
+
+  .manager-table td strong,
+  .manager-list-identity strong,
+  .quiz-title-with-state {
+    color: var(--theme-text-strong);
+  }
+
+  .manager-list-identity span,
+  .topics-tree-identity span,
+  .topic-status-na,
+  .manager-list-icon-default,
+  .manager-table td:last-child {
+    color: var(--theme-text-muted);
+  }
+
+  .ui-tree-data-parent td {
+    background: var(--theme-surface);
+  }
+
+  .ui-tree-data-toggle {
+    color: var(--theme-text-muted);
+  }
+
+  .ui-tree-data-toggle:hover {
+    color: #c7d2fe;
+    background: #4f46e533;
+  }
+
+  .manager-search:focus-within {
+    color: #a5b4fc;
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px #6366f133;
+  }
+
+  .manager-search input::placeholder {
+    color: var(--theme-text-muted);
+  }
+
+  .manager-row-actions .manager-row-open.button-color-primary {
+    color: #c7d2fe !important;
+    background: #4f46e533 !important;
+  }
+
+  .manager-row-actions .manager-row-open.button-color-primary:hover {
+    color: #eef2ff !important;
+    background: #4f46e566 !important;
+  }
+
+  .ui-status-badge {
+    color: #cbd5e1;
+    background: #334155;
+  }
+
+  .ui-status-badge-primary {
+    color: #ddd6fe;
+    background: #4c1d95;
+  }
+
+  .ui-status-badge-info {
+    color: #bae6fd;
+    background: #0c4a6e;
+  }
+
+  .ui-status-badge-success {
+    color: #a7f3d0;
+    background: #064e3b;
+  }
+
+  .ui-status-badge-warning {
+    color: #fde68a;
+    background: #78350f;
+  }
+
+  .ui-status-badge-danger {
+    color: #fecaca;
+    background: #7f1d1d;
+  }
+
+  .ui-status-badge-clickable:hover {
+    filter: brightness(1.14);
   }
 
   .auth-providers button,
