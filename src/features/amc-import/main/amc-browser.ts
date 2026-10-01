@@ -132,10 +132,11 @@ const problemParseScript = (sourceUrl: string, html: string) => String.raw`(() =
     if (node.matches('img')) {
       const math = node.getAttribute('alt');
       const source = node.getAttribute('src');
-      if (math && /^\[asy\][\s\S]*\[\/asy\]$/i.test(math.trim()) && source)
-        return '\n\n[[getgo-aops-image:' + encodeURIComponent(new URL(source, sourceUrl).href) + ']]\n\n';
-      if (math) return math;
-      return source ? ' [Image: ' + new URL(source, sourceUrl).href + '] ' : '';
+      if (!source) return math || '';
+      const imageUrl = new URL(source, sourceUrl);
+      const isLatexImage = imageUrl.hostname === 'latex.artofproblemsolving.com';
+      if (isLatexImage && math && !/^\[asy\][\s\S]*\[\/asy\]$/i.test(math.trim())) return math;
+      return '\n\n[[getgo-aops-image:' + encodeURIComponent(imageUrl.href) + ']]\n\n';
     }
     const content = [...node.childNodes].map(render).join('');
     if (node.matches('p,div,li,table,tr,dl,dd')) return content + '\n';

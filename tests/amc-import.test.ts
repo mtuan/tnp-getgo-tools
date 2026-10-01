@@ -78,6 +78,19 @@ test("extracts AoPS multiple-choice labels and values", () => {
     A: "[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fa.png]]",
     B: "[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fb.png]]",
   });
+  const tableTextChoices = String.raw`Problem Choose. $\mathrm{(A)}\hspace{3pt} \text{Triangle only} \\ \mathrm{(B)}\hspace{3pt} \text{Square and triangle only} \\ \mathrm{(C)}\hspace{3pt} \frac{1}{2}$`;
+  assert.deepEqual(extractChoiceMap(tableTextChoices), {
+    A: "Triangle only",
+    B: "Square and triangle only",
+    C: String.raw`$\frac{1}{2}$`,
+  });
+  const displayOptions = String.raw`Problem What is this? \[\frac{1}{2}\] \[\mathrm{(A)}\hspace{3pt}\frac{4}{9}\hspace{19pt} \\ \mathrm{(B)}\hspace{3pt}1\hspace{19pt} \\ \mathrm{(C)}\hspace{3pt}\frac{9}{4}\]`;
+  assert.equal(extractAopsQuestionText(displayOptions), String.raw`What is this? \[\frac{1}{2}\]`);
+  assert.deepEqual(extractChoiceMap(displayOptions), {
+    A: String.raw`$\frac{4}{9}$`,
+    B: "1",
+    C: String.raw`$\frac{9}{4}$`,
+  });
 });
 
 test("extracts the correct choice from any solution", () => {

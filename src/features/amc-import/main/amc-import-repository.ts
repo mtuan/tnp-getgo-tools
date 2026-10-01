@@ -8,7 +8,10 @@ const aopsImageTokenPattern = /\[\[getgo-aops-image:[^\]]+\]\]/g;
 
 async function saveAopsImage(root: string, topicId: string, quizId: string, filename: string, sourceUrl: string): Promise<string> {
   const url = new URL(sourceUrl);
-  if (url.protocol !== "https:" || url.hostname !== "latex.artofproblemsolving.com")
+  const supportedSource = url.hostname === "latex.artofproblemsolving.com"
+    || ((url.hostname === "artofproblemsolving.com" || url.hostname === "www.artofproblemsolving.com")
+      && url.pathname.startsWith("/wiki/images/"));
+  if (url.protocol !== "https:" || !supportedSource)
     throw new Error(`Unsupported AoPS image source: ${sourceUrl}`);
   const response = await fetch(url, { headers: { accept: "image/png,image/jpeg,image/webp" } });
   if (!response.ok) throw new Error(`AoPS image returned HTTP ${response.status}: ${sourceUrl}`);

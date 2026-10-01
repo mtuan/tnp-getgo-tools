@@ -144,16 +144,25 @@ function isInsideMath(source: string, targetIndex: number): boolean {
 function normalizeExtractedChoice(source: string, inheritedMath: boolean): string {
   const value = source.replace(/^(?:\\\s+)+/, "").trimStart();
   if (/^\[\[getgo-aops-image:[^\]]+\]\]$/.test(value)) return value;
-  const possibleText = value.startsWith("$") && value.endsWith("$") ? value.slice(1, -1).trim() : value;
+  const explicitlyWrapped = value.startsWith("$") && value.endsWith("$");
+  const unwrapped = explicitlyWrapped ? value.slice(1, -1).trim() : value;
+  const possibleText = unwrapped
+    .replace(/^(?:\\hspace\s*\{[^{}]*\}\s*)+/, "")
+    .replace(/\s*\\(?:\]|\))\s*$/, "")
+    .replace(/\s*\\\\\s*$/, "")
+    .replace(/(?:\s*\\hspace\s*\{[^{}]*\})+\s*$/, "")
+    .trim();
   const pureText = possibleText.match(/^\\text\s*\{([\s\S]*)\}$/);
   if (pureText)
     return pureText[1].replace(/\\(?=\s)/g, "").replace(/\s+/g, " ").trim();
   if (/^[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(possibleText))
     return possibleText;
-  if (value.includes("$")) return value;
-  if (/\\\s/.test(value) && !/\\(?!\s)/.test(value))
-    return value.replace(/\\(?=\s)/g, "").replace(/\s+/g, " ").trim();
-  return inheritedMath || /\\(?:[A-Za-z]+|[%$#&_{}])/.test(value) ? `$${value}$` : value;
+  if (possibleText.includes("$")) return possibleText;
+  if (/\\\s/.test(possibleText) && !/\\(?!\s)/.test(possibleText))
+    return possibleText.replace(/\\(?=\s)/g, "").replace(/\s+/g, " ").trim();
+  return explicitlyWrapped || inheritedMath || /\\(?:[A-Za-z]+|[%$#&_{}])/.test(possibleText)
+    ? `$${possibleText}$`
+    : possibleText;
 }
 
 export function extractChoiceMap(text: string): Record<string, string> {
@@ -202,11 +211,20 @@ export function extractAopsQuestionText(text: string): string {
   const labels = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
   if (labels.length < 2) return normalizeAopsQuestionText(text);
   const firstLabel = labels[0].index ?? 0;
-  const mathStart = normalized.lastIndexOf("$", firstLabel);
-  const optionMathPrefix = mathStart < 0 ? "" : normalized.slice(mathStart + 1, firstLabel);
-  const optionBlockStartsInMath = mathStart >= 0
-    && /^\s*(?:\\(?:mathrm|textrm|mathbf|textbf)\s*\{\s*)*$/.test(optionMathPrefix);
-  return normalizeAopsQuestionText(normalized.slice(0, optionBlockStartsInMath ? mathStart : firstLabel));
+  const prefix = normalized.slice(0, firstLabel);
+  const mathPrefix = prefix.replace(/\$(?=\d+(?:\.\d+)?\s+[A-Za-z])/g, "¤");
+  const candidates: number[] = [];
+  if (isInsideMath(mathPrefix, mathPrefix.length)) {
+    const dollarStarts = [...mathPrefix.matchAll(/(?<!\\)\$\$?/g)];
+    const dollarStart = dollarStarts.at(-1)?.index;
+    if (typeof dollarStart === "number") candidates.push(dollarStart);
+  }
+  const displayStart = prefix.lastIndexOf("\\[");
+  if (displayStart > prefix.lastIndexOf("\\]")) candidates.push(displayStart);
+  const inlineStart = prefix.lastIndexOf("\\(");
+  if (inlineStart > prefix.lastIndexOf("\\)")) candidates.push(inlineStart);
+  const optionBlockStart = candidates.length ? Math.max(...candidates) : firstLabel;
+  return normalizeAopsQuestionText(normalized.slice(0, optionBlockStart));
 }
 
 export function extractCorrectChoice(solutions: Array<{ text: string }>): string {
