@@ -91,6 +91,13 @@ test("extracts AoPS multiple-choice labels and values", () => {
     B: "1",
     C: String.raw`$\frac{9}{4}$`,
   });
+  const dottedBoldOptions = String.raw`Problem Find the area. \[\textbf{A. }10 \quad \textbf{B. }\frac{21}{2} \quad \textbf{C. }11\]`;
+  assert.equal(extractAopsQuestionText(dottedBoldOptions), "Find the area.");
+  assert.deepEqual(extractChoiceMap(dottedBoldOptions), {
+    A: "10",
+    B: String.raw`$\frac{21}{2}$`,
+    C: "11",
+  });
 });
 
 test("extracts the correct choice from any solution", () => {

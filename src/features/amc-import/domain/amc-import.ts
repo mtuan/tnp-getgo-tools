@@ -165,8 +165,14 @@ function normalizeExtractedChoice(source: string, inheritedMath: boolean): strin
     : possibleText;
 }
 
+function normalizeChoiceLabels(value: string): string {
+  return value
+    .replace(/\\textbf\s*\{\s*\(([A-E])\)\s*\}/g, "($1)")
+    .replace(/\\textbf\s*\{\s*([A-E])\s*[.)]\s*\}/g, "($1)");
+}
+
 export function extractChoiceMap(text: string): Record<string, string> {
-  const normalized = text.replace(/\\textbf\s*\{\s*\(([A-E])\)\s*\}/g, "($1)");
+  const normalized = normalizeChoiceLabels(text);
   const allMatches = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
   const firstA = allMatches.findIndex((match) => match[1] === "A");
   if (firstA < 0) return {};
@@ -207,7 +213,7 @@ function normalizeAopsQuestionText(value: string): string {
 
 /** Remove the answer-choice block after choices have been extracted separately. */
 export function extractAopsQuestionText(text: string): string {
-  const normalized = text.replace(/\\textbf\s*\{\s*\(([A-E])\)\s*\}/g, "($1)");
+  const normalized = normalizeChoiceLabels(text);
   const labels = [...normalized.matchAll(/\(([A-E])\)\s*/g)];
   if (labels.length < 2) return normalizeAopsQuestionText(text);
   const firstLabel = labels[0].index ?? 0;
