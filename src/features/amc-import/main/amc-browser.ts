@@ -4,6 +4,7 @@ import {
   amcPaperUrl,
   amcQuizId,
   amcTopicId,
+  extractAopsQuestionText,
   extractChoiceMap,
   extractCorrectChoice,
   type AmcArchiveEntry,
@@ -132,7 +133,7 @@ const problemParseScript = (sourceUrl: string, html: string) => String.raw`(() =
       const math = node.getAttribute('alt');
       const source = node.getAttribute('src');
       if (math && /^\[asy\][\s\S]*\[\/asy\]$/i.test(math.trim()) && source)
-        return '\n\n![Asymptote diagram](' + new URL(source, sourceUrl).href + ')\n\n';
+        return '\n\n[[getgo-aops-image:' + encodeURIComponent(new URL(source, sourceUrl).href) + ']]\n\n';
       if (math) return math;
       return source ? ' [Image: ' + new URL(source, sourceUrl).href + '] ' : '';
     }
@@ -195,12 +196,23 @@ export async function discoverAmcArchive(): Promise<AmcArchiveEntry[]> {
 
 type PreviewProgress = (progress: { processed: number; total: number }) => Promise<void> | void;
 type RawQuestion = NonNullable<AmcImportPreview["rawSource"]>["questions"][number];
+const imageTokenPattern = /\[\[getgo-aops-image:([^\]]+)\]\]/g;
+const imageUrls = (value: string) => [...value.matchAll(imageTokenPattern)].map((match) => decodeURIComponent(match[1]));
+const withoutImageTokens = (value: string) => value.replace(imageTokenPattern, "").replace(/\n{3,}/g, "\n\n").trim();
 
 async function parseRawQuestion(window: BrowserWindow, raw: RawQuestion) {
   const extracted = await window.webContents.executeJavaScript(problemParseScript(raw.sourceUrl, raw.html)) as Pick<AmcImportedQuestion, "text" | "solutions">;
+  const rawChoices = extractChoiceMap(extracted.text);
+  const choiceImageUrls = Object.fromEntries(Object.entries(rawChoices).flatMap(([label, value]) => {
+    const urls = imageUrls(value);
+    return urls.length === 1 && !withoutImageTokens(value) ? [[label, urls[0]]] : [];
+  }));
   const question = {
     id: `q${raw.number}`, number: raw.number, sourceUrl: raw.sourceUrl, text: extracted.text,
-    choices: extractChoiceMap(extracted.text), correct: extractCorrectChoice(extracted.solutions), solutions: extracted.solutions,
+    choices: Object.fromEntries(Object.entries(rawChoices).map(([label, value]) => [label, withoutImageTokens(value)])),
+    correct: extractCorrectChoice(extracted.solutions), solutions: extracted.solutions,
+    imageUrls: imageUrls(extractAopsQuestionText(extracted.text)),
+    choiceImageUrls,
   };
   const warnings = [
     ...(!question.solutions.length ? [`Problem ${raw.number}: no solution section found.`] : []),

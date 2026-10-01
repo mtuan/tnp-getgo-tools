@@ -16,6 +16,8 @@ export interface AmcImportedQuestion {
   choices: Record<string, string>;
   correct: string;
   solutions: Array<{ title: string; text: string }>;
+  imageUrls?: string[];
+  choiceImageUrls?: Record<string, string>;
 }
 
 export interface AmcImportPreview {
@@ -141,6 +143,7 @@ function isInsideMath(source: string, targetIndex: number): boolean {
 
 function normalizeExtractedChoice(source: string, inheritedMath: boolean): string {
   const value = source.replace(/^(?:\\\s+)+/, "").trimStart();
+  if (/^\[\[getgo-aops-image:[^\]]+\]\]$/.test(value)) return value;
   const possibleText = value.startsWith("$") && value.endsWith("$") ? value.slice(1, -1).trim() : value;
   const pureText = possibleText.match(/^\\text\s*\{([\s\S]*)\}$/);
   if (pureText)

@@ -73,6 +73,11 @@ test("extracts AoPS multiple-choice labels and values", () => {
   const textrmOptions = String.raw`Problem Find the value. $\textrm{(A)}\ 9\qquad\textrm{(B)}\ 10$`;
   assert.equal(extractAopsQuestionText(textrmOptions), "Find the value.");
   assert.deepEqual(extractChoiceMap(textrmOptions), { A: "$9$", B: "$10$" });
+  const imageOptions = String.raw`Problem Choose. $\mathrm{(A)}[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fa.png]]\qquad\mathrm{(B)}[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fb.png]]$`;
+  assert.deepEqual(extractChoiceMap(imageOptions), {
+    A: "[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fa.png]]",
+    B: "[[getgo-aops-image:https%3A%2F%2Fexample.com%2Fb.png]]",
+  });
 });
 
 test("extracts the correct choice from any solution", () => {

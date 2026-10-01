@@ -1,8 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import ReactMarkdown from "react-markdown";
 import { parseMathText } from "@tnp/getgo-logics/quiz-builder";
+import { calculateMathFitScale } from "./mathFit";
+import { protectMarkdownMath } from "./markdownMath";
 
 function MarkdownChildren({ children }: { children: ReactNode }) {
   if (typeof children === "string") return <MathText value={children} markdown={false} />;
@@ -17,8 +19,48 @@ function MarkdownContent({ value }: { value: string }) {
     <ReactMarkdown components={{
       p: ({ children, ...props }) => <p {...props}><MarkdownChildren>{children}</MarkdownChildren></p>,
       li: ({ children, ...props }) => <li {...props}><MarkdownChildren>{children}</MarkdownChildren></li>,
-    }}>{value}</ReactMarkdown>
+    }}>{protectMarkdownMath(value)}</ReactMarkdown>
   </div>;
+}
+
+function DisplayMath({ html, style }: { html: string; style: CSSProperties }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const container = ref.current;
+    if (!container) return;
+    const baseFontSize = Number.parseFloat(getComputedStyle(container).fontSize);
+    let lastAvailableWidth = -1;
+    let cancelled = false;
+    const fit = (force = false) => {
+      const availableWidth = container.clientWidth;
+      if (!force && availableWidth === lastAvailableWidth) return;
+      lastAvailableWidth = availableWidth;
+      container.style.fontSize = `${baseFontSize}px`;
+      const formula = container.querySelector<HTMLElement>(".katex-display > .katex");
+      if (!formula) return;
+      const contentWidth = Math.max(formula.scrollWidth, formula.getBoundingClientRect().width);
+      const scale = calculateMathFitScale(availableWidth, contentWidth);
+      container.style.fontSize = `${baseFontSize * scale}px`;
+    };
+    fit(true);
+    void document.fonts?.ready.then(() => {
+      if (!cancelled) fit(true);
+    });
+    const observer = new ResizeObserver(() => fit());
+    observer.observe(container.parentElement ?? container);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [html, style.fontSize]);
+
+  return <span
+    ref={ref}
+    className="getgo-math-block"
+    dangerouslySetInnerHTML={{ __html: html }}
+    style={style}
+  />;
 }
 
 export function MathText({ value, markdown = false }: { value: unknown; markdown?: boolean }) {
@@ -41,15 +83,17 @@ export function MathText({ value, markdown = false }: { value: unknown; markdown
       ...(segment.value.fontSize ? { fontSize: segment.value.fontSize } : {}),
       ...(segment.value.color ? { color: segment.value.color } : {}),
     };
+    const html = katex.renderToString(segment.value.latex, {
+      displayMode: !segment.value.inline,
+      throwOnError: false,
+      strict: "warn",
+    });
+    if (!segment.value.inline) {
+      return <DisplayMath html={html} key={`${segment.value.latex}-${index}`} style={style} />;
+    }
     return <span
-      className={segment.value.inline ? "getgo-math-inline" : "getgo-math-block"}
-      dangerouslySetInnerHTML={{
-        __html: katex.renderToString(segment.value.latex, {
-          displayMode: !segment.value.inline,
-          throwOnError: false,
-          strict: "warn",
-        }),
-      }}
+      className="getgo-math-inline"
+      dangerouslySetInnerHTML={{ __html: html }}
       key={`${segment.value.latex}-${index}`}
       style={style}
     />;
