@@ -4086,6 +4086,15 @@ tbody tr:hover {
 .payment-package-preview-section { display: grid; gap: 16px; }
 .payment-package-preview-toolbar { display: flex; justify-content: flex-end; gap: 12px; }
 .payment-package-preview-toolbar .ui-select { min-width: 300px; }
+.members-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
+.members-toolbar .ui-search-field { min-width: min(100%, 320px); }
+.ui-table-secondary { display: block; margin-top: 3px; color: var(--muted); font-size: 0.75rem; }
+.members-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px 22px; border-top: 1px solid var(--line); }
+.members-pagination > span { min-width: 5rem; text-align: center; color: var(--muted); font-size: 0.875rem; font-weight: 650; }
+@media (max-width: 800px) {
+  .members-toolbar { align-items: stretch; flex-direction: column; }
+  .members-toolbar .ui-search-field { width: 100%; }
+}
 .payment-package-card-shell {
   display: flex;
   min-height: 488px;

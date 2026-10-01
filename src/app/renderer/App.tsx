@@ -62,6 +62,7 @@ const ImagePdfPage = lazy(() =>
   import("../../features/image-pdf/pages/ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
+const MembersPage = lazy(() => import("../../features/members/pages/MembersPage").then((module) => ({ default: module.MembersPage })));
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
 const AvatarSetsPage = lazy(() => import("../../features/avatar-sets/pages/AvatarSetsPage").then((module) => ({ default: module.AvatarSetsPage })));
 const ScreenshotProjectsPage = lazy(() => import("../../features/screenshot-manager/pages/ScreenshotProjectsPage").then((module) => ({ default: module.ScreenshotProjectsPage })));
@@ -105,6 +106,7 @@ function viewFromRoute(route: string): View {
     "screenshots", "designs",
     "avatar-sets",
     "payments",
+    "members",
     "safe-words",
     "settings",
   ].find((value) => pathname === `/${value}` || (["screenshots", "designs"].includes(value) && pathname.startsWith(`/${value}/`)));
@@ -828,6 +830,11 @@ export function App() {
             )}
             {settings.repositoryPath && view === "payments" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><PaymentPackagesPage locale={settings.locale} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
+            )}
+            {view === "members" && (
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <MembersPage locale={settings.locale} />
+              </Suspense>
             )}
             {settings.repositoryPath && view === "safe-words" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><ContentSafetyPage locale={settings.locale} /></Suspense>

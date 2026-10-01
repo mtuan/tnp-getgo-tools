@@ -1,8 +1,8 @@
-import { BriefcaseBusiness, Camera, CreditCard, Images, LayoutDashboard, Library, MessageSquareWarning, Rocket, Settings, ShieldCheck, UserRoundCog, type LucideIcon } from "lucide-react";
+import { BriefcaseBusiness, Camera, CreditCard, Images, LayoutDashboard, Library, MessageSquareWarning, Rocket, Settings, ShieldCheck, UserRoundCog, UsersRound, type LucideIcon } from "lucide-react";
 import type { SelectOption } from "../../shared/ui/Select";
 
 export type View = "dashboard" | "topics" | "quizzes" | "feedbacks" | "jobs" | "deploy"
-  | "image-pdf" | "screenshots" | "designs" | "avatar-sets" | "payments" | "safe-words" | "settings" | "not-found";
+  | "image-pdf" | "screenshots" | "designs" | "avatar-sets" | "payments" | "members" | "safe-words" | "settings" | "not-found";
 export type NavigableView = Exclude<View, "not-found">;
 type NavigationItem = { id: NavigableView; label: string; icon: LucideIcon };
 
@@ -18,6 +18,7 @@ export const featureNavigation: NavigationItem[] = [
   { id: "screenshots", label: "Screenshots", icon: Camera },
   { id: "avatar-sets", label: "Avatar sets", icon: UserRoundCog },
   { id: "payments", label: "Payments", icon: CreditCard },
+  { id: "members", label: "Members", icon: UsersRound },
   { id: "safe-words", label: "Safe words", icon: ShieldCheck },
 ];
 export const utilityNavigation: NavigationItem[] = [{ id: "settings", label: "Settings", icon: Settings }];

@@ -718,6 +718,25 @@ export interface PaymentSale {
   id: string; name: { en: string; vi: string }; info: { en: string; vi: string };
   recurrence: "one-time" | "yearly"; startsOn: string; endsOn: string; discountPercent: number; packageIds: string[]; enabled: boolean;
 }
+export type GetGoMembershipTier = "free" | "premium" | "admin";
+export interface GetGoMemberAccount {
+  id: string;
+  name: string;
+  email: string;
+  membership: GetGoMembershipTier;
+  subscriptionStartsAt: string | null;
+  subscriptionExpiresAt: string | null;
+}
+export interface GetGoMemberQuery {
+  membership?: GetGoMembershipTier;
+  search?: string;
+  cursor?: string;
+  limit?: number;
+}
+export interface GetGoMemberPage {
+  items: GetGoMemberAccount[];
+  nextCursor: string | null;
+}
 export interface ImagePdfInput {
   path: string;
   directory: string;
@@ -780,6 +799,8 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   listPaymentSales(): Promise<PaymentSale[]>;
   savePaymentSales(items: PaymentSale[]): Promise<PaymentSale[]>;
   syncPaymentSales(): Promise<{ count: number; syncedAt: string }>;
+  listGetGoMembers(query: GetGoMemberQuery): Promise<GetGoMemberPage>;
+  setGetGoMembership(memberId: string, membership: GetGoMembershipTier, startsAt?: string | null, expiresAt?: string | null): Promise<void>;
   loadSafeWordDictionary(): Promise<SafeWordDictionary>;
   saveSafeWordDictionary(dictionary: SafeWordDictionary): Promise<SafeWordDictionary>;
   getSafeWordSyncStatus(): Promise<SafeWordSyncStatus>;
