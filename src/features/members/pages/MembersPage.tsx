@@ -28,14 +28,14 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
   const [error, setError] = useState<string | null>(null);
   const copy = useMemo(() => vi ? ({
     eyebrow: "Người dùng", title: "Thành viên GetGo", description: "Quản lý thành viên miễn phí, Premium và quản trị viên.",
-    all: "Tất cả", free: "Miễn phí", premium: "Premium", admin: "Quản trị", name: "Tên", email: "Email", membership: "Loại thành viên",
+    all: "Tất cả", free: "Miễn phí", premium: "Premium", admin: "Quản trị", name: "Tên", email: "Email", membership: "Loại thành viên", account: "Tài khoản", active: "Đang hoạt động", orphaned: "Hồ sơ mồ côi", orphanedHelp: "UID này không còn tài khoản đăng nhập tương ứng",
     period: "Thời hạn", starts: "Bắt đầu", expires: "Kết thúc", immediate: "Ngay lập tức", never: "Không hết hạn", edit: "Đổi loại thành viên", refresh: "Làm mới",
     search: "Tên bắt đầu bằng…, email chính xác hoặc UID", clear: "Xóa tìm kiếm", empty: "Không có thành viên phù hợp.", loading: "Đang tải thành viên",
     save: "Lưu thay đổi", cancel: "Hủy", saved: "Đã cập nhật thành viên", loadFailed: "Không thể tải thành viên", saveFailed: "Không thể cập nhật thành viên",
     confirm: "Thay đổi này cập nhật quyền truy cập, lịch sử gói thành viên và nhật ký quản trị.", previous: "Trang trước", next: "Trang sau", page: "Trang", pageSize: "Tối đa 50 tài khoản mỗi trang",
   }) : ({
     eyebrow: "Users", title: "GetGo members", description: "Manage Free, Premium, and Admin members.",
-    all: "All", free: "Free", premium: "Premium", admin: "Admin", name: "Name", email: "Email", membership: "Membership",
+    all: "All", free: "Free", premium: "Premium", admin: "Admin", name: "Name", email: "Email", membership: "Membership", account: "Account", active: "Active", orphaned: "Orphaned profile", orphanedHelp: "This UID no longer has a corresponding sign-in account",
     period: "Effective period", starts: "Starts", expires: "Ends", immediate: "Immediately", never: "Never", edit: "Change membership", refresh: "Refresh",
     search: "Name starts with…, exact email, or UID", clear: "Clear search", empty: "No matching members.", loading: "Loading members",
     save: "Save changes", cancel: "Cancel", saved: "Membership updated", loadFailed: "Could not load members", saveFailed: "Could not update membership",
@@ -59,7 +59,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
       const message = String(cause); setError(message);
       toast.show({ title: copy.loadFailed, description: message, variant: "error" });
     } finally { setLoading(false); }
-  }), [auth, copy.loadFailed, cursors, debouncedSearch, filter, page, toast]);
+  }), [auth.requireAuth, copy.loadFailed, cursors, debouncedSearch, filter, page, toast]);
   useEffect(() => { void load(); }, [load, refresh]);
 
   const membershipLabel = useCallback((value: GetGoMembershipTier) => copy[value], [copy]);
@@ -70,6 +70,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
     { key: "name", title: copy.name, render: item => <strong>{item.name || "—"}</strong> },
     { key: "email", title: copy.email, render: item => <><span>{item.email || "—"}</span><small className="ui-table-secondary">{item.id}</small></> },
     { key: "membership", title: copy.membership, render: item => <ui.StatusBadge tone={item.membership === "admin" ? "primary" : item.membership === "premium" ? "warning" : "neutral"}>{membershipLabel(item.membership)}</ui.StatusBadge> },
+    { key: "account", title: copy.account, render: item => <ui.StatusBadge tone={item.accountStatus === "orphaned" ? "danger" : "success"} title={item.accountStatus === "orphaned" ? copy.orphanedHelp : copy.active}>{copy[item.accountStatus]}</ui.StatusBadge> },
     { key: "period", title: copy.period, render: item => item.membership !== "premium" ? copy.never : <span>{item.subscriptionStartsAt ? new Intl.DateTimeFormat(locale).format(new Date(item.subscriptionStartsAt)) : copy.immediate} – {item.subscriptionExpiresAt ? new Intl.DateTimeFormat(locale).format(new Date(item.subscriptionExpiresAt)) : copy.never}</span> },
     { key: "actions", title: "", role: "actions", width: 56, render: item => <ui.TableActionButton icon={<Pencil />} aria-label={copy.edit} onClick={() => openEditor(item)} /> },
   ], [copy, locale, membershipLabel, openEditor]);

@@ -20,6 +20,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
   const pendingAction = useRef<(() => void | Promise<void>) | null>(null)
+  const stateRef = useRef(state)
+  const loadingRef = useRef(loading)
+  stateRef.current = state
+  loadingRef.current = loading
 
   useEffect(() => { void window.getgo.getAuthState().then(setState).finally(() => setLoading(false)) }, [])
   const requestLogin = useCallback(() => { pendingAction.current = null; setLoginOpen(true) }, [])
@@ -29,10 +33,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     finally { setLoading(false) }
   }, [])
   const requireAuth = useCallback((action: () => void | Promise<void>) => {
-    if (state.user) { void action(); return }
+    if (stateRef.current.user) { void action(); return }
     pendingAction.current = action
-    setLoginOpen(true)
-  }, [state.user])
+    if (!loadingRef.current) setLoginOpen(true)
+  }, [])
+  useEffect(() => {
+    if (loading) return
+    if (state.user) {
+      setLoginOpen(false)
+      const action = pendingAction.current
+      pendingAction.current = null
+      if (action) void action()
+      return
+    }
+    if (pendingAction.current) setLoginOpen(true)
+  }, [loading, state.user])
   const signOut = useCallback(async () => {
     setState(await window.getgo.signOut())
     toast.show({ title: "Signed out", description: "The Firebase session was removed from this device.", variant: "info" })

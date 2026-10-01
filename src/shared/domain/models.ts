@@ -724,6 +724,7 @@ export interface GetGoMemberAccount {
   name: string;
   email: string;
   membership: GetGoMembershipTier;
+  accountStatus: "active" | "orphaned";
   subscriptionStartsAt: string | null;
   subscriptionExpiresAt: string | null;
 }

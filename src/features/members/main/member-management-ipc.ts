@@ -5,6 +5,7 @@ import type { GetGoMemberAccount, GetGoMemberPage, GetGoMemberQuery, GetGoMember
 
 type FirestoreValue = {
   stringValue?: string;
+  referenceValue?: string;
   timestampValue?: string;
   nullValue?: null;
   arrayValue?: { values?: FirestoreValue[] };
@@ -48,9 +49,33 @@ function memberFromDocument(parent: FirestoreDocument): GetGoMemberAccount {
       name: stringValue(parent.fields?.name),
       email: stringValue(parent.fields?.email),
       membership,
+      accountStatus: "active",
       subscriptionStartsAt: parent.fields?.subscriptionStartsAt?.timestampValue ?? parent.fields?.subscriptionGrantedAt?.timestampValue ?? null,
       subscriptionExpiresAt: parent.fields?.subscriptionExpiresAt?.timestampValue ?? null,
     };
+}
+
+async function activeAccountIds(auth: FirebaseAuthService, memberIds: string[]): Promise<Set<string>> {
+  if (!memberIds.length) return new Set();
+  const target = await auth.publishingTarget();
+  const chunks = Array.from({ length: Math.ceil(memberIds.length / 30) }, (_, index) => memberIds.slice(index * 30, index * 30 + 30));
+  const results = await Promise.all(chunks.map((ids) => payload(auth, ":runQuery", {
+    method: "POST",
+    body: JSON.stringify({ structuredQuery: {
+      from: [{ collectionId: "users" }],
+      where: { fieldFilter: {
+        field: { fieldPath: "__name__" },
+        op: "IN",
+        value: { arrayValue: { values: ids.map((id) => ({
+          referenceValue: `projects/${target.projectId}/databases/(default)/documents/users/${id}`,
+        })) } },
+      } },
+    } }),
+  })));
+  return new Set(results.flatMap((result) => (Array.isArray(result) ? result : []))
+    .map((row) => (row as { document?: FirestoreDocument }).document?.name)
+    .filter((name): name is string => Boolean(name))
+    .map(documentId));
 }
 
 async function listMembers(auth: FirebaseAuthService, query: GetGoMemberQuery): Promise<GetGoMemberPage> {
@@ -60,6 +85,10 @@ async function listMembers(auth: FirebaseAuthService, query: GetGoMemberQuery): 
   if (/^[A-Za-z0-9_-]{20,}$/.test(search)) {
     const document = await payload(auth, `/getgo/${encodeURIComponent(search)}`).catch(() => null) as FirestoreDocument | null;
     const member = document?.name ? memberFromDocument(document) : null;
+    if (member) {
+      const activeIds = await activeAccountIds(auth, [member.id]);
+      member.accountStatus = activeIds.has(member.id) ? "active" : "orphaned";
+    }
     return { items: member && (!query.membership || member.membership === query.membership) ? [member] : [], nextCursor: null };
   }
   const cursor = decodeCursor(query.cursor);
@@ -93,7 +122,9 @@ async function listMembers(auth: FirebaseAuthService, query: GetGoMemberQuery): 
     .filter((document): document is FirestoreDocument => Boolean(document));
   const pageDocuments = documents.slice(0, limit);
   const last = pageDocuments.at(-1);
+  const activeIds = await activeAccountIds(auth, pageDocuments.map((document) => documentId(document.name)));
   const items = pageDocuments.map(memberFromDocument)
+    .map((member) => ({ ...member, accountStatus: activeIds.has(member.id) ? "active" as const : "orphaned" as const }))
     .filter((member) => !query.membership || member.membership === query.membership);
   return {
     items,
