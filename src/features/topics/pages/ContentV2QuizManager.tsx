@@ -522,6 +522,7 @@ export function ContentV2QuizManager(props: Props) {
           ? {
               ...common,
               type: "competition",
+              contestId: stored.type === "competition" ? stored.contestId : undefined,
               subject: common.subjects[0] ?? (stored.type === "competition" ? stored.subject : "mathematics"),
               rounds: settings.rounds.map((round, index) => ({
                 id: String(round.roundCode ?? `round-${index + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `round-${index + 1}`,

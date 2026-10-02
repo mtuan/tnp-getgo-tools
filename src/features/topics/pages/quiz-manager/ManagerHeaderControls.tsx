@@ -76,7 +76,7 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 }
 
 export function ManagerHeaderControls(context: Context) {
-  const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setTopicGrades, setTopicSubjects, setTopicsView, snapshot, toast, topicGradeOptions, topicGrades, topicMode, topicSubjectOptions, topicSubjects, topicsView } = context;
+  const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setTopicContests, setTopicGrades, setTopicStates, setTopicSubjects, setTopicsView, snapshot, toast, topicContestOptions, topicContests, topicGradeOptions, topicGrades, topicMode, topicStateOptions, topicStates, topicSubjectOptions, topicSubjects, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const selectedTopic = isContest
     ? snapshot.contentV2.topics.find((topic) => topic.id === selectedContest?.id)
@@ -213,16 +213,26 @@ export function ManagerHeaderControls(context: Context) {
         placeholder={isContest ? "Search quizzes…" : "Search topics…"}
       />
       {!isContest && <TopicFilterControls
+        contestOptions={topicContestOptions}
         gradeOptions={topicGradeOptions}
         subjectOptions={topicSubjectOptions}
+        stateOptions={topicStateOptions}
+        contests={topicContests}
         grades={topicGrades}
         subjects={topicSubjects}
+        states={topicStates}
+        contestLabel={copy.filters.contests}
         gradeLabel={copy.filters.grades}
         subjectLabel={copy.filters.subjects}
+        stateLabel={copy.filters.state}
+        allContestsLabel={copy.filters.allContests}
         allGradesLabel={copy.filters.allGrades}
         allSubjectsLabel={copy.filters.allSubjects}
+        allStatesLabel={copy.filters.allStates}
+        onContestsChange={setTopicContests}
         onGradesChange={setTopicGrades}
         onSubjectsChange={setTopicSubjects}
+        onStatesChange={setTopicStates}
       />}
     </ui.ControlGroup>
     {headerStateControl}

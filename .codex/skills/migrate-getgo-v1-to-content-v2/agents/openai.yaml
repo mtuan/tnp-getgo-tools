@@ -1,0 +1,4 @@
+interface:
+  display_name: "GetGo v1 to Content v2"
+  short_description: "Migrate scoped GetGo v1 quizzes safely"
+  default_prompt: "Use $migrate-getgo-v1-to-content-v2 to migrate the requested GetGo v1 quiz scope through content into content-v2."

@@ -31,27 +31,31 @@ Never write to `content-v2`. Preserve every distinct source folder even when two
 
 ## Run and verify
 
-The current converter entrypoint is `tnp-tools/scripts/convert-timo-1-pr-to-content.mjs`. Run from the `tnp-tools` root:
+The maintained generic entrypoint is `tnp-tools/scripts/convert-getgo-v1-to-content.mjs`. Always pass the resolved contest, grade, and round. Run from the `tnp-tools` root:
 
 ```powershell
-node scripts/convert-timo-1-pr-to-content.mjs --dry-run
-node scripts/convert-timo-1-pr-to-content.mjs --replace
+node scripts/convert-getgo-v1-to-content.mjs --contest=timo --grade=1 --round=pr --dry-run
+node scripts/convert-getgo-v1-to-content.mjs --contest=timo --grade=1 --round=pr --replace
 ```
+
+For contests whose folder naming does not follow `<contest>_<grade>_<round>_`, pass an anchored `--prefix`. For named divisions such as `benjamin`, also pass the schema-compatible numeric `--grade-number`; do not guess that mapping. Keep contest-specific source defects as validation failures until their exact quiz/question rule is reviewed.
 
 For an isolated question refresh, select the exact source folder and question number. This updates only that question, preserves its stored review status and feedback, and leaves every other topic file untouched:
 
 ```powershell
-node scripts/convert-timo-1-pr-to-content.mjs --quiz=<source-folder> --question=<number> --dry-run
-node scripts/convert-timo-1-pr-to-content.mjs --quiz=<source-folder> --question=<number> --replace
+node scripts/convert-getgo-v1-to-content.mjs --contest=<contest> --grade=<grade> --round=<round> --quiz=<source-folder> --question=<number> --dry-run
+node scripts/convert-getgo-v1-to-content.mjs --contest=<contest> --grade=<grade> --round=<round> --quiz=<source-folder> --question=<number> --replace
 ```
 
 To repair or upgrade compiled artifacts without reconverting question content or
 changing review status/feedback, run:
 
 ```powershell
-node scripts/convert-timo-1-pr-to-content.mjs --compile-existing --dry-run
-node scripts/convert-timo-1-pr-to-content.mjs --compile-existing
+node scripts/convert-getgo-v1-to-content.mjs --contest=<contest> --grade=<grade> --round=<round> --compile-existing --dry-run
+node scripts/convert-getgo-v1-to-content.mjs --contest=<contest> --grade=<grade> --round=<round> --compile-existing
 ```
+
+Use `scripts/repair-getgo-origin-fixtures.mjs` and `scripts/normalize-getgo-question-numbers.mjs` for source repair. Each requires either an anchored `--prefix` plus `--contest`, or explicit `--contest`, `--grade`, and `--round`. Run without `--write` first. Add reusable comparison behavior to the shared implementation; scope genuine exceptions by exact `<quiz-id>/q<number>` keys instead of creating contest-specific script copies.
 
 Always run `--dry-run` first. Use `--replace` only when the request authorizes refreshing an existing topic.
 
