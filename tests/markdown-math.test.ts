@@ -59,3 +59,15 @@ test("protects every supported math source before Markdown sees it", () => {
     inline: false,
   });
 });
+
+test("protects a math token that omits the optional trailing hash", () => {
+  const protectedSource = protectMarkdownMath(
+    'Before #math:{"latex":"x^2 + 1","inline":true} after',
+  );
+
+  assert.equal(protectedSource.markdown, "Before GETGOMATHPLACEHOLDER0TOKEN after");
+  assert.deepEqual(protectedSource.formulas.get("GETGOMATHPLACEHOLDER0TOKEN"), {
+    latex: "x^2 + 1",
+    inline: true,
+  });
+});
