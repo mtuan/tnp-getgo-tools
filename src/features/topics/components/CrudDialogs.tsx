@@ -44,8 +44,8 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
   </DialogFrame>
 }
 
-export function QuizCrudDialog({ quiz, contest, onClose, onSaved, onDeleted, embedded = false, onDirtyChange }: { quiz?: QuizSummary; contest: ContestSummary; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; onDirtyChange?(dirty: boolean): void }) {
-  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", src: quiz?.src ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", supportedLanguages: quiz?.supportedLanguages ?? ["en", "vi"], grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? currentQuizBuilderApiVersion }), [quiz])
+export function QuizCrudDialog({ quiz, contest, defaultSupportedLanguages = ["en", "vi"], onClose, onSaved, onDeleted, embedded = false, onDirtyChange }: { quiz?: QuizSummary; contest: ContestSummary; defaultSupportedLanguages?: Array<"en" | "vi">; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; onDirtyChange?(dirty: boolean): void }) {
+  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", src: quiz?.src ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", supportedLanguages: quiz?.supportedLanguages ?? defaultSupportedLanguages, grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? currentQuizBuilderApiVersion }), [defaultSupportedLanguages, quiz])
   const [input, setInput] = useState<QuizCrudInput>(() => initialInput)
   const [savedInput, setSavedInput] = useState<QuizCrudInput>(() => initialInput)
   const [busy, setBusy] = useState(false)

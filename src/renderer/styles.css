@@ -5337,10 +5337,13 @@ tbody tr:hover {
   resize: none;
 }
 .ui-multi-tag-editor {
-  min-height: 168px;
+  min-height: var(--ui-form-control-height, 42px);
+  max-height: calc(var(--ui-form-control-height, 42px) * 3);
   margin-top: 7px;
-  padding: 10px;
-  overflow: auto;
+  padding: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
   border: 1px solid #dbe2ea;
   border-radius: 9px;
   background: #fff;

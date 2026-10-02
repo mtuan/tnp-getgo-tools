@@ -82,6 +82,7 @@ function managerSettings(topic: RepositoryViewData["contentV2"]["topics"][number
       descriptionVi: typeof topic.localizedDescription === "object" ? topic.localizedDescription.vi : topic.description,
       subjects: topic.subjects,
       supportedGrades: topic.grades,
+      supportedLanguages: topic.supportedLanguages,
       icon: topic.icon,
       topicType: topic.type,
       subject: definition.subject,
@@ -485,15 +486,15 @@ export function ContentV2QuizManager(props: Props) {
           ? input.type === "pronunciation"
             ? { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "pronunciation", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: "vi", speech: defaultAlphabetQuizSpeechSettings }
             : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
-          : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : ["en", "vi"], grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
+          : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : topic.supportedLanguages, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         await window.getgo.saveContentV2Quiz(topicId, quiz);
         return reloadFromFiles(topicId);
       },
       createContest: async (settings) => {
         const order = props.snapshot.contentV2.topics.length;
         const topic: ContentV2Topic = settings.book.topicType === "kid-learning"
-          ? { schemaVersion: 2, id: settings.book.code, src: settings.book.src?.trim() || undefined, type: "kid-learning", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? [], grades: settings.book.supportedGrades ?? [], status: "pending", order, supportedLanguages: ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
-          : { schemaVersion: 2, id: settings.book.code, src: settings.book.src?.trim() || undefined, type: "competition", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? ["mathematics"], grades: settings.book.supportedGrades ?? [], status: "pending", order, subject: settings.book.subjects?.[0] ?? "mathematics", rounds: [], gradeGroups: [] };
+          ? { schemaVersion: 2, id: settings.book.code, src: settings.book.src?.trim() || undefined, type: "kid-learning", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? [], grades: settings.book.supportedGrades ?? [], status: "pending", order, supportedLanguages: settings.book.supportedLanguages ?? ["en", "vi"], recommendedAgeRange: { minimum: 3, maximum: 7 } }
+          : { schemaVersion: 2, id: settings.book.code, src: settings.book.src?.trim() || undefined, type: "competition", title: { en: settings.book.title, vi: settings.book.titleVi ?? settings.book.title }, icon: settings.book.icon || undefined, description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" }, subjects: settings.book.subjects ?? ["mathematics"], grades: settings.book.supportedGrades ?? [], supportedLanguages: settings.book.supportedLanguages ?? ["en", "vi"], status: "pending", order, subject: settings.book.subjects?.[0] ?? "mathematics", rounds: [], gradeGroups: [] };
         await window.getgo.saveContentV2Topic(topic);
         return reloadFromFiles();
       },
@@ -508,6 +509,7 @@ export function ContentV2QuizManager(props: Props) {
           description: { en: settings.book.description ?? "", vi: settings.book.descriptionVi ?? settings.book.description ?? "" },
           subjects: settings.book.subjects ?? (stored.type === "competition" ? [stored.subject] : stored.subjects),
           grades: settings.book.supportedGrades ?? stored.grades,
+          supportedLanguages: settings.book.supportedLanguages ?? stored.supportedLanguages,
           status: stored.status,
           order: stored.order,
           publisherId: stored.publisherId,

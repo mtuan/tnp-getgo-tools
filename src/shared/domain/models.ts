@@ -221,6 +221,7 @@ export interface ContestSettings {
     descriptionVi?: string;
     subjects?: string[];
     supportedGrades?: number[];
+    supportedLanguages?: QuizSupportedLanguage[];
     icon?: ContentIcon;
     /** Content V2 topic kind. Omitted by legacy contest settings. */
     topicType?: "competition" | "kid-learning";

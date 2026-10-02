@@ -42,6 +42,7 @@ export async function importAmcPreview(root: string, preview: AmcImportPreview, 
     ? await saveContentV2Topic(root, {
         ...existingTopic,
         grades: [grade],
+        supportedLanguages: ["en"],
         marketplace: { ...existingTopic.marketplace, experimental: true },
         src: preview.sourceIndexUrl,
         source: topicSource,
@@ -49,7 +50,7 @@ export async function importAmcPreview(root: string, preview: AmcImportPreview, 
     : await saveContentV2Topic(root, {
         schemaVersion: 2, id: preview.topic.id, type: "competition", title: preview.topic.title,
         description: `American Mathematics Competitions ${preview.topic.title} papers imported from AoPS.`,
-        subject: "Mathematics", subjects: ["Mathematics"], grades: [grade], marketplace: { experimental: true },
+        subject: "Mathematics", subjects: ["Mathematics"], grades: [grade], supportedLanguages: ["en"], marketplace: { experimental: true },
         rounds: [{ id: preview.topic.id, title: preview.topic.title }], gradeGroups: [], status: "draft", order: 0, src: preview.sourceIndexUrl, source: topicSource,
       });
   const quiz = await saveContentV2Quiz(root, topic, {

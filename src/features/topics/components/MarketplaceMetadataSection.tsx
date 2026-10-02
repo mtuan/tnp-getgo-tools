@@ -33,10 +33,6 @@ const standardSubjects = [
   { value: "geography", label: "Geography" },
 ];
 
-const toLines = (value: unknown) =>
-  Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string").join("\n")
-    : "";
 const localizedLines = (value: unknown, locale: "en" | "vi") =>
   Array.isArray(value)
     ? value.map((item) => localizedText(item as LocalizedText, locale)).filter(Boolean).join("\n")
@@ -167,7 +163,7 @@ export function MarketplaceMetadataSection({
         fullDescription: current.fullDescription,
         subjects: isTopic ? current.subjects : current.subjects[0] ?? "",
         languages: current.languages,
-        tags: toLines(current.tags),
+        tags: current.tags,
         learningObjectivesEn: localizedLines(current.learningObjectives, "en"),
         learningObjectivesVi: localizedLines(current.learningObjectives, "vi"),
         preview: current.preview,
@@ -224,17 +220,13 @@ export function MarketplaceMetadataSection({
             { value: "vi", label: "Tiếng Việt" },
           ],
         },
-      ] as FormSchema] : [{
-        type: "multi-select",
-        name: "languages",
-        label: copy.fields.languages,
-        options: [{ value: "en", label: "English" }, { value: "vi", label: "Tiếng Việt" }],
-      } as FormSchema]),
+      ] as FormSchema] : []),
       ...(isTopic ? [{
-        type: "textarea",
+        type: "multi-tag",
         name: "tags",
         label: copy.fields.tags,
         helper: copy.fields.tagsHelp,
+        placeholder: copy.fields.tagsPlaceholder,
       } as FormSchema] : []),
       ...(isTopic ? [[{
         type: "textarea",
@@ -307,7 +299,9 @@ export function MarketplaceMetadataSection({
           vi: vi[index] ?? en[index] ?? "",
         }));
       }
-      else if (["subjects", "tags"].includes(name))
+      else if (name === "tags")
+        next.tags = Array.isArray(value) ? value.map(String) : [];
+      else if (name === "subjects")
         next[name] = toList(value);
       else if (name === "languages")
         next.languages = Array.isArray(value) ? value.map(String) : [];

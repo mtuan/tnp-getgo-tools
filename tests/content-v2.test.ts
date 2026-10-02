@@ -58,7 +58,23 @@ test("content v2 contest text supports bilingual values and legacy strings", () 
   assert.equal(localizedText(topic.title, "vi"), "ITMC - Vòng 1 - Lớp 3");
   assert.deepEqual(topic.subjects, ["mathematics"]);
   assert.deepEqual(topic.grades, [3]);
+  assert.deepEqual(topic.supportedLanguages, ["en", "vi"]);
   assert.equal(localizedText("Legacy title", "vi"), "Legacy title");
+});
+
+test("marketplace topic languages follow topic information", () => {
+  const topic = contentV2TopicSchema.parse({
+    schemaVersion: 2,
+    id: "amc-8",
+    type: "competition",
+    title: "AMC 8",
+    subject: "mathematics",
+    rounds: [],
+    gradeGroups: [],
+    supportedLanguages: ["en"],
+    marketplace: { languages: ["vi"] },
+  });
+  assert.deepEqual(sanitizeMarketplaceTopic(topic).languages, ["en"]);
 });
 
 test("content v2 competition quizzes persist supported languages and default legacy quizzes to both", () => {

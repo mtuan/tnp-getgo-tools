@@ -308,6 +308,7 @@ export function renderManagerPage(context: ManagerPageContext) {
       {quizDialog === "create" && isContest && selectedContest && (
         <QuizCrudDialog
           contest={selectedContest}
+          defaultSupportedLanguages={selectedContest.settings.book.supportedLanguages}
           onClose={() => setQuizDialog(null)}
           onSaved={async (input: QuizCrudInput) => {
             const next = await managerApi.createQuiz(page.contest, {

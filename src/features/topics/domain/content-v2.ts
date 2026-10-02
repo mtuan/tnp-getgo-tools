@@ -216,6 +216,7 @@ export function sanitizeMarketplaceTopic(
     shortDescription: record.description,
     fullDescription: record.description,
     subjects: record.subjects,
+    languages: record.supportedLanguages,
     grades: record.grades,
     order: record.order,
     filterKeys: marketplaceFilterKeys(record, normalizedMarketplace),
@@ -242,6 +243,7 @@ const baseRecord = {
 
 export const competitionTopicSchema = z.object({
   ...baseRecord,
+  supportedLanguages: z.array(z.enum(["en", "vi"])).min(1).default(["en", "vi"]),
   title: localizedTextSchema,
   description: localizedTextSchema.default(""),
   subjects: z.array(z.string().min(1)).default([]),
@@ -264,12 +266,12 @@ export const competitionTopicSchema = z.object({
 
 export const kidLearningTopicSchema = z.object({
   ...baseRecord,
+  supportedLanguages: z.array(z.enum(["en", "vi"])).min(1).default(["en", "vi"]),
   title: localizedTextSchema,
   description: localizedTextSchema.default(""),
   subjects: z.array(z.string().min(1)).default([]),
   grades: z.array(z.number().int().min(0).max(12)).default([]),
   type: z.literal("kid-learning"),
-  supportedLanguages: z.array(z.enum(["en", "vi"])).min(1),
   recommendedAgeRange: z
     .object({
       minimum: z.number().int().min(1),

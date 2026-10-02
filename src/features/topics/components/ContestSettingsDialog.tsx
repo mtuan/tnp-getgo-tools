@@ -22,7 +22,7 @@ const tabs: Array<{ id: Tab; label: string; icon: typeof BookOpen }> = [
 
 const emptySettings = (): ContestSettings => ({
   $schema: "../settings.schema.json",
-  book: { code: "", title: "", titleVi: "", description: "", descriptionVi: "", topicType: "competition", subject: 1, isActive: true },
+  book: { code: "", title: "", titleVi: "", description: "", descriptionVi: "", topicType: "competition", subject: 1, supportedLanguages: ["en", "vi"], isActive: true },
   rounds: [{ roundCode: "MAIN", roundName: "Main Round", description: "" }],
   grades: [{ gradeName: "1", grades: [1] }],
   categories: [], quizRules: [],
@@ -48,6 +48,10 @@ const generalFields = (iconPreview: string, topicMode: boolean, language: Editor
       { type: "select" as const, name: "topicType", label: "Topic type", options: [
         { value: "competition", label: "Contest" },
         { value: "kid-learning", label: "Kid learning" },
+      ] },
+      { type: "multi-select" as const, name: "supportedLanguages", label: "Supported languages", required: true, options: [
+        { value: "en", label: "English" },
+        { value: "vi", label: "Tiếng Việt" },
       ] },
     ]] : [[
       { type: "select" as const, name: "subject", label: "Subject", options: ["Mathematics", "English", "Vietnamese", "Physics", "Chemistry", "Biology", "History", "Geography"].map((label, index) => ({ label, value: String(index + 1) })) },
@@ -170,12 +174,13 @@ export function ContestSettingsDialog({ contest, onClose, onSaved, onDeleted, em
     { key: "categories", title: "Categories", width: "12%", render: rule => Array.isArray(rule.categories) ? rule.categories.length : 0 },
     { key: "actions", title: "", width: 84, render: (_rule, index) => <div className="ui-row-actions"><button type="button" onClick={() => setRuleEditor(index)} aria-label={`Edit rule ${index + 1}`}><Pencil /></button><button type="button" onClick={() => remove("quizRules", index)} aria-label={`Delete rule ${index + 1}`}><Trash2 /></button></div> },
   ]
-  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, titleVi: settings.book.titleVi ?? "", icon: settings.book.icon ?? "", description: settings.book.description ?? "", descriptionVi: settings.book.descriptionVi ?? "", topicType: settings.book.topicType ?? "competition", subject: String(settings.book.subject), subjects: settings.book.subjects ?? [], supportedGrades: (settings.book.supportedGrades ?? []).map(String), isActive: settings.book.isActive !== false }
+  const generalValues: FormValues = { code: settings.book.code, title: settings.book.title, titleVi: settings.book.titleVi ?? "", icon: settings.book.icon ?? "", description: settings.book.description ?? "", descriptionVi: settings.book.descriptionVi ?? "", topicType: settings.book.topicType ?? "competition", subject: String(settings.book.subject), subjects: settings.book.subjects ?? [], supportedGrades: (settings.book.supportedGrades ?? []).map(String), supportedLanguages: settings.book.supportedLanguages ?? ["en", "vi"], isActive: settings.book.isActive !== false }
   const updateGeneral = (name: string, value: unknown) => {
     setFieldErrors(current => { const next = { ...current }; delete next[name]; return next })
     if (name === "topicType") setBook({ topicType: value === "kid-learning" ? "kid-learning" : "competition" })
     else if (name === "subjects") setBook({ subjects: Array.isArray(value) ? value.map(String) : [] })
     else if (name === "supportedGrades") setBook({ supportedGrades: Array.isArray(value) ? value.map(Number).sort((a, b) => a - b) : [] })
+    else if (name === "supportedLanguages") setBook({ supportedLanguages: Array.isArray(value) ? value.filter((item): item is EditorLanguage => item === "en" || item === "vi") : [] })
     else if (name === "subject") setBook({ subject: Number(value) })
     else if (name === "isActive") setBook({ isActive: Boolean(value) })
     else if (name === "icon") setBook({ icon: value && (typeof value === "string" || typeof value === "object") ? value as ContestSettings["book"]["icon"] : undefined })
