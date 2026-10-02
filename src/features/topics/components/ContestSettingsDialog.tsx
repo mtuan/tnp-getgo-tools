@@ -33,14 +33,22 @@ const gradeOptions = Array.from({ length: 13 }, (_, grade) => ({ value: String(g
 
 const generalFields = (iconPreview: string, topicMode: boolean, language: EditorLanguage): FormSchema[] => [
   { section: topicMode ? "Topic information" : "Contest information", description: "Identity and visibility across GetGo.", fields: [
-    [
-      { type: "text", name: "code", label: "Contest ID", required: true, rules: { pattern: { value: /^[a-z][-_a-z0-9]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
-      { type: "text", name: language === "vi" ? "titleVi" : "title", label: "Display title", required: true },
-    ],
-    [
-      { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a two-line text icon with up to 6 characters per line." },
-      { type: "textarea", name: language === "vi" ? "descriptionVi" : "description", label: "Description", rows: 3 },
-    ],
+    ...(topicMode ? [[
+      { type: "text" as const, name: "code", label: "Topic ID", required: true, rules: { pattern: { value: /^[a-z][-_a-z0-9]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
+      { type: "icon" as const, name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a two-line text icon with up to 6 characters per line." },
+    ], [
+      { type: "text" as const, name: "title", label: "Display title (English)", required: true },
+      { type: "text" as const, name: "titleVi", label: "Display title (Tiếng Việt)", required: true },
+    ], [
+      { type: "textarea" as const, name: "description", label: "Description (English)", rows: 3 },
+      { type: "textarea" as const, name: "descriptionVi", label: "Description (Tiếng Việt)", rows: 3 },
+    ]] : [[
+      { type: "text" as const, name: "code", label: "Contest ID", required: true, rules: { pattern: { value: /^[a-z][-_a-z0-9]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
+      { type: "text" as const, name: language === "vi" ? "titleVi" : "title", label: "Display title", required: true },
+    ], [
+      { type: "icon" as const, name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a two-line text icon with up to 6 characters per line." },
+      { type: "textarea" as const, name: language === "vi" ? "descriptionVi" : "description", label: "Description", rows: 3 },
+    ]]),
     ...(topicMode ? [[
       { type: "multi-select" as const, name: "subjects", label: "Subjects", required: true, options: subjectOptions },
       { type: "multi-select" as const, name: "supportedGrades", label: "Grades", options: gradeOptions },

@@ -462,6 +462,7 @@ export async function loadContentV2WorkspaceFromFiles(
         : typeof topic.marketplace?.publishedAt === "string" ? topic.marketplace.publishedAt : null,
       ...(topic.type === "competition"
         ? {
+            contestId: topic.contestId,
             subject: topic.subject,
             rounds: topic.rounds.map(round => ({ ...round, title: localizedText(round.title), localizedTitle: round.title })),
             gradeGroups: topic.gradeGroups.map(group => ({ ...group, title: localizedText(group.title), localizedTitle: group.title })),

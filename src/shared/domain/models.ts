@@ -98,6 +98,7 @@ export interface RepositoryViewData {
 
 export interface ContentV2TopicSummary {
   id: string;
+  contestId?: string;
   src?: string;
   type: "competition" | "kid-learning";
   title: string;

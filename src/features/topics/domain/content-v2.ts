@@ -260,6 +260,7 @@ const baseRecord = {
 
 export const competitionTopicSchema = z.object({
   ...baseRecord,
+  contestId: idSchema.optional(),
   supportedLanguages: z.array(z.enum(["en", "vi"])).min(1).default(["en", "vi"]),
   title: localizedTextSchema,
   description: localizedTextSchema.default(""),

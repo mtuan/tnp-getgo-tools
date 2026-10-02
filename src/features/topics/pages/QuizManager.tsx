@@ -383,21 +383,29 @@ export function QuizManager({
       ? contests.find((item) => item.id === page.contest)
       : null;
   const {
+    topicContestOptions,
+    topicContests,
     topicGradeOptions,
     topicGrades,
     topicMatches,
     topicSubjectOptions,
     topicSubjects,
+    topicStateOptions,
+    topicStates,
+    setTopicContests,
     setTopicGrades,
     setTopicSubjects,
+    setTopicStates,
   } = useTopicListFilters(snapshot.contentV2.topics, locale);
   useEffect(() => {
     if (routeMode !== "topics" || page.kind !== "contest") return;
-    // Grade/subject filters belong to the topic list. Entering a selected
+    // Topic filters belong to the topic list. Entering a selected
     // topic retains that topic route while clearing the preceding list state.
+    setTopicContests([]);
     setTopicGrades([]);
     setTopicSubjects([]);
-  }, [page, routeMode, setTopicGrades, setTopicSubjects]);
+    setTopicStates([]);
+  }, [page, routeMode, setTopicContests, setTopicGrades, setTopicStates, setTopicSubjects]);
   const visibleContests = useMemo(() => {
     const filtered = contests.filter(
       (contest) => routeMode !== "topics" || topicMatches(contest.id),
@@ -686,10 +694,14 @@ export function QuizManager({
     onRouteChange,
     onSnapshotChange,
     page,
+    topicContestOptions,
+    topicContests,
     topicGradeOptions,
     topicGrades,
     topicSubjectOptions,
     topicSubjects,
+    topicStateOptions,
+    topicStates,
     quizDialog,
     rootRoute,
     routeMode,
@@ -699,8 +711,10 @@ export function QuizManager({
     setContestTab,
     setMigrationResults,
     setPage,
+    setTopicContests,
     setTopicGrades,
     setTopicSubjects,
+    setTopicStates,
     setQuizDialog,
     setQuizTab,
     setTopicDictionary,

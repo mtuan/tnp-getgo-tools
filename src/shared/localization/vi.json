@@ -36,10 +36,14 @@
     "listAndReviewAll": "Hiển thị và duyệt tất cả",
     "unlistAll": "Ẩn tất cả",
     "filters": {
+      "contests": "Kỳ thi",
       "grades": "Lớp",
       "subjects": "Môn học",
+      "state": "Trạng thái",
+      "allContests": "Tất cả kỳ thi",
       "allGrades": "Tất cả lớp",
       "allSubjects": "Tất cả môn học",
+      "allStates": "Tất cả trạng thái",
       "kindergarten": "Mẫu giáo",
       "grade": "Lớp {grade}",
       "subjectNames": {

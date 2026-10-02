@@ -36,10 +36,14 @@
     "listAndReviewAll": "List all and review all",
     "unlistAll": "Unlist all",
     "filters": {
+      "contests": "Contests",
       "grades": "Grades",
       "subjects": "Subjects",
+      "state": "State",
+      "allContests": "All contests",
       "allGrades": "All grades",
       "allSubjects": "All subjects",
+      "allStates": "All states",
       "kindergarten": "Kindergarten",
       "grade": "Grade {grade}",
       "subjectNames": {
