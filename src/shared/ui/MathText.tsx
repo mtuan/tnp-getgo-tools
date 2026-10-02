@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { cloneElement, isValidElement, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import ReactMarkdown from "react-markdown";
@@ -33,11 +33,29 @@ function MarkdownChildren({
     return <>{children.map((child, index) =>
       <MarkdownChildren autoSize={autoSize} key={index} nowrap={nowrap} protectedMath={protectedMath}>{child}</MarkdownChildren>)}</>;
   }
+  if (isValidElement<{ children?: ReactNode }>(children)) {
+    if (children.type === "code" || children.type === "pre" || children.props.children === undefined) return children;
+    return cloneElement(children, undefined,
+      <MarkdownChildren autoSize={autoSize} nowrap={nowrap} protectedMath={protectedMath}>
+        {children.props.children}
+      </MarkdownChildren>);
+  }
   return children;
+}
+
+const loggedMathSources = new Set<string>();
+
+function logMathRender(source: string, markdown: boolean, mathTokens: number) {
+  if (!import.meta.env.DEV || !source.includes("#math:") || loggedMathSources.has(source)) return;
+  loggedMathSources.add(source);
+  const details = { markdown, mathTokens, source };
+  if (mathTokens === 0) console.error("[GetGo Tools][MathText] Math marker was not parsed", details);
+  else console.info("[GetGo Tools][MathText] Rendering math tokens", details);
 }
 
 function MarkdownContent({ value, nowrap, autoSize }: { value: string } & MathPresentationProps) {
   const protectedMath = protectMarkdownMath(value);
+  logMathRender(value, true, protectedMath.formulas.size);
   return <div className="getgo-markdown">
     <ReactMarkdown components={{
       p: ({ children, ...props }) => <p {...props}><MarkdownChildren autoSize={autoSize} nowrap={nowrap} protectedMath={protectedMath}>{children}</MarkdownChildren></p>,
@@ -108,7 +126,9 @@ export function MathText({
   // markdown disabled, where raw/canonical math is rendered inline.
   if (markdown && !source.includes("#md:"))
     return <MarkdownContent autoSize={autoSize} nowrap={nowrap} value={source} />;
-  return <>{parseMathText(value).map((segment, index) => {
+  const segments = parseMathText(value);
+  logMathRender(source, markdown, segments.filter(segment => segment.type === "math").length);
+  return <>{segments.map((segment, index) => {
     if (segment.type === "text") {
       if (markdown) return <MarkdownContent autoSize={autoSize} key={`markdown-text-${index}`} nowrap={nowrap} value={segment.value} />;
       return <span className="getgo-text-preserve-lines" key={`text-${index}`}>{segment.value}</span>;
