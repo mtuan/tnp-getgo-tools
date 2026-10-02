@@ -131,6 +131,27 @@ test("an empty question source is derived from a labelled explanation link", () 
   assert.equal(contentV2QuestionSchema.parse({ ...question, src: "./local.pdf" }).src, "./local.pdf");
 });
 
+test("question source extraction is retained for authoring and excluded from publishing", () => {
+  const question = contentV2QuestionSchema.parse({
+    schemaVersion: 2,
+    id: "q1",
+    order: 0,
+    type: "competition-question",
+    text: { en: "Question" },
+    assets: [],
+    answer: { type: "input", correct: "1" },
+    sourceContent: {
+      schemaVersion: 1,
+      document: "source-extract/document.json",
+      pages: [1],
+      rawText: "1. Question",
+      elements: [{ id: "p1-text-1", type: "text", page: 1, bbox: [1, 2, 3, 4], text: "1. Question" }],
+    },
+  });
+  assert.equal(question.sourceContent?.rawText, "1. Question");
+  assert.equal("sourceContent" in sanitizeContentV2Question(question), false);
+});
+
 test("content v2 text icons use an extensible object and accept legacy strings", () => {
   const icon = { type: "text" as const, text: "ITMC", theme: "emerald" as const };
   const topic = contentV2TopicSchema.parse({

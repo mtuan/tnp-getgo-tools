@@ -44,6 +44,23 @@ export const contentSourceSchema = z.object({
   importedAt: z.string().datetime().optional(),
 });
 export type ContentSource = z.infer<typeof contentSourceSchema>;
+export const extractedSourceElementSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["text", "image", "drawing"]),
+  page: z.number().int().positive(),
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  text: z.string().optional(),
+  asset: z.string().optional(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+}).passthrough();
+export const extractedSourceContentSchema = z.object({
+  schemaVersion: z.literal(1),
+  document: z.string().min(1),
+  pages: z.array(z.number().int().positive()).min(1),
+  rawText: z.string(),
+  elements: z.array(extractedSourceElementSchema),
+});
+export type ExtractedSourceContent = z.infer<typeof extractedSourceContentSchema>;
 export const localizedTextSchema = z.union([
   z.string(),
   z.object({ en: z.string(), vi: z.string() }),
@@ -359,6 +376,7 @@ const questionBase = {
   order: z.number().int().nonnegative(),
   status: z.enum(contentV2ReviewStatuses).default("pending"),
   source: contentSourceSchema.optional(),
+  sourceContent: extractedSourceContentSchema.optional(),
 };
 
 export const competitionQuestionV2Schema = z.object({
@@ -604,6 +622,7 @@ export function sanitizeContentV2Question(
   const {
     status: _status,
     feedback: _feedback,
+    sourceContent: _sourceContent,
     ...runtime
   } = contentV2QuestionSchema.parse(record) as ContentV2Question & {
     feedback?: unknown;
