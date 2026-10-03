@@ -716,7 +716,7 @@ export function App() {
             )}
             {view === "members" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
-                <MembersPage locale={settings.locale} />
+                <MembersPage locale={settings.locale} environment={settings.environment} />
               </Suspense>
             )}
             {settings.repositoryPath && view === "safe-words" && (

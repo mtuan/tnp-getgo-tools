@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Pencil, RefreshCw } from "lucide-react";
+import { Pencil, Plus, RefreshCw } from "lucide-react";
 import type { AppSettings, GetGoMemberAccount, GetGoMemberPage, GetGoMembershipTier } from "../../../shared/domain/models";
 import { useAuth } from "../../authentication/components/AuthContext";
 import * as ui from "../../../shared/ui";
@@ -7,8 +7,9 @@ import * as ui from "../../../shared/ui";
 type MemberFilter = "all" | GetGoMembershipTier;
 const PAGE_SIZE = 50;
 const dateInputValue = (value: string | null): string => value ? value.slice(0, 10) : "";
+type TestAccountDraft = {email: string; password: string; scenario: "matched-topics" | "manual-topics"; projectId: string};
 
-export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
+export function MembersPage({ locale, environment }: { locale: AppSettings["locale"]; environment: AppSettings["environment"] }) {
   const vi = locale === "vi";
   const auth = useAuth();
   const toast = ui.useToast();
@@ -26,6 +27,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
   const [expiresAt, setExpiresAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testAccount, setTestAccount] = useState<TestAccountDraft | null>(null);
   const copy = useMemo(() => vi ? ({
     eyebrow: "Người dùng", title: "Thành viên GetGo", description: "Quản lý thành viên miễn phí, Premium và quản trị viên.",
     all: "Tất cả", free: "Miễn phí", premium: "Premium", admin: "Quản trị", name: "Tên", email: "Email", membership: "Loại thành viên", account: "Tài khoản", active: "Đang hoạt động", orphaned: "Hồ sơ mồ côi", orphanedHelp: "UID này không còn tài khoản đăng nhập tương ứng",
@@ -34,6 +36,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
     save: "Lưu thay đổi", cancel: "Hủy", saved: "Đã cập nhật thành viên", loadFailed: "Không thể tải thành viên", saveFailed: "Không thể cập nhật thành viên",
     delete: "Xóa thành viên", deleteConfirm: "Xóa vĩnh viễn thành viên này cùng toàn bộ dữ liệu?", deleteConfirmAction: "Xóa vĩnh viễn", deleting: "Đang xóa thành viên và toàn bộ dữ liệu…", deleted: "Đã xóa thành viên", deleteFailed: "Không thể xóa thành viên",
     confirm: "Thay đổi này cập nhật quyền truy cập, lịch sử gói thành viên và nhật ký quản trị.", previous: "Trang trước", next: "Trang sau", page: "Trang", pageSize: "Tối đa 50 tài khoản mỗi trang",
+    addTest: "Thêm tài khoản thử nghiệm", createTest: "Tạo tài khoản", testPassword: "Mật khẩu", testScenario: "Kịch bản chủ đề", matchedTopics: "Tự ghép IKMC/TIMO", manualTopics: "Cần chọn lại chủ đề", testHelp: "Tạo tài khoản cũ giả lập gồm hồ sơ phụ huynh và học sinh lớp 5. Không tạo lịch sử học tập.", testCreated: "Đã tạo tài khoản thử nghiệm", testCreateFailed: "Không thể tạo tài khoản thử nghiệm", suggesting: "Đang tìm email trống…", passwordHelp: "Ít nhất 8 ký tự. Mật khẩu không được lưu trong GetGo Tools.",
   }) : ({
     eyebrow: "Users", title: "GetGo members", description: "Manage Free, Premium, and Admin members.",
     all: "All", free: "Free", premium: "Premium", admin: "Admin", name: "Name", email: "Email", membership: "Membership", account: "Account", active: "Active", orphaned: "Orphaned profile", orphanedHelp: "This UID no longer has a corresponding sign-in account",
@@ -42,6 +45,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
     save: "Save changes", cancel: "Cancel", saved: "Membership updated", loadFailed: "Could not load members", saveFailed: "Could not update membership",
     delete: "Delete member", deleteConfirm: "Permanently delete this member and all of their data?", deleteConfirmAction: "Delete permanently", deleting: "Deleting member and all associated data…", deleted: "Member deleted", deleteFailed: "Could not delete member",
     confirm: "This updates account access, subscription history, and the administration audit log.", previous: "Previous page", next: "Next page", page: "Page", pageSize: "Up to 50 accounts per page",
+    addTest: "Add test account", createTest: "Create account", testPassword: "Password", testScenario: "Topic scenario", matchedTopics: "Auto-match IKMC/TIMO", manualTopics: "Require topic reassignment", testHelp: "Creates a legacy-shaped parent and Grade 5 student without study history.", testCreated: "Test account created", testCreateFailed: "Could not create test account", suggesting: "Finding an available email…", passwordHelp: "At least 8 characters. GetGo Tools does not store this password.",
   }), [vi]);
 
   useEffect(() => {
@@ -102,6 +106,29 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
       throw cause;
     } finally { setBusy(false); }
   };
+  const openTestAccount = () => auth.requireAuth(async () => {
+    setBusy(true); setError(null);
+    try {
+      const suggestion = await window.getgo.suggestGetGoUpgradeTestEmail();
+      setTestAccount({ email: suggestion.email, password: "", scenario: "matched-topics", projectId: suggestion.projectId });
+    } catch (cause) {
+      const message = String(cause); setError(message);
+      toast.show({ title: copy.testCreateFailed, description: message, variant: "error" });
+    } finally { setBusy(false); }
+  });
+  const createTestAccount = (event: FormEvent) => auth.requireAuth(async () => {
+    event.preventDefault();
+    if (!testAccount) return;
+    setBusy(true); setError(null);
+    try {
+      const created = await window.getgo.createGetGoUpgradeTestAccount(testAccount.email, testAccount.password, testAccount.scenario);
+      setTestAccount(null); setSearch(created.email); setRefresh(value => value + 1);
+      toast.show({ title: copy.testCreated, description: created.email, variant: "success" });
+    } catch (cause) {
+      const message = String(cause); setError(message);
+      toast.show({ title: copy.testCreateFailed, description: message, variant: "error" });
+    } finally { setBusy(false); }
+  });
   const unchanged = editing?.membership === membership
     && dateInputValue(editing.subscriptionStartsAt) === (membership === "premium" ? startsAt : "")
     && dateInputValue(editing.subscriptionExpiresAt) === (membership === "premium" ? expiresAt : "");
@@ -119,6 +146,7 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
           onValueChange={value => { setFilter(value as MemberFilter); setPage(1); setCursors([null]); }}
         />
       </ui.ControlGroup>
+      {environment === "development" && <ui.Button variant="primary" icon={<Plus />} loading={busy && !testAccount} onClick={() => void openTestAccount()}>{copy.addTest}</ui.Button>}
       <ui.Button icon={<RefreshCw />} loading={loading} onClick={() => setRefresh(value => value + 1)}>{copy.refresh}</ui.Button>
     </>} />
     {error && !editing && <ui.ErrorFrame message={error} />}
@@ -146,6 +174,17 @@ export function MembersPage({ locale }: { locale: AppSettings["locale"] }) {
         [{ type: "date", name: "startsAt", label: copy.starts, when: values => values.membership === "premium" }, { type: "date", name: "expiresAt", label: copy.expires, when: values => values.membership === "premium" }],
         { type: "custom", name: "notice", render: () => <p>{copy.confirm}</p> },
       ]} values={{ member: editing.id, membership, startsAt, expiresAt, notice: "" }} onChange={(name, value) => { if (name === "membership") setMembership(value as GetGoMembershipTier); if (name === "startsAt") setStartsAt(String(value)); if (name === "expiresAt") setExpiresAt(String(value)); }} />
+    </ui.DialogFrame>}
+    {testAccount && <ui.DialogFrame presentation="modal" title={copy.addTest} busy={busy} error={error} cancelLabel={copy.cancel} submitLabel={copy.createTest} submitDisabled={!/^test[1-9]\d*@tnp\.com\.vn$/.test(testAccount.email) || testAccount.password.length < 8} onClose={() => !busy && setTestAccount(null)} onSubmit={createTestAccount}>
+      <ui.Form fields={[
+        { type: "email", name: "email", label: copy.email, required: true, autoComplete: "off", rules: { pattern: { value: /^test[1-9]\d*@tnp\.com\.vn$/, message: "test1@tnp.com.vn" } } },
+        { type: "password", name: "password", label: copy.testPassword, helper: copy.passwordHelp, required: true, autoComplete: "new-password", rules: { minLength: 8 } },
+        { type: "select", name: "scenario", label: copy.testScenario, required: true, presentation: "segmented", options: [
+          { value: "matched-topics", label: copy.matchedTopics },
+          { value: "manual-topics", label: copy.manualTopics },
+        ] },
+        { type: "custom", name: "notice", render: () => <p>{copy.testHelp}<br /><small>{testAccount.projectId}</small></p> },
+      ]} values={{ ...testAccount, notice: "" }} onChange={(name, value) => setTestAccount(current => current ? { ...current, [name]: value } as TestAccountDraft : current)} />
     </ui.DialogFrame>}
   </section>;
 }

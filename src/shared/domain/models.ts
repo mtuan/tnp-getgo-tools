@@ -615,7 +615,7 @@ export type WebDeploymentTarget = "development" | "staging" | "production";
 export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
 export type DeploymentOperation = "run" | "run-device" | "build" | "deploy";
 export interface DeploymentItemState {
-  id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "functions" | "web";
+  id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "firebase-inputs" | `functions:${string}` | "web" | "web-inputs";
   localHash: string | null;
   deployedHash: string | null;
   changed: boolean;
@@ -744,10 +744,7 @@ export interface GetGoMemberQuery {
   cursor?: string;
   limit?: number;
 }
-export interface GetGoMemberPage {
-  items: GetGoMemberAccount[];
-  nextCursor: string | null;
-}
+export interface GetGoMemberPage { items: GetGoMemberAccount[]; nextCursor: string | null }
 export interface ImagePdfInput {
   path: string;
   directory: string;
@@ -813,6 +810,8 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   listGetGoMembers(query: GetGoMemberQuery): Promise<GetGoMemberPage>;
   setGetGoMembership(memberId: string, membership: GetGoMembershipTier, startsAt?: string | null, expiresAt?: string | null): Promise<void>;
   deleteGetGoMember(memberId: string): Promise<{ deleted: true; authenticationDeleted: boolean }>;
+  suggestGetGoUpgradeTestEmail(): Promise<{ email: string; projectId: string }>;
+  createGetGoUpgradeTestAccount(email: string, password: string, scenario: "matched-topics" | "manual-topics"): Promise<{ uid: string; email: string; scenario: "matched-topics" | "manual-topics"; projectId: string }>;
   loadSafeWordDictionary(): Promise<SafeWordDictionary>;
   saveSafeWordDictionary(dictionary: SafeWordDictionary): Promise<SafeWordDictionary>;
   getSafeWordSyncStatus(): Promise<SafeWordSyncStatus>;

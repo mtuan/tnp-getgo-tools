@@ -11,6 +11,7 @@ type FirestoreValue = {
   arrayValue?: { values?: FirestoreValue[] };
 };
 type FirestoreDocument = { name: string; fields?: Record<string, FirestoreValue> };
+type GetGoUpgradeTestScenario = "matched-topics" | "manual-topics";
 
 const stringValue = (value?: FirestoreValue): string => value?.stringValue ?? "";
 const stringArray = (value?: FirestoreValue): string[] => value?.arrayValue?.values?.map(stringValue).filter(Boolean) ?? [];
@@ -228,5 +229,22 @@ export function registerMemberManagementIpc(ipcMain: IpcMain, auth: FirebaseAuth
   ipcMain.handle("members:delete", (_event, memberId: unknown) => {
     if (typeof memberId !== "string" || !memberId || memberId.includes("/")) throw new Error("Invalid member ID.");
     return auth.callableRequest<{ deleted: true; authenticationDeleted: boolean }>("adminDeleteGetGoMember", { memberId });
+  });
+  ipcMain.handle("members:upgrade-test-account", (_event, input: unknown) => {
+    if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid test-account request.");
+    const request = input as {action?: unknown; email?: unknown; password?: unknown; scenario?: unknown};
+    if (request.action === "suggest") {
+      return auth.callableRequest<{email: string; projectId: string}>("adminManageGetGoUpgradeTestAccount", {action: "suggest"});
+    }
+    if (request.action !== "create" || typeof request.email !== "string" || typeof request.password !== "string") {
+      throw new Error("Invalid test-account request.");
+    }
+    const scenario: GetGoUpgradeTestScenario = request.scenario === "manual-topics" ? "manual-topics" : "matched-topics";
+    return auth.callableRequest("adminManageGetGoUpgradeTestAccount", {
+      action: "create",
+      email: request.email,
+      password: request.password,
+      scenario,
+    });
   });
 }

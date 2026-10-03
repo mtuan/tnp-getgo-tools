@@ -172,27 +172,84 @@ export class WebDeploymentJobManager {
     catch { return null; }
   }
 
-  private async localItems(component: DeploymentComponent, webRoot: string): Promise<DeploymentItemState[]> {
-    const deployRoot = path.join(webRoot, "configs", "deploys", "getgo");
+  private async hashFunctionCodebase(root: string) {
+    const hash = createHash("sha256");
+    hash.update(await this.hashDirectory(path.join(root, "src")) ?? "");
+    hash.update(await this.hashFile(path.join(root, "package.json")) ?? "");
+    hash.update(await this.hashFile(path.join(root, "package-lock.json")) ?? "");
+    hash.update(await this.hashDirectory(path.join(root, "vendor")) ?? "");
+    return hash.digest("hex");
+  }
+
+  private async hashHostingInputs(webRoot: string, envFile: string) {
+    const hash = createHash("sha256");
+    for (const relativePath of ["src", "public", "plugins"])
+      hash.update(await this.hashDirectory(path.join(webRoot, relativePath)) ?? "");
+    for (const relativePath of [
+      "index.html", "package.json", "package-lock.json", "tsconfig.app.json", "vite.config.ts",
+      "configs/apps/getgo/callables.json", envFile,
+    ]) hash.update(await this.hashFile(path.join(webRoot, relativePath)) ?? "");
+    return hash.digest("hex");
+  }
+
+  private async hashFirebaseInputs(webRoot: string, targetName: string, deployRoot: string, apps: string[]) {
+    const hash = createHash("sha256");
+    const appsRoot = path.join(webRoot, "configs", "apps");
+    hash.update(await this.hashDirectory(path.join(appsRoot, "_shared", "functions")) ?? "");
+    for (const app of apps) {
+      hash.update(await this.hashDirectory(path.join(appsRoot, app, "functions")) ?? "");
+      hash.update(await this.hashFile(path.join(appsRoot, app, "firestore.indexes.json")) ?? "");
+    }
+    hash.update(await this.hashDirectory(path.join(webRoot, "..", "tnp-getgo-logics", "firebase-rules", "generated")) ?? "");
+    const functionsTemplate = path.join(deployRoot, "functions");
+    for (const filename of ["package.json", "package-lock.json", "tsconfig.json"])
+      hash.update(await this.hashFile(path.join(functionsTemplate, filename)) ?? "");
+    hash.update(await this.hashDirectory(path.join(functionsTemplate, "vendor")) ?? "");
+    hash.update(await this.hashFile(path.join(webRoot, "configs", "deploys", targetName, "target.json")) ?? "");
+    return hash.digest("hex");
+  }
+
+  private async localItems(component: DeploymentComponent, webRoot: string, target: WebDeploymentTarget): Promise<DeploymentItemState[]> {
+    const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
+    const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as {
+      envFile?: string;
+      apps?: string[];
+      resourceDir?: string;
+      functionCodebases?: Array<{id: string; name: string}>;
+    };
+    const deployRoot = path.join(webRoot, targetConfig.resourceDir ?? `configs/deploys/${targetName}`);
     if (component === "web")
-      return [{ id: "web", localHash: await this.hashDirectory(path.join(webRoot, "dist")), deployedHash: null, changed: false }];
+      return [
+        { id: "web", localHash: await this.hashDirectory(path.join(webRoot, "dist")), deployedHash: null, changed: false },
+        { id: "web-inputs", localHash: await this.hashHostingInputs(webRoot, targetConfig.envFile ?? `configs/deploys/${targetName}/.env`), deployedHash: null, changed: false },
+      ];
     const ruleItems = await Promise.all([
       ["firestore-rules", "firestore.rules"],
       ["firestore-indexes", "firestore.indexes.json"],
       ["storage-rules", "storage.rules"],
     ].map(async ([id, filename]) => ({ id: id as DeploymentItemState["id"], localHash: await this.hashFile(path.join(deployRoot, filename)), deployedHash: null, changed: false })));
-    return [...ruleItems, { id: "functions", localHash: await this.hashDirectory(path.join(deployRoot, "functions", "src")), deployedHash: null, changed: false }];
+    const functionItems = await Promise.all((targetConfig.functionCodebases ?? []).map(async (codebase) => ({
+      id: `functions:${codebase.name}` as const,
+      localHash: await this.hashFunctionCodebase(path.join(deployRoot, `functions-${codebase.id}`)),
+      deployedHash: null,
+      changed: false,
+    })));
+    return [
+      ...ruleItems,
+      { id: "firebase-inputs", localHash: await this.hashFirebaseInputs(webRoot, targetName, deployRoot, targetConfig.apps ?? ["getgo"]), deployedHash: null, changed: false },
+      ...functionItems,
+    ];
   }
 
   private async recordBuild(component: DeploymentComponent, target: WebDeploymentTarget) {
     const webRoot = await this.webRoot();
-    const record: BuildRecord = { component, target, format: "shared-v1", builtAt: new Date().toISOString(), items: await this.localItems(component, webRoot) };
-    this.builds = [record, ...this.builds.filter((item) => item.component !== component)].slice(0, 12);
+    const record: BuildRecord = { component, target, format: "shared-v1", builtAt: new Date().toISOString(), items: await this.localItems(component, webRoot, target) };
+    this.builds = [record, ...this.builds.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
   }
 
   private componentVersion(component: DeploymentComponent, items: DeploymentItemState[], source: "localHash" | "deployedHash") {
     const values = items
-      .filter((item) => component === "web" ? item.id === "web" : item.id !== "web")
+      .filter((item) => component === "web" ? item.id === "web" : item.id !== "web" && item.id !== "web-inputs" && item.id !== "firebase-inputs")
       .map((item) => `${item.id}:${item[source] ?? ""}`)
       .sort();
     if (!values.length || values.some((value) => value.endsWith(":"))) return undefined;
@@ -250,17 +307,47 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const webRoot = await this.webRoot();
     const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
-    const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as { firebaseProject: string; functionsRegion?: string; url: string };
+    const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as { firebaseProject: string; functionsRegion?: string; functionCodebases?: Array<{name: string}>; url: string };
     const deployed = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, ".deploy-hashes.json"), "utf8").catch(() => "{}")) as Record<string, string>;
+    const legacyFirebaseBuild = this.builds.find((item) =>
+      item.component === "firebase"
+      && item.target === target
+      && (!item.items.some((artifact) => artifact.id.startsWith("functions:"))
+        || !item.items.some((artifact) => artifact.id === "firebase-inputs")),
+    );
+    if (legacyFirebaseBuild) {
+      legacyFirebaseBuild.items = await this.localItems("firebase", webRoot, target);
+      legacyFirebaseBuild.builtAt = new Date().toISOString();
+      legacyFirebaseBuild.format = "shared-v1";
+      await this.persist();
+    }
+    const legacyWebBuild = this.builds.find((item) =>
+      item.component === "web"
+      && item.target === target
+      && !item.items.some((artifact) => artifact.id === "web-inputs"),
+    );
+    if (legacyWebBuild) {
+      legacyWebBuild.items = await this.localItems("web", webRoot, target);
+      legacyWebBuild.builtAt = new Date().toISOString();
+      legacyWebBuild.format = "shared-v1";
+      await this.persist();
+    }
     const componentState = (component: DeploymentComponent): DeploymentComponentState => {
       const build = this.builds.find((item) =>
         item.component === component
+        && item.target === target
         && item.format === "shared-v1"
-        && (component === "web" || item.items.some((artifact) => artifact.id === "functions")),
+        && (component === "web" || item.items.some((artifact) => artifact.id.startsWith("functions:"))),
       );
       const keys = component === "web"
-        ? [["web", "hosting"]]
-        : [["firestore-rules", "firestore:rules"], ["firestore-indexes", "firestore:indexes"], ["storage-rules", "storage"], ["functions", "functions"]];
+        ? [["web", "hosting"], ["web-inputs", "hosting:inputs"]]
+        : [
+            ["firestore-rules", "firestore:rules"],
+            ["firestore-indexes", "firestore:indexes"],
+            ["storage-rules", "storage"],
+            ["firebase-inputs", "firebase:inputs"],
+            ...(targetConfig.functionCodebases ?? []).map(({name}) => [`functions:${name}`, `functions:${name}`]),
+          ];
       const items = keys.map(([id, key]) => {
         const localHash = build?.items.find((item) => item.id === id)?.localHash ?? null;
         const deployedHash = deployed[key] ?? null;
