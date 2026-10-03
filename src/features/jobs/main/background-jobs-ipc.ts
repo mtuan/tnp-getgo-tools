@@ -108,13 +108,15 @@ export function registerBackgroundJobsIpc(
     return deploymentProduct(value) === "app" ? localAppRuntime : localWebRuntime;
   };
   ipcMain.handle("local-web:state", (_event, runtimeId: unknown = "web") => runtime(runtimeId).state());
-  ipcMain.handle("local-web:start", (_event, runtimeId: unknown = "web", target: unknown = "development") => {
+  ipcMain.handle("local-web:start", (_event, runtimeId: unknown = "web", target: unknown = "development", protocol: unknown = "https") => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
-    return runtime(runtimeId).start("start", target);
+    if (!(protocol === "http" || protocol === "https")) throw new Error("Invalid local web protocol.");
+    return runtime(runtimeId).start("start", target, protocol);
   });
-  ipcMain.handle("local-web:restart", (_event, runtimeId: unknown = "web", target: unknown = "development") => {
+  ipcMain.handle("local-web:restart", (_event, runtimeId: unknown = "web", target: unknown = "development", protocol: unknown = "https") => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
-    return runtime(runtimeId).restart(target);
+    if (!(protocol === "http" || protocol === "https")) throw new Error("Invalid local web protocol.");
+    return runtime(runtimeId).restart(target, protocol);
   });
   ipcMain.handle("local-web:stop", (_event, runtimeId: unknown = "web") => runtime(runtimeId).stop());
   ipcMain.handle("native-project:open", (_event, platform: unknown, target: unknown, product: unknown = "web") => {

@@ -660,7 +660,9 @@ export interface LocalWebRuntimeSnapshot {
   startedAt?: string;
   error?: string;
   lastJob?: BackgroundJob;
+  protocol?: LocalWebProtocol;
 }
+export type LocalWebProtocol = "http" | "https";
 export interface DeploymentJobReportStep {
   id: string;
   label: string;
@@ -987,8 +989,8 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   updateNativeVersion(increment: "patch" | "minor" | "major"): Promise<NativeVersionState>;
   openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget, product?: DeploymentProduct): Promise<void>;
   getLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;
-  startLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
-  restartLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget): Promise<LocalWebRuntimeSnapshot>;
+  startLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget, protocol?: LocalWebProtocol): Promise<LocalWebRuntimeSnapshot>;
+  restartLocalWebRuntime(runtime?: LocalRuntimeId, target?: WebDeploymentTarget, protocol?: LocalWebProtocol): Promise<LocalWebRuntimeSnapshot>;
   stopLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;
   cancelBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;
   pauseBackgroundJob(jobId: string): Promise<BackgroundJobsSnapshot>;

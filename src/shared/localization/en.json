@@ -525,6 +525,7 @@
     "openNetworkAddress": "Open network address in browser",
     "showNetworkQr": "Show Wi-Fi QR code",
     "localhostEnvironment": "Configuration",
+    "localhostProtocol": "Protocol",
     "development": "Development",
     "localEnvironment": "Local .env",
     "openLocalhost": "Open",

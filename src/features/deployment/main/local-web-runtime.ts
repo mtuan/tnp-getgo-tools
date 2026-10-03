@@ -1,10 +1,11 @@
 import { execFile, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync, promises as fs } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { BackgroundJob, DeploymentProduct, LocalWebRuntimeSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { BackgroundJob, DeploymentProduct, LocalWebProtocol, LocalWebRuntimeSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 import { resolveLocalNetworkUrl } from "./local-network-address.js";
@@ -73,6 +74,7 @@ const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface PersistedRuntime {
   pid: number;
   startedAt: string;
+  protocol?: LocalWebProtocol;
 }
 
 function runtimeFailureSummary(job: BackgroundJob, fallback: string) {
@@ -98,8 +100,8 @@ export class LocalWebRuntimeManager {
   private lastJobLoaded: Promise<void> | null = null;
   private jobPersistChain: Promise<void> = Promise.resolve();
   private lastConfirmedOnlineAt = 0;
-  private warmingUp = false;
   private operation: Promise<LocalWebRuntimeSnapshot> | null = null;
+  private protocol: LocalWebProtocol;
 
   constructor(
     private readonly toolsAppPath: string,
@@ -111,6 +113,13 @@ export class LocalWebRuntimeManager {
     this.jobFile = path.join(userDataPath, `${prefix}-job.json`);
     this.stdoutFile = path.join(userDataPath, `${prefix}.stdout.log`);
     this.stderrFile = path.join(userDataPath, `${prefix}.stderr.log`);
+    this.protocol = new URL(config.url).protocol === "https:" ? "https" : "http";
+  }
+
+  private runtimeUrl(protocol = this.protocol) {
+    const value = new URL(this.config.url);
+    value.protocol = `${protocol}:`;
+    return value.origin;
   }
 
   private async loadLastJob() {
@@ -195,15 +204,23 @@ export class LocalWebRuntimeManager {
     // Metro port as ready so health probes do not repeatedly abort cold SSR.
     if (this.config.product === "app") return Boolean(await this.listenerPid());
     try {
-      const runtimeUrl = new URL(`${this.config.url}${this.config.healthPath ?? ""}`);
-      if (runtimeUrl.protocol === "https:" && ["localhost", "127.0.0.1", "::1"].includes(runtimeUrl.hostname)) {
+      const runtimeUrl = new URL(`${this.runtimeUrl()}${this.config.healthPath ?? ""}`);
+      // Vite is launched on 0.0.0.0 and may expose only an IPv4 listener on
+      // macOS. Node can resolve localhost to ::1 first without falling back,
+      // leaving Tools in "Starting" even though browsers can open the server.
+      // Keep localhost as the public URL, but probe its explicit loopback peer.
+      if (runtimeUrl.hostname === "localhost") runtimeUrl.hostname = "127.0.0.1";
+      if (["localhost", "127.0.0.1", "::1"].includes(runtimeUrl.hostname)) {
         return await new Promise<boolean>(resolve => {
-          const request = httpsRequest(runtimeUrl, { rejectUnauthorized: false }, response => {
+          const handleResponse = (response: import("node:http").IncomingMessage) => {
             response.resume();
             const online = Boolean(response.statusCode && response.statusCode >= 200 && response.statusCode < 300);
             if (online) this.lastConfirmedOnlineAt = Date.now();
             resolve(online);
-          });
+          };
+          const request = runtimeUrl.protocol === "https:"
+            ? httpsRequest(runtimeUrl, { rejectUnauthorized: false }, handleResponse)
+            : httpRequest(runtimeUrl, handleResponse);
           request.setTimeout(1500, () => request.destroy());
           request.once("error", () => resolve(false));
           request.end();
@@ -277,6 +294,7 @@ export class LocalWebRuntimeManager {
 
   private async clearExistingRuntime() {
     const persisted = await this.persistedRuntime();
+    if (persisted?.protocol) this.protocol = persisted.protocol;
     const managedPid = this.child?.pid ?? persisted?.pid;
     const listenerPid = await this.listenerPid();
     const pid = listenerPid ?? managedPid;
@@ -325,33 +343,37 @@ export class LocalWebRuntimeManager {
       this.lastJob.error = summary;
       this.error = summary;
     }
-    const online = await this.isOnline();
     const persisted = await this.persistedRuntime();
+    if (persisted?.protocol) this.protocol = persisted.protocol;
+    const online = await this.isOnline();
     const managed = Boolean(this.child || persisted);
     const pid = this.child?.pid ?? persisted?.pid;
     const startedAt = this.startedAt ?? persisted?.startedAt;
     const recentlyOnline = this.lastConfirmedOnlineAt > 0 && Date.now() - this.lastConfirmedOnlineAt < 6_000;
     return {
-      status: !this.warmingUp && (online || (managed && recentlyOnline)) ? "online" : managed ? "starting" : this.error ? "error" : "offline",
-      url: this.config.url,
-      networkUrl: this.config.exposeToNetwork ? resolveLocalNetworkUrl(this.config.url) : undefined,
+      status: online || (managed && recentlyOnline) ? "online" : managed ? "starting" : this.error ? "error" : "offline",
+      url: this.runtimeUrl(),
+      networkUrl: this.config.exposeToNetwork ? resolveLocalNetworkUrl(this.runtimeUrl()) : undefined,
       managed,
       target: this.lastJob?.target ?? "development",
       pid,
       startedAt,
       error: this.error ?? undefined,
       lastJob: this.lastJob ? structuredClone(this.lastJob) : undefined,
+      protocol: this.protocol,
     };
   }
 
-  start(operation: "start" | "restart" = "start", target: WebDeploymentTarget = "development") {
-    return this.singleFlight(() => this.startInternal(operation, target));
+  start(operation: "start" | "restart" = "start", target: WebDeploymentTarget = "development", protocol?: LocalWebProtocol) {
+    return this.singleFlight(() => this.startInternal(operation, target, protocol));
   }
 
-  private async startInternal(operation: "start" | "restart", target: WebDeploymentTarget) {
+  private async startInternal(operation: "start" | "restart", target: WebDeploymentTarget, protocol?: LocalWebProtocol) {
     await this.ensureLastJobLoaded();
     this.lastConfirmedOnlineAt = 0;
     await this.clearExistingRuntime();
+    if (protocol && this.config.id === "web") this.protocol = protocol;
+    const runtimeUrl = this.runtimeUrl();
     const repositoryRoot = await this.repositoryRoot();
     const operationStartedAt = new Date().toISOString();
     this.startedAt = operationStartedAt;
@@ -362,7 +384,6 @@ export class LocalWebRuntimeManager {
     const apiKey = process.env[`${firebasePrefix}_API_KEY`]?.trim();
     if ((this.config.requiresFirebaseConfig ?? this.config.product === "web") && (!projectId || !projectNumber || !apiKey))
       throw new Error(`${target} Firebase configuration is incomplete in GetGo Tools .env.`);
-    this.warmingUp = true;
     const command = this.config.command(target);
     const job: BackgroundJob = {
       id: randomUUID(),
@@ -372,7 +393,7 @@ export class LocalWebRuntimeManager {
       operation: "run",
       target,
       name: `${operation === "restart" ? "Restart" : "Start"} ${this.config.displayName}`,
-      description: `Run ${this.config.displayName} on ${this.config.url}`,
+      description: `Run ${this.config.displayName} on ${runtimeUrl}`,
       status: "running",
       completed: 1,
       total: 1,
@@ -398,6 +419,7 @@ export class LocalWebRuntimeManager {
         detached: process.platform !== "win32",
         env: {
           ...process.env,
+          ...(this.config.id === "web" ? { GETGO_LOCAL_PROTOCOL: this.protocol } : {}),
           ...((this.config.requiresFirebaseConfig ?? this.config.product === "web") ? {
             VITE_FIREBASE_API_KEY: apiKey!,
             VITE_FIREBASE_PROJECT_ID: projectId!,
@@ -414,7 +436,6 @@ export class LocalWebRuntimeManager {
       closeSync(stderrFd);
       const message = cause instanceof Error ? cause.message : String(cause);
       const finishedAt = new Date().toISOString();
-      this.warmingUp = false;
       this.error = message;
       job.status = "failed";
       job.error = message;
@@ -429,7 +450,7 @@ export class LocalWebRuntimeManager {
     this.child = child;
     child.unref();
     if (child.pid)
-      await this.persist({ pid: child.pid, startedAt: this.startedAt });
+      await this.persist({ pid: child.pid, startedAt: this.startedAt, protocol: this.protocol });
     child.once("error", (cause) => {
       if (this.child !== child) return;
       this.error = cause.message;
@@ -459,46 +480,45 @@ export class LocalWebRuntimeManager {
       await this.terminate().catch(() => undefined);
       throw new Error(message);
     }
-    if (this.config.warmCommand) try {
+    if (this.config.warmCommand) {
       job.progressLabel = "Warming common GetGo routes";
       job.logs?.push({
         timestamp: new Date().toISOString(),
         stream: "system",
-        message: "The local server is listening. Precompiling the common GetGo route graphs.",
+        message: "The local server is ready. Precompiling common GetGo routes in the background.",
       });
       await this.persistLastJob();
+      void this.warmRuntime(job, repositoryRoot, runtimeUrl, operationStartedAt);
+    } else {
+      job.progressLabel = "Localhost ready";
+      job.durationMs = Math.max(0, Date.now() - Date.parse(operationStartedAt));
+      await this.persistLastJob();
+    }
+    return this.state();
+  }
+
+  private async warmRuntime(job: BackgroundJob, repositoryRoot: string, runtimeUrl: string, operationStartedAt: string) {
+    try {
       const { stdout, stderr } = await execFileAsync(
         "npm",
-        this.config.warmCommand,
-        {
-          cwd: repositoryRoot,
-          timeout: 180_000,
-          maxBuffer: 10 * 1024 * 1024,
-        },
+        this.config.warmCommand!.map(value => value === this.config.url ? runtimeUrl : value),
+        { cwd: repositoryRoot, timeout: 180_000, maxBuffer: 10 * 1024 * 1024 },
       );
+      if (this.lastJob?.id !== job.id) return;
       const completedAt = new Date().toISOString();
       for (const message of `${stdout}\n${stderr}`.replace(/\r/g, "").split("\n").filter(Boolean))
         job.logs?.push({ timestamp: completedAt, stream: "system", message });
       job.progressLabel = "Localhost ready";
       job.durationMs = Math.max(0, Date.parse(completedAt) - Date.parse(operationStartedAt));
     } catch (cause) {
+      if (this.lastJob?.id !== job.id) return;
       const message = cause instanceof Error ? cause.message : String(cause);
       const completedAt = new Date().toISOString();
-      job.logs?.push({
-        timestamp: completedAt,
-        stream: "system",
-        message: `Warmup did not finish, but Vite is available: ${message}`,
-      });
+      job.logs?.push({ timestamp: completedAt, stream: "system", message: `Background warmup did not finish: ${message}` });
       job.progressLabel = "Localhost ready (warmup incomplete)";
       job.durationMs = Math.max(0, Date.parse(completedAt) - Date.parse(operationStartedAt));
     }
-    else {
-      job.progressLabel = "Localhost ready";
-      job.durationMs = Math.max(0, Date.now() - Date.parse(operationStartedAt));
-    }
-    this.warmingUp = false;
     await this.persistLastJob();
-    return this.state();
   }
 
   private async terminate() {
@@ -510,16 +530,16 @@ export class LocalWebRuntimeManager {
     await this.persist(null);
   }
 
-  restart(target: WebDeploymentTarget = "development") {
-    return this.singleFlight(() => this.restartInternal(target));
+  restart(target: WebDeploymentTarget = "development", protocol?: LocalWebProtocol) {
+    return this.singleFlight(() => this.restartInternal(target, protocol));
   }
 
-  private async restartInternal(target: WebDeploymentTarget) {
+  private async restartInternal(target: WebDeploymentTarget, protocol?: LocalWebProtocol) {
     // An intentional restart must not inherit the health-check grace period
     // from the process that is being replaced.
     this.lastConfirmedOnlineAt = 0;
     await this.clearExistingRuntime();
-    return this.startInternal("restart", target);
+    return this.startInternal("restart", target, protocol);
   }
 
   stop() {
@@ -530,7 +550,6 @@ export class LocalWebRuntimeManager {
     await this.ensureLastJobLoaded();
     await this.clearExistingRuntime();
     this.lastConfirmedOnlineAt = 0;
-    this.warmingUp = false;
     this.error = null;
     if (this.lastJob && this.lastJob.status === "running") {
       const finishedAt = new Date().toISOString();

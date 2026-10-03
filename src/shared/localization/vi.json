@@ -525,6 +525,7 @@
     "openNetworkAddress": "Mở địa chỉ mạng trong trình duyệt",
     "showNetworkQr": "Hiện mã QR Wi-Fi",
     "localhostEnvironment": "Cấu hình",
+    "localhostProtocol": "Giao thức",
     "development": "Development",
     "localEnvironment": ".env cục bộ",
     "openLocalhost": "Mở",

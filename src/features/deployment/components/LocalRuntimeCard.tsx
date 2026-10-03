@@ -1,5 +1,5 @@
 import { ExternalLink, Eye, MonitorCog, Power, QrCode, RotateCw, Square } from "lucide-react";
-import type { AppSettings, LocalWebRuntimeSnapshot } from "../../../shared/domain/models";
+import type { AppSettings, LocalWebProtocol, LocalWebRuntimeSnapshot } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { LastDeploymentJobStatus } from "./LastDeploymentJobStatus";
 import { LocalNetworkAccess } from "./LocalNetworkAccess";
@@ -12,11 +12,13 @@ interface LocalRuntimeCardProps {
   action: "start" | "restart" | "stop" | null;
   title: string;
   environment: string;
+  protocol?: LocalWebProtocol;
+  onProtocolChange?(protocol: LocalWebProtocol): void;
   onControl(action: "start" | "restart" | "stop"): void;
   onViewLogs(): void;
 }
 
-export function LocalRuntimeCard({ locale, runtime, action, title, environment, onControl, onViewLogs }: LocalRuntimeCardProps) {
+export function LocalRuntimeCard({ locale, runtime, action, title, environment, protocol, onProtocolChange, onControl, onViewLogs }: LocalRuntimeCardProps) {
   const copy = (locale === "vi" ? vi : en).deployment;
   return <ui.Panel className="deployment-card">
     <ui.PanelBody>
@@ -31,6 +33,7 @@ export function LocalRuntimeCard({ locale, runtime, action, title, environment, 
         <dl className="deployment-card-facts">
           <div><dt>{copy.localhostAddress}</dt><dd>{runtime?.url ?? "—"}</dd></div>
           <div><dt>{copy.localhostEnvironment}</dt><dd>{environment}</dd></div>
+          {protocol && onProtocolChange && <div><dt>{copy.localhostProtocol}</dt><dd><ui.SegmentedControl value={protocol} options={[{ value: "http", label: "HTTP" }, { value: "https", label: "HTTPS" }]} ariaLabel={copy.localhostProtocol} disabled={action !== null} onValueChange={value => onProtocolChange(value as LocalWebProtocol)} /></dd></div>}
         </dl>
         <LastDeploymentJobStatus job={runtime?.lastJob} locale={locale} localhost />
         {runtime?.error && <p className="local-web-error">{runtime.error}</p>}
