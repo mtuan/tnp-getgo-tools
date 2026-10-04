@@ -18,13 +18,13 @@ const targetScripts: Record<ReleaseTarget, string> = {
 };
 
 export function releaseCommands(target: ReleaseTarget, scope: ReleaseScope) {
-  const web = { label: "Deploying Web and Firebase", args: ["run", targetScripts[target]] };
+  const web = { label: "Deploying Web and Firebase", args: ["run", targetScripts[target]], steps: 7 };
   if (scope === "web") return [web];
   const native = scope === "ios"
-    ? { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target] }
-    : { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target] };
+    ? { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target], steps: 1 }
+    : { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 };
   if (scope !== "all") return [web, native];
-  return [web, { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target] }, { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target] }];
+  return [web, { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target], steps: 1 }, { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 }];
 }
 
 function cleanLine(value: string) {
@@ -101,6 +101,7 @@ export class FullReleaseJobManager {
         firebaseProject?: string;
         firebaseConfig?: string;
         resourceDir?: string;
+        requiredSecrets?: string[];
       };
       const resourceDirectory = path.resolve(root, config.resourceDir ?? `configs/deploys/${targetName}`);
       const firebaseConfigPath = path.resolve(root, config.firebaseConfig ?? path.join(resourceDirectory, "firebase.json"));
@@ -119,6 +120,14 @@ export class FullReleaseJobManager {
       const firebaseProjects = JSON.parse(firebaseJson) as { result?: Array<{ projectId?: string }> };
       if (!firebaseProjects.result?.some(project => project.projectId === config.firebaseProject)) {
         return { id: "web", status: "action-required", title: "Web and Firebase", summary: `The signed-in Firebase account cannot access ${config.firebaseProject ?? targetName}.`, details: [`Repository: ${root}`, `Required Firebase project: ${config.firebaseProject ?? targetName}`, "$ npm exec -- firebase projects:list --json", ...usefulDetails(firebase.output)] };
+      }
+      const secretChecks = await Promise.all((config.requiredSecrets ?? []).map(async secret => ({
+        secret,
+        result: await this.runCapture(root, ["secrets", "describe", secret, `--project=${config.firebaseProject ?? targetName}`, "--format=value(name)"], "gcloud"),
+      })));
+      const missingSecrets = secretChecks.filter(check => check.result.code !== 0 || !check.result.output.trim()).map(check => check.secret);
+      if (missingSecrets.length > 0) {
+        return { id: "web", status: "action-required", title: "Web and Firebase", summary: `Create the required Firebase Functions secrets before releasing: ${missingSecrets.join(", ")}.`, details: [`Firebase project: ${config.firebaseProject ?? targetName}`, ...missingSecrets.map(secret => `$ firebase functions:secrets:set ${secret} --project ${config.firebaseProject ?? targetName}`)] };
       }
       return { id: "web", status: "ready", title: "Web and Firebase", summary: `${config.firebaseProject ?? targetName} configuration and Firebase access are ready.`, details: [] };
     } catch (cause) {
@@ -161,7 +170,7 @@ export class FullReleaseJobManager {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: scope,
       name: `${names[scope]} · ${target}`,
       description: scope === "all" ? `Deploy Firebase and Web, then upload iOS and Android` : scope === "web" ? "Deploy Firebase and Web" : `Deploy Firebase and Web, then upload ${scope === "ios" ? "iOS to TestFlight" : "Android to Google Play"}`,
-      status: "queued", completed: 0, total: commands.length, progressLabel: "Starting release", createdAt: new Date().toISOString(),
+      status: "queued", completed: 0, total: commands.reduce((total, command) => total + command.steps, 0), progressLabel: "Starting release", createdAt: new Date().toISOString(),
       cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `${names[scope]} queued after Release Doctor passed.` }],
     };
@@ -180,14 +189,16 @@ export class FullReleaseJobManager {
     await this.persist();
     const commands = releaseCommands(job.target, job.releaseScope ?? "all");
     try {
-      for (const [index, command] of commands.entries()) {
+      let completed = 0;
+      for (const command of commands) {
         if (runtime.cancelled) return;
         job.progressLabel = command.label;
         job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: `$ npm ${command.args.join(" ")}` });
-        const code = await this.runCommand(job, runtime, root, command.args);
+        const code = await this.runCommand(job, runtime, root, command.args, completed);
         if (runtime.cancelled) return;
         if (code !== 0) throw new Error(`${command.label} failed with exit code ${code ?? "unknown"}.`);
-        job.completed = index + 1;
+        completed += command.steps;
+        job.completed = completed;
         await this.persist();
       }
       job.status = "completed";
@@ -212,7 +223,7 @@ export class FullReleaseJobManager {
     }
   }
 
-  private runCommand(job: ReleaseJob, runtime: Runtime, root: string, args: string[]) {
+  private runCommand(job: ReleaseJob, runtime: Runtime, root: string, args: string[], completedBefore: number) {
     return new Promise<number | null>((resolve, reject) => {
       const child = spawnCommand(npmExecutable, args, { cwd: root, env: process.env, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
       runtime.child = child;
@@ -223,6 +234,14 @@ export class FullReleaseJobManager {
         for (const raw of lines) {
           const message = cleanLine(raw);
           if (!message) continue;
+          if (message.startsWith("GETGO_RELEASE_PROGRESS ")) {
+            try {
+              const progress = JSON.parse(message.slice("GETGO_RELEASE_PROGRESS ".length)) as { completed?: number; label?: string };
+              if (typeof progress.completed === "number") job.completed = Math.min(job.total, completedBefore + progress.completed);
+              if (typeof progress.label === "string" && progress.label) job.progressLabel = progress.label;
+            } catch { /* Keep the raw deployment output when a progress event is malformed. */ }
+            continue;
+          }
           job.logs?.push({ timestamp: new Date().toISOString(), stream, message });
           job.progressLabel = message;
         }
