@@ -109,13 +109,14 @@ export function registerBackgroundJobsIpc(
     if (!(target === "staging" || target === "production")) throw new Error("Full releases are available only for staging and production.");
     return fullReleaseJobs.doctor(target);
   });
-  ipcMain.handle("release:start", async (_event, target: unknown) => {
+  ipcMain.handle("release:start", async (_event, target: unknown, scope: unknown) => {
     if (!(target === "staging" || target === "production")) throw new Error("Full releases are available only for staging and production.");
+    if (!(scope === "all" || scope === "web" || scope === "ios" || scope === "android")) throw new Error("Invalid release scope.");
     const componentJobs = [...await webDeploymentJobs.list(), ...await nativeDeploymentJobs.list()];
     if (componentJobs.some(job => ["queued", "running", "paused"].includes(job.status))) {
       throw new Error("Wait for active component deployments to finish before starting the full release.");
     }
-    await fullReleaseJobs.start(target);
+    await fullReleaseJobs.start(target, scope);
     return snapshot();
   });
   ipcMain.handle("native-version:update", async (_event, increment: unknown) => {

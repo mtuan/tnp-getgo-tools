@@ -2,12 +2,12 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, ReleaseDoctorCheck, ReleaseDoctorSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { BackgroundJob, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
-type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "deploy" };
+type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "deploy"; releaseScope?: ReleaseScope };
 type Runtime = { child?: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> };
 
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -17,12 +17,14 @@ const targetScripts: Record<ReleaseTarget, string> = {
   production: "deploy:getgo:production",
 };
 
-export function fullReleaseCommands(target: ReleaseTarget) {
-  return [
-    { label: "Deploying Web and Firebase", args: ["run", targetScripts[target]] },
-    { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target] },
-    { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target] },
-  ];
+export function releaseCommands(target: ReleaseTarget, scope: ReleaseScope) {
+  const web = { label: "Deploying Web and Firebase", args: ["run", targetScripts[target]] };
+  if (scope === "web") return [web];
+  const native = scope === "ios"
+    ? { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target] }
+    : { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target] };
+  if (scope !== "all") return [web, native];
+  return [web, { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target] }, { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target] }];
 }
 
 function cleanLine(value: string) {
@@ -107,11 +109,6 @@ export class FullReleaseJobManager {
         fs.access(path.join(resourceDirectory, "firestore.rules")), fs.access(path.join(resourceDirectory, "firestore.indexes.json")),
         fs.access(path.join(resourceDirectory, "storage.rules")),
       ]);
-      const git = await this.runCapture(root, ["status", "--short"], "git");
-      if (git.code !== 0) throw new Error(usefulDetails(git.output).join("\n") || "Could not inspect the Git worktree.");
-      if (git.output.trim()) {
-        return { id: "web", status: "action-required", title: "Web and Firebase", summary: "Commit or stash local changes before releasing.", details: [`Repository: ${root}`, "$ git status --short", ...usefulDetails(git.output)] };
-      }
       const firebase = await this.runCapture(root, ["exec", "--", "firebase", "projects:list", "--json"]);
       if (firebase.code !== 0) {
         return { id: "web", status: "action-required", title: "Web and Firebase", summary: "Firebase CLI authentication is required.", details: [`Repository: ${root}`, `Firebase project: ${config.firebaseProject ?? targetName}`, "$ npm exec -- firebase projects:list --json", `Exit code: ${firebase.code ?? "unknown"}`, ...usefulDetails(firebase.output)] };
@@ -150,18 +147,23 @@ export class FullReleaseJobManager {
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
 
-  async start(target: ReleaseTarget) {
+  async start(target: ReleaseTarget, scope: ReleaseScope) {
     await this.ensureLoaded();
-    if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another full release is already active.");
+    if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another release is already active.");
     const readiness = await this.doctor(target);
-    if (!readiness.ready) throw new Error("Release Doctor found requirements that still need attention.");
+    const requiredChecks = scope === "all" ? ["web", "ios", "android"] : scope === "web" ? ["web"] : ["web", scope];
+    if (readiness.checks.some(check => requiredChecks.includes(check.id) && check.status !== "ready")) {
+      throw new Error("Release Doctor found requirements for this release that still need attention.");
+    }
+    const commands = releaseCommands(target, scope);
+    const names: Record<ReleaseScope, string> = { all: "Full GetGo release", web: "Web and Firebase release", ios: "iOS TestFlight release", android: target === "staging" ? "Android Internal testing release" : "Android production draft" };
     const job: ReleaseJob = {
-      id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target,
-      name: `Full GetGo release · ${target}`,
-      description: `Deploy Firebase and Web, then upload iOS to TestFlight and Android to ${target === "staging" ? "Internal testing" : "the Production draft"}`,
-      status: "queued", completed: 0, total: 3, progressLabel: "Starting release", createdAt: new Date().toISOString(),
+      id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: scope,
+      name: `${names[scope]} · ${target}`,
+      description: scope === "all" ? `Deploy Firebase and Web, then upload iOS and Android` : scope === "web" ? "Deploy Firebase and Web" : `Deploy Firebase and Web, then upload ${scope === "ios" ? "iOS to TestFlight" : "Android to Google Play"}`,
+      status: "queued", completed: 0, total: commands.length, progressLabel: "Starting release", createdAt: new Date().toISOString(),
       cancellable: true, retryable: false,
-      logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Full release queued after Release Doctor passed." }],
+      logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `${names[scope]} queued after Release Doctor passed.` }],
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -176,7 +178,7 @@ export class FullReleaseJobManager {
     job.status = "running";
     job.startedAt = new Date().toISOString();
     await this.persist();
-    const commands = fullReleaseCommands(job.target);
+    const commands = releaseCommands(job.target, job.releaseScope ?? "all");
     try {
       for (const [index, command] of commands.entries()) {
         if (runtime.cancelled) return;
@@ -189,10 +191,10 @@ export class FullReleaseJobManager {
         await this.persist();
       }
       job.status = "completed";
-      job.progressLabel = "Release uploaded";
+      job.progressLabel = "Release completed";
       job.cancellable = false;
       job.finishedAt = new Date().toISOString();
-      job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: "Full release completed." });
+      job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: "Release completed." });
     } catch (cause) {
       if (!runtime.cancelled) {
         job.status = "failed";
@@ -280,7 +282,7 @@ export class FullReleaseJobManager {
   async retry(id: string) {
     await this.ensureLoaded();
     const job = this.jobs.find(item => item.id === id);
-    if (job?.retryable) await this.start(job.target);
+    if (job?.retryable) await this.start(job.target, job.releaseScope ?? "all");
   }
 
   async delete(id: string) {

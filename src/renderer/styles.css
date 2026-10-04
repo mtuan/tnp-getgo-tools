@@ -8639,6 +8639,10 @@ button.danger svg {
   color: var(--primary);
   background: var(--primary-soft);
 }
+.release-pipeline li > .ui-button {
+  grid-column: 1 / -1;
+  width: 100%;
+}
 .release-pipeline svg { width: 18px; height: 18px; }
 .release-pipeline strong,
 .release-pipeline small { display: block; }
