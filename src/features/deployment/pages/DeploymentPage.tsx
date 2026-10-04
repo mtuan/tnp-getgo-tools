@@ -8,18 +8,28 @@ import { DeploymentJobReportDrawer } from "../components/DeploymentJobReportDraw
 import { NativeDeploymentCards } from "../components/NativeDeploymentCards";
 import { useAuth } from "../../authentication/components/AuthContext";
 import { LocalRuntimeCard } from "../components/LocalRuntimeCard";
+import { FullReleasePage } from "../components/FullReleasePage";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
-export function DeploymentPage({
-  locale,
-  environment,
-  onOpenJobs,
-}: {
+type DeploymentPageProps = {
   locale: AppSettings["locale"];
   environment: AppSettings["environment"];
   onOpenJobs(): void;
-}) {
+};
+
+export function DeploymentPage(props: DeploymentPageProps) {
+  if (props.environment !== "development") {
+    return <FullReleasePage locale={props.locale} target={props.environment} onOpenJobs={props.onOpenJobs} />;
+  }
+  return <DevelopmentDeploymentPage {...props} />;
+}
+
+function DevelopmentDeploymentPage({
+  locale,
+  environment,
+  onOpenJobs,
+}: DeploymentPageProps) {
   const copy = (locale === "vi" ? vi : en).deployment;
   const { requireAuth } = useAuth();
   const [product, setProduct] = useState<DeploymentProduct>("web");

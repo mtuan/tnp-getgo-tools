@@ -4,6 +4,7 @@ import type { LocalWebRuntimeManager } from "../../deployment/main/local-web-run
 import type { PublishJobManager } from "./publish-jobs.js";
 import type { WebDeploymentJobManager } from "../../deployment/main/web-deployment-jobs.js";
 import type { NativeDeploymentJobManager } from "../../deployment/main/native-deployment-jobs.js";
+import type { FullReleaseJobManager } from "../../deployment/main/full-release-jobs.js";
 import type { BackgroundJob } from "../../../shared/domain/models.js";
 import type { AmcImportJobManager } from "../../amc-import/main/amc-import-jobs.js";
 
@@ -13,6 +14,7 @@ export function registerBackgroundJobsIpc(
   publishJobs: PublishJobManager,
   webDeploymentJobs: WebDeploymentJobManager,
   nativeDeploymentJobs: NativeDeploymentJobManager,
+  fullReleaseJobs: FullReleaseJobManager,
   localWebRuntime: LocalWebRuntimeManager,
   appNativeRuntimeJobs: NativeDeploymentJobManager,
   localAppRuntime: LocalWebRuntimeManager,
@@ -25,8 +27,8 @@ export function registerBackgroundJobsIpc(
     throw new Error("Invalid deployment product.");
   };
   const snapshot = async () => {
-    const [migration, published, deployments, nativeDeployments, appNativeJobs, amcImports] = await Promise.all([
-      aiMigrationJobs.list(), publishJobs.list(), webDeploymentJobs.list(), nativeDeploymentJobs.list(), appNativeRuntimeJobs.list(), amcImportJobs.list(),
+    const [migration, published, deployments, nativeDeployments, releases, appNativeJobs, amcImports] = await Promise.all([
+      aiMigrationJobs.list(), publishJobs.list(), webDeploymentJobs.list(), nativeDeploymentJobs.list(), fullReleaseJobs.list(), appNativeRuntimeJobs.list(), amcImportJobs.list(),
     ]);
     const migrated = migration.jobs.map((job) => ({
       id: job.id, kind: "ai-migrate" as const,
@@ -58,7 +60,7 @@ export function registerBackgroundJobsIpc(
         ],
       };
     };
-    const jobs = [...migrated, ...published, ...deployments, ...nativeDeployments, ...appNativeJobs, ...amcImports]
+    const jobs = [...migrated, ...published, ...deployments, ...nativeDeployments, ...releases, ...appNativeJobs, ...amcImports]
       .map(withFallbackLogs)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     return { aiConcurrency: migration.concurrency, jobs };
@@ -70,6 +72,7 @@ export function registerBackgroundJobsIpc(
       publishJobs.clearFinished(),
       webDeploymentJobs.clearFinished(),
       nativeDeploymentJobs.clearFinished(),
+      fullReleaseJobs.clearFinished(),
       appNativeRuntimeJobs.clearFinished(),
       amcImportJobs.clearFinished(),
     ]);
@@ -80,6 +83,9 @@ export function registerBackgroundJobsIpc(
     if (!(component === "firebase" || component === "web" || component === "mobile-ios" || component === "mobile-android")) throw new Error("Invalid deployment component.");
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     const requestedProduct = deploymentProduct(product);
+    if ((await fullReleaseJobs.list()).some(job => ["queued", "running", "paused"].includes(job.status))) {
+      throw new Error("Wait for the active full release to finish before starting another deployment.");
+    }
     if (component === "mobile-ios" || component === "mobile-android") {
       if (operation === "run-device" && requestedProduct !== "web") throw new Error("Connected-device runs are only available for GetGo Web native apps.");
       await (requestedProduct === "app" ? appNativeRuntimeJobs : nativeDeploymentJobs).start(operation, component === "mobile-ios" ? "ios" : "android", target);
@@ -98,6 +104,19 @@ export function registerBackgroundJobsIpc(
       nativeDeploymentJobs.versionState(),
     ]);
     return { ...state, iosSigning, nativeVersion };
+  });
+  ipcMain.handle("release:doctor", async (_event, target: unknown) => {
+    if (!(target === "staging" || target === "production")) throw new Error("Full releases are available only for staging and production.");
+    return fullReleaseJobs.doctor(target);
+  });
+  ipcMain.handle("release:start", async (_event, target: unknown) => {
+    if (!(target === "staging" || target === "production")) throw new Error("Full releases are available only for staging and production.");
+    const componentJobs = [...await webDeploymentJobs.list(), ...await nativeDeploymentJobs.list()];
+    if (componentJobs.some(job => ["queued", "running", "paused"].includes(job.status))) {
+      throw new Error("Wait for active component deployments to finish before starting the full release.");
+    }
+    await fullReleaseJobs.start(target);
+    return snapshot();
   });
   ipcMain.handle("native-version:update", async (_event, increment: unknown) => {
     if (!(increment === "patch" || increment === "minor" || increment === "major")) throw new Error("Invalid native version increment.");
@@ -127,7 +146,7 @@ export function registerBackgroundJobsIpc(
   for (const action of ["cancel", "pause", "resume", "retry", "delete"] as const)
     ipcMain.handle(`jobs:${action}`, async (_event, jobId: unknown) => {
       if (typeof jobId !== "string") throw new Error("Invalid job ID.");
-      await Promise.all([aiMigrationJobs[action](jobId), publishJobs[action](jobId), webDeploymentJobs[action](jobId), nativeDeploymentJobs[action](jobId), appNativeRuntimeJobs[action](jobId), amcImportJobs[action](jobId)]);
+      await Promise.all([aiMigrationJobs[action](jobId), publishJobs[action](jobId), webDeploymentJobs[action](jobId), nativeDeploymentJobs[action](jobId), fullReleaseJobs[action](jobId), appNativeRuntimeJobs[action](jobId), amcImportJobs[action](jobId)]);
       return snapshot();
     });
   return snapshot;

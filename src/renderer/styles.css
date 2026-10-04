@@ -8531,6 +8531,151 @@ button.danger svg {
     color: #fcd34d;
   }
 }
+.full-release-page {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.release-doctor-panel .ui-panel-body,
+.release-pipeline-panel .ui-panel-body {
+  display: grid;
+  gap: 18px;
+}
+.release-doctor-checks {
+  display: grid;
+  gap: 10px;
+}
+.release-doctor-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 13px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+.release-doctor-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+}
+.release-doctor-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.release-doctor-check-ready .release-doctor-icon {
+  color: #047857;
+  background: #d1fae5;
+}
+.release-doctor-check-action-required .release-doctor-icon {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+.release-doctor-check h3,
+.release-doctor-check p {
+  margin: 0;
+}
+.release-doctor-check h3 {
+  color: var(--text);
+  font-size: 14px;
+}
+.release-doctor-check p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.release-doctor-details {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  max-height: 320px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--getgo-panel);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.release-doctor-check-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.release-doctor-copy {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.release-pipeline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.release-pipeline li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.release-pipeline li > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.release-pipeline svg { width: 18px; height: 18px; }
+.release-pipeline strong,
+.release-pipeline small { display: block; }
+.release-pipeline strong { color: var(--text); font-size: 13px; }
+.release-pipeline small { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.release-active-status,
+.release-primary-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.release-active-status > div,
+.release-primary-action > div { display: grid; gap: 4px; min-width: 0; }
+.release-active-status > div { flex: 1; }
+.release-active-status strong,
+.release-primary-action strong { color: var(--text); font-size: 13px; }
+.release-active-status span,
+.release-primary-action p { margin: 0; color: var(--muted); font-size: 12px; }
+.release-active-status > span { flex: none; font-family: var(--font-mono); font-weight: 700; }
+.release-primary-action { justify-content: space-between; background: var(--soft); }
+.release-primary-action .ui-button { flex: none; }
+@media (max-width: 900px) {
+  .release-pipeline { grid-template-columns: 1fr; }
+}
+@media (max-width: 650px) {
+  .release-doctor-check { grid-template-columns: auto minmax(0, 1fr); }
+  .release-doctor-check-actions { grid-column: 2; justify-content: flex-start; }
+  .release-primary-action { align-items: stretch; flex-direction: column; }
+  .release-primary-action .ui-button { width: 100%; }
+}
+@media (prefers-color-scheme: dark) {
+  .release-doctor-check-ready .release-doctor-icon { color: #6ee7b7; background: #064e3b; }
+  .release-doctor-check-action-required .release-doctor-icon { color: #fda4af; background: #88133766; }
+}
 .quiz-migration-status {
   min-width: 112px;
   display: flex;

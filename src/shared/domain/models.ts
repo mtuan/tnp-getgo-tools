@@ -610,10 +610,9 @@ export interface AiMigrationJobsSnapshot {
   jobs: AiMigrationJob[];
 }
 
-export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy" | "amc-import"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "design";
-export type WebDeploymentTarget = "development" | "staging" | "production";
-export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android";
-export type DeploymentOperation = "run" | "run-device" | "build" | "deploy";
+export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy" | "amc-import"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "design"; export type WebDeploymentTarget = "development" | "staging" | "production"; export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android" | "release"; export type DeploymentOperation = "run" | "run-device" | "build" | "deploy";
+export type ReleaseDoctorCheckStatus = "checking" | "ready" | "action-required"; export interface ReleaseDoctorCheck { id: "web" | "ios" | "android"; status: ReleaseDoctorCheckStatus; title: string; summary: string; details: string[]; }
+export interface ReleaseDoctorSnapshot { target: Exclude<WebDeploymentTarget, "development">; checkedAt: string; ready: boolean; checks: ReleaseDoctorCheck[]; }
 export interface DeploymentItemState {
   id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "firebase-inputs" | `functions:${string}` | "web" | "web-inputs";
   localHash: string | null;
@@ -984,8 +983,8 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   }): Promise<AiMigrationJob>;
   getAiMigrationJobs(): Promise<AiMigrationJobsSnapshot>;
   getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
-  startDeployment(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget, product?: DeploymentProduct): Promise<BackgroundJobsSnapshot>;
-  getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
+  startDeployment(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget, product?: DeploymentProduct): Promise<BackgroundJobsSnapshot>; getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
+  runReleaseDoctor(target: Exclude<WebDeploymentTarget, "development">): Promise<ReleaseDoctorSnapshot>; startFullRelease(target: Exclude<WebDeploymentTarget, "development">): Promise<BackgroundJobsSnapshot>;
   updateNativeVersion(increment: "patch" | "minor" | "major"): Promise<NativeVersionState>;
   openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget, product?: DeploymentProduct): Promise<void>;
   getLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;

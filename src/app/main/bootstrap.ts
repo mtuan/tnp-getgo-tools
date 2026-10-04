@@ -14,6 +14,7 @@ import { LocalAiService } from "../../features/ai/main/local-ai.js";
 import { AiMigrationJobManager } from "../../features/ai/main/ai-migration-jobs.js";
 import { PublishJobManager } from "../../features/jobs/main/publish-jobs.js";
 import { WebDeploymentJobManager } from "../../features/deployment/main/web-deployment-jobs.js";
+import { FullReleaseJobManager } from "../../features/deployment/main/full-release-jobs.js";
 import { getGoAppRuntimeConfig, getGoDesignRuntimeConfig, LocalWebRuntimeManager } from "../../features/deployment/main/local-web-runtime.js";
 import { getGoAppNativeConfig, NativeDeploymentJobManager } from "../../features/deployment/main/native-deployment-jobs.js";
 import { registerBackgroundJobsIpc } from "../../features/jobs/main/background-jobs-ipc.js";
@@ -413,6 +414,10 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     app.getAppPath(),
   );
+  const fullReleaseJobs = new FullReleaseJobManager(
+    app.getPath("userData"),
+    app.getAppPath(),
+  );
   const appNativeRuntimeJobs = new NativeDeploymentJobManager(
     app.getPath("userData"),
     app.getAppPath(),
@@ -432,7 +437,7 @@ app.whenReady().then(async () => {
   registerAuthIpc(ipcMain, firebaseAuth);
   registerAiIpc(ipcMain, localAi, aiMigrationJobs, repositoryRoot);
   const backgroundJobsSnapshot = registerBackgroundJobsIpc(
-    ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, nativeDeploymentJobs, localWebRuntime,
+    ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, nativeDeploymentJobs, fullReleaseJobs, localWebRuntime,
     appNativeRuntimeJobs, localAppRuntime, localDesignRuntime,
     amcImportJobs,
   );
