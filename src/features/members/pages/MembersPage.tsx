@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Pencil, Plus, RefreshCw } from "lucide-react";
+import { LogIn, Pencil, Plus, RefreshCw } from "lucide-react";
 import type { AppSettings, GetGoMemberAccount, GetGoMemberPage, GetGoMembershipTier } from "../../../shared/domain/models";
 import { useAuth } from "../../authentication/components/AuthContext";
 import * as ui from "../../../shared/ui";
+import { memberLoginUrl } from "../domain/member-login-url";
 
 type MemberFilter = "all" | GetGoMembershipTier;
 const PAGE_SIZE = 50;
@@ -31,7 +32,7 @@ export function MembersPage({ locale, environment }: { locale: AppSettings["loca
   const copy = useMemo(() => vi ? ({
     eyebrow: "Người dùng", title: "Thành viên GetGo", description: "Quản lý thành viên miễn phí, Premium và quản trị viên.",
     all: "Tất cả", free: "Miễn phí", premium: "Premium", admin: "Quản trị", name: "Tên", email: "Email", membership: "Loại thành viên", account: "Tài khoản", active: "Đang hoạt động", orphaned: "Hồ sơ mồ côi", orphanedHelp: "UID này không còn tài khoản đăng nhập tương ứng",
-    period: "Thời hạn", starts: "Bắt đầu", expires: "Kết thúc", immediate: "Ngay lập tức", never: "Không hết hạn", edit: "Đổi loại thành viên", refresh: "Làm mới",
+    period: "Thời hạn", starts: "Bắt đầu", expires: "Kết thúc", immediate: "Ngay lập tức", never: "Không hết hạn", edit: "Đổi loại thành viên", login: "Mở trang đăng nhập", refresh: "Làm mới",
     search: "Tên bắt đầu bằng…, email chính xác hoặc UID", clear: "Xóa tìm kiếm", empty: "Không có thành viên phù hợp.", loading: "Đang tải thành viên",
     save: "Lưu thay đổi", cancel: "Hủy", saved: "Đã cập nhật thành viên", loadFailed: "Không thể tải thành viên", saveFailed: "Không thể cập nhật thành viên",
     delete: "Xóa thành viên", deleteConfirm: "Xóa vĩnh viễn thành viên này cùng toàn bộ dữ liệu?", deleteConfirmAction: "Xóa vĩnh viễn", deleting: "Đang xóa thành viên và toàn bộ dữ liệu…", deleted: "Đã xóa thành viên", deleteFailed: "Không thể xóa thành viên",
@@ -40,7 +41,7 @@ export function MembersPage({ locale, environment }: { locale: AppSettings["loca
   }) : ({
     eyebrow: "Users", title: "GetGo members", description: "Manage Free, Premium, and Admin members.",
     all: "All", free: "Free", premium: "Premium", admin: "Admin", name: "Name", email: "Email", membership: "Membership", account: "Account", active: "Active", orphaned: "Orphaned profile", orphanedHelp: "This UID no longer has a corresponding sign-in account",
-    period: "Effective period", starts: "Starts", expires: "Ends", immediate: "Immediately", never: "Never", edit: "Change membership", refresh: "Refresh",
+    period: "Effective period", starts: "Starts", expires: "Ends", immediate: "Immediately", never: "Never", edit: "Change membership", login: "Open sign-in page", refresh: "Refresh",
     search: "Name starts with…, exact email, or UID", clear: "Clear search", empty: "No matching members.", loading: "Loading members",
     save: "Save changes", cancel: "Cancel", saved: "Membership updated", loadFailed: "Could not load members", saveFailed: "Could not update membership",
     delete: "Delete member", deleteConfirm: "Permanently delete this member and all of their data?", deleteConfirmAction: "Delete permanently", deleting: "Deleting member and all associated data…", deleted: "Member deleted", deleteFailed: "Could not delete member",
@@ -78,8 +79,11 @@ export function MembersPage({ locale, environment }: { locale: AppSettings["loca
     { key: "membership", title: copy.membership, render: item => <ui.StatusBadge tone={item.membership === "admin" ? "primary" : item.membership === "premium" ? "warning" : "neutral"}>{membershipLabel(item.membership)}</ui.StatusBadge> },
     { key: "account", title: copy.account, render: item => <ui.StatusBadge tone={item.accountStatus === "orphaned" ? "danger" : "success"} title={item.accountStatus === "orphaned" ? copy.orphanedHelp : copy.active}>{copy[item.accountStatus]}</ui.StatusBadge> },
     { key: "period", title: copy.period, render: item => item.membership !== "premium" ? copy.never : <span>{item.subscriptionStartsAt ? new Intl.DateTimeFormat(locale).format(new Date(item.subscriptionStartsAt)) : copy.immediate} – {item.subscriptionExpiresAt ? new Intl.DateTimeFormat(locale).format(new Date(item.subscriptionExpiresAt)) : copy.never}</span> },
-    { key: "actions", title: "", role: "actions", width: 56, render: item => <ui.TableActionButton icon={<Pencil />} aria-label={copy.edit} onClick={() => openEditor(item)} /> },
-  ], [copy, locale, membershipLabel, openEditor]);
+    { key: "actions", title: "", role: "actions", width: 104, render: item => <div className="job-table-actions">
+      <ui.TableActionButton color="neutral" icon={<LogIn />} aria-label={copy.login} title={copy.login} disabled={!item.email || item.accountStatus === "orphaned"} onClick={() => void window.getgo.openExternal(memberLoginUrl(environment, item.email))} />
+      <ui.TableActionButton icon={<Pencil />} aria-label={copy.edit} title={copy.edit} onClick={() => openEditor(item)} />
+    </div> },
+  ], [copy, environment, locale, membershipLabel, openEditor]);
 
   const save = (event: FormEvent) => auth.requireAuth(async () => {
     event.preventDefault();
