@@ -122,6 +122,10 @@ export class LocalWebRuntimeManager {
     return value.origin;
   }
 
+  setPreferredProtocol(protocol: LocalWebProtocol) {
+    if (this.config.id === "web") this.protocol = protocol;
+  }
+
   private async loadLastJob() {
     try {
       this.lastJob = JSON.parse(await fs.readFile(this.jobFile, "utf8")) as BackgroundJob;

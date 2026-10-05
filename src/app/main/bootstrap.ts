@@ -400,6 +400,7 @@ app.whenReady().then(async () => {
     app.getAppPath(),
     app.getPath("userData"),
   );
+  localWebRuntime.setPreferredProtocol(initialSettings.localWebProtocol);
   const localAppRuntime = new LocalWebRuntimeManager(
     app.getAppPath(),
     app.getPath("userData"),
@@ -439,7 +440,7 @@ app.whenReady().then(async () => {
   const backgroundJobsSnapshot = registerBackgroundJobsIpc(
     ipcMain, aiMigrationJobs, publishJobs, webDeploymentJobs, nativeDeploymentJobs, fullReleaseJobs, localWebRuntime,
     appNativeRuntimeJobs, localAppRuntime, localDesignRuntime,
-    amcImportJobs,
+    amcImportJobs, settings,
   );
   ipcMain.handle(
     "publishing:quiz",

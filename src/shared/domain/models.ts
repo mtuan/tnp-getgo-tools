@@ -472,6 +472,7 @@ export interface SpeechLanguageSettings {
 export interface AppSettings {
   repositoryPath: string | null;
   environment: "development" | "staging" | "production";
+  localWebProtocol: LocalWebProtocol;
   aiProfile: "thorough" | "fast";
   locale: "en" | "vi";
   speech: Record<SpeechLanguage, SpeechLanguageSettings>;

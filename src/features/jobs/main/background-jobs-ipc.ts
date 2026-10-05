@@ -7,6 +7,7 @@ import type { NativeDeploymentJobManager } from "../../deployment/main/native-de
 import type { FullReleaseJobManager } from "../../deployment/main/full-release-jobs.js";
 import type { BackgroundJob } from "../../../shared/domain/models.js";
 import type { AmcImportJobManager } from "../../amc-import/main/amc-import-jobs.js";
+import type { SettingsStore } from "../../settings/main/settings.js";
 
 export function registerBackgroundJobsIpc(
   ipcMain: IpcMain,
@@ -20,6 +21,7 @@ export function registerBackgroundJobsIpc(
   localAppRuntime: LocalWebRuntimeManager,
   localDesignRuntime: LocalWebRuntimeManager,
   amcImportJobs: AmcImportJobManager,
+  settings: SettingsStore,
 ) {
   const deploymentProduct = (value: unknown) => {
     if (value === undefined || value === "web") return "web" as const;
@@ -128,15 +130,19 @@ export function registerBackgroundJobsIpc(
     return deploymentProduct(value) === "app" ? localAppRuntime : localWebRuntime;
   };
   ipcMain.handle("local-web:state", (_event, runtimeId: unknown = "web") => runtime(runtimeId).state());
-  ipcMain.handle("local-web:start", (_event, runtimeId: unknown = "web", target: unknown = "development", protocol: unknown = "https") => {
+  ipcMain.handle("local-web:start", async (_event, runtimeId: unknown = "web", target: unknown = "development", protocol: unknown = "https") => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     if (!(protocol === "http" || protocol === "https")) throw new Error("Invalid local web protocol.");
-    return runtime(runtimeId).start("start", target, protocol);
+    const result = await runtime(runtimeId).start("start", target, protocol);
+    if (runtimeId === undefined || runtimeId === "web") await settings.update({ localWebProtocol: protocol });
+    return result;
   });
-  ipcMain.handle("local-web:restart", (_event, runtimeId: unknown = "web", target: unknown = "development", protocol: unknown = "https") => {
+  ipcMain.handle("local-web:restart", async (_event, runtimeId: unknown = "web", target: unknown = "development", protocol: unknown = "https") => {
     if (!(target === "development" || target === "staging" || target === "production")) throw new Error("Invalid deployment target.");
     if (!(protocol === "http" || protocol === "https")) throw new Error("Invalid local web protocol.");
-    return runtime(runtimeId).restart(target, protocol);
+    const result = await runtime(runtimeId).restart(target, protocol);
+    if (runtimeId === undefined || runtimeId === "web") await settings.update({ localWebProtocol: protocol });
+    return result;
   });
   ipcMain.handle("local-web:stop", (_event, runtimeId: unknown = "web") => runtime(runtimeId).stop());
   ipcMain.handle("native-project:open", (_event, platform: unknown, target: unknown, product: unknown = "web") => {

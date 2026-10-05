@@ -153,6 +153,7 @@ export function App() {
   const [settings, setSettings] = useState<AppSettings>({
     repositoryPath: null,
     environment: "development",
+    localWebProtocol: "https",
     aiProfile: "thorough",
     locale: "en",
     speech: structuredClone(defaultSpeechSettings),

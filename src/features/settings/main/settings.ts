@@ -7,6 +7,7 @@ import { findRelatedRepository } from "../../../shared/main/repository-locator.j
 const defaults: AppSettings = {
   repositoryPath: null,
   environment: "development",
+  localWebProtocol: "https",
   aiProfile: "thorough",
   locale: "en",
   speech: defaultSpeechSettings,
