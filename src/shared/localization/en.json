@@ -44,6 +44,7 @@
       "allGrades": "All grades",
       "allSubjects": "All subjects",
       "allStates": "All states",
+      "clear": "Clear",
       "kindergarten": "Kindergarten",
       "grade": "Grade {grade}",
       "subjectNames": {

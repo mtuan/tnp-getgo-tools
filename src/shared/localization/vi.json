@@ -44,6 +44,7 @@
       "allGrades": "Tất cả lớp",
       "allSubjects": "Tất cả môn học",
       "allStates": "Tất cả trạng thái",
+      "clear": "Xóa bộ lọc",
       "kindergarten": "Mẫu giáo",
       "grade": "Lớp {grade}",
       "subjectNames": {
