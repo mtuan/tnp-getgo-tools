@@ -20,10 +20,12 @@ Rules:
 - paramsGeneratorTs owns randomized raw values and the core answer. Return only consumed values plus answer.
 - Return every generated parameter directly at the top level beside answer. Never group parameters under a wrapper property such as namedParams, params, values, data, or context.
 - questionGeneratorTs preserves question_no/category/text, uses generated params, and reuses answer. Presentation-only answer metadata may use QB.answer.extend.
+- Render generated question and explanation strings with QB.fmt tagged templates, especially multiline text; never hand-build newline escapes when QB.fmt provides canonical formatting.
 - QB.answer.choice randomizes ordinary choices by default and recalculates the correct label. Never shuffle choices manually; otherChoice always remains last.
 - originParamsTs must reproduce the saved question exactly and match the params return keys. Use { fixed: true } with QB.answer.choice there to preserve the source option order and answer label.
 - explanationGeneratorTs returns exactly the locales in the quiz-level supportedLanguages context; never add unsupported locales or empty placeholders.
 - Use QB.maths.calc tagged templates for displayed arithmetic and calculation chains instead of raw JavaScript arithmetic interpolation. Use other documented QB.maths helpers when they better represent the mathematics.
+- For supported linear equations, define the equation once and interpolate QB.maths.equation\`...\`.solveDetailed(variable); do not manually duplicate transformation steps or the solved value.
 - Never invent APIs, imports, exports, Markdown fences, QB.template, or code outside the four fragments.
 - Prefer safe bounds that preserve the original mathematical relationship and a unique correct choice.
 - Prefer semantic locale helpers over manual literal pools: QB.en.colors(count), names(count), animals(count, category), foods(count), and the QB.vi equivalents. Use QB.rnd.pick([...], count) only when no semantic helper matches or the exact allowlist is essential.
