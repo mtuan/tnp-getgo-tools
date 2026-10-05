@@ -8569,6 +8569,10 @@ button.danger svg {
   color: #047857;
   background: #d1fae5;
 }
+.release-doctor-check-warning .release-doctor-icon {
+  color: #a16207;
+  background: #fef3c7;
+}
 .release-doctor-check-action-required .release-doctor-icon {
   color: #b91c1c;
   background: #fee2e2;
@@ -8648,6 +8652,8 @@ button.danger svg {
 .release-pipeline small { display: block; }
 .release-pipeline strong { color: var(--text); font-size: 13px; }
 .release-pipeline small { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.release-stage-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 10px; }
+.release-stage-status time { color: var(--muted); font-size: 11px; line-height: 1.35; }
 .release-active-status,
 .release-primary-action {
   display: flex;
@@ -8678,6 +8684,7 @@ button.danger svg {
 }
 @media (prefers-color-scheme: dark) {
   .release-doctor-check-ready .release-doctor-icon { color: #6ee7b7; background: #064e3b; }
+  .release-doctor-check-warning .release-doctor-icon { color: #fde68a; background: #713f1266; }
   .release-doctor-check-action-required .release-doctor-icon { color: #fda4af; background: #88133766; }
 }
 .quiz-migration-status {

@@ -18,13 +18,13 @@ const targetScripts: Record<ReleaseTarget, string> = {
 };
 
 export function releaseCommands(target: ReleaseTarget, scope: ReleaseScope) {
-  const web = { label: "Deploying Web and Firebase", args: ["run", targetScripts[target]], steps: 7 };
+  const web = { stage: "web" as const, label: "Deploying Web and Firebase", args: ["run", targetScripts[target]], steps: 7 };
   if (scope === "web") return [web];
   const native = scope === "ios"
-    ? { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target], steps: 1 }
-    : { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 };
+    ? { stage: "ios" as const, label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target], steps: 1 }
+    : { stage: "android" as const, label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 };
   if (scope !== "all") return [web, native];
-  return [web, { label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target], steps: 1 }, { label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 }];
+  return [web, { stage: "ios" as const, label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target], steps: 1 }, { stage: "android" as const, label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 }];
 }
 
 function cleanLine(value: string) {
@@ -102,6 +102,7 @@ export class FullReleaseJobManager {
         firebaseConfig?: string;
         resourceDir?: string;
         requiredSecrets?: string[];
+        functionCodebases?: Array<{ id: string; name: string; requiredSecrets?: string[] }>;
       };
       const resourceDirectory = path.resolve(root, config.resourceDir ?? `configs/deploys/${targetName}`);
       const firebaseConfigPath = path.resolve(root, config.firebaseConfig ?? path.join(resourceDirectory, "firebase.json"));
@@ -121,13 +122,18 @@ export class FullReleaseJobManager {
       if (!firebaseProjects.result?.some(project => project.projectId === config.firebaseProject)) {
         return { id: "web", status: "action-required", title: "Web and Firebase", summary: `The signed-in Firebase account cannot access ${config.firebaseProject ?? targetName}.`, details: [`Repository: ${root}`, `Required Firebase project: ${config.firebaseProject ?? targetName}`, "$ npm exec -- firebase projects:list --json", ...usefulDetails(firebase.output)] };
       }
-      const secretChecks = await Promise.all((config.requiredSecrets ?? []).map(async secret => ({
+      const requiredSecrets = [...new Set([
+        ...(config.requiredSecrets ?? []),
+        ...(config.functionCodebases ?? []).flatMap(codebase => codebase.requiredSecrets ?? []),
+      ])];
+      const secretChecks = await Promise.all(requiredSecrets.map(async secret => ({
         secret,
         result: await this.runCapture(root, ["secrets", "describe", secret, `--project=${config.firebaseProject ?? targetName}`, "--format=value(name)"], "gcloud"),
       })));
       const missingSecrets = secretChecks.filter(check => check.result.code !== 0 || !check.result.output.trim()).map(check => check.secret);
       if (missingSecrets.length > 0) {
-        return { id: "web", status: "action-required", title: "Web and Firebase", summary: `Create the required Firebase Functions secrets before releasing: ${missingSecrets.join(", ")}.`, details: [`Firebase project: ${config.firebaseProject ?? targetName}`, ...missingSecrets.map(secret => `$ firebase functions:secrets:set ${secret} --project ${config.firebaseProject ?? targetName}`)] };
+        const skippedCodebases = (config.functionCodebases ?? []).filter(codebase => codebase.requiredSecrets?.some(secret => missingSecrets.includes(secret))).map(codebase => codebase.name);
+        return { id: "web", status: "warning", title: "Web and Firebase", summary: `Deployment can continue, but Functions requiring missing secrets will be skipped: ${missingSecrets.join(", ")}.`, details: [`Firebase project: ${config.firebaseProject ?? targetName}`, ...(skippedCodebases.length > 0 ? [`Skipped Function codebases: ${skippedCodebases.join(", ")}`] : []), ...missingSecrets.map(secret => `$ firebase functions:secrets:set ${secret} --project ${config.firebaseProject ?? targetName}`)] };
       }
       return { id: "web", status: "ready", title: "Web and Firebase", summary: `${config.firebaseProject ?? targetName} configuration and Firebase access are ready.`, details: [] };
     } catch (cause) {
@@ -151,7 +157,9 @@ export class FullReleaseJobManager {
       this.nativeDoctor(root, target, "ios"),
       this.nativeDoctor(root, target, "android"),
     ]);
-    return { target, checkedAt: new Date().toISOString(), ready: checks.every(check => check.status === "ready"), checks };
+    const targetName = target === "staging" ? "getgo-staging" : "getgo";
+    const webDeploymentRecord = await fs.stat(path.join(root, "configs", "deploys", targetName, ".deploy-hashes.json")).catch(() => null);
+    return { target, checkedAt: new Date().toISOString(), ready: checks.every(check => check.status !== "action-required"), checks, lastDeployedAt: webDeploymentRecord ? { web: webDeploymentRecord.mtime.toISOString() } : undefined };
   }
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
@@ -161,7 +169,7 @@ export class FullReleaseJobManager {
     if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another release is already active.");
     const readiness = await this.doctor(target);
     const requiredChecks = scope === "all" ? ["web", "ios", "android"] : scope === "web" ? ["web"] : ["web", scope];
-    if (readiness.checks.some(check => requiredChecks.includes(check.id) && check.status !== "ready")) {
+    if (readiness.checks.some(check => requiredChecks.includes(check.id) && check.status === "action-required")) {
       throw new Error("Release Doctor found requirements for this release that still need attention.");
     }
     const commands = releaseCommands(target, scope);
@@ -199,6 +207,7 @@ export class FullReleaseJobManager {
         if (code !== 0) throw new Error(`${command.label} failed with exit code ${code ?? "unknown"}.`);
         completed += command.steps;
         job.completed = completed;
+        job.releaseStageFinishedAt = { ...job.releaseStageFinishedAt, [command.stage]: new Date().toISOString() };
         await this.persist();
       }
       job.status = "completed";

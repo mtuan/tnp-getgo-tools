@@ -7,6 +7,7 @@ import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/compon
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import { DeploymentJobReportDrawer } from "./DeploymentJobReportDrawer";
+import { ReleaseStageStatus } from "./ReleaseStageStatus";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
 
@@ -48,7 +49,7 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
       `Target: ${doctor.target}`,
       `Checked at: ${doctor.checkedAt}`,
       `Check: ${check.title}`,
-      `Status: ${releaseCopy.actionRequired}`,
+      `Status: ${check.status === "warning" ? releaseCopy.warning : releaseCopy.actionRequired}`,
       "",
       check.summary,
       ...(check.details.length > 0 ? ["", "Technical details:", ...check.details] : []),
@@ -72,9 +73,10 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
   const releaseJobs = snapshot?.jobs.filter(job => job.kind === "deploy" && job.component === "release" && job.target === target) ?? [];
   const activeRelease = releaseJobs.find(job => ["queued", "running", "paused"].includes(job.status));
   const selectedJob = selectedJobId ? releaseJobs.find(job => job.id === selectedJobId) ?? null : null;
+  const hasDoctorWarnings = doctor?.checks.some(check => check.status === "warning") ?? false;
   const scopeReady = (scope: ReleaseScope) => {
     const required = scope === "all" ? ["web", "ios", "android"] : scope === "web" ? ["web"] : ["web", scope];
-    return Boolean(doctor && doctor.checks.every(check => !required.includes(check.id) || check.status === "ready"));
+    return Boolean(doctor && doctor.checks.every(check => !required.includes(check.id) || check.status !== "action-required"));
   };
   const startRelease = async (scope: ReleaseScope) => {
     if (!scopeReady(scope) || activeRelease) return;
@@ -124,8 +126,8 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
               {check.details.length > 0 && <pre className="release-doctor-details"><code>{check.details.join("\n")}</code></pre>}
             </div>
             <div className="release-doctor-check-actions">
-              <ui.StatusBadge tone={check.status === "ready" ? "success" : "danger"}>{check.status === "ready" ? releaseCopy.ready : releaseCopy.actionRequired}</ui.StatusBadge>
-              {check.status === "action-required" && <ui.Button className="release-doctor-copy" icon={copiedCheckId === check.id ? <Check /> : <Copy />} onClick={() => void copyDoctorError(check)}>
+              <ui.StatusBadge tone={check.status === "ready" ? "success" : check.status === "warning" ? "warning" : "danger"}>{check.status === "ready" ? releaseCopy.ready : check.status === "warning" ? releaseCopy.warning : releaseCopy.actionRequired}</ui.StatusBadge>
+              {check.status !== "ready" && <ui.Button className="release-doctor-copy" icon={copiedCheckId === check.id ? <Check /> : <Copy />} onClick={() => void copyDoctorError(check)}>
                 {copiedCheckId === check.id ? releaseCopy.copiedError : releaseCopy.copyError}
               </ui.Button>}
             </div>
@@ -137,9 +139,9 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
     <ui.Panel className="release-pipeline-panel" title={releaseCopy.pipelineTitle} description={releaseCopy.pipelineDescription}>
       <ui.PanelBody>
         <ol className="release-pipeline">
-          <li><span><Server /></span><div><strong>{releaseCopy.webStep}</strong><small>{releaseCopy.webStepDescription}</small></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "web"} disabled={!scopeReady("web") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("web"))}>{releaseCopy.deployWeb}</ui.Button></li>
-          <li><span><UploadCloud /></span><div><strong>{releaseCopy.iosStep}</strong><small>{releaseCopy.iosStepDescription}</small></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "ios"} disabled={!scopeReady("ios") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("ios"))}>{releaseCopy.deployIos}</ui.Button></li>
-          <li><span><Smartphone /></span><div><strong>{releaseCopy.androidStep}</strong><small>{target === "staging" ? releaseCopy.androidStagingDescription : releaseCopy.androidProductionDescription}</small></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "android"} disabled={!scopeReady("android") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("android"))}>{releaseCopy.deployAndroid}</ui.Button></li>
+          <li><span><Server /></span><div><strong>{releaseCopy.webStep}</strong><small>{releaseCopy.webStepDescription}</small><ReleaseStageStatus stage="web" jobs={releaseJobs} locale={locale} fallbackDeployedAt={doctor?.lastDeployedAt?.web} /></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "web"} disabled={!scopeReady("web") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("web"))}>{releaseCopy.deployWeb}</ui.Button></li>
+          <li><span><UploadCloud /></span><div><strong>{releaseCopy.iosStep}</strong><small>{releaseCopy.iosStepDescription}</small><ReleaseStageStatus stage="ios" jobs={releaseJobs} locale={locale} /></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "ios"} disabled={!scopeReady("ios") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("ios"))}>{releaseCopy.deployIos}</ui.Button></li>
+          <li><span><Smartphone /></span><div><strong>{releaseCopy.androidStep}</strong><small>{target === "staging" ? releaseCopy.androidStagingDescription : releaseCopy.androidProductionDescription}</small><ReleaseStageStatus stage="android" jobs={releaseJobs} locale={locale} /></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "android"} disabled={!scopeReady("android") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("android"))}>{releaseCopy.deployAndroid}</ui.Button></li>
         </ol>
         {activeRelease && <div className="release-active-status" role="status">
           <div><strong>{releaseCopy.releaseRunning}</strong><span>{activeRelease.progressLabel}</span></div>
@@ -148,8 +150,8 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
         </div>}
         <div className="release-primary-action">
           <div>
-            <strong>{doctor?.ready ? releaseCopy.allReady : releaseCopy.notReady}</strong>
-            <p>{doctor?.ready ? releaseCopy.readyDescription : releaseCopy.notReadyDescription}</p>
+            <strong>{doctor?.ready ? hasDoctorWarnings ? releaseCopy.readyWithWarnings : releaseCopy.allReady : releaseCopy.notReady}</strong>
+            <p>{doctor?.ready ? hasDoctorWarnings ? releaseCopy.warningDescription : releaseCopy.readyDescription : releaseCopy.notReadyDescription}</p>
           </div>
           <ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "all" || Boolean(activeRelease)} disabled={!doctor?.ready || doctorBusy || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("all"))}>
             {releaseCopy.releaseButton.replace("{target}", target)}

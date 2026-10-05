@@ -611,8 +611,8 @@ export interface AiMigrationJobsSnapshot {
 }
 
 export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy" | "amc-import"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "design"; export type WebDeploymentTarget = "development" | "staging" | "production"; export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android" | "release"; export type DeploymentOperation = "run" | "run-device" | "build" | "deploy"; export type ReleaseScope = "all" | "web" | "ios" | "android";
-export type ReleaseDoctorCheckStatus = "checking" | "ready" | "action-required"; export interface ReleaseDoctorCheck { id: "web" | "ios" | "android"; status: ReleaseDoctorCheckStatus; title: string; summary: string; details: string[]; }
-export interface ReleaseDoctorSnapshot { target: Exclude<WebDeploymentTarget, "development">; checkedAt: string; ready: boolean; checks: ReleaseDoctorCheck[]; }
+export type ReleaseDoctorCheckStatus = "checking" | "ready" | "warning" | "action-required"; export interface ReleaseDoctorCheck { id: "web" | "ios" | "android"; status: ReleaseDoctorCheckStatus; title: string; summary: string; details: string[]; }
+export interface ReleaseDoctorSnapshot { target: Exclude<WebDeploymentTarget, "development">; checkedAt: string; ready: boolean; checks: ReleaseDoctorCheck[]; lastDeployedAt?: Partial<Record<"web" | "ios" | "android", string>>; }
 export interface DeploymentItemState {
   id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "firebase-inputs" | `functions:${string}` | "web" | "web-inputs";
   localHash: string | null;
@@ -703,7 +703,7 @@ export interface BackgroundJob {
   route?: string; deploymentProduct?: DeploymentProduct;
   component?: DeploymentComponent;
   operation?: DeploymentOperation;
-  target?: WebDeploymentTarget; releaseScope?: ReleaseScope;
+  target?: WebDeploymentTarget; releaseScope?: ReleaseScope; releaseStageFinishedAt?: Partial<Record<"web" | "ios" | "android", string>>;
   version?: string;
   buildNumber?: string;
   cancellable: boolean;
