@@ -158,8 +158,9 @@ export class FullReleaseJobManager {
       this.nativeDoctor(root, target, "android"),
     ]);
     const targetName = target === "staging" ? "getgo-staging" : "getgo";
+    const targetConfig = JSON.parse(await fs.readFile(path.join(root, "configs", "deploys", targetName, "target.json"), "utf8")) as { url?: string };
     const webDeploymentRecord = await fs.stat(path.join(root, "configs", "deploys", targetName, ".deploy-hashes.json")).catch(() => null);
-    return { target, checkedAt: new Date().toISOString(), ready: checks.every(check => check.status !== "action-required"), checks, lastDeployedAt: webDeploymentRecord ? { web: webDeploymentRecord.mtime.toISOString() } : undefined };
+    return { target, checkedAt: new Date().toISOString(), ready: checks.every(check => check.status !== "action-required"), checks, webUrl: targetConfig.url, lastDeployedAt: webDeploymentRecord ? { web: webDeploymentRecord.mtime.toISOString() } : undefined };
   }
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }

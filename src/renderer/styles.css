@@ -8643,10 +8643,13 @@ button.danger svg {
   color: var(--primary);
   background: var(--primary-soft);
 }
-.release-pipeline li > .ui-button {
+.release-pipeline li > .ui-button,
+.release-pipeline-actions {
   grid-column: 1 / -1;
   width: 100%;
 }
+.release-pipeline-actions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+.release-pipeline-actions .ui-button:last-child { width: 100%; }
 .release-pipeline svg { width: 18px; height: 18px; }
 .release-pipeline strong,
 .release-pipeline small { display: block; }

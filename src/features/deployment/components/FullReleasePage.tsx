@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, BriefcaseBusiness, Check, CheckCircle2, Copy, Eye, RefreshCw, Rocket, Server, Smartphone, UploadCloud } from "lucide-react";
+import { AlertTriangle, BriefcaseBusiness, Check, CheckCircle2, Copy, ExternalLink, Eye, RefreshCw, Rocket, Server, Smartphone, UploadCloud } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, ReleaseDoctorSnapshot, ReleaseScope, WebDeploymentTarget } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { useAuth } from "../../authentication/components/AuthContext";
@@ -139,7 +139,7 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
     <ui.Panel className="release-pipeline-panel" title={releaseCopy.pipelineTitle} description={releaseCopy.pipelineDescription}>
       <ui.PanelBody>
         <ol className="release-pipeline">
-          <li><span><Server /></span><div><strong>{releaseCopy.webStep}</strong><small>{releaseCopy.webStepDescription}</small><ReleaseStageStatus stage="web" jobs={releaseJobs} locale={locale} fallbackDeployedAt={doctor?.lastDeployedAt?.web} /></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "web"} disabled={!scopeReady("web") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("web"))}>{releaseCopy.deployWeb}</ui.Button></li>
+          <li><span><Server /></span><div><strong>{releaseCopy.webStep}</strong><small>{releaseCopy.webStepDescription}</small><ReleaseStageStatus stage="web" jobs={releaseJobs} locale={locale} fallbackDeployedAt={doctor?.lastDeployedAt?.web} /></div><div className="release-pipeline-actions"><ui.Button icon={<ExternalLink />} disabled={!doctor?.webUrl} onClick={() => doctor?.webUrl && void window.getgo.openExternal(doctor.webUrl)}>{copy.openWeb}</ui.Button><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "web"} disabled={!scopeReady("web") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("web"))}>{releaseCopy.deployWeb}</ui.Button></div></li>
           <li><span><UploadCloud /></span><div><strong>{releaseCopy.iosStep}</strong><small>{releaseCopy.iosStepDescription}</small><ReleaseStageStatus stage="ios" jobs={releaseJobs} locale={locale} /></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "ios"} disabled={!scopeReady("ios") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("ios"))}>{releaseCopy.deployIos}</ui.Button></li>
           <li><span><Smartphone /></span><div><strong>{releaseCopy.androidStep}</strong><small>{target === "staging" ? releaseCopy.androidStagingDescription : releaseCopy.androidProductionDescription}</small><ReleaseStageStatus stage="android" jobs={releaseJobs} locale={locale} /></div><ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "android"} disabled={!scopeReady("android") || Boolean(activeRelease)} onClick={() => requireAuth(() => startRelease("android"))}>{releaseCopy.deployAndroid}</ui.Button></li>
         </ol>
