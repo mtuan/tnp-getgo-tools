@@ -5,10 +5,12 @@ export function ManagerSearchInput({
   value,
   label,
   placeholder,
+  onValueChange,
 }: {
   value?: string;
   label: string;
   placeholder: string;
+  onValueChange?(value: string): void;
 }) {
   const [draft, setDraft] = useState(value ?? "");
   const rootRef = useRef<HTMLLabelElement>(null);
@@ -75,6 +77,7 @@ export function ManagerSearchInput({
       queryLength: next.length,
     });
     setDraft(next);
+    onValueChange?.(next);
     applyVisibility(next, "input");
   };
 

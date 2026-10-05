@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCheck, ExternalLink, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3 } from "lucide-react";
+import { CheckCheck, ExternalLink, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3, X } from "lucide-react";
 import type { BackgroundJob, MarketplaceStateUpdateResult, MarketplaceSyncJobItem, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import * as ui from "../../../../shared/ui";
@@ -76,11 +76,25 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 }
 
 export function ManagerHeaderControls(context: Context) {
-  const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setTopicContests, setTopicGrades, setTopicStates, setTopicSubjects, setTopicsView, snapshot, toast, topicContestOptions, topicContests, topicGradeOptions, topicGrades, topicMode, topicStateOptions, topicStates, topicSubjectOptions, topicSubjects, topicsView } = context;
+  const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, quizSearchQuery, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setQuizSearchQuery, setTopicContests, setTopicGrades, setTopicSearchQuery, setTopicStates, setTopicSubjects, setTopicsView, snapshot, toast, topicContestOptions, topicContests, topicGradeOptions, topicGrades, topicMode, topicSearchQuery, topicStateOptions, topicStates, topicSubjectOptions, topicSubjects, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const selectedTopic = isContest
     ? snapshot.contentV2.topics.find((topic) => topic.id === selectedContest?.id)
     : undefined;
+  const hasTopicFilters = Boolean(
+    topicSearchQuery.trim() ||
+    topicContests.length ||
+    topicGrades.length ||
+    topicSubjects.length ||
+    topicStates.length,
+  );
+  const clearTopicFilters = () => {
+    setTopicSearchQuery("");
+    setTopicContests([]);
+    setTopicGrades([]);
+    setTopicSubjects([]);
+    setTopicStates([]);
+  };
   const refreshAfterSync = useCallback(async () => {
     const route = await window.getgo.loadContentV2Route();
     onSnapshotChange({ ...snapshot, loadedAt: route.loadedAt, contentV2: route.content });
@@ -209,8 +223,10 @@ export function ManagerHeaderControls(context: Context) {
     <ui.ControlGroup className="manager-topic-header-controls">
       <ManagerSearchInput
         key={isContest ? `topic:${selectedContest?.id ?? "unknown"}` : "topics"}
+        value={isContest ? quizSearchQuery : topicSearchQuery}
         label={isContest ? "Search quizzes" : "Search topics"}
         placeholder={isContest ? "Search quizzes…" : "Search topics…"}
+        onValueChange={isContest ? setQuizSearchQuery : setTopicSearchQuery}
       />
       {!isContest && <TopicFilterControls
         contestOptions={topicContestOptions}
@@ -234,6 +250,11 @@ export function ManagerHeaderControls(context: Context) {
         onSubjectsChange={setTopicSubjects}
         onStatesChange={setTopicStates}
       />}
+      {!isContest && hasTopicFilters && <ui.Button
+        variant="secondary"
+        icon={<X size={16} />}
+        onClick={clearTopicFilters}
+      >{copy.filters.clear}</ui.Button>}
     </ui.ControlGroup>
     {headerStateControl}
     <ui.ActionMenu label="More" disabled={Boolean(buttonAction)} items={items} />
