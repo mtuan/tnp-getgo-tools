@@ -674,9 +674,13 @@ export function App() {
               </Suspense>
             )}
             {settings.repositoryPath && view === "topics" && (
-              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+              checkingEnvironment
+                ? <PageLoading label={settings.locale === "vi" ? "Đang tải chủ đề" : "Loading topics"} />
+                : <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <FilesystemContentV2Manager
+                  key={settings.environment}
                   locale={settings.locale}
+                  environment={settings.environment}
                   speechSettings={settings.speech}
                   initialRoute={routeRequest.route}
                   onRouteChange={setCurrentRoute}

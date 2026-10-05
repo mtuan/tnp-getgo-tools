@@ -5,6 +5,7 @@ import { ContentV2QuizManager } from "./ContentV2QuizManager";
 
 type Props = {
   locale: AppSettings["locale"];
+  environment: AppSettings["environment"];
   speechSettings: AppSettings["speech"];
   initialRoute: string;
   onRouteChange(route: string): void;
@@ -30,23 +31,35 @@ function topicIdFromRoute(route: string): string | undefined {
 }
 
 export function FilesystemContentV2Manager(props: Props) {
-  const [data, setData] = useState<RepositoryViewData | null>(null);
+  const [loaded, setLoaded] = useState<{
+    environment: AppSettings["environment"];
+    data: RepositoryViewData;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const initialTopicId = topicIdFromRoute(props.initialRoute);
   useEffect(() => {
     let active = true;
     setError(null);
+    setLoaded(null);
     // A detail route reads only its topic folder. Never load the repository
     // overview first: doing both creates avoidable work and delays two-quiz
     // topics behind hundreds of unrelated quiz manifests.
     void window.getgo.loadContentV2Route(initialTopicId).then((loaded) => {
-      if (active) setData(managerData(loaded));
+      if (active) setLoaded({
+        environment: props.environment,
+        data: managerData(loaded),
+      });
     }).catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : String(cause));
     });
     return () => { active = false; };
-  }, [initialTopicId]);
+  }, [initialTopicId, props.environment]);
+  const data = loaded?.environment === props.environment ? loaded.data : null;
   if (error) return <div className="ui-error-frame">{error}</div>;
   if (!data) return <PageLoading label={props.locale === "vi" ? "Đang tải chủ đề" : "Loading topics"} />;
-  return <ContentV2QuizManager {...props} snapshot={data} onSnapshotChange={setData} />;
+  return <ContentV2QuizManager
+    {...props}
+    snapshot={data}
+    onSnapshotChange={(next) => setLoaded({ environment: props.environment, data: next })}
+  />;
 }
