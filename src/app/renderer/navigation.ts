@@ -1,4 +1,5 @@
-import { BriefcaseBusiness, Camera, CreditCard, FileDown, Images, Library, MessageSquareWarning, Rocket, Settings, ShieldCheck, UserRoundCog, UsersRound, type LucideIcon } from "lucide-react";
+import { BriefcaseBusiness, Camera, CreditCard, FileDown, Images, Library, MessageSquareWarning, Settings, ShieldCheck, UserRoundCog, UsersRound, type LucideIcon } from "lucide-react";
+import type { AppSettings } from "../../shared/domain/models";
 import type { SelectOption } from "../../shared/ui/Select";
 
 export type View = "topics" | "quizzes" | "feedbacks" | "jobs" | "deploy"
@@ -7,7 +8,6 @@ export type NavigableView = Exclude<View, "not-found">;
 type NavigationItem = { id: NavigableView; label: string; icon: LucideIcon };
 
 export const primaryNavigation: NavigationItem[] = [
-  { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "topics", label: "Topics", icon: Library },
   { id: "feedbacks", label: "Feedbacks", icon: MessageSquareWarning },
@@ -27,3 +27,15 @@ export const environmentOptions: SelectOption[] = [
   { value: "staging", label: "Staging" },
   { value: "production", label: "Production" },
 ];
+
+export const deploymentTargets = ["development", "staging", "production"] as const satisfies readonly AppSettings["environment"][];
+
+export function deploymentTargetFromRoute(route: string): AppSettings["environment"] | null {
+  let pathname: string;
+  try { pathname = new URL(route, "app://getgo").pathname; }
+  catch { pathname = route.split("?")[0]; }
+  const target = pathname.match(/^\/deploy\/(development|staging|production)\/?$/)?.[1];
+  return target && deploymentTargets.includes(target as AppSettings["environment"])
+    ? target as AppSettings["environment"]
+    : null;
+}

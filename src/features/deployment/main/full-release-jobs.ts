@@ -8,7 +8,12 @@ import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
 type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "deploy"; releaseScope?: ReleaseScope };
-type Runtime = { child?: ChildProcess; cancelled: boolean; buffers: Record<"stdout" | "stderr", string> };
+type Runtime = {
+  child?: ChildProcess;
+  cancelled: boolean;
+  buffers: Record<"stdout" | "stderr", string>;
+  stageOutcomes: Partial<Record<"web" | "ios" | "android", "deployed" | "up-to-date" | "warning">>;
+};
 
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const activeStatuses = new Set(["queued", "running", "paused"]);
@@ -25,6 +30,14 @@ export function releaseCommands(target: ReleaseTarget, scope: ReleaseScope) {
     : { stage: "android" as const, label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 };
   if (scope !== "all") return [web, native];
   return [web, { stage: "ios" as const, label: "Uploading iOS to TestFlight", args: ["run", "native:deploy:ios", "--", target], steps: 1 }, { stage: "android" as const, label: target === "staging" ? "Uploading Android to Internal testing" : "Uploading Android production draft", args: ["run", "native:deploy:android", "--", target], steps: 1 }];
+}
+
+export function parseDeployResult(message: string) {
+  if (!message.startsWith("GETGO_DEPLOY_RESULT ")) return null;
+  try {
+    const result = JSON.parse(message.slice("GETGO_DEPLOY_RESULT ".length)) as { outcome?: unknown };
+    return result.outcome === "deployed" || result.outcome === "up-to-date" || result.outcome === "warning" ? result.outcome : null;
+  } catch { return null; }
 }
 
 function cleanLine(value: string) {
@@ -133,6 +146,10 @@ export class FullReleaseJobManager {
       const missingSecrets = secretChecks.filter(check => check.result.code !== 0 || !check.result.output.trim()).map(check => check.secret);
       if (missingSecrets.length > 0) {
         const skippedCodebases = (config.functionCodebases ?? []).filter(codebase => codebase.requiredSecrets?.some(secret => missingSecrets.includes(secret))).map(codebase => codebase.name);
+        // PRODUCT INVARIANT: secret-dependent Function codebases are optional
+        // for a release. Missing secrets must remain a warning that skips only
+        // those codebases; never change this to action-required or block the
+        // deployable Web/Firebase resources from being released.
         return { id: "web", status: "warning", title: "Web and Firebase", summary: `Deployment can continue, but Functions requiring missing secrets will be skipped: ${missingSecrets.join(", ")}.`, details: [`Firebase project: ${config.firebaseProject ?? targetName}`, ...(skippedCodebases.length > 0 ? [`Skipped Function codebases: ${skippedCodebases.join(", ")}`] : []), ...missingSecrets.map(secret => `$ firebase functions:secrets:set ${secret} --project ${config.firebaseProject ?? targetName}`)] };
       }
       return { id: "web", status: "ready", title: "Web and Firebase", summary: `${config.firebaseProject ?? targetName} configuration and Firebase access are ready.`, details: [] };
@@ -191,7 +208,7 @@ export class FullReleaseJobManager {
 
   private async run(job: ReleaseJob) {
     const root = await this.webRoot();
-    const runtime: Runtime = { cancelled: false, buffers: { stdout: "", stderr: "" } };
+    const runtime: Runtime = { cancelled: false, buffers: { stdout: "", stderr: "" }, stageOutcomes: {} };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
@@ -208,7 +225,11 @@ export class FullReleaseJobManager {
         if (code !== 0) throw new Error(`${command.label} failed with exit code ${code ?? "unknown"}.`);
         completed += command.steps;
         job.completed = completed;
-        job.releaseStageFinishedAt = { ...job.releaseStageFinishedAt, [command.stage]: new Date().toISOString() };
+        const outcome = runtime.stageOutcomes[command.stage] ?? "deployed";
+        job.releaseStageOutcomes = { ...job.releaseStageOutcomes, [command.stage]: outcome };
+        if (outcome === "deployed") {
+          job.releaseStageFinishedAt = { ...job.releaseStageFinishedAt, [command.stage]: new Date().toISOString() };
+        }
         await this.persist();
       }
       job.status = "completed";
@@ -250,6 +271,11 @@ export class FullReleaseJobManager {
               if (typeof progress.completed === "number") job.completed = Math.min(job.total, completedBefore + progress.completed);
               if (typeof progress.label === "string" && progress.label) job.progressLabel = progress.label;
             } catch { /* Keep the raw deployment output when a progress event is malformed. */ }
+            continue;
+          }
+          if (message.startsWith("GETGO_DEPLOY_RESULT ")) {
+            const outcome = parseDeployResult(message);
+            if (outcome) runtime.stageOutcomes.web = outcome;
             continue;
           }
           job.logs?.push({ timestamp: new Date().toISOString(), stream, message });

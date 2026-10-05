@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Wrench } from "lucide-react";
+import { ChevronDown, Rocket, Wrench } from "lucide-react";
 import type { AppSettings } from "../../shared/domain/models";
 import en from "../../shared/localization/en.json";
 import vi from "../../shared/localization/vi.json";
-import { otherToolsNavigation, primaryNavigation, settingsNavigation, type NavigableView, type View } from "./navigation";
+import { deploymentTargets, otherToolsNavigation, primaryNavigation, settingsNavigation, type NavigableView, type View } from "./navigation";
 
 const expandedKey = "getgo-tools:other-tools-expanded";
+const deployExpandedKey = "getgo-tools:deploy-expanded";
 const isOtherTool = (view: View) => otherToolsNavigation.some((item) => item.id === view);
 
 function readExpanded(view: View): boolean {
@@ -14,16 +15,27 @@ function readExpanded(view: View): boolean {
   catch { return false; }
 }
 
-export function SidebarNavigation({ locale, view, collapsed, onExpandSidebar, onNavigate }: {
+function readDeployExpanded(view: View): boolean {
+  if (view === "deploy") return true;
+  try { return localStorage.getItem(deployExpandedKey) !== "false"; }
+  catch { return true; }
+}
+
+export function SidebarNavigation({ locale, view, collapsed, deploymentTarget, onExpandSidebar, onNavigate, onNavigateDeployment }: {
   locale: AppSettings["locale"];
   view: View;
   collapsed: boolean;
+  deploymentTarget: AppSettings["environment"];
   onExpandSidebar(): void;
   onNavigate(view: NavigableView): void;
+  onNavigateDeployment(target: AppSettings["environment"]): void;
 }) {
   const copy = locale === "vi" ? vi : en;
   const [expanded, setExpanded] = useState(() => readExpanded(view));
+  const [deployExpanded, setDeployExpanded] = useState(() => readDeployExpanded(view));
   const otherToolsLabel = locale === "vi" ? "Công cụ khác" : "Other Tools";
+  const deployLabel = copy.deployment.title;
+  const targetLabels: Record<AppSettings["environment"], string> = copy.deployment.targets;
   const itemLabel = (item: (typeof primaryNavigation)[number]) => item.id === "topics"
     ? copy.contentV2.nav
     : item.id === "image-pdf"
@@ -38,9 +50,16 @@ export function SidebarNavigation({ locale, view, collapsed, onExpandSidebar, on
     if (isOtherTool(view)) setExpanded(true);
   }, [view]);
   useEffect(() => {
+    if (view === "deploy") setDeployExpanded(true);
+  }, [view]);
+  useEffect(() => {
     try { localStorage.setItem(expandedKey, String(expanded)); }
     catch { /* Storage can be unavailable in hardened renderer sessions. */ }
   }, [expanded]);
+  useEffect(() => {
+    try { localStorage.setItem(deployExpandedKey, String(deployExpanded)); }
+    catch { /* Storage can be unavailable in hardened renderer sessions. */ }
+  }, [deployExpanded]);
 
   const renderItem = (item: (typeof primaryNavigation)[number], nested = false) => {
     const Icon = item.icon;
@@ -60,6 +79,33 @@ export function SidebarNavigation({ locale, view, collapsed, onExpandSidebar, on
 
   return <nav className="sidebar-navigation" aria-label={locale === "vi" ? "Điều hướng chính" : "Main navigation"}>
     <div className="sidebar-navigation-group sidebar-navigation-group-0">
+      <button
+        type="button"
+        className={`sidebar-submenu-trigger ${collapsed && view === "deploy" ? "active" : ""}`.trim()}
+        aria-expanded={deployExpanded && !collapsed}
+        aria-controls="sidebar-deploy-targets"
+        aria-label={deployLabel}
+        title={collapsed ? deployLabel : undefined}
+        onClick={() => {
+          if (collapsed) onExpandSidebar();
+          setDeployExpanded((value) => !value || collapsed);
+        }}
+      >
+        <i><Rocket size={18} strokeWidth={1.8} /></i>
+        <span>{deployLabel}</span>
+        <ChevronDown className={`sidebar-submenu-chevron ${deployExpanded && !collapsed ? "expanded" : ""}`} size={15} aria-hidden="true" />
+      </button>
+      {deployExpanded && !collapsed && <div id="sidebar-deploy-targets" className="sidebar-submenu-items">
+        {deploymentTargets.map((target) => <button
+          type="button"
+          key={target}
+          className={view === "deploy" && deploymentTarget === target ? "active" : ""}
+          aria-current={view === "deploy" && deploymentTarget === target ? "page" : undefined}
+          onClick={() => onNavigateDeployment(target)}
+        >
+          <span>{targetLabels[target]}</span>
+        </button>)}
+      </div>}
       {primaryNavigation.map((item) => renderItem(item))}
     </div>
     <div className="sidebar-navigation-group sidebar-navigation-group-1">

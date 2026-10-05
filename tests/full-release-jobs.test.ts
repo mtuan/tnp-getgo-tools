@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { releaseCommands } from "../src/features/deployment/main/full-release-jobs.js";
+import { parseDeployResult, releaseCommands } from "../src/features/deployment/main/full-release-jobs.js";
 
 test("staging release deploys the complete Web target before store uploads", () => {
   assert.deepEqual(releaseCommands("staging", "all"), [
@@ -30,4 +30,12 @@ test("individual native releases deploy Web and Firebase dependencies first", ()
   assert.deepEqual(releaseCommands("production", "web"), [
     { stage: "web", label: "Deploying Web and Firebase", args: ["run", "deploy:getgo:production"], steps: 7 },
   ]);
+});
+
+test("deployment result distinguishes a real publish from an up-to-date no-op", () => {
+  assert.equal(parseDeployResult('GETGO_DEPLOY_RESULT {"outcome":"deployed","deployed":["hosting"]}'), "deployed");
+  assert.equal(parseDeployResult('GETGO_DEPLOY_RESULT {"outcome":"up-to-date","deployed":[]}'), "up-to-date");
+  assert.equal(parseDeployResult('GETGO_DEPLOY_RESULT {"outcome":"warning","deployed":[]}'), "warning");
+  assert.equal(parseDeployResult("GETGO_RELEASE_PROGRESS {}"), null);
+  assert.equal(parseDeployResult("GETGO_DEPLOY_RESULT not-json"), null);
 });

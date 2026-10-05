@@ -445,6 +445,11 @@
   "deployment": {
     "eyebrow": "Release control",
     "title": "Deploy",
+    "targets": {
+      "development": "Development",
+      "staging": "Staging",
+      "production": "Production"
+    },
     "description": "Run, build, and release GetGo Web or GetGo App for the environment selected in the header.",
     "productTabs": "Deployment product",
     "webTab": "GetGo Web",
@@ -619,6 +624,8 @@
       "deployAndroid": "Deploy Android",
       "stageStatus": {
         "deployed": "Deployed",
+        "upToDate": "Up to date",
+        "warning": "Completed with warnings",
         "deploying": "Deploying",
         "failed": "Last attempt failed",
         "notDeployed": "Not deployed",

@@ -6,6 +6,7 @@ import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, Depl
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 import { FirestoreIndexWaitCancelledError, waitForFirestoreIndexes } from "./firestore-index-readiness.js";
+import { parseDeployResult } from "./full-release-jobs.js";
 
 type DeploymentJob = BackgroundJob & {
   kind: "deploy";
@@ -16,7 +17,7 @@ type DeploymentJob = BackgroundJob & {
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
-interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string }
+interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string; deployOutcome?: "deployed" | "up-to-date" | "warning" }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
   development: "deploy:getgo:dev",
@@ -181,14 +182,34 @@ export class WebDeploymentJobManager {
     return hash.digest("hex");
   }
 
-  private async hashHostingInputs(webRoot: string, envFile: string) {
+  private async hashHostingInputs(webRoot: string) {
     const hash = createHash("sha256");
-    for (const relativePath of ["src", "public", "plugins"])
+    for (const relativePath of ["src", "public", "plugins", "shared"])
       hash.update(await this.hashDirectory(path.join(webRoot, relativePath)) ?? "");
     for (const relativePath of [
       "index.html", "package.json", "package-lock.json", "tsconfig.app.json", "vite.config.ts",
-      "configs/apps/getgo/callables.json", envFile,
+      "configs/apps/getgo/callables.json",
     ]) hash.update(await this.hashFile(path.join(webRoot, relativePath)) ?? "");
+    for (const targetName of ["getgo-dev", "getgo-staging", "getgo"]) {
+      hash.update(await this.hashFile(path.join(webRoot, "configs", "deploys", targetName, ".env")) ?? "");
+      hash.update(await this.hashFile(path.join(webRoot, "configs", "deploys", targetName, "target.json")) ?? "");
+    }
+    hash.update(await this.hashDirectory(path.join(webRoot, "node_modules", "@tnp", "getgo-logics")) ?? "");
+    try {
+      const toolsEnv = Object.fromEntries((await fs.readFile(path.join(webRoot, "..", "tnp-getgo-tools", ".env"), "utf8"))
+        .split(/\r?\n/)
+        .filter(line => line && !line.trimStart().startsWith("#") && line.includes("="))
+        .map(line => {
+          const separator = line.indexOf("=");
+          return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
+        }));
+      for (const environmentPrefix of ["DEVELOPMENT", "STAGING", "PRODUCTION"])
+        for (const suffix of ["API_KEY", "PROJECT_ID", "PROJECT_NUMBER"]) {
+          const key = `GETGO_FIREBASE_${environmentPrefix}_${suffix}`;
+          hash.update(key);
+          hash.update(process.env[key] || toolsEnv[key] || "");
+        }
+    } catch { hash.update("missing-tools-firebase-config"); }
     return hash.digest("hex");
   }
 
@@ -214,6 +235,7 @@ export class WebDeploymentJobManager {
     const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as {
       envFile?: string;
       apps?: string[];
+      firebaseConfig?: string;
       resourceDir?: string;
       functionCodebases?: Array<{id: string; name: string}>;
     };
@@ -221,7 +243,8 @@ export class WebDeploymentJobManager {
     if (component === "web")
       return [
         { id: "web", localHash: await this.hashDirectory(path.join(webRoot, "dist")), deployedHash: null, changed: false },
-        { id: "web-inputs", localHash: await this.hashHostingInputs(webRoot, targetConfig.envFile ?? `configs/deploys/${targetName}/.env`), deployedHash: null, changed: false },
+        { id: "web-inputs", localHash: await this.hashHostingInputs(webRoot), deployedHash: null, changed: false },
+        { id: "web-config", localHash: await this.hashFile(path.resolve(webRoot, targetConfig.firebaseConfig ?? path.join(deployRoot, "firebase.json"))), deployedHash: null, changed: false },
       ];
     const ruleItems = await Promise.all([
       ["firestore-rules", "firestore.rules"],
@@ -249,7 +272,7 @@ export class WebDeploymentJobManager {
 
   private componentVersion(component: DeploymentComponent, items: DeploymentItemState[], source: "localHash" | "deployedHash") {
     const values = items
-      .filter((item) => component === "web" ? item.id === "web" : item.id !== "web" && item.id !== "web-inputs" && item.id !== "firebase-inputs")
+      .filter((item) => component === "web" ? item.id !== "web-inputs" : item.id !== "web" && item.id !== "web-inputs" && item.id !== "web-config" && item.id !== "firebase-inputs")
       .map((item) => `${item.id}:${item[source] ?? ""}`)
       .sort();
     if (!values.length || values.some((value) => value.endsWith(":"))) return undefined;
@@ -324,7 +347,8 @@ export class WebDeploymentJobManager {
     const legacyWebBuild = this.builds.find((item) =>
       item.component === "web"
       && item.target === target
-      && !item.items.some((artifact) => artifact.id === "web-inputs"),
+      && (!item.items.some((artifact) => artifact.id === "web-inputs")
+        || !item.items.some((artifact) => artifact.id === "web-config")),
     );
     if (legacyWebBuild) {
       legacyWebBuild.items = await this.localItems("web", webRoot, target);
@@ -340,7 +364,7 @@ export class WebDeploymentJobManager {
         && (component === "web" || item.items.some((artifact) => artifact.id.startsWith("functions:"))),
       );
       const keys = component === "web"
-        ? [["web", "hosting"], ["web-inputs", "hosting:inputs"]]
+        ? [["web", "hosting"], ["web-inputs", "hosting:inputs"], ["web-config", "hosting:config"]]
         : [
             ["firestore-rules", "firestore:rules"],
             ["firestore-indexes", "firestore:indexes"],
@@ -447,6 +471,11 @@ export class WebDeploymentJobManager {
       for (const raw of lines) {
         const line = cleanLine(raw);
         if (!line || runtime.cancelled) continue;
+        const deployOutcome = parseDeployResult(line);
+        if (deployOutcome) {
+          runtime.deployOutcome = deployOutcome;
+          continue;
+        }
         job.progressLabel = line;
         const phase = outputPhase(line, component);
         this.beginReportStep(job, runtime, phase ?? runtime.reportPhase ?? "startup", line);
@@ -470,7 +499,7 @@ export class WebDeploymentJobManager {
     if (!runtime.cancelled) {
       if (!cause && code === 0) {
         try {
-          if (job.operation === "deploy" && job.component === "firebase" && job.target) {
+          if (job.operation === "deploy" && runtime.deployOutcome !== "up-to-date" && job.component === "firebase" && job.target) {
             const webRoot = await this.webRoot();
             const deploymentState = await this.state(job.target);
             this.beginReportStep(job, runtime, "indexes", "Firebase deployment finished; checking composite index readiness.");
@@ -495,10 +524,10 @@ export class WebDeploymentJobManager {
           if (!runtime.cancelled) {
             job.status = "completed";
             job.completed = job.total;
-            job.progressLabel = job.operation === "build" ? "Built" : "Deployed";
+            job.progressLabel = job.operation === "build" ? "Built" : runtime.deployOutcome === "up-to-date" ? "Up to date" : runtime.deployOutcome === "warning" ? "Completed with warnings" : "Deployed";
             if ((job.operation === "build" || job.operation === "deploy") && job.component && job.target)
               await this.recordBuild(job.component, job.target);
-            if (job.operation === "deploy" && job.component && job.target)
+            if (job.operation === "deploy" && runtime.deployOutcome === "deployed" && job.component && job.target)
               await this.recordDeployment(job.component, job.target);
             await this.finalizeReport(job, "completed");
           }

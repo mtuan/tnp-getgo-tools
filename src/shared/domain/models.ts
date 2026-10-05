@@ -611,10 +611,11 @@ export interface AiMigrationJobsSnapshot {
 }
 
 export type BackgroundJobKind = "ai-migrate" | "publish" | "deploy" | "amc-import"; export type DeploymentProduct = "web" | "app"; export type LocalRuntimeId = DeploymentProduct | "design"; export type WebDeploymentTarget = "development" | "staging" | "production"; export type DeploymentComponent = "firebase" | "web" | "mobile-ios" | "mobile-android" | "release"; export type DeploymentOperation = "run" | "run-device" | "build" | "deploy"; export type ReleaseScope = "all" | "web" | "ios" | "android";
+export type ReleaseStageOutcome = "deployed" | "up-to-date" | "warning";
 export type ReleaseDoctorCheckStatus = "checking" | "ready" | "warning" | "action-required"; export interface ReleaseDoctorCheck { id: "web" | "ios" | "android"; status: ReleaseDoctorCheckStatus; title: string; summary: string; details: string[]; }
 export interface ReleaseDoctorSnapshot { target: Exclude<WebDeploymentTarget, "development">; checkedAt: string; ready: boolean; checks: ReleaseDoctorCheck[]; webUrl?: string; lastDeployedAt?: Partial<Record<"web" | "ios" | "android", string>>; }
 export interface DeploymentItemState {
-  id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "firebase-inputs" | `functions:${string}` | "web" | "web-inputs";
+  id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "firebase-inputs" | `functions:${string}` | "web" | "web-inputs" | "web-config";
   localHash: string | null;
   deployedHash: string | null;
   changed: boolean;
@@ -703,7 +704,7 @@ export interface BackgroundJob {
   route?: string; deploymentProduct?: DeploymentProduct;
   component?: DeploymentComponent;
   operation?: DeploymentOperation;
-  target?: WebDeploymentTarget; releaseScope?: ReleaseScope; releaseStageFinishedAt?: Partial<Record<"web" | "ios" | "android", string>>;
+  target?: WebDeploymentTarget; releaseScope?: ReleaseScope; releaseStageFinishedAt?: Partial<Record<"web" | "ios" | "android", string>>; releaseStageOutcomes?: Partial<Record<"web" | "ios" | "android", ReleaseStageOutcome>>;
   version?: string;
   buildNumber?: string;
   cancellable: boolean;

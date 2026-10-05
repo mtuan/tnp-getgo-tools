@@ -445,6 +445,11 @@
   "deployment": {
     "eyebrow": "Quản lý phát hành",
     "title": "Triển khai",
+    "targets": {
+      "development": "Phát triển",
+      "staging": "Thử nghiệm",
+      "production": "Sản xuất"
+    },
     "description": "Chạy, build và phát hành GetGo Web hoặc GetGo App cho môi trường đang chọn trên thanh tiêu đề.",
     "productTabs": "Sản phẩm triển khai",
     "webTab": "GetGo Web",
@@ -619,6 +624,8 @@
       "deployAndroid": "Triển khai Android",
       "stageStatus": {
         "deployed": "Đã triển khai",
+        "upToDate": "Đã cập nhật",
+        "warning": "Hoàn tất với cảnh báo",
         "deploying": "Đang triển khai",
         "failed": "Lần gần nhất thất bại",
         "notDeployed": "Chưa triển khai",

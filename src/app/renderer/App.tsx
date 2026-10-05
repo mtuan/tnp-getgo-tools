@@ -33,7 +33,7 @@ import { Button } from "../../shared/ui/Button";
 import { DialogFrame } from "../../shared/ui/DialogFrame";
 import { PageLoading } from "../../shared/ui/PageLoading";
 import { Select } from "../../shared/ui/Select";
-import { environmentOptions, type NavigableView, type View } from "./navigation";
+import { deploymentTargetFromRoute, environmentOptions, type NavigableView, type View } from "./navigation";
 import { SidebarNavigation } from "./SidebarNavigation";
 import { useToast } from "../../shared/ui/Toast";
 import { StartupEnvironmentPage } from "../../features/settings/components/StartupEnvironmentPage";
@@ -94,10 +94,10 @@ function viewFromRoute(route: string): View {
   } catch {
     pathname = route.split("?")[0];
   }
+  if (pathname === "/deploy" || pathname.startsWith("/deploy/")) return "deploy";
   const staticView = [
     "feedbacks",
     "jobs",
-    "deploy",
     "amc-import",
     "image-pdf",
     "screenshots", "designs",
@@ -179,6 +179,7 @@ export function App() {
     useState(readSidebarCollapsed);
   const [canNavigateBack, setCanNavigateBack] = useState(false);
   const environmentCheckId = useRef(0);
+  const deploymentRouteSyncRef = useRef<string | null>(null);
   const quizBackAction = useRef<(() => void) | null>(null);
   useEffect(() => window.getgo.onContentSafetyWarning((warning) => {
     const matches = warning.findings.slice(0, 4).map(item => `“${item.term}” at ${item.path}`).join("; ");
@@ -404,6 +405,19 @@ export function App() {
     goToRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`);
   }
 
+  const deploymentTarget = deploymentTargetFromRoute(currentRoute) ?? settings.environment;
+
+  useEffect(() => {
+    const target = deploymentTargetFromRoute(currentRoute);
+    if (!target) {
+      deploymentRouteSyncRef.current = null;
+      return;
+    }
+    if (target === settings.environment || checkingEnvironment || deploymentRouteSyncRef.current === currentRoute) return;
+    deploymentRouteSyncRef.current = currentRoute;
+    void changeEnvironment(target);
+  }, [checkingEnvironment, currentRoute, settings.environment]);
+
   function environmentSwitcher(className?: string) {
     if (!settingsLoaded)
       return (
@@ -537,7 +551,15 @@ export function App() {
             <span>TOOLS</span>
           </div>
         </div>
-        <SidebarNavigation locale={settings.locale} view={view} collapsed={sidebarCollapsed} onExpandSidebar={() => setSidebarCollapsed(false)} onNavigate={navigate} />
+        <SidebarNavigation
+          locale={settings.locale}
+          view={view}
+          collapsed={sidebarCollapsed}
+          deploymentTarget={deploymentTarget}
+          onExpandSidebar={() => setSidebarCollapsed(false)}
+          onNavigate={navigate}
+          onNavigateDeployment={(target) => goToRoute(`/deploy/${target}`)}
+        />
         <div className="sidebar-footer">
           <span className="sidebar-workspace">
             <span className="status-dot" />
@@ -685,7 +707,7 @@ export function App() {
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
                 <DeploymentPage
                   locale={settings.locale}
-                  environment={settings.environment}
+                  environment={deploymentTarget}
                   onOpenJobs={() => goToRoute("/jobs")}
                 />
               </Suspense>
