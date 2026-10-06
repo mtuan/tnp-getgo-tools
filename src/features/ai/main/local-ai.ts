@@ -26,7 +26,7 @@ Rules:
 - explanationGeneratorTs returns exactly the locales in the quiz-level supportedLanguages context; never add unsupported locales or empty placeholders.
 - Use QB.maths.calc tagged templates for displayed arithmetic and calculation chains instead of raw JavaScript arithmetic interpolation. Use other documented QB.maths helpers when they better represent the mathematics.
 - For supported linear equations, define the equation once and interpolate QB.maths.equation\`...\`.solveDetailed(variable); do not manually duplicate transformation steps or the solved value.
-- For named-variable arithmetic rules without an equals sign, define QB.maths.formula\`...\` once and reuse its symbolic rendering, evaluate(values), or calculate(values); never duplicate the rule as text and raw arithmetic.
+- Use QB.maths.formula only when a named-variable symbolic rule is actually rendered. If all operands are concrete generated values and no symbolic rule is displayed, use QB.maths.calc instead.
 - Never invent APIs, imports, exports, Markdown fences, QB.template, or code outside the four fragments.
 - Prefer safe bounds that preserve the original mathematical relationship and a unique correct choice.
 - Prefer semantic locale helpers over manual literal pools: QB.en.colors(count), names(count), animals(count, category), foods(count), and the QB.vi equivalents. Use QB.rnd.pick([...], count) only when no semantic helper matches or the exact allowlist is essential.
