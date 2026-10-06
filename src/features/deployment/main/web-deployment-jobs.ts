@@ -356,6 +356,10 @@ export class WebDeploymentJobManager {
       legacyWebBuild.format = "shared-v1";
       await this.persist();
     }
+    const currentItems: Partial<Record<DeploymentComponent, DeploymentItemState[]>> = {
+      web: await this.localItems("web", webRoot, target),
+      firebase: await this.localItems("firebase", webRoot, target),
+    };
     const componentState = (component: DeploymentComponent): DeploymentComponentState => {
       const build = this.builds.find((item) =>
         item.component === component
@@ -373,7 +377,7 @@ export class WebDeploymentJobManager {
             ...(targetConfig.functionCodebases ?? []).map(({name}) => [`functions:${name}`, `functions:${name}`]),
           ];
       const items = keys.map(([id, key]) => {
-        const localHash = build?.items.find((item) => item.id === id)?.localHash ?? null;
+        const localHash = currentItems[component]?.find((item) => item.id === id)?.localHash ?? null;
         const deployedHash = deployed[key] ?? null;
         return { id: id as DeploymentItemState["id"], localHash, deployedHash, changed: Boolean(localHash && localHash !== deployedHash) };
       });
