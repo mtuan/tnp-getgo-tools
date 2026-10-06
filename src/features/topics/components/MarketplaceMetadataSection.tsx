@@ -202,12 +202,10 @@ export function MarketplaceMetadataSection({
         type: "textarea",
         name: "shortDescription",
         label: copy.fields.shortDescription,
-        required: true,
       } as FormSchema, {
         type: "textarea",
         name: "fullDescription",
         label: copy.fields.fullDescription,
-        required: true,
       } as FormSchema] : []),
       ...(!isTopic ? [[
         {

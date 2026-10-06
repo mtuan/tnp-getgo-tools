@@ -174,8 +174,6 @@
     "accessFree": "Free",
     "accessPremium": "Premium",
     "accessExclusive": "Exclusive",
-    "inheritedAccess": "{access} · inherited",
-    "inheritedAccessDescription": "Inherits {access} access from the topic.",
     "topicPricingHelp": "Exclusive topics are purchased once and unlock every exclusive quiz in the topic.",
     "quizPricingHelp": "Quizzes normally inherit access from their topic. An Exclusive quiz is supported only inside an Exclusive topic.",
     "paidQuizRequiresPaidTopic": "An Exclusive quiz must belong to an Exclusive topic.",

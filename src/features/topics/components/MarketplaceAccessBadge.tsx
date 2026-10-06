@@ -29,13 +29,12 @@ export function MarketplaceAccessBadge({
     subscription: copy.accessPremium,
     paid: copy.accessExclusive,
   }[access];
-  const inherited = inheritedAccess !== undefined && !marketplace?.pricing?.type;
   return (
     <StatusBadge
       tone={toneByAccess[access]}
-      title={inherited ? copy.inheritedAccessDescription.replace("{access}", label) : label}
+      title={label}
     >
-      {inherited ? copy.inheritedAccess.replace("{access}", label) : label}
+      {label}
     </StatusBadge>
   );
 }

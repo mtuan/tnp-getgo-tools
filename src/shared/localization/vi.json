@@ -174,8 +174,6 @@
     "accessFree": "Miễn phí",
     "accessPremium": "Cao cấp",
     "accessExclusive": "Độc quyền",
-    "inheritedAccess": "{access} · kế thừa",
-    "inheritedAccessDescription": "Kế thừa quyền {access} từ chủ đề.",
     "topicPricingHelp": "Chủ đề Độc quyền được mua một lần và mở khóa mọi bài học độc quyền trong chủ đề.",
     "quizPricingHelp": "Bài học thường kế thừa quyền truy cập từ chủ đề. Bài học Độc quyền chỉ được hỗ trợ trong chủ đề Độc quyền.",
     "paidQuizRequiresPaidTopic": "Bài học Độc quyền phải thuộc một chủ đề Độc quyền.",
