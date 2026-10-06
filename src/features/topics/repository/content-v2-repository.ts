@@ -12,6 +12,7 @@ import {
   contentV2TopicSchema,
   hashContentV2,
   localizedText,
+  marketplaceContentAccess,
   sanitizeContentV2Question,
   sanitizeContentV2Quiz,
   sanitizeContentV2Topic,
@@ -574,12 +575,17 @@ export async function saveContentV2Topic(
     marketplace: { ...topic.marketplace, tags: [...normalizedTags.values()] },
   } as ContentV2Topic;
   const contentChanged = Boolean(existing && hashContentV2(sanitizeContentV2Topic(existing)) !== hashContentV2(sanitizeContentV2Topic(topic)));
+  const accessChanged = Boolean(existing
+    && marketplaceContentAccess(existing.marketplace) !== marketplaceContentAccess(topic.marketplace));
   if (contentChanged) {
     const { publishedHash: _publishedHash, publishedAt: _publishedAt, ...changed } = topic;
     topic = changed as ContentV2Topic;
   }
   await writeJson(filePath, topic);
   if (contentChanged) await markTopicPublishStateDirty(filePath);
+  // Quiz documents and public summaries store resolved access. Changing the
+  // topic access therefore invalidates every inherited quiz publication.
+  if (accessChanged) await invalidateTopicQuizPublishStates(repositoryPath, topic.id);
   return topic;
 }
 

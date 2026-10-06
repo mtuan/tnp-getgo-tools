@@ -11,6 +11,8 @@ import { renderTopicTree } from "./TopicTree";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
+import { MarketplaceAccessBadge } from "../../components/MarketplaceAccessBadge";
+import { marketplaceContentAccess } from "../../domain/marketplace-content-access";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type ManagerListContext = Record<string, any> & {
@@ -49,6 +51,7 @@ export function renderManagerList(context: ManagerListContext) {
                   <colgroup>
                     <col />
                     <col style={{ width: 100 }} />
+                    <col style={{ width: 148 }} />
                     <col style={{ width: 136 }} />
                     <col style={{ width: 112 }} />
                     <col style={{ width: 92 }} />
@@ -61,6 +64,7 @@ export function renderManagerList(context: ManagerListContext) {
                       <>
                         <th>Quiz</th>
                         <th className="manager-column-centered">Type</th>
+                        <th className="manager-column-centered">{marketplaceCopy.columns.access}</th>
                         <th className="manager-column-centered">Review</th>
                         <th className="manager-column-centered">State</th>
                         <th className="manager-column-centered">{marketplaceCopy.columns.preview}</th>
@@ -89,6 +93,7 @@ export function renderManagerList(context: ManagerListContext) {
                         </th>
                         {topicMode ? (
                           <>
+                            <th className="manager-column-centered">{marketplaceCopy.columns.access}</th>
                             <th className="manager-column-centered">Review</th>
                             <th className="manager-column-centered">State</th>
                             <th className="manager-column-centered">{marketplaceCopy.columns.preview}</th>
@@ -100,7 +105,7 @@ export function renderManagerList(context: ManagerListContext) {
                             <th>Builds</th>
                           </>
                         )}
-                        <th />
+                        {!topicMode && <th />}
                       </>
                     )}
                   </tr>
@@ -138,6 +143,15 @@ export function renderManagerList(context: ManagerListContext) {
                             </td>
                             <td className="manager-column-centered">
                               {contentQuiz ? quizTypeLabel(contentQuiz.type) : quiz.type}
+                            </td>
+                            <td className="manager-status-cell">
+                              <MarketplaceAccessBadge
+                                locale={locale}
+                                marketplace={contentQuiz?.marketplace ?? quiz.marketplace}
+                                inheritedAccess={marketplaceContentAccess(
+                                  snapshot.contentV2.topics.find((topic) => topic.id === quiz.contest)?.marketplace,
+                                )}
+                              />
                             </td>
                             <td className="manager-status-cell">
                               <StatusBadge
@@ -330,6 +344,9 @@ export function renderManagerList(context: ManagerListContext) {
                               </td>
                               {topicMode && topicSummary ? (
                                 <>
+                                  <td className="manager-status-cell">
+                                    <MarketplaceAccessBadge locale={locale} marketplace={topicSummary.marketplace} />
+                                  </td>
                                   <td className="manager-status-cell">
                                     {(() => {
                                       const questions = snapshot.contentV2.questions.filter((question) => question.topicId === topicSummary.id);

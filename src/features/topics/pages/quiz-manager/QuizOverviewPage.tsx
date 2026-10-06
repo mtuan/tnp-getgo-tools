@@ -10,6 +10,7 @@ import { MarketplaceMetadataSection } from "../../components/MarketplaceMetadata
 import { AccordionGroup } from "../../../../shared/ui/Accordion";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import { marketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
+import type { MarketplaceTopicMetadata } from "../../../../features/topics/domain/content-v2";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { effectiveQuizReviewCounts, QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
@@ -333,10 +334,13 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                 recordKey={`quiz:${quiz.contest}/${quiz.id}`}
                 locale={locale}
                 load={() => managerApi.loadContentV2Quiz(quiz.contest, quiz.id)}
-                loadSubjectOptions={async () => {
+                loadParentMarketplace={async () => {
                   const topic = await window.getgo.loadContentV2Topic(quiz.contest);
-                  return topic.marketplace?.subjects ??
-                    (topic.type === "competition" ? [topic.subject] : []);
+                  return {
+                    ...(topic.marketplace ?? {}),
+                    subjects: topic.marketplace?.subjects ??
+                      (topic.type === "competition" ? [topic.subject] : []),
+                  } as MarketplaceTopicMetadata;
                 }}
                 save={async (record) => {
                   if (!("topicId" in record)) throw new Error("Expected quiz metadata.");

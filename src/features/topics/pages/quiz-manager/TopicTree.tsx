@@ -11,6 +11,8 @@ import { MarketplacePreviewCell } from "../../components/MarketplacePreviewCell"
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
+import { MarketplaceAccessBadge } from "../../components/MarketplaceAccessBadge";
+import { marketplaceContentAccess } from "../../domain/marketplace-content-access";
 import {
   orderByRecent,
   quizActivityKey,
@@ -92,7 +94,7 @@ isContest,
                 {
                   key: "identity",
                   title: "Topic / quiz",
-                  width: "calc(100% - 584px)",
+                  width: "calc(100% - 732px)",
                   render: () => null,
                 },
                 {
@@ -109,6 +111,26 @@ isContest,
                         quiz.id === row.quiz.id,
                     );
                     return summary ? quizTypeLabel(summary.type) : row.quiz.type;
+                  },
+                },
+                {
+                  key: "access",
+                  title: marketplaceCopy.columns.access,
+                  width: 148,
+                  align: "center",
+                  render: (row) => {
+                    if (row.kind === "topic")
+                      return <MarketplaceAccessBadge locale={locale} marketplace={row.summary.marketplace} />;
+                    const topic = snapshot.contentV2.topics.find(
+                      (candidate) => candidate.id === row.quiz.contest,
+                    );
+                    return (
+                      <MarketplaceAccessBadge
+                        locale={locale}
+                        marketplace={row.quiz.marketplace}
+                        inheritedAccess={marketplaceContentAccess(topic?.marketplace)}
+                      />
+                    );
                   },
                 },
                 {

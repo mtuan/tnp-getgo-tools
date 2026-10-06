@@ -3,6 +3,8 @@ import type { LocalPublishPayload } from "../repository/quiz-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { ContentV2Question, ContentV2Quiz, ContentV2Topic, MarketplaceContentAccess } from "../../../features/topics/domain/content-v2.js";
 import {
+  assertMarketplaceQuizPurchaseConfiguration,
+  assertMarketplaceTopicPurchaseConfiguration,
   marketplaceContentAccess,
   sanitizeMarketplaceQuiz,
   sanitizeMarketplaceTopic,
@@ -135,6 +137,7 @@ export function createContentV2TopicPublishPreview(
   contentHash: string,
   quizIds: string[],
 ): ContentV2TopicPublishPreview {
+  assertMarketplaceTopicPurchaseConfiguration(topic);
   return {
     firestore: {
       topicDocument: {
@@ -159,6 +162,7 @@ export function createMarketplaceTopicPublishData(
   contentHash: string,
   publishedAt = "<generated at publish time>",
 ): Record<string, unknown> {
+  assertMarketplaceTopicPurchaseConfiguration(topic);
   return {
     ...sanitizeMarketplaceTopic(topic),
     quizBuilderApiVersion: currentQuizBuilderApiVersion,
@@ -176,6 +180,7 @@ export function createContentV2QuizPublishPreview(
   assets: ContentV2Asset[],
   contentHash: string,
 ): ContentV2QuizPublishPreview {
+  assertMarketplaceQuizPurchaseConfiguration(topicId, quiz, topicAccess);
   const quizPath = contentV2QuizPath(topicId, quiz.id);
   const access = marketplaceContentAccess(quiz.marketplace, topicAccess);
   const { sharedCode, ...quizMetadata } = sanitizeContentV2Quiz(quiz);

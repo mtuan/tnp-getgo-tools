@@ -147,6 +147,59 @@ test("marketplace topic publishing uses the canonical searchable payload", () =>
   assert.ok((data.filterKeys as string[]).includes("public|g:3"));
 });
 
+test("paid topic publishing requires a checkout-compatible price", () => {
+  const paidTopic = {
+    schemaVersion: 2 as const,
+    id: "exclusive-mathematics",
+    type: "competition" as const,
+    title: "Exclusive Mathematics",
+    description: "",
+    subjects: ["mathematics"],
+    grades: [3],
+    status: "reviewed" as const,
+    order: 0,
+    subject: "mathematics",
+    rounds: [],
+    gradeGroups: [],
+    marketplace: { pricing: { type: "paid" as const, amount: 0, currency: "VND" } },
+  };
+  assert.throws(
+    () => createMarketplaceTopicPublishData(paidTopic, "a".repeat(64)),
+    /must have a positive whole-number price/,
+  );
+  assert.doesNotThrow(() => createMarketplaceTopicPublishData({
+    ...paidTopic,
+    marketplace: { pricing: { type: "paid", amount: 99000, currency: "VND" } },
+  }, "a".repeat(64)));
+});
+
+test("paid quiz publishing requires a paid containing topic", () => {
+  const quiz = {
+    schemaVersion: 2 as const,
+    id: "exclusive-quiz",
+    topicId: "mathematics",
+    type: "competition-paper" as const,
+    title: "Exclusive Quiz",
+    description: "",
+    sharedCode: "",
+    status: "reviewed" as const,
+    order: 0,
+    grade: "3",
+    round: "main",
+    year: "2026",
+    marketplace: { pricing: { type: "paid" as const, currency: "VND" } },
+  };
+  assert.throws(
+    () => createContentV2QuizPublishPreview(
+      "mathematics", quiz, "free", [], {}, [], "b".repeat(64),
+    ),
+    /must belong to a paid topic because purchases are topic-level/,
+  );
+  assert.doesNotThrow(() => createContentV2QuizPublishPreview(
+    "mathematics", quiz, "paid", [], {}, [], "b".repeat(64),
+  ));
+});
+
 test("topic-owned assets are not assigned to a quiz publish state", async () => {
   const repository = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-topic-assets-"));
   const topicAssets = path.join(repository, "content-v2", "topics", "kid-learning", "assets", "icons");

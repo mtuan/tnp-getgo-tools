@@ -3,8 +3,10 @@ import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domai
 import { z } from "zod";
 import { marketplaceTopicStates } from "./marketplace-topic-state.js";
 import { isTextContentIconText, parseTextContentIcon, textContentIconColors, textContentIconThemes } from "../../../shared/domain/content-icon.js";
+import { marketplaceContentAccess, type MarketplaceContentAccess } from "./marketplace-content-access.js";
 export { localizedText, type LocalizedText } from "../../../shared/domain/localized-text.js";
 export { automaticMarketplaceTopicTags } from "../../../shared/domain/topic-search-tags.js";
+export { marketplaceContentAccess, type MarketplaceContentAccess } from "./marketplace-content-access.js";
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
@@ -109,7 +111,6 @@ export const marketplaceTopicMetadataSchema = z.object({
 }).passthrough();
 export type MarketplaceTopicMetadata = z.infer<typeof marketplaceTopicMetadataSchema>;
 export type MarketplaceTopicMetadataInput = Partial<MarketplaceTopicMetadata>;
-export type MarketplaceContentAccess = "free" | "subscription" | "paid";
 
 function enabledMarketplaceMetadata(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object") return undefined;
@@ -175,14 +176,28 @@ function marketplaceFilterKeys(record: ContentV2Topic, marketplace: Record<strin
   return [...new Set(bases.flatMap(base => [base, ...terms.map(term => `${base}|q:${term}`)]))];
 }
 
-export function marketplaceContentAccess(
-  metadata: MarketplaceTopicMetadataInput | undefined,
-  inherited: MarketplaceContentAccess = "free",
-): MarketplaceContentAccess {
-  const type = metadata?.pricing?.type;
-  return type === "free" || type === "subscription" || type === "paid"
-    ? type
-    : inherited;
+export function assertMarketplaceTopicPurchaseConfiguration(
+  topic: Pick<ContentV2Topic, "id" | "marketplace">,
+): void {
+  if (marketplaceContentAccess(topic.marketplace) !== "paid") return;
+  const amount = topic.marketplace?.pricing?.amount;
+  const currency = topic.marketplace?.pricing?.currency;
+  if (!Number.isSafeInteger(amount) || Number(amount) <= 0)
+    throw new Error(`Paid topic ${topic.id} must have a positive whole-number price.`);
+  if (currency !== "VND")
+    throw new Error(`Paid topic ${topic.id} must use the supported VND currency.`);
+}
+
+export function assertMarketplaceQuizPurchaseConfiguration(
+  topicId: string,
+  quiz: Pick<ContentV2Quiz, "id" | "marketplace">,
+  topicAccess: MarketplaceContentAccess,
+): void {
+  const explicitQuizAccess = quiz.marketplace?.pricing?.type;
+  if (explicitQuizAccess === "paid" && topicAccess !== "paid")
+    throw new Error(
+      `Paid quiz ${topicId}/${quiz.id} must belong to a paid topic because purchases are topic-level.`,
+    );
 }
 
 export function sanitizeMarketplaceQuiz(

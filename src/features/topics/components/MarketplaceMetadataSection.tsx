@@ -15,6 +15,8 @@ import {
   Form,
   AccordionSection,
   useToast,
+  validateSchema,
+  type FormErrors,
   type FormSchema,
   type FormValues,
 } from "../../../shared/ui";
@@ -81,13 +83,13 @@ export function MarketplaceMetadataSection({
   recordKey,
   locale,
   load,
-  loadSubjectOptions,
+  loadParentMarketplace,
   save,
 }: {
   recordKey: string;
   locale: AppSettings["locale"];
   load(): Promise<MarketplaceRecord>;
-  loadSubjectOptions?(): Promise<string[]>;
+  loadParentMarketplace?(): Promise<MarketplaceTopicMetadata | undefined>;
   save(record: MarketplaceRecord): Promise<void>;
 }) {
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
@@ -95,13 +97,14 @@ export function MarketplaceMetadataSection({
   const toast = useToast();
   const [source, setSource] = useState<MarketplaceRecord | null>(null);
   const [draft, setDraft] = useState<MarketplaceRecord | null>(null);
-  const [parentSubjects, setParentSubjects] = useState<string[]>([]);
+  const [parentMarketplace, setParentMarketplace] = useState<MarketplaceTopicMetadata>();
+  const [errors, setErrors] = useState<FormErrors>({});
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const loadRef = useRef(load);
-  const loadSubjectOptionsRef = useRef(loadSubjectOptions);
+  const loadParentMarketplaceRef = useRef(loadParentMarketplace);
   loadRef.current = load;
-  loadSubjectOptionsRef.current = loadSubjectOptions;
+  loadParentMarketplaceRef.current = loadParentMarketplace;
   const dirty = Boolean(
     source && draft && JSON.stringify(source) !== JSON.stringify(draft),
   );
@@ -111,9 +114,9 @@ export function MarketplaceMetadataSection({
     setBusy(true);
     void Promise.all([
       loadRef.current(),
-      loadSubjectOptionsRef.current?.() ?? Promise.resolve([]),
+      loadParentMarketplaceRef.current?.() ?? Promise.resolve(undefined),
     ])
-      .then(([record, subjects]) => {
+      .then(([record, parent]) => {
         if (!active) return;
         setSource(record);
         const next = structuredClone(record);
@@ -125,7 +128,8 @@ export function MarketplaceMetadataSection({
           next.marketplace = { ...next.marketplace, tags: [...tags.values()] };
         }
         setDraft(next);
-        setParentSubjects(subjects);
+        setParentMarketplace(parent);
+        setErrors({});
       })
       .catch((error) => {
         if (active)
@@ -146,9 +150,10 @@ export function MarketplaceMetadataSection({
   }, [recordKey]);
   const current = draft ? metadata(draft) : null;
   const isTopic = Boolean(draft && !("topicId" in draft));
+  const parentAccess = parentMarketplace?.pricing?.type ?? "free";
   const subjectOptions = useMemo(() => {
     if (!isTopic)
-      return parentSubjects.map((subject) => ({
+      return (parentMarketplace?.subjects ?? []).map((subject) => ({
         value: subject,
         label: standardSubjects.find((option) => option.value === subject)?.label ?? subject,
       }));
@@ -156,7 +161,7 @@ export function MarketplaceMetadataSection({
     for (const subject of source ? metadata(source).subjects : [])
       if (!options.has(subject)) options.set(subject, { value: subject, label: subject });
     return [...options.values()];
-  }, [isTopic, parentSubjects, source]);
+  }, [isTopic, parentMarketplace?.subjects, source]);
   const values: FormValues = current
     ? {
         shortDescription: current.shortDescription,
@@ -258,6 +263,13 @@ export function MarketplaceMetadataSection({
           type: "select",
           name: "pricingType",
           label: copy.fields.pricingType,
+          required: true,
+          helper: !isTopic ? copy.quizPricingHelp : copy.topicPricingHelp,
+          rules: !isTopic ? {
+            validate: (value) => value === "paid" && parentAccess !== "paid"
+              ? copy.paidQuizRequiresPaidTopic
+              : null,
+          } : undefined,
           options: [
             ...(!isTopic ? [{ value: "inherit", label: copy.inherit }] : []),
             { value: "free", label: copy.free },
@@ -269,20 +281,34 @@ export function MarketplaceMetadataSection({
           type: "number",
           name: "amount",
           label: copy.fields.amount,
-          min: 0,
-          when: (form) => form.pricingType === "paid",
+          min: 1,
+          required: true,
+          requiredMessage: copy.priceRequired,
+          rules: {
+            validate: (value) => Number.isSafeInteger(value) && Number(value) > 0
+              ? null
+              : copy.priceInvalid,
+          },
+          when: (form) => isTopic && form.pricingType === "paid",
         },
         {
-          type: "text",
+          type: "select",
           name: "currency",
           label: copy.fields.currency,
-          when: (form) => form.pricingType === "paid",
+          required: true,
+          options: [{ value: "VND", label: "VND" }],
+          when: (form) => isTopic && form.pricingType === "paid",
         },
       ],
     ],
-    [copy, isTopic, subjectOptions],
+    [copy, isTopic, parentAccess, subjectOptions],
   );
-  const change = (name: string, value: unknown) =>
+  const change = (name: string, value: unknown) => {
+    setErrors((currentErrors) => {
+      if (!currentErrors[name]) return currentErrors;
+      const { [name]: _removed, ...remaining } = currentErrors;
+      return remaining;
+    });
     setDraft((record) => {
       if (!record) return record;
       const next = metadata(record) as MarketplaceTopicMetadata &
@@ -314,22 +340,37 @@ export function MarketplaceMetadataSection({
         };
       else if (name === "pricingType" && value === "inherit")
         delete (next as Partial<MarketplaceTopicMetadata>).pricing;
-      else if (["pricingType", "amount", "currency"].includes(name))
+      else if (name === "pricingType")
+        next.pricing = isTopic
+          ? {
+              ...(next.pricing ?? { type: "free", currency: "VND" }),
+              type: value as MarketplaceTopicMetadata["pricing"]["type"],
+              ...((value === "paid") ? {} : { amount: undefined, currency: "VND" }),
+            }
+          : { type: value as MarketplaceTopicMetadata["pricing"]["type"], currency: "VND" };
+      else if (name === "amount" || name === "currency")
         next.pricing = {
           ...(next.pricing ?? { type: "free", currency: "VND" }),
-          [name === "pricingType" ? "type" : name]: value,
+          [name]: value,
         } as MarketplaceTopicMetadata["pricing"];
       else next[name] = value;
       return { ...record, marketplace: next } as MarketplaceRecord;
     });
+  };
   const saveDraft = async () => {
     if (!draft || !dirty) return;
+    const nextErrors = validateSchema(fields, values);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
     const recordToSave = "topicId" in draft
       ? {
           ...draft,
           marketplace: {
             ...draft.marketplace,
             subjects: draft.marketplace?.subjects?.slice(0, 1) ?? [],
+            ...(draft.marketplace?.pricing
+              ? { pricing: { type: draft.marketplace.pricing.type, currency: "VND" } }
+              : {}),
           },
         }
       : draft;
@@ -393,7 +434,7 @@ export function MarketplaceMetadataSection({
     >
       {draft ? (
         <form className="marketplace-metadata-form" id={formId} onSubmit={submit}>
-          <Form fields={fields} values={values} onChange={change} />
+          <Form fields={fields} values={values} errors={errors} onChange={change} />
         </form>
       ) : (
         <div className="ui-panel-loading"><span className="mini-spinner" /></div>
