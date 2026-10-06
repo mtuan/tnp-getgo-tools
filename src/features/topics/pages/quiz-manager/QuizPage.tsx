@@ -11,6 +11,7 @@ import { TableActionButton } from "../../../../shared/ui/TableActionButton";
 import { preferredQuestionPrompt, type QuestionListItem } from "./shared";
 import { renderActiveQuestion } from "./ActiveQuestionPage";
 import { renderQuizOverview } from "./QuizOverviewPage";
+import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
 
 
 type QuizPageContext = Record<string, any> & {
@@ -163,6 +164,15 @@ export function renderQuizPage(context: QuizPageContext) {
         (record) => !questionIsVerified(record),
       );
       if (!pendingRecords.length) return;
+      if (!window.confirm(quizPublishCopy.markAllReviewedConfirm.replace(
+        "{count}",
+        String(pendingRecords.length),
+      ))) return;
+      if (!(await confirmContentSafetyReview(
+        managerApi,
+        { quiz, questions: pendingRecords },
+        locale,
+      ))) return;
       const nextRecords = await managerApi.markAllQuizQuestionsReviewed(
         quiz.manifestPath,
       );

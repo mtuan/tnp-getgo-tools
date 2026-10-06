@@ -8,6 +8,7 @@ import { Button } from "../../../shared/ui/Button";
 import { DialogFrame } from "../../../shared/ui/DialogFrame";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
+import { confirmContentSafetyReview } from "../../content-safety/components/confirm-content-safety-review";
 
 export function MarketplaceStateCell({
   locale,
@@ -44,6 +45,17 @@ export function MarketplaceStateCell({
     setSaving(true);
     setConfirmationError(null);
     try {
+      if (next === "listed") {
+        const content = target === "topics"
+          ? await api.loadContentV2Topic(id)
+          : topicId
+            ? await api.loadContentV2Quiz(topicId, id)
+            : null;
+        if (content && !(await confirmContentSafetyReview(api, content, locale))) {
+          setSelected(previous);
+          return;
+        }
+      }
       if (reviewRemaining && quizReview)
         await api.markAllQuizQuestionsReviewed(quizReview.manifestPath);
       await api.setContentV2MarketplaceState(target, [id], next, topicId);

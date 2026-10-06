@@ -14,6 +14,7 @@ import { AlphabetLetterEditor } from "../../../quiz-editor/components/AlphabetLe
 import { PronunciationQuestionEditor } from "../../../quiz-editor/components/PronunciationQuestionEditor";
 import { QuestionEditorKeyboardShortcuts, comparableQuestion, questionDiff, type QuestionListItem } from "./shared";
 import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
+import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
 
 type ActiveQuestionContext = Record<string, any> & {
   questionRecords: QuizQuestionRecord[];
@@ -240,6 +241,10 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
           JSON.stringify(comparableQuestion(activeQuestion.record));
         const previousVerified = questionIsVerified(previousRecord);
         const nextRecord = withQuestionStatus(activeQuestion.record, status);
+        if (
+          status === "verified" &&
+          !(await confirmContentSafetyReview(managerApi, nextRecord, locale))
+        ) return;
         setQuestionDraftRecord((current) =>
           current ? withQuestionStatus(current, status) : current,
         );

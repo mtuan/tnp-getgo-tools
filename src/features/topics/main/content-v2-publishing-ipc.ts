@@ -7,7 +7,6 @@ import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
-import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
 interface Dependencies { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; publishJobs: PublishJobManager; firebaseAuth: FirebaseAuthService }
@@ -26,7 +25,6 @@ ipcMain.handle(
       (item) => item.id === topicId,
     );
     if (!summary) throw new Error("The selected topic was not found.");
-    await assertRepositoryContentSafe(root, `Topic “${topic.title}”`, topic);
     if (marketplaceTopicState(topic.marketplace) === "unlisted") {
       return publishJobs.track(
         { name: `Remove topic data · ${summary.title}`, description: "Remove marketplace, topic, quiz, question, resource, and asset data", route: `/topics/${encodeURIComponent(topicId)}?tab=marketplace` },
@@ -74,7 +72,6 @@ ipcMain.handle(
       (item) => item.id === topicId,
     );
     if (!summary) throw new Error("The selected topic was not found.");
-    await assertRepositoryContentSafe(root, `Topic “${topic.title}”`, topic);
     const reviewedQuizzes = reviewedTopicQuizzes(
       content.quizzes,
       topicId,
@@ -150,7 +147,6 @@ ipcMain.handle(
             { quiz, questions, resources },
             false,
           );
-          await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
           const publishState = quizStates.get(quizSummary.key)!;
           const quizResult = await publishing.publishContentV2Quiz(
             topicId,
@@ -314,7 +310,6 @@ ipcMain.handle(
       questions,
       resources,
     }, false);
-    await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
     return createContentV2QuizPublishPreview(
       topicId,
       quiz,
@@ -388,7 +383,6 @@ ipcMain.handle(
           questions,
           resources,
         }, false);
-        await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
         const topicSummary = content.topics.find(
           (item) => item.id === topicId,
         );

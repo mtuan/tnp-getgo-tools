@@ -10,7 +10,6 @@ import { syncAllMarketplaceTopics } from "./marketplace-sync-all.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
-import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
 interface Dependencies {
@@ -51,8 +50,6 @@ ipcMain.handle(
       marketplace: withMarketplaceTopicState(existing.marketplace, marketplaceState),
     };
     const saved = await saveContentV2Topic(root, topic);
-    if (marketplaceState !== "unlisted")
-      await assertRepositoryContentSafe(root, `Topic “${saved.title}”`, saved);
     const contentHash = hashContentV2(sanitizeMarketplaceTopic(saved));
     return publishJobs.track(
       {

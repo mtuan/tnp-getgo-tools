@@ -7,7 +7,6 @@ import type { FirebaseAuthService } from "../../authentication/main/firebase-aut
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
-import { assertRepositoryContentSafe } from "../../content-safety/repository/content-safety-repository.js";
 import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
@@ -20,6 +19,7 @@ export async function syncAllMarketplaceTopics(
 ): Promise<void> {
   await control.setTotal(requestedPlan.length, "Initializing marketplace sync");
   const target = await firebaseAuth.publishingTarget();
+  const quizFailures: string[] = [];
   const topicIds = [...new Set(requestedPlan.map((item) => item.topicId))];
   for (const topicId of topicIds) {
     await control.checkpoint();
@@ -42,7 +42,6 @@ export async function syncAllMarketplaceTopics(
     const topicPlan = plan;
     const topicSummary = next.topics.find((item) => item.id === topicId);
     if (!topicSummary) throw new Error(`Topic ${topicId} was not found.`);
-    await assertRepositoryContentSafe(root, `Topic “${topic.title}”`, topic);
     const state = marketplaceTopicState(topic.marketplace);
     if (state === "unlisted") {
       const topicQuizzes = next.quizzes.filter((item) => item.topicId === topicId);
@@ -93,6 +92,7 @@ export async function syncAllMarketplaceTopics(
     }
     const quizResults = new Map<string, { contentHash: string; publishedAt: string }>();
     const removedQuizKeys = new Set<string>();
+    const failedQuizKeys = new Set<string>();
     for (const item of topicPlan) {
       if (item.kind !== "quiz") continue;
       const summary = item.quiz;
@@ -117,7 +117,6 @@ export async function syncAllMarketplaceTopics(
       const questions = await Promise.all(rawQuestions.map(question =>
         withQuestionAssetDimensions(root, topicId, summary.id, question)));
       const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources }, false);
-      await assertRepositoryContentSafe(root, `Quiz “${quiz.title}”`, { quiz, questions, resources });
       const previous = await readContentV2QuizPublishState(summary.filePath);
       const result = await publishing.publishContentV2Quiz(topicId, quiz, marketplaceContentAccess(topic.marketplace), questions, resources, assets, summary.localHash, previous.targets[target.projectId]);
       await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);
@@ -127,8 +126,10 @@ export async function syncAllMarketplaceTopics(
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         const message = `Quiz synchronization failed · Topic “${topicSummary.title}” (${topicId}) · Quiz “${summary.title}” (${summary.id}) · ${reason}`;
+        failedQuizKeys.add(summary.key);
+        quizFailures.push(message);
         await control.report(message);
-        throw new Error(message, { cause: error });
+        await control.advance(`Skipped failed quiz · ${summary.title}`);
       }
     }
     const reviewedQuizIds = reviewedTopicQuizzes(next.quizzes, topicId).filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted").map((quiz) => quiz.id);
@@ -209,7 +210,8 @@ export async function syncAllMarketplaceTopics(
       projectId: target.projectId,
     })).content;
     const remaining = marketplaceSyncPlan(verified.topics, verified.quizzes)
-      .filter((item) => item.ready);
+      .filter((item) => item.ready)
+      .filter((item) => item.kind !== "quiz" || !failedQuizKeys.has(item.quiz.key));
     if (remaining.length > 0) {
       const details = remaining.map((item) => item.kind === "quiz"
         ? `quiz ${item.quiz.id} (${item.action}): local=${item.quiz.localHash}, published=${item.quiz.publishedHash ?? "none"}`
@@ -219,4 +221,6 @@ export async function syncAllMarketplaceTopics(
     }
     await control.report(`Verified synchronization · ${topicSummary.title}`);
   }
+  if (quizFailures.length)
+    await control.report(`Synchronization completed with ${quizFailures.length} failed quiz${quizFailures.length === 1 ? "" : "zes"}. Failed quizzes remain unsynced.`);
 }

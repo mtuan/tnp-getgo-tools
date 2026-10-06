@@ -122,6 +122,7 @@ export type QuizManagerApi = Pick<
   | "setContentV2MarketplaceState"
   | "loadContentV2Quiz"
   | "publishMarketplaceTopic"
+  | "inspectContentSafety"
 > & {
   loadTopicsOverview?(): Promise<RepositoryViewData>;
   loadTopicQuizzes?(topicId: string): Promise<QuizSummary[]>;

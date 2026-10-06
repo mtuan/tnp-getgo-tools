@@ -791,6 +791,8 @@ export interface ContentSafetyWarning {
   findings: Array<{ language: "en" | "vi"; term: string; path: string; excerpt: string }>;
 }
 
+export type ContentSafetyFinding = ContentSafetyWarning["findings"][number];
+
 export interface SafeWordSyncStatus {
   status: "up-to-date" | "needs-sync";
   sourcePath: string;
@@ -823,6 +825,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   saveSafeWordDictionary(dictionary: SafeWordDictionary): Promise<SafeWordDictionary>;
   getSafeWordSyncStatus(): Promise<SafeWordSyncStatus>;
   syncSafeWordDictionary(): Promise<SafeWordSyncStatus>;
+  inspectContentSafety(value: unknown): Promise<ContentSafetyFinding[]>;
   onContentSafetyWarning(listener: (warning: ContentSafetyWarning) => void): () => void;
   loadContentV2Topic(topicId: string): Promise<ContentV2Topic>;
   loadContentV2Route(topicId?: string): Promise<ContentV2RouteData>;

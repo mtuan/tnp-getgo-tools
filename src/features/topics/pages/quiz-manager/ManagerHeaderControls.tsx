@@ -8,6 +8,7 @@ import vi from "../../../../shared/localization/vi.json";
 import { MarketplaceSyncDrawer } from "../../components/MarketplaceSyncDrawer";
 import { TopicFilterControls } from "./TopicFilterControls";
 import { ManagerSearchInput } from "./ManagerSearchInput";
+import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
 
 type Context = Record<string, any> & { snapshot: RepositoryViewData };
 const activeStatuses = new Set(["queued", "running", "paused"]);
@@ -122,21 +123,47 @@ export function ManagerHeaderControls(context: Context) {
       setLoadingSyncPreview(false);
     }
   };
-  const batch = (state: MarketplaceTopicState) => runButtonAction(`batch-market-${state}`, async () => {
+  const batch = (state: MarketplaceTopicState) => {
     const records = (isContest ? snapshot.contentV2.quizzes.filter((item) => item.topicId === selectedContest?.id) : snapshot.contentV2.topics)
-      .filter((item) => state !== "listed" || marketplaceTopicState(item.marketplace) === "unlisted");
+      .filter((item) => state === "listed"
+        ? marketplaceTopicState(item.marketplace) === "unlisted"
+        : marketplaceTopicState(item.marketplace) !== "unlisted");
+    if (!records.length) return;
+    const itemLabel = isContest
+      ? locale === "vi" ? "bài học" : records.length === 1 ? "quiz" : "quizzes"
+      : locale === "vi" ? "chủ đề" : records.length === 1 ? "topic" : "topics";
+    const confirmation = (state === "listed" ? copy.listAllConfirm : copy.unlistAllConfirm)
+      .replace("{count}", String(records.length))
+      .replace("{items}", itemLabel);
+    if (!window.confirm(confirmation)) return;
+    return runButtonAction(`batch-market-${state}`, async () => {
     if (records.length) {
+      if (state === "listed") {
+        const content = isContest && selectedContest?.id
+          ? await Promise.all(records.map((item: { id: string }) => managerApi.loadContentV2Quiz(selectedContest.id, item.id)))
+          : await Promise.all(records.map((item: { id: string }) => managerApi.loadContentV2Topic(item.id)));
+        if (!(await confirmContentSafetyReview(managerApi, content, locale))) return;
+      }
       const result = await managerApi.setContentV2MarketplaceState(isContest ? "quizzes" : "topics", records.map((item: { id: string }) => item.id), state, selectedContest?.id);
       onSnapshotChange(applyMarketplaceStateUpdate(snapshot, result));
     }
     toast.show({ title: copy.batchUpdated, description: copy.batchUpdatedDescription.replace("{count}", String(records.length)).replace("{state}", copy.states[state]) });
-  });
-  const listAndReviewAll = () => runButtonAction("list-review-all", async () => {
+    });
+  };
+  const listAndReviewAll = () => {
     const topicId = selectedContest?.id;
     if (!topicId) return;
     const quizzes = snapshot.contentV2.quizzes.filter((quiz) => quiz.topicId === topicId);
+    if (!quizzes.length) return;
+    const itemLabel = locale === "vi" ? "bài học" : quizzes.length === 1 ? "quiz" : "quizzes";
+    if (!window.confirm(copy.listAndReviewAllConfirm
+      .replace("{count}", String(quizzes.length))
+      .replace("{items}", itemLabel))) return;
+    return runButtonAction("list-review-all", async () => {
     const quizzesToReview = quizzes.filter((quiz) => quiz.reviewedQuestionCount < quiz.questionCount);
     const quizzesToList = quizzes.filter((quiz) => marketplaceTopicState(quiz.marketplace) === "unlisted");
+    const reviewContent = await Promise.all(quizzes.map((quiz) => managerApi.loadContentV2Quiz(topicId, quiz.id)));
+    if (!(await confirmContentSafetyReview(managerApi, reviewContent, locale))) return;
     await Promise.all(
       quizzesToReview.map((quiz) =>
         window.getgo.markAllContentV2QuizQuestionsReviewed(topicId, quiz.id),
@@ -176,10 +203,13 @@ export function ManagerHeaderControls(context: Context) {
         .replace("{listed}", String(quizzesToList.length)),
       variant: "success",
     });
-  });
-  const syncTopic = () => runButtonAction("sync-topic", async () => {
+    });
+  };
+  const syncTopic = () => {
     const topicId = selectedContest?.id;
     if (!topicId) return;
+    if (!window.confirm(copy.syncTopicConfirm)) return;
+    return runButtonAction("sync-topic", async () => {
     await managerApi.publishContentV2Topic(topicId);
     const loaded = await window.getgo.loadContentV2Route(topicId);
     onSnapshotChange({
@@ -206,7 +236,8 @@ export function ManagerHeaderControls(context: Context) {
       description: copy.topicSyncCompleteDescription,
       variant: "success",
     });
-  });
+    });
+  };
   if (!topicMode) return null;
   const items = [
     ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),

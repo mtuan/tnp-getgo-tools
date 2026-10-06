@@ -82,6 +82,7 @@ const api: DesktopApi = {
   saveSafeWordDictionary: (dictionary) => ipcRenderer.invoke("content-safety:dictionary:save", dictionary),
   getSafeWordSyncStatus: () => ipcRenderer.invoke("content-safety:dictionary:sync-status"),
   syncSafeWordDictionary: () => ipcRenderer.invoke("content-safety:dictionary:sync"),
+  inspectContentSafety: (value) => ipcRenderer.invoke("content-safety:inspect", value),
   chooseAvatarSetsFolder: () => ipcRenderer.invoke("avatar-sets:choose"),
   loadAvatarSets: (sourcePath) => ipcRenderer.invoke("avatar-sets:load", sourcePath),
   syncAvatarSets: (sourcePath) => ipcRenderer.invoke("avatar-sets:sync", sourcePath),
