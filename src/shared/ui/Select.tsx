@@ -74,11 +74,11 @@ export function useSelectDropdown() {
       setPosition({ left: rect.left, width: rect.width, top: rect.bottom + 6, bottom: window.innerHeight - rect.top + 6 })
     }
     place()
-    const closeOutside = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setOpen(false) }
-    document.addEventListener("mousedown", closeOutside)
+    const closeOutside = (event: PointerEvent) => { if (!ref.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setOpen(false) }
+    document.addEventListener("pointerdown", closeOutside, true)
     window.addEventListener("resize", place)
     document.addEventListener("scroll", place, true)
-    return () => { document.removeEventListener("mousedown", closeOutside); window.removeEventListener("resize", place); document.removeEventListener("scroll", place, true) }
+    return () => { document.removeEventListener("pointerdown", closeOutside, true); window.removeEventListener("resize", place); document.removeEventListener("scroll", place, true) }
   }, [open])
   useEffect(() => () => window.clearTimeout(typeaheadTimer.current), [])
   return { open, openUp, position, ref, triggerRef, menuRef, setOpen, close, focusItem, onTriggerKeyDown, onMenuKeyDown }

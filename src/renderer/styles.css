@@ -6194,7 +6194,6 @@ tbody tr:hover {
 }
 .schema-select-menu > button.selected {
   color: #4338ca;
-  font-weight: 600;
 }
 .schema-select-menu.select-menu-color-danger > button.selected {
   color: #e11d48;
@@ -10639,6 +10638,44 @@ body {
     color: var(--theme-text);
     border-color: var(--theme-border);
     background: var(--theme-surface-raised);
+  }
+
+  .schema-select-menu {
+    color: var(--theme-text);
+    border-color: #475569;
+    background: #172033;
+    box-shadow: 0 18px 44px #00000066;
+  }
+
+  .schema-select-menu > button {
+    color: #cbd5e1;
+  }
+
+  .schema-select-menu > button:hover,
+  .schema-select-menu > button:focus-visible {
+    color: #eef2ff;
+    background: #334155;
+  }
+
+  .schema-select-menu > button.selected,
+  .schema-select-menu.select-menu-color-primary > button.selected {
+    color: #c7d2fe;
+    background: #312e81;
+  }
+
+  .schema-select-menu > button.selected > svg {
+    color: #a5b4fc;
+  }
+
+  .schema-select-menu .option-check {
+    border-color: #64748b;
+    background: #0f172a;
+  }
+
+  .schema-select-menu .selected .option-check {
+    color: #fff;
+    border-color: #818cf8;
+    background: #4f46e5;
   }
 
   .manager-table tbody tr,
