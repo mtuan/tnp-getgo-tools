@@ -193,7 +193,7 @@ test("paid quiz publishing requires a paid containing topic", () => {
     () => createContentV2QuizPublishPreview(
       "mathematics", quiz, "free", [], {}, [], "b".repeat(64),
     ),
-    /must belong to a paid topic because purchases are topic-level/,
+    /must belong to an Exclusive topic because purchases are topic-level/,
   );
   assert.doesNotThrow(() => createContentV2QuizPublishPreview(
     "mathematics", quiz, "paid", [], {}, [], "b".repeat(64),

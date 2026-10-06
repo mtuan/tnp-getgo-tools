@@ -183,9 +183,9 @@ export function assertMarketplaceTopicPurchaseConfiguration(
   const amount = topic.marketplace?.pricing?.amount;
   const currency = topic.marketplace?.pricing?.currency;
   if (!Number.isSafeInteger(amount) || Number(amount) <= 0)
-    throw new Error(`Paid topic ${topic.id} must have a positive whole-number price.`);
+    throw new Error(`Exclusive topic ${topic.id} must have a positive whole-number price.`);
   if (currency !== "VND")
-    throw new Error(`Paid topic ${topic.id} must use the supported VND currency.`);
+    throw new Error(`Exclusive topic ${topic.id} must use the supported VND currency.`);
 }
 
 export function assertMarketplaceQuizPurchaseConfiguration(
@@ -196,7 +196,7 @@ export function assertMarketplaceQuizPurchaseConfiguration(
   const explicitQuizAccess = quiz.marketplace?.pricing?.type;
   if (explicitQuizAccess === "paid" && topicAccess !== "paid")
     throw new Error(
-      `Paid quiz ${topicId}/${quiz.id} must belong to a paid topic because purchases are topic-level.`,
+      `Exclusive quiz ${topicId}/${quiz.id} must belong to an Exclusive topic because purchases are topic-level.`,
     );
 }
 
