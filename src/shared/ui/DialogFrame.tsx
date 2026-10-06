@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -10,6 +11,7 @@ import { Save, Trash2, X } from "lucide-react";
 import { Button } from "./Button";
 import { ErrorFrame } from "./ErrorFrame";
 import { useSaveShortcut } from "./useSaveShortcut";
+import { FormValidationContext, type FormValidator } from "./form-validation-context";
 
 let documentScrollLocks = 0;
 let previousBodyOverflow = "";
@@ -97,6 +99,13 @@ export function DialogFrame({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const formValidators = useRef(new Set<FormValidator>());
+  const validationRegistry = useMemo(() => ({
+    register(validator: FormValidator) {
+      formValidators.current.add(validator);
+      return () => formValidators.current.delete(validator);
+    },
+  }), []);
   useSaveShortcut({
     active: saveShortcut,
     enabled: !busy && !submitDisabled,
@@ -142,9 +151,14 @@ export function DialogFrame({
       event.preventDefault();
       return;
     }
+    const valid = [...formValidators.current].map((validate) => validate()).every(Boolean);
+    if (!valid) {
+      event.preventDefault();
+      return;
+    }
     onSubmit(event);
   };
-  const dialog = (
+  const dialog = <FormValidationContext.Provider value={validationRegistry}>
     <section
       className={`crud-dialog presentation-${presentation} ${className}`.trim()}
       role={presentation === "embedded" ? undefined : "dialog"}
@@ -249,7 +263,7 @@ export function DialogFrame({
         <strong>{processingLabel}</strong>
       </div>}
     </section>
-  );
+  </FormValidationContext.Provider>;
   if (presentation === "embedded") return dialog;
   return createPortal(
     <div

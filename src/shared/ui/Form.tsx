@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Check, FolderOpen, ImagePlus, Search, SmilePlus, Type, X } from "lucide-react"
 import { Select, type SelectOption } from "./Select"
@@ -11,6 +11,7 @@ import { Input } from "./Input"
 import { QuizCodeEditor } from "../../features/quiz-editor/components/QuizCodeEditor"
 import { encodeFourLetterIcon, FourLetterIcon, fourLetterIconColors, fourLetterIconThemeGrades, fourLetterIconThemes, parseFourLetterIcon, type FourLetterIconTheme } from "./FourLetterIcon"
 import { isTextContentIconText } from "../domain/content-icon"
+import { FormValidationContext } from "./form-validation-context"
 
 export type { SelectOption } from "./Select"
 export interface FieldRules {
@@ -25,6 +26,7 @@ interface FieldBase {
   label?: ReactNode
   helper?: ReactNode
   required?: boolean
+  requiredMessage?: string
   readOnly?: boolean
   disabled?: boolean | ((values: FormValues) => boolean)
   when?: (values: FormValues) => boolean
@@ -316,7 +318,7 @@ export function validateSchema(schema: FormSchema[], values: FormValues): FormEr
     if (typeof field.disabled === "function" ? field.disabled(values) : field.disabled) continue
     const value = values[field.name]
     const empty = value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0)
-    if (field.required && empty) { errors[field.name] = `${String(field.label ?? field.name)} is required.`; continue }
+    if (field.required && empty) { errors[field.name] = field.requiredMessage ?? `${String(field.label ?? field.name)} is required.`; continue }
     if (empty) continue
     if (field.rules?.pattern) {
       const pattern = ruleValue(field.rules.pattern); pattern.lastIndex = 0
@@ -365,6 +367,14 @@ function Field({ field, values, errors, onChange, autoFocus }: { field: FormFiel
 
 export function Form({ fields, values, errors = {}, onChange, autoFocus = true, autoSelectSingleOption = true }: { fields: FormSchema[]; values: FormValues; errors?: FormErrors; onChange(name: string, value: unknown): void; autoFocus?: boolean; autoSelectSingleOption?: boolean }) {
   const formRootRef = useRef<HTMLDivElement>(null)
+  const validationRegistry = useContext(FormValidationContext)
+  const [automaticErrors, setAutomaticErrors] = useState<FormErrors>({})
+  const displayedErrors = { ...automaticErrors, ...errors }
+  useLayoutEffect(() => validationRegistry?.register(() => {
+    const next = validateSchema(fields, values)
+    setAutomaticErrors(next)
+    return Object.keys(next).length === 0
+  }), [fields, validationRegistry, values])
   useEffect(() => {
     const parentForm = formRootRef.current?.closest("form")
     if (!parentForm) return
@@ -391,7 +401,10 @@ export function Form({ fields, values, errors = {}, onChange, autoFocus = true, 
     if (!visible(field, values)) return null
     const shouldFocus = autoFocus && !focused && !field.readOnly && !(typeof field.disabled === "function" ? field.disabled(values) : field.disabled)
     if (shouldFocus) focused = true
-    return <Field key={field.name} field={field} values={values} errors={errors} onChange={onChange} autoFocus={shouldFocus} />
+    return <Field key={field.name} field={field} values={values} errors={displayedErrors} onChange={(name, value) => {
+      setAutomaticErrors(current => { const next = { ...current }; delete next[name]; return next })
+      onChange(name, value)
+    }} autoFocus={shouldFocus} />
   }
   const renderRow = (row: FormRow, key: string) => {
     const rowFields = (Array.isArray(row) ? row : [row]).filter(field => visible(field, values))

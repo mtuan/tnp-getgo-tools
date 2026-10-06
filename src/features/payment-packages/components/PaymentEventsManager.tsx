@@ -20,7 +20,6 @@ function validateEvent(event: PaymentEvent, isVi: boolean): ui.FormErrors {
   const required = isVi ? "Trường này là bắt buộc." : "This field is required.";
   const errors: ui.FormErrors = {};
   if (!event.name.vi.trim()) errors.nameVi = required;
-  if (!event.name.en.trim()) errors.nameEn = required;
   if (!event.startsOn) errors.startsOn = required;
   if (!event.endsOn) errors.endsOn = required;
   else if (event.startsOn && event.endsOn < event.startsOn) errors.endsOn = isVi ? "Ngày kết thúc phải từ ngày bắt đầu trở đi." : "End date must be on or after the start date.";
@@ -49,18 +48,19 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
   useEffect(() => { if (!createRequest) return; setOriginalId(null); setFieldErrors({}); setSaveError(null); setDraft(emptyEvent()); onCreateRequestHandled(); }, [createRequest, onCreateRequestHandled]);
 
   const fields = useMemo<ui.FormSchema[]>(() => {
+    const requiredMessage = isVi ? "Trường này là bắt buộc." : "This field is required.";
     const common: ui.FormSchema[] = [
       [{ type: "select", name: "type", label: isVi ? "Loại sự kiện" : "Event type", options: [{ value: "sale", label: isVi ? "Khuyến mãi" : "Sale" }, { value: "premium-preview", label: isVi ? "Dùng thử Premium" : "Premium preview" }] }, { type: "toggle", name: "enabled", label: isVi ? "Đang bật" : "Enabled" }],
-      [{ type: "text", name: "nameVi", label: "Tên (VI)", required: true }, { type: "text", name: "nameEn", label: "Name (EN)", required: true }],
+      [{ type: "text", name: "nameVi", label: "Tên (VI)", required: true, requiredMessage }, { type: "text", name: "nameEn", label: "Name (EN)" }],
       [{ type: "textarea", name: "infoVi", label: "Thông tin (VI)" }, { type: "textarea", name: "infoEn", label: "Information (EN)" }],
-      [{ type: "select", name: "recurrence", label: isVi ? "Lặp lại" : "Recurrence", options: [{ value: "one-time", label: isVi ? "Một lần" : "One-time" }, { value: "yearly", label: isVi ? "Hàng năm" : "Yearly" }] }, { type: "date", name: "startsOn", label: isVi ? "Bắt đầu" : "Starts on", required: true }, { type: "date", name: "endsOn", label: isVi ? "Kết thúc" : "Ends on", required: true }],
+      [{ type: "select", name: "recurrence", label: isVi ? "Lặp lại" : "Recurrence", options: [{ value: "one-time", label: isVi ? "Một lần" : "One-time" }, { value: "yearly", label: isVi ? "Hàng năm" : "Yearly" }] }, { type: "date", name: "startsOn", label: isVi ? "Bắt đầu" : "Starts on", required: true, requiredMessage }, { type: "date", name: "endsOn", label: isVi ? "Kết thúc" : "Ends on", required: true, requiredMessage }],
     ];
     const specific: ui.FormSchema[] = draft?.type === "sale" ? [
-      [{ type: "number", name: "discountPercent", label: isVi ? "Giảm giá (%)" : "Discount (%)", required: true, min: 1, max: 100 }],
-      { type: "multi-select", name: "packageIds", label: isVi ? "Gói áp dụng" : "Target packages", required: true, options: packages.map((item) => ({ value: item.id, label: item.name[locale] })) },
+      [{ type: "number", name: "discountPercent", label: isVi ? "Giảm giá (%)" : "Discount (%)", required: true, requiredMessage, min: 1, max: 100 }],
+      { type: "multi-select", name: "packageIds", label: isVi ? "Gói áp dụng" : "Target packages", required: true, requiredMessage, options: packages.map((item) => ({ value: item.id, label: item.name[locale] })) },
     ] : [
-      [{ type: "number", name: "premiumDays", label: isVi ? "Số ngày Premium" : "Premium days", required: true, min: 1, max: 365 }],
-      { type: "multi-select", name: "userTypes", label: isVi ? "Người dùng áp dụng" : "Target users", required: true, options: [{ value: "new-registration", label: isVi ? "Đăng ký mới" : "New registrations" }, { value: "legacy-migration", label: isVi ? "Di chuyển lần đầu" : "First legacy migration" }] },
+      [{ type: "number", name: "premiumDays", label: isVi ? "Số ngày Premium" : "Premium days", required: true, requiredMessage, min: 1, max: 365 }],
+      { type: "multi-select", name: "userTypes", label: isVi ? "Người dùng áp dụng" : "Target users", required: true, requiredMessage, options: [{ value: "new-registration", label: isVi ? "Đăng ký mới" : "New registrations" }, { value: "legacy-migration", label: isVi ? "Di chuyển lần đầu" : "First legacy migration" }] },
     ];
     return [...common, ...specific];
   }, [draft?.type, isVi, locale, originalId, packages]);
@@ -72,7 +72,8 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;
     const reservedIds = events.filter((item) => item.id !== originalId).map((item) => item.id);
-    const canonical = { ...draft, id: originalId ?? suggestPaymentEventId(draft.name.en, reservedIds) };
+    const englishName = draft.name.en.trim() || draft.name.vi.trim();
+    const canonical = { ...draft, id: originalId ?? suggestPaymentEventId(englishName, reservedIds), name: { ...draft.name, en: englishName } };
     setBusy(true);
     try {
       if (events.some((item) => item.id === canonical.id && item.id !== originalId)) {
