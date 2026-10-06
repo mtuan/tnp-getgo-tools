@@ -23,6 +23,8 @@
   },
   "marketplaceManager": {
     "tab": "Kho nội dung",
+    "loadingTopics": "Đang tải chủ đề",
+    "loadTopicsFailed": "Không thể tải chủ đề",
     "topicDescription": "Quản lý quyền thi thử, dữ liệu khám phá, đối tượng phù hợp và giá.",
     "stateLabel": "Trạng thái kho nội dung",
     "stateUpdated": "Đã cập nhật trạng thái kho nội dung",

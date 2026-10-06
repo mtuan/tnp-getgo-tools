@@ -23,6 +23,8 @@
   },
   "marketplaceManager": {
     "tab": "Marketplace",
+    "loadingTopics": "Loading topics",
+    "loadTopicsFailed": "Could not load topics",
     "topicDescription": "Manage preview access, discovery metadata, audience suitability, and pricing.",
     "stateLabel": "Marketplace state",
     "stateUpdated": "Marketplace state updated",

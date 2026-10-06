@@ -13,6 +13,7 @@ import type {
 import { isCurrentQuestionDraftChange } from "../../../features/quiz-editor/domain/question-draft";
 import { formattedQuestionForCodeOnlyChange } from "../../../features/quiz-editor/domain/question-dynamics";
 import { useToast } from "../../../shared/ui/Toast";
+import { PageLoading } from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import type { QuestionEditorTab } from "../../quiz-editor/components/QuestionEditorTabs";
@@ -31,6 +32,7 @@ import { renderManagerPage } from "./quiz-manager/ManagerPage";
 import { useQuizMigrationActions } from "./quiz-manager/useQuizMigrationActions";
 import { useTopicListFilters } from "./quiz-manager/useTopicListFilters";
 import { useTopicsView } from "./quiz-manager/useTopicsView";
+import { useTopicsOverviewRefresh } from "./quiz-manager/useTopicsOverviewRefresh";
 import { marketplaceSyncPlan } from "../domain/marketplace-sync-plan";
 import {
   loadRecentActivity,
@@ -56,6 +58,7 @@ export function QuizManager({
 }: QuizManagerProps) {
   const managerApi = api ?? window.getgo;
   const toast = useToast();
+  const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
   const quizPublishCopy = (locale === "vi" ? vi : en).quizPublish;
   const [restored] = useState(() =>
     restoredPage(snapshot, initialRoute, routeMode),
@@ -66,6 +69,13 @@ export function QuizManager({
   const quizRoute = (contestId: string, quizId: string) =>
     `${contestRoute(contestId)}/quizzes/${encodeURIComponent(quizId)}`;
   const [page, setPage] = useState<ManagerPage>(restored.page);
+  const loadingTopicsOverview = useTopicsOverviewRefresh(
+    page.kind,
+    routeMode,
+    api?.loadTopicsOverview,
+    toast,
+    marketplaceCopy.loadTopicsFailed,
+  );
   const [recentActivity, setRecentActivity] = useState(loadRecentActivity);
   const loadedTopicRef = useRef<string | null>(null);
   useEffect(() => {
@@ -611,6 +621,9 @@ export function QuizManager({
       snapshot,
       toast,
     });
+
+  if (loadingTopicsOverview)
+    return <PageLoading label={marketplaceCopy.loadingTopics} />;
 
   if (page.kind === "quiz")
     return renderQuizPage({

@@ -285,6 +285,7 @@ export function ContentV2QuizManager(props: Props) {
       return Promise.all(summaries.map(async (item) => toManagerQuestion(await window.getgo.loadContentV2Question(quiz.topicId, quiz.id, item.id))));
     };
     return {
+      loadTopicsOverview: () => reloadFromFiles(),
       loadTopicQuizzes: async (topicId) => {
         const routeData = await window.getgo.loadContentV2Route(topicId);
         const summaries = routeData.content.quizzes;

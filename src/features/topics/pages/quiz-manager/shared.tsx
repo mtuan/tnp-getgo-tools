@@ -123,6 +123,7 @@ export type QuizManagerApi = Pick<
   | "loadContentV2Quiz"
   | "publishMarketplaceTopic"
 > & {
+  loadTopicsOverview?(): Promise<RepositoryViewData>;
   loadTopicQuizzes?(topicId: string): Promise<QuizSummary[]>;
   forceSyncContentV2Quiz?(topicId: string, quizId: string): Promise<void>;
   saveContentV2Topic(topic: import("../../../../features/topics/domain/content-v2").ContentV2Topic): Promise<RepositoryViewData>;
