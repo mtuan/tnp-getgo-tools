@@ -31,6 +31,7 @@ interface FieldBase {
   disabled?: boolean | ((values: FormValues) => boolean)
   when?: (values: FormValues) => boolean
   rules?: FieldRules
+  width?: "compact"
 }
 
 export type FormField =
@@ -409,7 +410,10 @@ export function Form({ fields, values, errors = {}, onChange, autoFocus = true, 
   const renderRow = (row: FormRow, key: string) => {
     const rowFields = (Array.isArray(row) ? row : [row]).filter(field => visible(field, values))
     if (!rowFields.length) return null
-    return <div className={rowFields.length > 1 ? "schema-row" : "schema-row single"} key={key}>{rowFields.map(renderField)}</div>
+    const rowClass = rowFields.length === 1
+      ? "schema-row single"
+      : `schema-row${rowFields.length === 3 ? " three" : ""}${rowFields.length === 2 && rowFields[0].width === "compact" ? " compact-first" : ""}`
+    return <div className={rowClass} key={key}>{rowFields.map(renderField)}</div>
   }
   return <div className="schema-form" ref={formRootRef}>{fields.map((entry, index) => isSection(entry)
     ? (!entry.when || entry.when(values)) && <section className="schema-section" key={index}><header><h3>{entry.section}</h3>{entry.description && <p>{entry.description}</p>}</header>{entry.fields.map((row, rowIndex) => renderRow(row, `${index}-${rowIndex}`))}</section>

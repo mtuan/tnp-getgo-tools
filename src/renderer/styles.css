@@ -5258,6 +5258,12 @@ tbody tr:hover {
 .schema-row.single {
   grid-template-columns: minmax(0, 1fr);
 }
+.schema-row.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.schema-row.compact-first {
+  grid-template-columns: minmax(140px, 0.32fr) minmax(0, 1fr);
+}
 .schema-field {
   min-width: 0;
 }
@@ -5338,10 +5344,14 @@ tbody tr:hover {
   resize: none;
 }
 .ui-multi-tag-editor {
+  --multi-chip-text: #4338ca;
+  --multi-chip-bg: #eef2ff;
+  --multi-chip-hover-text: #fff;
+  --multi-chip-hover-bg: #4f46e5;
   min-height: var(--ui-form-control-height, 42px);
   max-height: calc(var(--ui-form-control-height, 42px) * 3);
   margin-top: 7px;
-  padding: 4px;
+  padding: 4px 5px;
   overflow-x: hidden;
   overflow-y: auto;
   box-sizing: border-box;
@@ -5351,26 +5361,33 @@ tbody tr:hover {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .ui-multi-tag-editor.disabled { background: #f1f5f9; }
+.ui-multi-tag-editor:focus-within {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px #6366f11f;
+}
 .ui-multi-tag-list {
   display: flex;
   align-content: flex-start;
   align-items: center;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 4px;
 }
 .ui-multi-tag {
   display: inline-flex;
+  min-height: calc(var(--ui-form-control-height, 42px) - 10px);
+  box-sizing: border-box;
   align-items: stretch;
   overflow: hidden;
-  border: 1px solid #c7d2fe;
-  border-radius: 999px;
-  color: #3730a3;
-  background: #eef2ff;
+  border: 0;
+  border-radius: 7px;
+  color: var(--multi-chip-text);
+  background: var(--multi-chip-bg);
 }
 .ui-multi-tag.editing { position: relative; }
 .ui-multi-tag-add {
+  min-width: 130px;
+  border: 1px dashed #cbd5e1;
   border-style: dashed;
-  border-color: #cbd5e1;
   color: #64748b;
   background: #f8fafc;
 }
@@ -5387,47 +5404,57 @@ tbody tr:hover {
   background: transparent;
 }
 .ui-multi-tag-label {
-  padding: 7px 6px 7px 12px;
+  padding: 4px 4px 4px 9px;
   cursor: text;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 500;
   line-height: 1.2;
 }
 .ui-multi-tag-remove {
   display: grid;
-  width: 30px;
+  width: 18px;
+  height: 18px;
+  align-self: center;
+  flex: 0 0 18px;
+  margin-right: 5px;
   padding: 0;
+  border-radius: 4px;
   place-items: center;
 }
-.ui-multi-tag-label:hover,
-.ui-multi-tag-remove:hover { background: #c7d2fe80; }
-.ui-multi-tag-remove svg { width: 14px; height: 14px; }
+.ui-multi-tag-remove:hover,
+.ui-multi-tag-remove:focus-visible {
+  color: var(--multi-chip-hover-text);
+  background: var(--multi-chip-hover-bg);
+  outline: none;
+}
+.ui-multi-tag-remove svg { width: 11px; height: 11px; }
 .ui-multi-tag-input,
 .ui-multi-tag-edit {
   min-width: 100px;
-  height: 32px !important;
+  height: calc(var(--ui-form-control-height, 42px) - 12px) !important;
   margin: 0 !important;
   padding: 6px 10px !important;
   border: 0 !important;
-  border-radius: 999px;
+  border-radius: 7px;
   outline: 0;
   color: #1e293b;
   background: transparent !important;
   box-shadow: none !important;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
 }
 .ui-multi-tag-input {
-  width: 180px;
+  width: 130px;
   min-height: 0 !important;
-  padding: 7px 12px !important;
+  padding: 4px 9px !important;
 }
 .ui-multi-tag-edit {
   min-width: 0;
   height: auto !important;
   min-height: 0 !important;
-  padding: 7px 6px 7px 12px !important;
+  padding: 4px 4px 4px 9px !important;
   border-radius: 0;
   appearance: none;
 }
@@ -5446,7 +5473,7 @@ tbody tr:hover {
   white-space: pre;
   pointer-events: none;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
 }
 .schema-field > small {
@@ -6010,6 +6037,10 @@ tbody tr:hover {
   --select-focus-border: #818cf8;
   --select-focus-ring: #6366f11f;
   --select-accent: #4f46e5;
+  --multi-chip-text: #4338ca;
+  --multi-chip-bg: #eef2ff;
+  --multi-chip-hover-text: #fff;
+  --multi-chip-hover-bg: #4f46e5;
   position: relative;
   width: 100%;
   margin-top: 7px;
@@ -6080,6 +6111,10 @@ tbody tr:hover {
     background-color 0.2s,
     border-color 0.2s,
     box-shadow 0.2s;
+}
+.schema-multi-badges > button {
+  padding-block: 4px;
+  padding-inline: 5px 8px;
 }
 .schema-select > button:hover {
   border-color: var(--select-hover-border);
@@ -6229,8 +6264,8 @@ tbody tr:hover {
   position: absolute;
   z-index: 1;
   top: 50%;
-  right: 34px;
-  left: 11px;
+  right: 32px;
+  left: 5px;
   display: flex;
   gap: 4px;
   overflow: hidden;
@@ -6241,12 +6276,14 @@ tbody tr:hover {
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 3px;
-  padding: 3px 4px 3px 6px;
-  border-radius: 6px;
-  color: #4338ca;
-  background: #eef2ff;
-  font-size: 9px;
+  gap: 4px;
+  min-height: calc(var(--ui-form-control-height, 42px) - 10px);
+  padding: 4px 5px 4px 9px;
+  border-radius: 7px;
+  color: var(--multi-chip-text);
+  background: var(--multi-chip-bg);
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
 }
 .schema-multi-chip > span {
@@ -6269,8 +6306,8 @@ tbody tr:hover {
 }
 .schema-multi-chip > button:hover,
 .schema-multi-chip > button:focus-visible {
-  color: white;
-  background: #4f46e5;
+  color: var(--multi-chip-hover-text);
+  background: var(--multi-chip-hover-bg);
   outline: none;
 }
 .schema-multi-chip > button svg {
@@ -9334,6 +9371,10 @@ button.danger svg {
     --select-focus-border: #818cf8;
     --select-focus-ring: #6366f13d;
     --select-accent: #94a3b8;
+    --multi-chip-text: #c7d2fe;
+    --multi-chip-bg: #312e81;
+    --multi-chip-hover-text: #fff;
+    --multi-chip-hover-bg: #4f46e5;
   }
   .schema-select.select-color-primary {
     --select-text: #c7d2fe;
@@ -9411,14 +9452,21 @@ button.danger svg {
     background: #0f172a;
   }
   .ui-multi-tag-editor {
+    --multi-chip-text: #c7d2fe;
+    --multi-chip-bg: #312e81;
+    --multi-chip-hover-text: #fff;
+    --multi-chip-hover-bg: #4f46e5;
     border-color: #ffffff1a;
     background: #0f172a;
   }
+  .ui-multi-tag-editor:focus-within {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px #6366f13d;
+  }
   .ui-multi-tag-editor.disabled { background: #1e293b; }
   .ui-multi-tag {
-    color: #c7d2fe;
-    border-color: #6366f166;
-    background: #4f46e533;
+    color: var(--multi-chip-text);
+    background: var(--multi-chip-bg);
   }
   .ui-multi-tag-add {
     color: #94a3b8;
@@ -10422,6 +10470,53 @@ button.danger svg {
   --text-secondary: var(--theme-text-muted);
 }
 
+/* Shared typography scale. Keep dense administrative layouts compact while
+   ensuring labels, supporting copy, and controls remain comfortably legible. */
+body {
+  font-size: 14px;
+}
+
+.ui-page-header-eyebrow {
+  font-size: 11px;
+}
+
+.ui-page-header p {
+  font-size: 14px;
+}
+
+.panel-heading h2,
+.ui-accordion-toggle strong,
+.schema-section > header h3 {
+  font-size: 15px;
+}
+
+.panel-heading p,
+.panel-heading > span,
+.panel-heading-meta,
+.ui-accordion-toggle small,
+.schema-section > header p,
+.schema-field > small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.schema-field > label {
+  font-size: 13px;
+}
+
+.schema-field > input:not([type="checkbox"]),
+.schema-field > textarea,
+.schema-select > button,
+.schema-select-menu > button,
+.ui-tabs button {
+  font-size: 14px;
+}
+
+.schema-multi-chip,
+.schema-selected-values i {
+  font-size: 12px;
+}
+
 ::selection {
   color: #312e81;
   background: #c7d2fe;
@@ -10445,6 +10540,56 @@ button.danger svg {
   ::selection {
     color: #eef2ff;
     background: #4338ca;
+  }
+
+  .panel,
+  .table-panel,
+  .ui-accordion-panel {
+    color: var(--theme-text);
+    border-color: #475569;
+    background: var(--theme-surface-raised);
+    box-shadow: 0 12px 30px #00000024;
+  }
+
+  .panel-heading,
+  .ui-accordion-panel .ui-accordion-header,
+  .ui-accordion-panel.open .ui-accordion-header {
+    color: var(--theme-text-strong);
+    border-color: var(--theme-border);
+    background: linear-gradient(180deg, #1e293b, #192437);
+  }
+
+  .panel-heading h2,
+  .ui-accordion-toggle,
+  .ui-accordion-toggle strong {
+    color: var(--theme-text-strong);
+  }
+
+  .panel-heading p,
+  .panel-heading > span,
+  .panel-heading-meta,
+  .ui-accordion-toggle small {
+    color: #a8b5c9;
+  }
+
+  .ui-accordion-panel .ui-accordion-content {
+    color: var(--theme-text);
+    border-color: var(--theme-border);
+    background: #111b2e;
+    box-shadow: inset 0 1px #ffffff08;
+  }
+
+  .ui-accordion-panel .ui-accordion-toggle > svg {
+    color: #a5b4fc;
+    border-color: #4f46e580;
+    background: #312e8166;
+  }
+
+  .ui-accordion-panel .ui-accordion-toggle:hover > svg,
+  .ui-accordion-panel.open .ui-accordion-toggle > svg {
+    color: #eef2ff;
+    border-color: #818cf8;
+    background: #4338ca99;
   }
 
   input,
@@ -10616,8 +10761,6 @@ button.danger svg {
   .quiz-facts span,
   .code-workspace,
   .code-tabbar > span.active,
-  .ui-accordion-panel,
-  .ui-accordion-panel.open .ui-accordion-header,
   .schema-code-control,
   .ui-multi-tag-editor,
   .schema-image-field,

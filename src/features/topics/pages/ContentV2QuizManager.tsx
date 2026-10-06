@@ -127,6 +127,7 @@ export function adaptContentV2Snapshot(snapshot: RepositoryViewData): Repository
     legacyId: quiz.id,
     contest: quiz.topicId,
     title: quiz.title,
+    description: quiz.description || quiz.marketplace?.fullDescription || quiz.marketplace?.shortDescription || "",
     icon: quiz.icon,
     sharedCode: quiz.sharedCode,
     type: contentV2ManagerRegistry.quizzes[quiz.type].managerType(),
@@ -472,7 +473,8 @@ export function ContentV2QuizManager(props: Props) {
         // An editor for one quiz concern must preserve every unrelated field,
         // especially marketplace state. Reconstructing a partial quiz here used
         // to drop marketplace and let its default resolve to "unlisted".
-        const common = { ...stored, src: input.src?.trim() || undefined, title: input.title, icon: input.icon || undefined, sharedCode: input.sharedCode ?? stored.sharedCode, status: input.status === "reviewed" ? "reviewed" as const : stored.status };
+        const { shortDescription: _shortDescription, fullDescription: _fullDescription, subjects: _subjects, languages: _languages, ...remainingMarketplace } = stored.marketplace ?? {};
+        const common = { ...stored, src: input.src?.trim() || undefined, title: input.title, description: input.description ?? "", icon: input.icon || undefined, sharedCode: input.sharedCode ?? stored.sharedCode, status: input.status === "reviewed" ? "reviewed" as const : stored.status, marketplace: { ...remainingMarketplace, subjects: input.subject ? [input.subject] : [] } };
         const next: ContentV2Quiz = input.type === "contest"
           ? { ...common, type: "competition-paper", supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : stored.type === "competition-paper" ? stored.supportedLanguages : ["en", "vi"], grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" }
           : input.type === "pronunciation"
@@ -486,9 +488,9 @@ export function ContentV2QuizManager(props: Props) {
         const order = props.snapshot.contentV2.quizzes.filter((item) => item.topicId === topicId).length;
         const quiz: ContentV2Quiz = topic.type === "kid-learning"
           ? input.type === "pronunciation"
-            ? { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "pronunciation", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: "vi", speech: defaultAlphabetQuizSpeechSettings }
-            : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
-          : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: "", sharedCode: input.sharedCode ?? "", status: "pending", order, supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : topic.supportedLanguages, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
+            ? { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "pronunciation", title: input.title, icon: input.icon || undefined, description: input.description ?? "", marketplace: { subjects: input.subject ? [input.subject] : [] }, sharedCode: input.sharedCode ?? "", status: "pending", order, language: "vi", speech: defaultAlphabetQuizSpeechSettings }
+            : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "alphabet", title: input.title, icon: input.icon || undefined, description: input.description ?? "", marketplace: { subjects: input.subject ? [input.subject] : [] }, sharedCode: input.sharedCode ?? "", status: "pending", order, language: input.language ?? "en", speech: defaultAlphabetQuizSpeechSettings }
+          : { schemaVersion: 2, id: input.id, src: input.src?.trim() || undefined, topicId, type: "competition-paper", title: input.title, icon: input.icon || undefined, description: input.description ?? "", marketplace: { subjects: input.subject ? [input.subject] : [] }, sharedCode: input.sharedCode ?? "", status: "pending", order, supportedLanguages: input.supportedLanguages?.length ? input.supportedLanguages : topic.supportedLanguages, grade: input.grade ?? "Unknown", round: input.round ?? "main", year: input.year ?? "Unknown" };
         await window.getgo.saveContentV2Quiz(topicId, quiz);
         return reloadFromFiles(topicId);
       },

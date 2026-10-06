@@ -53,6 +53,7 @@ export interface QuizSummary {
   legacyId: string;
   contest: string;
   title: string;
+  description?: string;
   icon?: ContentIcon;
   sharedCode?: string;
   type: QuizType;
@@ -249,6 +250,8 @@ export interface QuizCrudInput {
   id: string;
   src?: string;
   title: string;
+  description?: string;
+  subject?: string;
   icon?: ContentIcon;
   sharedCode?: string;
   type?: QuizType;

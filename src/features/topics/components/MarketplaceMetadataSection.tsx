@@ -24,17 +24,6 @@ import { useSaveShortcut } from "../../../shared/ui/useSaveShortcut";
 
 type MarketplaceRecord = ContentV2Topic | ContentV2Quiz;
 
-const standardSubjects = [
-  { value: "mathematics", label: "Mathematics" },
-  { value: "english", label: "English" },
-  { value: "vietnamese", label: "Vietnamese" },
-  { value: "physics", label: "Physics" },
-  { value: "chemistry", label: "Chemistry" },
-  { value: "biology", label: "Biology" },
-  { value: "history", label: "History" },
-  { value: "geography", label: "Geography" },
-];
-
 const localizedLines = (value: unknown, locale: "en" | "vi") =>
   Array.isArray(value)
     ? value.map((item) => localizedText(item as LocalizedText, locale)).filter(Boolean).join("\n")
@@ -151,30 +140,13 @@ export function MarketplaceMetadataSection({
   const current = draft ? metadata(draft) : null;
   const isTopic = Boolean(draft && !("topicId" in draft));
   const parentAccess = parentMarketplace?.pricing?.type ?? "free";
-  const subjectOptions = useMemo(() => {
-    if (!isTopic)
-      return (parentMarketplace?.subjects ?? []).map((subject) => ({
-        value: subject,
-        label: standardSubjects.find((option) => option.value === subject)?.label ?? subject,
-      }));
-    const options = new Map(standardSubjects.map((subject) => [subject.value, subject]));
-    for (const subject of source ? metadata(source).subjects : [])
-      if (!options.has(subject)) options.set(subject, { value: subject, label: subject });
-    return [...options.values()];
-  }, [isTopic, parentMarketplace?.subjects, source]);
   const values: FormValues = current
     ? {
-        shortDescription: current.shortDescription,
-        fullDescription: current.fullDescription,
-        subjects: isTopic ? current.subjects : current.subjects[0] ?? "",
-        languages: current.languages,
         tags: current.tags,
         learningObjectivesEn: localizedLines(current.learningObjectives, "en"),
         learningObjectivesVi: localizedLines(current.learningObjectives, "vi"),
         preview: current.preview,
         experimental: current.experimental,
-        minimumAge: current.ageRange?.minimum,
-        maximumAge: current.ageRange?.maximum,
         pricingType: !isTopic && !draft?.marketplace?.pricing
           ? "inherit"
           : current.pricing.type,
@@ -189,41 +161,13 @@ export function MarketplaceMetadataSection({
         name: "preview",
         label: copy.fields.preview,
         helper: copy.fields.previewHelp,
-        presentation: "row",
       },
       ...(isTopic ? [{
         type: "toggle",
         name: "experimental",
         label: copy.fields.experimental,
         helper: copy.fields.experimentalHelp,
-        presentation: "row",
       } as FormSchema] : []),
-      ...(!isTopic ? [{
-        type: "textarea",
-        name: "shortDescription",
-        label: copy.fields.shortDescription,
-      } as FormSchema, {
-        type: "textarea",
-        name: "fullDescription",
-        label: copy.fields.fullDescription,
-      } as FormSchema] : []),
-      ...(!isTopic ? [[
-        {
-              type: "select",
-              name: "subjects",
-              label: copy.fields.subjects,
-              options: subjectOptions,
-        },
-        {
-          type: "multi-select",
-          name: "languages",
-          label: copy.fields.languages,
-          options: [
-            { value: "en", label: "English" },
-            { value: "vi", label: "Tiếng Việt" },
-          ],
-        },
-      ] as FormSchema] : []),
       ...(isTopic ? [{
         type: "multi-tag",
         name: "tags",
@@ -244,23 +188,10 @@ export function MarketplaceMetadataSection({
       }] as FormSchema] : []),
       [
         {
-          type: "number",
-          name: "minimumAge",
-          label: copy.fields.minimumAge,
-          min: 1,
-        },
-        {
-          type: "number",
-          name: "maximumAge",
-          label: copy.fields.maximumAge,
-          min: 1,
-        },
-      ],
-      [
-        {
           type: "select",
           name: "pricingType",
           label: copy.fields.pricingType,
+          presentation: "dropdown",
           required: true,
           helper: !isTopic ? copy.quizPricingHelp : copy.topicPricingHelp,
           rules: !isTopic ? {
@@ -299,7 +230,7 @@ export function MarketplaceMetadataSection({
         },
       ],
     ],
-    [copy, isTopic, parentAccess, subjectOptions],
+    [copy, isTopic, parentAccess],
   );
   const change = (name: string, value: unknown) => {
     setErrors((currentErrors) => {
@@ -311,11 +242,7 @@ export function MarketplaceMetadataSection({
       if (!record) return record;
       const next = metadata(record) as MarketplaceTopicMetadata &
         Record<string, unknown>;
-      if (name === "subjects" && Array.isArray(value))
-        next.subjects = value.map(String);
-      else if (name === "subjects")
-        next.subjects = value ? [String(value)] : [];
-      else if (["learningObjectivesEn", "learningObjectivesVi"].includes(name)) {
+      if (["learningObjectivesEn", "learningObjectivesVi"].includes(name)) {
         const en = toList(name === "learningObjectivesEn" ? value : values.learningObjectivesEn);
         const vi = toList(name === "learningObjectivesVi" ? value : values.learningObjectivesVi);
         next.learningObjectives = Array.from({ length: Math.max(en.length, vi.length) }, (_, index) => ({
@@ -325,17 +252,6 @@ export function MarketplaceMetadataSection({
       }
       else if (name === "tags")
         next.tags = Array.isArray(value) ? value.map(String) : [];
-      else if (name === "subjects")
-        next[name] = toList(value);
-      else if (name === "languages")
-        next.languages = Array.isArray(value) ? value.map(String) : [];
-      else if (name === "minimumAge" || name === "maximumAge")
-        next.ageRange = {
-          ...next.ageRange,
-          [name === "minimumAge" ? "minimum" : "maximum"]: value as
-            | number
-            | undefined,
-        };
       else if (name === "pricingType" && value === "inherit")
         delete (next as Partial<MarketplaceTopicMetadata>).pricing;
       else if (name === "pricingType")

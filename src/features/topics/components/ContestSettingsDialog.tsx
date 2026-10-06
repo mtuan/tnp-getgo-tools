@@ -53,7 +53,7 @@ const generalFields = (iconPreview: string, topicMode: boolean, language: Editor
       { type: "multi-select" as const, name: "subjects", label: "Subjects", required: true, options: subjectOptions },
       { type: "multi-select" as const, name: "supportedGrades", label: "Grades", options: gradeOptions },
     ], [
-      { type: "select" as const, name: "topicType", label: "Topic type", options: [
+      { type: "select" as const, name: "topicType", label: "Topic type", presentation: "dropdown" as const, options: [
         { value: "competition", label: "Contest" },
         { value: "kid-learning", label: "Kid learning" },
       ] },

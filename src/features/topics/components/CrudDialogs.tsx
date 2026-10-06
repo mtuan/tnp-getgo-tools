@@ -15,6 +15,9 @@ const defaultContestSettings = (): ContestSettings => ({
   quizRules: [],
 })
 
+const quizSubjectOptions = ["Mathematics", "English", "Vietnamese", "Physics", "Chemistry", "Biology", "History", "Geography"]
+  .map(label => ({ label, value: label.toLowerCase() }))
+
 export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }: { contest?: ContestSummary; onClose(): void; onSaved(settings: ContestSettings): Promise<void>; onDeleted?: () => Promise<void> }) {
   const initial = useMemo(() => structuredClone(contest?.settings ?? defaultContestSettings()), [contest])
   const [id, setId] = useState(initial.book.code)
@@ -45,7 +48,7 @@ export function LegacyContestCrudDialog({ contest, onClose, onSaved, onDeleted }
 }
 
 export function QuizCrudDialog({ quiz, contest, defaultSupportedLanguages = ["en", "vi"], onClose, onSaved, onDeleted, embedded = false, onDirtyChange }: { quiz?: QuizSummary; contest: ContestSummary; defaultSupportedLanguages?: Array<"en" | "vi">; onClose(): void; onSaved(input: QuizCrudInput): Promise<void>; onDeleted?: () => Promise<void>; embedded?: boolean; onDirtyChange?(dirty: boolean): void }) {
-  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", src: quiz?.src ?? "", title: quiz?.title ?? "", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", supportedLanguages: quiz?.supportedLanguages ?? defaultSupportedLanguages, grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? currentQuizBuilderApiVersion }), [defaultSupportedLanguages, quiz])
+  const initialInput = useMemo<QuizCrudInput>(() => ({ id: quiz?.id ?? "", src: quiz?.src ?? "", title: quiz?.title ?? "", description: quiz?.description ?? "", subject: quiz?.marketplace?.subjects?.[0] ?? contest.settings.book.subjects?.[0] ?? "mathematics", icon: quiz?.icon ?? "", type: quiz?.type ?? "contest", language: quiz?.language ?? "en", supportedLanguages: quiz?.supportedLanguages ?? defaultSupportedLanguages, grade: quiz?.grade ?? null, round: quiz?.round ?? null, year: quiz?.year ?? null, status: quiz?.contentStatus ?? "imported", quizBuilderApiVersion: quiz?.quizBuilderApiVersion ?? currentQuizBuilderApiVersion }), [contest.settings.book.subjects, defaultSupportedLanguages, quiz])
   const [input, setInput] = useState<QuizCrudInput>(() => initialInput)
   const [savedInput, setSavedInput] = useState<QuizCrudInput>(() => initialInput)
   const [busy, setBusy] = useState(false)
@@ -68,12 +71,19 @@ export function QuizCrudDialog({ quiz, contest, defaultSupportedLanguages = ["en
     return () => { active = false }
   }, [contest.id, contest.settingsPath, input.icon])
   const fields = useMemo<FormSchema[]>(() => [
-    { type: "text", name: "id", label: "Quiz ID", required: true, readOnly: Boolean(quiz), transformInput: value => value.toLowerCase().replace(/[^a-z0-9_-]/g, ""), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
-    { type: "text", name: "title", label: "Title", required: true },
-    { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a two-line text icon with up to 6 characters per line." },
-    { type: "select", name: "type", label: "Quiz type", required: true, presentation: "segmented", options: [{ value: "contest", label: "Contest" }, { value: "alphabet", label: "Alphabet" }, { value: "pronunciation", label: "Vietnamese pronunciation" }] },
-    ...(input.type === "contest" ? [{ type: "multi-select", name: "supportedLanguages", label: "Supported languages", required: true, options: [{ value: "vi", label: "Vietnamese" }, { value: "en", label: "English" }] } as FormSchema] : []),
-    ...(input.type === "alphabet" ? [{ type: "select", name: "language", label: "Language", required: true, presentation: "segmented", options: [{ value: "en", label: "English" }, { value: "vi", label: "Vietnamese" }] } as FormSchema] : []),
+    [
+      { type: "text", name: "id", label: "Quiz ID", width: "compact", required: true, readOnly: Boolean(quiz), transformInput: value => value.toLowerCase().replace(/[^a-z0-9_-]/g, ""), rules: { pattern: { value: /^[a-z0-9][-a-z0-9_]*$/, message: "Use lowercase letters, numbers, hyphens, and underscores." } } },
+      { type: "text", name: "title", label: "Title", required: true },
+    ],
+    { type: "textarea", name: "description", label: "Description", rows: 3 },
+    [
+      { type: "icon", name: "icon", label: "Icon", maxBytes: 2097152, previewSrc: iconPreview, helper: "Choose an image, a Unicode symbol, or a two-line text icon with up to 6 characters per line." },
+      { type: "select", name: "subject", label: "Subject", required: true, options: quizSubjectOptions },
+      input.type === "contest"
+        ? { type: "multi-select", name: "supportedLanguages", label: "Supported languages", required: true, options: [{ value: "vi", label: "Vietnamese" }, { value: "en", label: "English" }] }
+        : { type: "select", name: "language", label: "Supported language", required: true, presentation: "dropdown", disabled: input.type === "pronunciation", options: input.type === "pronunciation" ? [{ value: "vi", label: "Vietnamese" }] : [{ value: "en", label: "English" }, { value: "vi", label: "Vietnamese" }] },
+    ] as FormSchema,
+    { type: "select", name: "type", label: "Quiz type", required: true, presentation: "dropdown", options: [{ value: "contest", label: "Contest" }, { value: "alphabet", label: "Alphabet" }, { value: "pronunciation", label: "Vietnamese pronunciation" }] },
   ], [iconPreview, input.type, quiz])
   const values: FormValues = { ...input, quizBuilderApiVersion: String(input.quizBuilderApiVersion ?? currentQuizBuilderApiVersion) }
   const change = (name: string, value: unknown) => {
@@ -91,7 +101,7 @@ export function QuizCrudDialog({ quiz, contest, defaultSupportedLanguages = ["en
       return { ...current, [name]: value } as QuizCrudInput
     })
   }
-  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized: QuizCrudInput = { ...input, id: input.id.trim(), src: input.src?.trim() || undefined, title: input.title.trim(), icon: typeof input.icon === "string" ? input.icon.trim() || undefined : input.icon, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : input.type === "pronunciation" ? "vi" : undefined, supportedLanguages: input.type === "contest" ? input.supportedLanguages ?? ["en", "vi"] : input.type === "pronunciation" ? ["vi"] : [input.language ?? "en"], grade: input.type === "contest" ? input.grade : null, round: input.type === "contest" ? input.round : null, year: input.type === "contest" ? input.year : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
+  async function submit(event: FormEvent) { event.preventDefault(); setError(null); const errors = validateSchema(fields, values); setFieldErrors(errors); if (Object.keys(errors).length) return; const normalized: QuizCrudInput = { ...input, id: input.id.trim(), src: input.src?.trim() || undefined, title: input.title.trim(), description: input.description?.trim() ?? "", subject: input.subject ?? "mathematics", icon: typeof input.icon === "string" ? input.icon.trim() || undefined : input.icon, sharedCode: input.sharedCode?.trim() ?? "", language: input.type === "alphabet" ? input.language ?? "en" : input.type === "pronunciation" ? "vi" : undefined, supportedLanguages: input.type === "contest" ? input.supportedLanguages ?? ["en", "vi"] : input.type === "pronunciation" ? ["vi"] : [input.language ?? "en"], grade: input.type === "contest" ? input.grade : null, round: input.type === "contest" ? input.round : null, year: input.type === "contest" ? input.year : null }; setBusy(true); try { await onSaved(normalized); setInput(normalized); setSavedInput(normalized); setBusy(false) } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } }
   const editor = <DialogFrame presentation={embedded ? "embedded" : "drawer"} formId={embedded ? "quiz-info-form" : undefined} hideFooter={embedded} onReset={() => { setInput(structuredClone(savedInput)); setFieldErrors({}); setError(null) }} title={quiz ? "Edit quiz" : "Create quiz"} submitLabel={quiz ? "Save changes" : "Create"} submitDisabled={Boolean(quiz) && !dirty} saveShortcut={Boolean(quiz)} busy={busy} error={error} onClose={onClose} onSubmit={submit} onDelete={onDeleted ? async () => { setBusy(true); try { await onDeleted() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setBusy(false) } } : undefined}>
     <Form fields={fields} values={values} errors={fieldErrors} onChange={change} />
     {!quiz && <p className="form-note">A schema-valid manifest and starter <code>quiz.ts</code> will be created. You can edit questions immediately afterward.</p>}
