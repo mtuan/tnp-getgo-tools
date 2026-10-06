@@ -283,14 +283,14 @@ export class FirestorePublishingService {
     })), ...existing.filter((name) => !nextIds.has(decodeURIComponent(name.split("/").at(-1)!))).map((name) => ({ delete: name }))]);
   }
 
-  async publishPaymentSales(sales: Array<Record<string, unknown>>): Promise<void> {
-    const existing = await this.listDocumentNames("", "getgo-payment-sales");
-    const nextIds = new Set(sales.map((item) => String(item.id)));
-    await this.commit([...sales.map((sale) => ({
+  async publishPaymentEvents(events: Array<Record<string, unknown>>): Promise<void> {
+    const existing = await this.listDocumentNames("", "getgo-events");
+    const nextIds = new Set(events.map((item) => String(item.id)));
+    await this.commit([...events.map((event) => ({
       update: {
         name: "",
-        relativeName: `/getgo-payment-sales/${encodeURIComponent(String(sale.id))}`,
-        fields: fields(sale),
+        relativeName: `/getgo-events/${encodeURIComponent(String(event.id))}`,
+        fields: fields(event),
       },
     })), ...existing.filter((name) => !nextIds.has(decodeURIComponent(name.split("/").at(-1)!))).map((name) => ({ delete: name }))]);
   }

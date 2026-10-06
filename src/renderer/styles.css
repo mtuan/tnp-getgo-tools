@@ -4267,6 +4267,7 @@ tbody tr:hover {
   align-items: flex-end;
   margin: 0 0 -32px;
 }
+
 .payment-package-card {
   position: relative;
   z-index: 1;
@@ -5932,7 +5933,7 @@ tbody tr:hover {
 }
 .schema-toggle-control {
   width: 100%;
-  min-height: 39px;
+  min-height: var(--ui-form-control-height);
   display: flex;
   align-items: center;
   margin-top: 7px;

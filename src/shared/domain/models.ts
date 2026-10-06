@@ -727,10 +727,14 @@ export interface PaymentPackage {
   id: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
   info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
 }
-export interface PaymentSale {
+interface PaymentEventBase {
   id: string; name: { en: string; vi: string }; info: { en: string; vi: string };
-  recurrence: "one-time" | "yearly"; startsOn: string; endsOn: string; discountPercent: number; packageIds: string[]; enabled: boolean;
+  recurrence: "one-time" | "yearly"; startsOn: string; endsOn: string; enabled: boolean;
 }
+export type PaymentEvent = PaymentEventBase & (
+  | { type: "sale"; discountPercent: number; targets: { packageIds: string[] } }
+  | { type: "premium-preview"; premiumDays: number; targets: { userTypes: Array<"new-registration" | "legacy-migration"> } }
+);
 export type GetGoMembershipTier = "free" | "premium" | "admin";
 export interface GetGoMemberAccount {
   id: string;
@@ -807,9 +811,9 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   listPaymentPackages(): Promise<PaymentPackage[]>;
   savePaymentPackages(items: PaymentPackage[]): Promise<PaymentPackage[]>;
   syncPaymentPackages(): Promise<{ count: number; syncedAt: string }>;
-  listPaymentSales(): Promise<PaymentSale[]>;
-  savePaymentSales(items: PaymentSale[]): Promise<PaymentSale[]>;
-  syncPaymentSales(): Promise<{ count: number; syncedAt: string }>;
+  listPaymentEvents(): Promise<PaymentEvent[]>;
+  savePaymentEvents(items: PaymentEvent[]): Promise<PaymentEvent[]>;
+  syncPaymentEvents(): Promise<{ count: number; syncedAt: string }>;
   listGetGoMembers(query: GetGoMemberQuery): Promise<GetGoMemberPage>;
   setGetGoMembership(memberId: string, membership: GetGoMembershipTier, startsAt?: string | null, expiresAt?: string | null): Promise<void>;
   deleteGetGoMember(memberId: string): Promise<{ deleted: true; authenticationDeleted: boolean }>;

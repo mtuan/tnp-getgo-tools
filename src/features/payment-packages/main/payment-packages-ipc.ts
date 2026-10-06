@@ -2,12 +2,13 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { IpcMain } from "electron";
 import { paymentPackagesSchema } from "../domain/payment-package.js";
-import { paymentSalesSchema } from "../domain/payment-sale.js";
+import { paymentEventsSchema } from "../domain/payment-event.js";
 import type { FirestorePublishingService } from "../../topics/main/firestore-publishing.js";
 import { assertRepositoryContentSafe, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 
 const filePath = (root: string) => path.join(root, "content-v2", "payment-packages.json");
-const salesFilePath = (root: string) => path.join(root, "content-v2", "payment-sales.json");
+const eventsFilePath = (root: string) => path.join(root, "content-v2", "payment-events.json");
+const legacySalesFilePath = (root: string) => path.join(root, "content-v2", "payment-sales.json");
 async function load(root: string) {
   try { return paymentPackagesSchema.parse(JSON.parse(await fs.readFile(filePath(root), "utf8"))); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
@@ -28,25 +29,34 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
     await dependencies.publishing.publishPaymentPackages(packages);
     return { count: packages.length, syncedAt: new Date().toISOString() };
   });
-  const loadSales = async (root: string) => {
-    try { return paymentSalesSchema.parse(JSON.parse(await fs.readFile(salesFilePath(root), "utf8"))); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
+  const loadEvents = async (root: string) => {
+    try { return paymentEventsSchema.parse(JSON.parse(await fs.readFile(eventsFilePath(root), "utf8"))); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      try {
+        const legacy = JSON.parse(await fs.readFile(legacySalesFilePath(root), "utf8")) as Array<Record<string, unknown>>;
+        return paymentEventsSchema.parse(legacy.map(({ packageIds, ...sale }) => ({ ...sale, type: "sale", targets: { packageIds } })));
+      } catch (legacyError) {
+        if ((legacyError as NodeJS.ErrnoException).code === "ENOENT") return [];
+        throw legacyError;
+      }
+    }
   };
-  ipcMain.handle("payment-sales:list", async () => loadSales(await dependencies.repositoryRoot()));
-  ipcMain.handle("payment-sales:save", async (_event, value: unknown) => {
-    const sales = paymentSalesSchema.parse(value);
+  ipcMain.handle("payment-events:list", async () => loadEvents(await dependencies.repositoryRoot()));
+  ipcMain.handle("payment-events:save", async (_event, value: unknown) => {
+    const events = paymentEventsSchema.parse(value);
     const root = await dependencies.repositoryRoot();
-    await warnForRepositoryContent(root, "content-v2/payment-sales.json", sales);
-    const target = salesFilePath(root);
+    await warnForRepositoryContent(root, "content-v2/payment-events.json", events);
+    const target = eventsFilePath(root);
     await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, `${JSON.stringify(sales, null, 2)}\n`, "utf8");
-    return sales;
+    await fs.writeFile(target, `${JSON.stringify(events, null, 2)}\n`, "utf8");
+    return events;
   });
-  ipcMain.handle("payment-sales:sync", async () => {
+  ipcMain.handle("payment-events:sync", async () => {
     const root = await dependencies.repositoryRoot();
-    const sales = await loadSales(root);
-    await assertRepositoryContentSafe(root, "Payment sales", sales);
-    await dependencies.publishing.publishPaymentSales(sales);
-    return { count: sales.length, syncedAt: new Date().toISOString() };
+    const events = await loadEvents(root);
+    await assertRepositoryContentSafe(root, "Payment events", events);
+    await dependencies.publishing.publishPaymentEvents(events);
+    return { count: events.length, syncedAt: new Date().toISOString() };
   });
 }
