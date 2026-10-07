@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit GetGo marketplace defaults"
+  short_description: "Audit and normalize topic/quiz marketplace policy"
+  default_prompt: "Audit the GetGo marketplace defaults for the requested repository scope and show the dry-run result before applying changes."

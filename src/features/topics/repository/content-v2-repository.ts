@@ -27,6 +27,11 @@ import { parseAlphabetDictionary, parseKidLearningDictionary, reviewedKidLearnin
 import { sanitizeVietnamesePronunciationQuestion } from "../../quiz-editor/domain/pronunciation-safety.js";
 import { warnForContentV2File, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 import { contentTopicsRoot } from "./content-source.js";
+import {
+  guestPreviewQuizId,
+  withMarketplaceQuizDefaults,
+  withMarketplaceTopicDefaults,
+} from "../domain/marketplace-default-policy.js";
 
 const topicIdPattern = /^[a-z][a-z0-9_-]*$/;
 const jsonFileCache = new Map<string, { mtimeMs: number; size: number; value: unknown }>();
@@ -561,6 +566,7 @@ export async function saveContentV2Topic(
   const existing = await fs.readFile(filePath, "utf8")
     .then((source) => contentV2TopicSchema.parse(JSON.parse(source)))
     .catch(() => null);
+  if (!existing) topic = withMarketplaceTopicDefaults(topic);
   const previousAutomaticTags = new Set(
     automaticMarketplaceTopicTags(existing?.title).map((tag) => tag.toLocaleLowerCase()),
   );
@@ -604,6 +610,26 @@ export async function loadContentV2Topic(
   );
 }
 
+export async function patchContentV2TopicMarketplacePolicy(
+  repositoryPath: string,
+  topicId: string,
+  patch: { preview: boolean; experimental: boolean; pricing: { type: "subscription"; currency: "VND" } },
+): Promise<ContentV2Topic> {
+  const filePath = path.join(contentRoot(repositoryPath), validateId(topicId, "Topic ID"), "topic.json");
+  const raw = await readJson(filePath) as Record<string, unknown>;
+  const currentMarketplace = raw.marketplace && typeof raw.marketplace === "object"
+    ? raw.marketplace as Record<string, unknown>
+    : {};
+  const nextRaw = { ...raw, marketplace: { ...currentMarketplace, ...patch } };
+  const previous = contentV2TopicSchema.parse(raw);
+  const next = contentV2TopicSchema.parse(nextRaw);
+  await writeJson(filePath, nextRaw);
+  await markTopicPublishStateDirty(filePath);
+  if (marketplaceContentAccess(previous.marketplace) !== marketplaceContentAccess(next.marketplace))
+    await invalidateTopicQuizPublishStates(repositoryPath, topicId);
+  return next;
+}
+
 export async function loadContentV2Quiz(
   repositoryPath: string,
   topicId: string,
@@ -620,6 +646,32 @@ export async function loadContentV2Quiz(
       ),
     ),
   );
+}
+
+export async function patchContentV2QuizMarketplacePolicy(
+  repositoryPath: string,
+  topicId: string,
+  quizId: string,
+  patch: { preview?: boolean; inheritPricing?: boolean },
+): Promise<ContentV2Quiz> {
+  const filePath = path.join(
+    contentRoot(repositoryPath),
+    validateId(topicId, "Topic ID"),
+    "quizzes",
+    validateId(quizId, "Quiz ID"),
+    "quiz.json",
+  );
+  const raw = await readJson(filePath) as Record<string, unknown>;
+  const marketplace = raw.marketplace && typeof raw.marketplace === "object"
+    ? { ...raw.marketplace as Record<string, unknown> }
+    : {};
+  if (patch.preview !== undefined) marketplace.preview = patch.preview;
+  if (patch.inheritPricing) delete marketplace.pricing;
+  const nextRaw = { ...raw, marketplace };
+  const next = contentV2QuizSchema.parse(nextRaw);
+  await writeJson(filePath, nextRaw);
+  await markQuizPublishStateDirty(filePath);
+  return next;
 }
 
 export async function loadContentV2Question(
@@ -907,20 +959,21 @@ export async function saveContentV2Quiz(
         }
       : value;
   const parsedQuiz = contentV2QuizSchema.parse(normalizedQuiz);
-  const { publishedHash: _publishedHash, publishedAt: _publishedAt, ...quiz } = parsedQuiz;
-  if (quiz.topicId !== topic.id)
+  if (parsedQuiz.topicId !== topic.id)
     throw new Error("Quiz topicId does not match its parent topic.");
-  assertContentV2Relationship(topic.type, quiz.type, "quiz");
+  assertContentV2Relationship(topic.type, parsedQuiz.type, "quiz");
   const filePath = path.join(
     contentRoot(repositoryPath),
     topic.id,
     "quizzes",
-    validateId(quiz.id, "Quiz ID"),
+    validateId(parsedQuiz.id, "Quiz ID"),
     "quiz.json",
   );
   const existingQuiz = await fs.readFile(filePath, "utf8")
     .then((source) => contentV2QuizSchema.parse(JSON.parse(source)))
     .catch(() => null);
+  const normalizedStoredQuiz = existingQuiz ? parsedQuiz : withMarketplaceQuizDefaults(parsedQuiz);
+  const { publishedHash: _publishedHash, publishedAt: _publishedAt, ...quiz } = normalizedStoredQuiz;
   const contentChanged = !existingQuiz ||
     hashContentV2(sanitizeContentV2Quiz(existingQuiz)) !== hashContentV2(sanitizeContentV2Quiz(quiz));
   await writeJson(filePath, quiz);
@@ -936,6 +989,43 @@ export async function saveContentV2Quiz(
       await writeJson(dictionaryPath, { schemaVersion: 2, entries: [] });
   }
   return quiz;
+}
+
+export async function reconcileContentV2GuestPreview(
+  repositoryPath: string,
+  topicId: string,
+  preferredQuizId?: string,
+): Promise<{ selectedQuizId?: string; changedQuizIds: string[] }> {
+  const quizzesRoot = path.join(contentRoot(repositoryPath), topicId, "quizzes");
+  const directories = (await fs.readdir(quizzesRoot, { withFileTypes: true }).catch(() => []))
+    .filter((entry) => entry.isDirectory());
+  const records = await Promise.all(directories.map(async (entry) => {
+    const quiz = await loadContentV2Quiz(repositoryPath, topicId, entry.name);
+    const questionsRoot = path.join(quizzesRoot, entry.name, "questions");
+    const questionFiles = (await fs.readdir(questionsRoot, { withFileTypes: true }).catch(() => []))
+      .filter((item) => item.isFile() && item.name.endsWith(".json"));
+    const questions = await Promise.all(questionFiles.map((item) =>
+      loadContentV2Question(repositoryPath, topicId, quiz.id, item.name.slice(0, -5))));
+    return {
+      quiz,
+      questionCount: questions.length,
+      reviewedQuestionCount: questions.filter((question) => question.status === "reviewed").length,
+    };
+  }));
+  const selectedQuizId = guestPreviewQuizId(records.map(({ quiz, ...counts }) => ({
+    id: quiz.id,
+    order: quiz.order,
+    preview: quiz.marketplace?.preview === true,
+    ...counts,
+  })), preferredQuizId);
+  const changedQuizIds: string[] = [];
+  for (const { quiz } of records) {
+    const preview = quiz.id === selectedQuizId;
+    if ((quiz.marketplace?.preview === true) === preview) continue;
+    await patchContentV2QuizMarketplacePolicy(repositoryPath, topicId, quiz.id, { preview });
+    changedQuizIds.push(quiz.id);
+  }
+  return { selectedQuizId, changedQuizIds };
 }
 
 export async function saveContentV2Question(
