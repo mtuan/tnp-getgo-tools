@@ -24,6 +24,7 @@
     "build:fresh": "npm run refresh:logics && npm run build:run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "check:source-size": "node scripts/check-source-size.mjs",
+    "marketplace:defaults": "tsx scripts/audit-marketplace-defaults.ts",
     "test": "tsx --test tests/**/*.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "dist": "npm run build && electron-builder",

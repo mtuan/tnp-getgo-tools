@@ -5,6 +5,7 @@ import { shell, type IpcMain } from "electron";
 import {
   loadContentV2Quiz,
   loadContentV2Topic,
+  reconcileContentV2GuestPreview,
   resolveContentV2QuizSourcePdf,
   saveContentV2Question,
   saveContentV2Quiz,
@@ -94,7 +95,13 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
   ipcMain.handle("content-v2:quiz:save", async (_event, topicIdValue: unknown, value: unknown) => {
     const topicId = validId(topicIdValue, "topic ID");
     const root = await repositoryRoot();
-    return saveContentV2Quiz(root, await loadContentV2Topic(root, topicId), value);
+    const saved = await saveContentV2Quiz(root, await loadContentV2Topic(root, topicId), value);
+    await reconcileContentV2GuestPreview(
+      root,
+      topicId,
+      saved.marketplace?.preview === true ? saved.id : undefined,
+    );
+    return saved;
   });
 
   ipcMain.handle("content-v2:question:save", async (_event, topicIdValue: unknown, quizIdValue: unknown, value: unknown) => {
@@ -105,8 +112,10 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
       loadContentV2Topic(root, topicId),
       loadContentV2Quiz(root, topicId, quizId),
     ]);
-    return saveContentV2Question(root, topic, quiz,
+    const saved = await saveContentV2Question(root, topic, quiz,
       await withQuestionAssetDimensions(root, topicId, quizId, value));
+    await reconcileContentV2GuestPreview(root, topicId);
+    return saved;
   });
 
   ipcMain.handle("content-v2:questions:review-all", async (_event, topicIdValue: unknown, quizIdValue: unknown) => {
@@ -118,6 +127,7 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
       loadContentV2Quiz(root, topicId, quizId),
     ]);
     const result = await reviewAllContentV2Questions(root, topic, quiz);
+    await reconcileContentV2GuestPreview(root, topicId);
     return { topicId, quizId, ...result };
   });
 
@@ -132,9 +142,11 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
   ipcMain.handle("content-v2:quiz:delete", async (_event, topicIdValue: unknown, quizIdValue: unknown) => {
     const topicId = validId(topicIdValue, "topic ID");
     const quizId = validId(quizIdValue, "quiz ID");
-    const directory = path.join(contentTopicsRoot(await repositoryRoot()), topicId, "quizzes", quizId);
+    const root = await repositoryRoot();
+    const directory = path.join(contentTopicsRoot(root), topicId, "quizzes", quizId);
     await fs.access(path.join(directory, "quiz.json"));
     await shell.trashItem(directory);
+    await reconcileContentV2GuestPreview(root, topicId);
     return { topicId, id: quizId };
   });
 
