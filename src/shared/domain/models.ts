@@ -738,6 +738,101 @@ export type PaymentEvent = PaymentEventBase & (
   | { type: "sale"; discountPercent: number; targets: { packageIds: string[] } }
   | { type: "premium-preview"; premiumDays: number; targets: { userTypes: Array<"new-registration" | "legacy-migration"> } }
 );
+export type BillingOrderStatus = "creating" | "pending" | "paid" | "failed" | "cancelled" | "expired" | "needs-review" | "unknown";
+export type BillingPurchaseType = "subscription" | "topic" | "unknown";
+export interface BillingOrderListItem {
+  id: string;
+  transactionId: string;
+  parentUid: string;
+  purchaseType: BillingPurchaseType;
+  productId: string;
+  productName: string;
+  topicId: string | null;
+  provider: string;
+  amount: number;
+  currency: string;
+  status: BillingOrderStatus;
+  environment: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  checkoutExpiresAt: string | null;
+  duplicatePaymentCount: number;
+}
+export interface BillingOrderQuery {
+  search?: string;
+  status?: BillingOrderStatus;
+  purchaseType?: Exclude<BillingPurchaseType, "unknown">;
+  environment?: string;
+  cursor?: string;
+  limit?: number;
+}
+export interface BillingOrderPage { items: BillingOrderListItem[]; nextCursor: string | null }
+export interface BillingOrderUser {
+  id: string;
+  name: string;
+  email: string;
+  packageId: string;
+  subscriptionExpiresAt: string | null;
+}
+export interface BillingOrderProduct {
+  id: string;
+  name: string;
+  type: string;
+  amount: number | null;
+  currency: string;
+}
+export interface BillingOrderTransaction {
+  id: string;
+  status: BillingOrderStatus;
+  providerTransactionId: string;
+  referenceNumber: string;
+  providerTransactionTime: string | null;
+  paidAt: string | null;
+  failedAt: string | null;
+  cancelledAt: string | null;
+  expiredAt: string | null;
+  updatedAt: string | null;
+}
+export interface BillingOrderAccess {
+  kind: "subscription" | "topic";
+  id: string;
+  status: string;
+  startsAt: string | null;
+  expiresAt: string | null;
+  grantedAt: string | null;
+}
+export interface BillingOrderEvent {
+  id: string;
+  event: string;
+  createdAt: string | null;
+  success: boolean | null;
+  direction: string;
+  endpoint: string;
+  httpStatus: number | null;
+  durationMs: number | null;
+  detail: Record<string, unknown>;
+}
+export interface BillingDuplicatePayment {
+  id: string;
+  status: string;
+  providerTransactionId: string;
+  amount: number;
+  referenceNumber: string;
+  providerTransactionTime: string | null;
+  createdAt: string | null;
+}
+export type BillingOrderWarningCode = "missing-transaction" | "status-mismatch" | "missing-user" | "missing-product" | "missing-access" | "missing-pending" | "stale-pending" | "duplicate-count-mismatch";
+export interface BillingOrderDetail {
+  order: BillingOrderListItem;
+  transaction: BillingOrderTransaction | null;
+  user: BillingOrderUser | null;
+  product: BillingOrderProduct | null;
+  access: BillingOrderAccess | null;
+  pending: boolean;
+  duplicatePayments: BillingDuplicatePayment[];
+  events: BillingOrderEvent[];
+  warnings: BillingOrderWarningCode[];
+}
 export type GetGoMembershipTier = "free" | "premium" | "admin";
 export interface GetGoMemberAccount {
   id: string;
@@ -819,6 +914,8 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   listPaymentEvents(): Promise<PaymentEvent[]>;
   savePaymentEvents(items: PaymentEvent[]): Promise<PaymentEvent[]>;
   syncPaymentEvents(): Promise<{ count: number; syncedAt: string }>;
+  listBillingOrders(query: BillingOrderQuery): Promise<BillingOrderPage>;
+  loadBillingOrderDetail(orderId: string): Promise<BillingOrderDetail>;
   listGetGoMembers(query: GetGoMemberQuery): Promise<GetGoMemberPage>;
   setGetGoMembership(memberId: string, membership: GetGoMembershipTier, startsAt?: string | null, expiresAt?: string | null): Promise<void>;
   deleteGetGoMember(memberId: string): Promise<{ deleted: true; authenticationDeleted: boolean }>;

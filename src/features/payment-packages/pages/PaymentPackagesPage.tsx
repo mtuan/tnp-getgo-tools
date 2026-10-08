@@ -5,14 +5,19 @@ import { useAuth } from "../../authentication/components/AuthContext";
 import * as ui from "../../../shared/ui";
 import { PaymentPackagesPreview } from "../components/PaymentPackagesPreview";
 import { PaymentEventsManager } from "../components/PaymentEventsManager";
+import { BillingOrdersPage } from "../../payment-orders/components/BillingOrdersPage";
 
 const emptyPackage = (): PaymentPackage => ({ id: "", name: { en: "", vi: "" }, type: "monthly", info: { en: "", vi: "" }, benefits: { en: [], vi: [] }, price: { amount: 0, currency: "VND" } });
 const toLines = (value: unknown) => String(value ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
 
-type PaymentsTab = "packages" | "events" | "preview";
+type PaymentsTab = "packages" | "events" | "orders" | "preview";
 const tabFromRoute = (route: string): PaymentsTab => {
-  try { const value = new URL(route, "app://getgo").searchParams.get("tab"); return value === "preview" || value === "events" || value === "sales" ? (value === "sales" ? "events" : value) : "packages"; }
+  try { const value = new URL(route, "app://getgo").searchParams.get("tab"); return value === "preview" || value === "events" || value === "orders" || value === "sales" ? (value === "sales" ? "events" : value) : "packages"; }
   catch { return "packages"; }
+};
+const orderFromRoute = (route: string): string | null => {
+  try { return new URL(route, "app://getgo").searchParams.get("order"); }
+  catch { return null; }
 };
 
 export function PaymentPackagesPage({ locale, initialRoute, onRouteChange }: { locale: AppSettings["locale"]; initialRoute: string; onRouteChange(route: string): void }) {
@@ -24,12 +29,16 @@ export function PaymentPackagesPage({ locale, initialRoute, onRouteChange }: { l
   const [originalId, setOriginalId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<PaymentsTab>(() => tabFromRoute(initialRoute));
+  const [selectedBillingOrderId, setSelectedBillingOrderId] = useState<string | null>(() =>
+    orderFromRoute(initialRoute),
+  );
   const [previewLocale, setPreviewLocale] = useState<AppSettings["locale"]>(locale);
   const [previewEvents, setPreviewEvents] = useState<PaymentEvent[] | null>(null);
   const [previewSaleId, setPreviewSaleId] = useState("");
   useEffect(() => {
     const nextTab = tabFromRoute(initialRoute);
     setTab(nextTab);
+    setSelectedBillingOrderId(orderFromRoute(initialRoute));
   }, [initialRoute]);
   useEffect(() => {
     if (tab !== "preview" || previewEvents !== null) return;
@@ -40,7 +49,11 @@ export function PaymentPackagesPage({ locale, initialRoute, onRouteChange }: { l
     setTab(value);
     onRouteChange(`/payments?tab=${value}`);
   };
-  const text = isVi ? { title: "Thanh toán", description: "Quản lý gói thành viên, sự kiện và đồng bộ với Firestore.", packages: "Gói", events: "Sự kiện", preview: "Xem trước", add: "Thêm gói", addEvent: "Thêm sự kiện", sync: "Đồng bộ", name: "Tên", type: "Loại", info: "Thông tin", benefits: "Quyền lợi", price: "Giá", save: "Lưu", create: "Tạo", cancel: "Hủy" } : { title: "Payments", description: "Manage membership packages, events, and Firestore synchronization.", packages: "Packages", events: "Events", preview: "Preview", add: "Add package", addEvent: "Add event", sync: "Sync", name: "Name", type: "Type", info: "Information", benefits: "Benefits", price: "Price", save: "Save", create: "Create", cancel: "Cancel" };
+  const selectBillingOrder = (orderId: string | null) => {
+    setSelectedBillingOrderId(orderId);
+    onRouteChange(`/payments?tab=orders${orderId ? `&order=${encodeURIComponent(orderId)}` : ""}`);
+  };
+  const text = isVi ? { title: "Thanh toán", description: "Quản lý gói thành viên, sự kiện và đồng bộ với Firestore.", packages: "Gói", events: "Sự kiện", orders: "Đơn hàng", preview: "Xem trước", add: "Thêm gói", addEvent: "Thêm sự kiện", sync: "Đồng bộ", name: "Tên", type: "Loại", info: "Thông tin", benefits: "Quyền lợi", price: "Giá", save: "Lưu", create: "Tạo", cancel: "Hủy" } : { title: "Payments", description: "Manage membership packages, events, and Firestore synchronization.", packages: "Packages", events: "Events", orders: "Orders", preview: "Preview", add: "Add package", addEvent: "Add event", sync: "Sync", name: "Name", type: "Type", info: "Information", benefits: "Benefits", price: "Price", save: "Save", create: "Create", cancel: "Cancel" };
   useEffect(() => { void window.getgo.listPaymentPackages().then(setItems).catch((error) => toast.show({ title: text.title, description: String(error), variant: "error" })); }, []);
   const fields = useMemo<ui.FormSchema[]>(() => [
     [{ type: "text", name: "id", label: "ID", required: true, readOnly: originalId !== null }, { type: "text", name: "nameVi", label: `${text.name} (VI)`, required: true }, { type: "text", name: "nameEn", label: `${text.name} (EN)`, required: true }],
@@ -70,10 +83,11 @@ export function PaymentPackagesPage({ locale, initialRoute, onRouteChange }: { l
   const actions = tab === "packages" ? <ui.ControlGroup><ui.Button icon={<Plus />} onClick={() => { setOriginalId(null); setDraft(emptyPackage()); }}>{text.add}</ui.Button><ui.Button icon={<RefreshCw />} loading={busy} onClick={sync}>{text.sync}</ui.Button></ui.ControlGroup> : tab === "events" ? <ui.ControlGroup><ui.Button icon={<Plus />} onClick={() => setEventCreateRequest((value) => value + 1)}>{text.addEvent}</ui.Button><ui.Button icon={<RefreshCw />} loading={busy} onClick={syncEvents}>{text.sync}</ui.Button></ui.ControlGroup> : undefined;
   if (items === null) return <ui.PageLoading label={isVi ? "Đang tải trang" : "Loading page"} />;
   return <section><ui.PageHeader eyebrow="Billing" title={text.title} description={text.description} actions={actions} />
-    <ui.Tabs<PaymentsTab> className="contest-detail-tabs" items={[{ id: "packages", label: text.packages }, { id: "events", label: text.events }, { id: "preview", label: text.preview }]} value={tab} onChange={changeTab} ariaLabel={text.title} variant="underline" />
+    <ui.Tabs<PaymentsTab> className="contest-detail-tabs" items={[{ id: "packages", label: text.packages }, { id: "events", label: text.events }, { id: "orders", label: text.orders }, { id: "preview", label: text.preview }]} value={tab} onChange={changeTab} ariaLabel={text.title} variant="underline" />
     <ui.TabPanels<PaymentsTab> value={tab} items={[
       { id: "packages", content: <ui.DataTable rows={items} columns={columns} rowKey={(item) => item.id} ariaLabel={text.title} emptyText={isVi ? "Chưa có gói thanh toán." : "No payment packages."} /> },
       { id: "events", content: <PaymentEventsManager locale={locale} packages={items} createRequest={eventCreateRequest} onCreateRequestHandled={() => setEventCreateRequest(0)} /> },
+      { id: "orders", content: <BillingOrdersPage locale={locale} selectedOrderId={selectedBillingOrderId} onSelectedOrderChange={selectBillingOrder} /> },
       { id: "preview", content: previewEvents === null ? <ui.PageLoading label={isVi ? "Đang tải bản xem trước" : "Loading preview"} /> : <div className="payment-package-preview-section"><div className="payment-package-preview-toolbar"><ui.Select value={previewSaleId} options={previewSaleOptions} onValueChange={setPreviewSaleId} /><ui.SegmentedControl value={previewLocale} options={[{ value: "vi", label: "Tiếng Việt" }, { value: "en", label: "English" }]} ariaLabel={isVi ? "Ngôn ngữ xem trước" : "Preview language"} onValueChange={(value) => setPreviewLocale(value as AppSettings["locale"])} /></div><PaymentPackagesPreview items={items} locale={previewLocale} sale={previewSale} /></div> },
     ]} />
     {draft && <ui.DialogFrame title={originalId ? text.save : text.create} busy={busy} error={null} cancelLabel={text.cancel} submitLabel={originalId ? text.save : text.create} onClose={() => setDraft(null)} onSubmit={save} onDelete={originalId ? remove : undefined} deleteLabel={isVi ? "Xóa" : "Delete"} deleteConfirmText={isVi ? "Xóa gói thanh toán này?" : "Delete this payment package?"}><ui.Form fields={fields} values={{ ...draft, nameVi: draft.name.vi, nameEn: draft.name.en, infoVi: draft.info.vi, infoEn: draft.info.en, benefitsVi: draft.benefits.vi.join("\n"), benefitsEn: draft.benefits.en.join("\n"), amount: draft.price.amount, currency: draft.price.currency }} onChange={(name, value) => setDraft((current) => { if (!current) return current; if (name === "amount" || name === "currency") return { ...current, price: { ...current.price, [name]: value } }; const match = /^(name|info|benefits)(Vi|En)$/.exec(name); if (!match) return { ...current, [name]: value }; const key = match[1] as "name" | "info" | "benefits"; const language = match[2].toLowerCase() as "vi" | "en"; return { ...current, [key]: { ...current[key], [language]: key === "benefits" ? toLines(value) : String(value ?? "") } }; })} /></ui.DialogFrame>}
