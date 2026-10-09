@@ -4,6 +4,7 @@ import type { AppSettings, GetGoMemberAccount, GetGoMemberPage, GetGoMembershipT
 import { useAuth } from "../../authentication/components/AuthContext";
 import * as ui from "../../../shared/ui";
 import { memberLoginUrl } from "../domain/member-login-url";
+import { defaultPremiumMembershipPeriod } from "../domain/premium-membership-period";
 
 type MemberFilter = "all" | GetGoMembershipTier;
 const PAGE_SIZE = 50;
@@ -70,6 +71,14 @@ export function MembersPage({ locale, environment }: { locale: AppSettings["loca
   useEffect(() => { void load(); }, [load, refresh]);
 
   const membershipLabel = useCallback((value: GetGoMembershipTier) => copy[value], [copy]);
+  const changeMembership = (nextMembership: GetGoMembershipTier) => {
+    if (nextMembership === "premium" && membership !== "premium") {
+      const defaults = defaultPremiumMembershipPeriod();
+      setStartsAt(current => current || defaults.startsAt);
+      setExpiresAt(current => current || defaults.expiresAt);
+    }
+    setMembership(nextMembership);
+  };
   const openEditor = useCallback((item: GetGoMemberAccount) => {
     setEditing(item); setMembership(item.membership); setStartsAt(dateInputValue(item.subscriptionStartsAt)); setExpiresAt(dateInputValue(item.subscriptionExpiresAt)); setError(null);
   }, []);
@@ -177,7 +186,7 @@ export function MembersPage({ locale, environment }: { locale: AppSettings["loca
         { type: "select", name: "membership", label: copy.membership, required: true, presentation: "segmented", options: (["free", "premium", "admin"] as GetGoMembershipTier[]).map(value => ({ value, label: membershipLabel(value) })) },
         [{ type: "date", name: "startsAt", label: copy.starts, when: values => values.membership === "premium" }, { type: "date", name: "expiresAt", label: copy.expires, when: values => values.membership === "premium" }],
         { type: "custom", name: "notice", render: () => <p>{copy.confirm}</p> },
-      ]} values={{ member: editing.id, membership, startsAt, expiresAt, notice: "" }} onChange={(name, value) => { if (name === "membership") setMembership(value as GetGoMembershipTier); if (name === "startsAt") setStartsAt(String(value)); if (name === "expiresAt") setExpiresAt(String(value)); }} />
+      ]} values={{ member: editing.id, membership, startsAt, expiresAt, notice: "" }} onChange={(name, value) => { if (name === "membership") changeMembership(value as GetGoMembershipTier); if (name === "startsAt") setStartsAt(String(value)); if (name === "expiresAt") setExpiresAt(String(value)); }} />
     </ui.DialogFrame>}
     {testAccount && <ui.DialogFrame presentation="modal" title={copy.addTest} busy={busy} error={error} cancelLabel={copy.cancel} submitLabel={copy.createTest} submitDisabled={!/^test[1-9]\d*@tnp\.com\.vn$/.test(testAccount.email) || testAccount.password.length < 8} onClose={() => !busy && setTestAccount(null)} onSubmit={createTestAccount}>
       <ui.Form fields={[
