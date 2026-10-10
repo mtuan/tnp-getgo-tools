@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { contentTopicsRoot } from "../repository/content-source.js";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
-import { hashContentV2, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
+import { hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
 import { localizedAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
@@ -87,6 +87,10 @@ ipcMain.handle(
           saved,
           contentHash,
           marketplaceState,
+          content.quizzes
+            .filter((quiz) => quiz.topicId === topicId && marketplaceTopicState(quiz.marketplace) !== "unlisted")
+            .filter((quiz) => marketplaceContentAccess(quiz.marketplace, marketplaceContentAccess(saved.marketplace)) === "free")
+            .length,
         );
         const marketplace = syncedMarketplaceMetadata(
           saved.marketplace, marketplaceState, result,

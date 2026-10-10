@@ -11,9 +11,10 @@ export async function syncMarketplaceTopic(
   topic: ContentV2Topic,
   contentHash: string,
   state: MarketplaceTopicState,
+  freeQuizCount: number,
 ) {
   if (state !== "unlisted")
-    return publishing.publishMarketplaceTopic(topic, contentHash);
+    return publishing.publishMarketplaceTopic(topic, contentHash, freeQuizCount);
   await publishing.removeMarketplaceTopic(topic.id);
   return {
     kind: "topic" as const,

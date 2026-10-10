@@ -16,7 +16,9 @@ export { marketplaceContentAccess, type MarketplaceContentAccess } from "./marke
 export const contentV2QuizPublishContractVersion = 15;
 // Increment when topic documents or shared topic-asset publication changes.
 export const contentV2TopicPublishContractVersion = 3;
-export const marketplaceTopicPublishContractVersion = 2;
+// v3 denormalizes the number of free quizzes into each marketplace topic so
+// Explore can resolve assignment access without a click-time subcollection read.
+export const marketplaceTopicPublishContractVersion = 3;
 
 export {
   marketplaceTopicState,

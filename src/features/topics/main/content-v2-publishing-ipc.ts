@@ -218,21 +218,14 @@ ipcMain.handle(
         const marketplaceHash = hashContentV2(
           sanitizeMarketplaceTopic(marketTopic),
         );
-        const marketplaceResult =
-          marketState !== "unlisted" && summary.marketplacePublishedHash === marketplaceHash
-            ? {
-                kind: "topic" as const,
-                topicId,
-                contentHash: marketplaceHash,
-                publishedAt:
-                  summary.marketplacePublishedAt ?? new Date().toISOString(),
-              }
-            : await syncMarketplaceTopic(
-                publishing,
-                marketTopic,
-                marketplaceHash,
-                marketState,
-              );
+        const topicAccess = marketplaceContentAccess(marketTopic.marketplace);
+        const marketplaceResult = await syncMarketplaceTopic(
+          publishing,
+          marketTopic,
+          marketplaceHash,
+          marketState,
+          reviewedQuizzes.filter((quiz) => marketplaceContentAccess(quiz.marketplace, topicAccess) === "free").length,
+        );
         await saveContentV2Topic(root, {
           ...marketTopic,
           marketplace: syncedMarketplaceMetadata(

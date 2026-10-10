@@ -156,7 +156,12 @@ export async function syncAllMarketplaceTopics(
     if (!topicResult)
       await control.report(`Topic content unchanged · ${topicSummary.title} · document publish skipped`);
     const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
-    const marketResult = await syncMarketplaceTopic(publishing, topic, marketplaceHash, state);
+    const topicAccess = marketplaceContentAccess(topic.marketplace);
+    const freeQuizCount = reviewedTopicQuizzes(next.quizzes, topicId)
+      .filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted")
+      .filter((quiz) => marketplaceContentAccess(quiz.marketplace, topicAccess) === "free")
+      .length;
+    const marketResult = await syncMarketplaceTopic(publishing, topic, marketplaceHash, state, freeQuizCount);
     const saved = await saveContentV2Topic(root, {
       ...topic,
       ...(topicResult ? {
