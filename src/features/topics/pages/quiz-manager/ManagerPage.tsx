@@ -17,6 +17,7 @@ import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import { marketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
+import { TopicDemoReviewsEditor } from "../../components/TopicDemoReviewsEditor";
 
 type ManagerPageContext = Record<string, any> & {
   snapshot: RepositoryViewData;
@@ -188,6 +189,7 @@ export function renderManagerPage(context: ManagerPageContext) {
               label: "Quizzes",
             },
             { id: "info", label: "Info" },
+            ...(topicMode ? [{ id: "ratings" as const, label: marketplaceCopy.demoReviews.title }] : []),
             ...(topicMode && selectedTopic?.type === "kid-learning"
               ? [
                   { id: "dictionaries" as const, label: "Dictionaries" },
@@ -231,6 +233,20 @@ export function renderManagerPage(context: ManagerPageContext) {
           )}
         </AccordionGroup>
       )}
+      {topicMode &&
+        isContest &&
+        contestTab === "ratings" &&
+        selectedTopic && (
+          <TopicDemoReviewsEditor
+            topicId={selectedTopic.id}
+            locale={locale}
+            load={() => managerApi.loadContentV2Topic(selectedTopic.id)}
+            save={async (record) => {
+              const next = await managerApi.saveContentV2Topic(record);
+              onSnapshotChange(next);
+            }}
+          />
+        )}
       {topicMode &&
         isContest &&
         contestTab === "dictionaries" &&
