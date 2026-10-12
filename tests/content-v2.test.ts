@@ -32,6 +32,7 @@ import {
   calculateContentV2QuizHash,
   readContentV2QuizPublishState,
   readContentV2TopicPublishState,
+  reconcileContentV2QuizPublishState,
   resolveContentV2QuizSourcePdf,
   writeContentV2QuizPublishState,
   writeContentV2TopicPublishState,
@@ -364,6 +365,43 @@ test("content edits preserve per-item hashes and only mark the target dirty", as
   const state = await readContentV2QuizPublishState(quizFilePath);
   assert.equal(state.targets["project-dev"]?.dirty, true);
   assert.deepEqual(state.targets["project-dev"]?.items, { "storage-object:assets/a.png": item });
+});
+
+test("matching local content settles only the current target dirty marker", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-settle-publish-state-"));
+  const quizFilePath = path.join(root, "quiz.json");
+  await fs.writeFile(quizFilePath, "{}");
+  const contentHash = "a".repeat(64);
+  await writeContentV2QuizPublishState(quizFilePath, {
+    schemaVersion: 1,
+    targets: {
+      "project-dev": {
+        environment: "development",
+        projectId: "project-dev",
+        contentHash,
+        publishedAt: "2026-08-06T00:00:00.000Z",
+        dirty: true,
+        items: {},
+      },
+      "project-staging": {
+        environment: "staging",
+        projectId: "project-staging",
+        contentHash,
+        publishedAt: "2026-08-06T00:00:00.000Z",
+        dirty: true,
+        items: {},
+      },
+    },
+  });
+
+  await reconcileContentV2QuizPublishState(quizFilePath, "project-dev", contentHash);
+  let state = await readContentV2QuizPublishState(quizFilePath);
+  assert.equal(state.targets["project-dev"]?.dirty, undefined);
+  assert.equal(state.targets["project-staging"]?.dirty, true);
+
+  await reconcileContentV2QuizPublishState(quizFilePath, "project-staging", "b".repeat(64));
+  state = await readContentV2QuizPublishState(quizFilePath);
+  assert.equal(state.targets["project-staging"]?.dirty, true);
 });
 
 test("disabled marketplace feature flags do not change published hashes", () => {

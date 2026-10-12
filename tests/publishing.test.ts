@@ -139,11 +139,13 @@ test("marketplace topic publishing uses the canonical searchable payload", () =>
     rounds: [],
     gradeGroups: [],
     marketplace: { state: "listed", tags: ["Maths"] },
-  }, "a".repeat(64), "2026-10-10T00:00:00.000Z", 2);
+  }, "a".repeat(64), "2026-10-10T00:00:00.000Z", 5, 2);
 
   assert.equal(data.publishContractVersion, marketplaceTopicPublishContractVersion);
   assert.equal(data.order, 4);
+  assert.equal(data.quizCount, 5);
   assert.equal(data.freeQuizCount, 2);
+  assert.equal(data.hasFreeQuiz, true);
   assert.deepEqual(data.grades, [3]);
   assert.ok((data.filterKeys as string[]).includes("public|g:3"));
 });

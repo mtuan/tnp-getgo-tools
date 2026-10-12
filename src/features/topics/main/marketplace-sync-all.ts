@@ -2,7 +2,7 @@ import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersi
 import type { MarketplaceSyncJobItem } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { marketplaceSyncPlan, marketplaceTopicSyncWork } from "../domain/marketplace-sync-plan.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2TopicFolder, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2TopicFolder, readContentV2QuizPublishState, readContentV2TopicPublishState, reconcileContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
@@ -33,6 +33,13 @@ export async function syncAllMarketplaceTopics(
       projectId: target.projectId,
     })).content;
     let next = content;
+    await Promise.all(content.quizzes
+      .filter((quiz) => quiz.topicId === topicId)
+      .map((quiz) => reconcileContentV2QuizPublishState(
+        quiz.filePath,
+        target.projectId,
+        quiz.localHash,
+      )));
     const requested = requestedPlan.filter((item) => item.topicId === topicId);
     const requestedKeys = new Set(requested.map((item) => item.kind === "quiz" ? `quiz:${item.quizId}` : "topic"));
     const plan = marketplaceSyncPlan(content.topics, content.quizzes).filter((item) => item.ready);
@@ -157,11 +164,11 @@ export async function syncAllMarketplaceTopics(
       await control.report(`Topic content unchanged · ${topicSummary.title} · document publish skipped`);
     const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
     const topicAccess = marketplaceContentAccess(topic.marketplace);
-    const freeQuizCount = reviewedTopicQuizzes(next.quizzes, topicId)
+    const activeQuizzes = reviewedTopicQuizzes(next.quizzes, topicId)
       .filter((quiz) => marketplaceTopicState(quiz.marketplace) !== "unlisted")
-      .filter((quiz) => marketplaceContentAccess(quiz.marketplace, topicAccess) === "free")
-      .length;
-    const marketResult = await syncMarketplaceTopic(publishing, topic, marketplaceHash, state, freeQuizCount);
+    const freeQuizCount = activeQuizzes
+      .filter((quiz) => marketplaceContentAccess(quiz.marketplace, topicAccess) === "free").length;
+    const marketResult = await syncMarketplaceTopic(publishing, topic, marketplaceHash, state, activeQuizzes.length, freeQuizCount);
     const saved = await saveContentV2Topic(root, {
       ...topic,
       ...(topicResult ? {

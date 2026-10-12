@@ -224,6 +224,7 @@ ipcMain.handle(
           marketTopic,
           marketplaceHash,
           marketState,
+          reviewedQuizzes.length,
           reviewedQuizzes.filter((quiz) => marketplaceContentAccess(quiz.marketplace, topicAccess) === "free").length,
         );
         await saveContentV2Topic(root, {
@@ -422,6 +423,31 @@ ipcMain.handle(
               control,
             )
           : null;
+        const marketState = marketplaceTopicState(topic.marketplace);
+        const activeMarketplaceQuizzes = reviewedTopicQuizzes(content.quizzes, topicId)
+          .filter((item) => marketplaceTopicState(item.marketplace) !== "unlisted");
+        const topicAccess = marketplaceContentAccess(topic.marketplace);
+        const freeQuizCount = activeMarketplaceQuizzes
+          .filter((item) => marketplaceContentAccess(item.marketplace, topicAccess) === "free")
+          .length;
+        const marketplaceHash = hashContentV2(sanitizeMarketplaceTopic(topic));
+        const marketplaceResult = await syncMarketplaceTopic(
+          publishing,
+          topic,
+          marketplaceHash,
+          marketState,
+          activeMarketplaceQuizzes.length,
+          freeQuizCount,
+        );
+        await saveContentV2Topic(root, {
+          ...topic,
+          marketplace: syncedMarketplaceMetadata(topic.marketplace, marketState, marketplaceResult),
+        });
+        const marketplaceDocumentItem: ContentV2PublishedItem = {
+          kind: "firestore-document",
+          path: `/getgo-marketplace-topics/${encodeURIComponent(topicId)}`,
+          hash: marketplaceResult.contentHash,
+        };
         if (removingQuiz) await clearContentV2Published(summary.filePath);
         else await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);
         if (topicResult)
@@ -440,12 +466,15 @@ ipcMain.handle(
               environment: target.environment,
               projectId: target.projectId,
               contentHash: topicResult?.contentHash ?? previousTopicTarget?.contentHash ?? null,
-              marketplaceContentHash: previousTopicTarget?.marketplaceContentHash ?? null,
-              publishedAt: topicResult?.publishedAt ?? previousTopicTarget?.publishedAt ?? result.publishedAt,
+              marketplaceContentHash: marketplaceResult.contentHash,
+              publishedAt: marketplaceResult.publishedAt,
               items: {
                 ...Object.fromEntries(Object.entries(previousTopicTarget?.items ?? {})
-                  .filter(([, item]) => item.kind !== "storage-object")),
+                  .filter(([, item]) => item.kind !== "storage-object" && item.path !== marketplaceDocumentItem.path)),
                 ...topicAssetItems,
+                ...(marketState === "unlisted" ? {} : {
+                  [publishedItemKey(marketplaceDocumentItem)]: marketplaceDocumentItem,
+                }),
               },
             },
           },

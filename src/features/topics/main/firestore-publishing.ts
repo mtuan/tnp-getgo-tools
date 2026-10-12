@@ -161,13 +161,16 @@ export function createMarketplaceTopicPublishData(
   topic: ContentV2Topic,
   contentHash: string,
   publishedAt = "<generated at publish time>",
+  quizCount = 0,
   freeQuizCount = 0,
 ): Record<string, unknown> {
   assertMarketplaceTopicPurchaseConfiguration(topic);
   return {
     ...sanitizeMarketplaceTopic(topic),
     quizBuilderApiVersion: currentQuizBuilderApiVersion,
+    quizCount,
     freeQuizCount,
+    hasFreeQuiz: freeQuizCount > 0,
     contentHash,
     publishedAt,
   };
@@ -507,6 +510,7 @@ export class FirestorePublishingService {
   async publishMarketplaceTopic(
     topic: ContentV2Topic,
     contentHash: string,
+    quizCount: number,
     freeQuizCount: number,
   ): Promise<ContentV2PublishResult> {
     const publishedAt = new Date().toISOString();
@@ -514,10 +518,10 @@ export class FirestorePublishingService {
     await this.commit([{ update: {
       name: "",
       relativeName,
-      fields: fields(createMarketplaceTopicPublishData(topic, contentHash, publishedAt, freeQuizCount)),
+      fields: fields(createMarketplaceTopicPublishData(topic, contentHash, publishedAt, quizCount, freeQuizCount)),
     } }]);
     const { document } = await this.getDocument(relativeName);
-    const requiredFields = ["publishContractVersion", "filterKeys", "grades", "subjects", "order", "freeQuizCount"];
+    const requiredFields = ["publishContractVersion", "filterKeys", "grades", "subjects", "order", "quizCount", "freeQuizCount", "hasFreeQuiz"];
     const missingFields = requiredFields.filter((key) => !document?.fields || !(key in document.fields));
     if (stringField(document, "contentHash") !== contentHash || missingFields.length) {
       throw new Error(

@@ -1155,6 +1155,24 @@ export async function writeContentV2QuizPublishState(
   );
 }
 
+export async function reconcileContentV2QuizPublishState(
+  quizFilePath: string,
+  projectId: string,
+  localHash: string,
+): Promise<void> {
+  const state = await readContentV2QuizPublishState(quizFilePath);
+  const target = state.targets[projectId];
+  if (!target?.dirty || target.contentHash !== localHash) return;
+  const { dirty: _dirty, ...settledTarget } = target;
+  await writeContentV2QuizPublishState(quizFilePath, {
+    ...state,
+    targets: {
+      ...state.targets,
+      [projectId]: settledTarget,
+    },
+  });
+}
+
 export async function readContentV2TopicPublishState(
   topicFilePath: string,
 ): Promise<ContentV2TopicPublishState> {
