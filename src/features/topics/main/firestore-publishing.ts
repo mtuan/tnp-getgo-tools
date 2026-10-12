@@ -26,6 +26,8 @@ import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
 import { stalePublishedQuizIds } from "../../../features/topics/domain/content-v2-publish-policy.js";
 import { compileQuizSharedCode } from "@tnp/getgo-logics/authoring";
 import { promises as fs } from "node:fs";
+import type { MarketplaceTopicReviewBackup } from "../domain/marketplace-reviews.js";
+import { publishMarketplaceTopicReviews } from "./marketplace-review-publishing.js";
 
 type FirestoreValue = Record<string, unknown>;
 type FirestoreDocument = {
@@ -512,14 +514,22 @@ export class FirestorePublishingService {
     contentHash: string,
     quizCount: number,
     freeQuizCount: number,
+    reviews: MarketplaceTopicReviewBackup[] = [],
   ): Promise<ContentV2PublishResult> {
     const publishedAt = new Date().toISOString();
     const relativeName = marketplaceTopicPath(topic.id);
+    const topicFields = fields(createMarketplaceTopicPublishData(topic, contentHash, publishedAt, quizCount, freeQuizCount));
     await this.commit([{ update: {
       name: "",
       relativeName,
-      fields: fields(createMarketplaceTopicPublishData(topic, contentHash, publishedAt, quizCount, freeQuizCount)),
-    } }]);
+      fields: topicFields,
+    }, updateMask: { fieldPaths: Object.keys(topicFields) } }]);
+    await publishMarketplaceTopicReviews(
+      topic.id,
+      reviews,
+      (writes) => this.commit(writes),
+      (parentPath, collectionId) => this.listDocuments(parentPath, collectionId),
+    );
     const { document } = await this.getDocument(relativeName);
     const requiredFields = ["publishContractVersion", "filterKeys", "grades", "subjects", "order", "quizCount", "freeQuizCount", "hasFreeQuiz"];
     const missingFields = requiredFields.filter((key) => !document?.fields || !(key in document.fields));
@@ -529,6 +539,19 @@ export class FirestorePublishingService {
       );
     }
     return { kind: "topic", topicId: topic.id, contentHash, publishedAt };
+  }
+
+  async syncMarketplaceTopicReviews(
+    topicId: string,
+    reviews: MarketplaceTopicReviewBackup[],
+  ): Promise<{ topicId: string; reviewCount: number }> {
+    await publishMarketplaceTopicReviews(
+      topicId,
+      reviews,
+      (writes) => this.commit(writes),
+      (parentPath, collectionId) => this.listDocuments(parentPath, collectionId),
+    );
+    return { topicId, reviewCount: reviews.length };
   }
 
   async removeMarketplaceTopic(topicId: string): Promise<void> {

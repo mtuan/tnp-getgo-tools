@@ -990,6 +990,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   checkEnvironmentReadiness(): Promise<EnvironmentReadiness>;
   publishQuiz(contestId: string, quizId: string): Promise<PublishResult>;
   publishContentV2Topic(topicId: string): Promise<ContentV2PublishResult>;
+  syncMarketplaceTopicReviews(topicId: string): Promise<{ topicId: string; reviewCount: number }>;
   publishContentV2Quiz(
     topicId: string,
     quizId: string,

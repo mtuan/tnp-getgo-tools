@@ -4,6 +4,7 @@ import { contentTopicsRoot } from "../repository/content-source.js";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
 import { hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { clearContentV2Published, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicDictionary, loadContentV2TopicFolder, loadContentV2TopicsOverview, readContentV2QuizPublishState, saveContentV2QuizDictionary, saveContentV2Topic, saveContentV2TopicDictionary, writeContentV2QuizPublishState } from "../repository/content-v2-repository.js";
+import { loadContentV2TopicReviews } from "../repository/content-v2-review-repository.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { localizedAlphabetDictionary } from "../../quiz-editor/repository/alphabet-dictionary.js";
 import { parseMarketplaceTopicState, syncedMarketplaceMetadata, syncMarketplaceTopic } from "./marketplace-sync.js";
@@ -23,6 +24,21 @@ interface Dependencies {
 }
 
 export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth }: Dependencies): void {
+ipcMain.handle(
+  "marketplace:topic-reviews:sync",
+  async (_event, topicId: unknown) => {
+    if (typeof topicId !== "string" || !/^[a-z][a-z0-9_-]*$/.test(topicId))
+      throw new Error("Invalid marketplace topic ID.");
+    const root = await repositoryRoot();
+    const topic = await loadContentV2Topic(root, topicId);
+    if (marketplaceTopicState(topic.marketplace) === "unlisted")
+      throw new Error("List the topic before synchronizing its reviews.");
+    return publishing.syncMarketplaceTopicReviews(
+      topicId,
+      await loadContentV2TopicReviews(root, topicId),
+    );
+  },
+);
 ipcMain.handle(
   "marketplace:topics:publish",
   async (_event, topicId: unknown, state: unknown) => {
@@ -94,6 +110,7 @@ ipcMain.handle(
           activeQuizzes
             .filter((quiz) => marketplaceContentAccess(quiz.marketplace, marketplaceContentAccess(saved.marketplace)) === "free")
             .length,
+          await loadContentV2TopicReviews(root, topicId),
         );
         const marketplace = syncedMarketplaceMetadata(
           saved.marketplace, marketplaceState, result,

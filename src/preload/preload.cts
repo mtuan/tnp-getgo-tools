@@ -65,6 +65,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("legacy:overview:load", path) as Promise<RepositoryViewData>,
   publishMarketplaceTopic: (topicId, state) =>
     ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
+  syncMarketplaceTopicReviews: (topicId) =>
+    ipcRenderer.invoke("marketplace:topic-reviews:sync", topicId),
   syncContentV2Marketplace: (items) =>
     ipcRenderer.invoke("marketplace:topics:sync-all", items),
   listPaymentPackages: () => ipcRenderer.invoke("payment-packages:list"),

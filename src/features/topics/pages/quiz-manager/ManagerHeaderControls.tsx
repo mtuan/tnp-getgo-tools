@@ -9,6 +9,7 @@ import { MarketplaceSyncDrawer } from "../../components/MarketplaceSyncDrawer";
 import { TopicFilterControls } from "./TopicFilterControls";
 import { ManagerSearchInput } from "./ManagerSearchInput";
 import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
+import { useAuth } from "../../../authentication/components/AuthContext";
 
 type Context = Record<string, any> & { snapshot: RepositoryViewData };
 const activeStatuses = new Set(["queued", "running", "paused"]);
@@ -77,6 +78,7 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 }
 
 export function ManagerHeaderControls(context: Context) {
+  const auth = useAuth();
   const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, quizSearchQuery, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setQuizSearchQuery, setTopicContests, setTopicGrades, setTopicSearchQuery, setTopicStates, setTopicSubjects, setTopicsView, snapshot, toast, topicContestOptions, topicContests, topicGradeOptions, topicGrades, topicMode, topicSearchQuery, topicStateOptions, topicStates, topicSubjectOptions, topicSubjects, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const selectedTopic = isContest
@@ -238,6 +240,19 @@ export function ManagerHeaderControls(context: Context) {
     });
     });
   };
+  const syncReviews = () => {
+    const topicId = selectedContest?.id;
+    if (!topicId) return;
+    if (!window.confirm(copy.syncReviewsConfirm)) return;
+    auth.requireAuth(() => runButtonAction("sync-reviews", async () => {
+      const result = await window.getgo.syncMarketplaceTopicReviews(topicId);
+      toast.show({
+        title: copy.reviewsSyncComplete,
+        description: copy.reviewsSyncCompleteDescription.replace("{count}", String(result.reviewCount)),
+        variant: "success",
+      });
+    }));
+  };
   if (!topicMode) return null;
   const items = [
     ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),
@@ -245,6 +260,7 @@ export function ManagerHeaderControls(context: Context) {
     ...(!isContest && allLegacyQuizCount > 0 ? [{ id: "migrate-all", label: `Migrate all ${allLegacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateAllLegacyQuizzes() }] : []),
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     ...(isContest ? [{ id: "sync-topic", label: copy.syncTopic, icon: RefreshCw, onSelect: () => void syncTopic() }] : []),
+    ...(isContest ? [{ id: "sync-reviews", label: copy.syncReviews, icon: RefreshCw, onSelect: () => void syncReviews() }] : []),
     { id: "list-all", label: copy.listAll, icon: Eye, onSelect: () => void batch("listed") },
     ...(isContest ? [{ id: "list-review-all", label: copy.listAndReviewAll, icon: CheckCheck, onSelect: () => void listAndReviewAll() }] : []),
     ...((isContest || topicsView === "list") ? [{ id: "unlist-all", label: copy.unlistAll, icon: EyeOff, onSelect: () => void batch("unlisted") }] : []),

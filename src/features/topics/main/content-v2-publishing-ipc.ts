@@ -3,6 +3,7 @@ import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersi
 import { reviewedTopicQuizzes, shouldPublishContainingTopic, shouldPublishContentV2Quiz } from "../domain/content-v2-publish-policy.js";
 import { createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, type FirestorePublishingService } from "./firestore-publishing.js";
 import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
+import { loadContentV2TopicReviews } from "../repository/content-v2-review-repository.js";
 import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
@@ -226,6 +227,7 @@ ipcMain.handle(
           marketState,
           reviewedQuizzes.length,
           reviewedQuizzes.filter((quiz) => marketplaceContentAccess(quiz.marketplace, topicAccess) === "free").length,
+          await loadContentV2TopicReviews(root, topicId),
         );
         await saveContentV2Topic(root, {
           ...marketTopic,
@@ -438,6 +440,7 @@ ipcMain.handle(
           marketState,
           activeMarketplaceQuizzes.length,
           freeQuizCount,
+          await loadContentV2TopicReviews(root, topicId),
         );
         await saveContentV2Topic(root, {
           ...topic,

@@ -5,6 +5,7 @@ import {
   type MarketplaceTopicState,
 } from "../../../features/topics/domain/content-v2.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
+import type { MarketplaceTopicReviewBackup } from "../domain/marketplace-reviews.js";
 
 export async function syncMarketplaceTopic(
   publishing: FirestorePublishingService,
@@ -13,9 +14,10 @@ export async function syncMarketplaceTopic(
   state: MarketplaceTopicState,
   quizCount: number,
   freeQuizCount: number,
+  reviews: MarketplaceTopicReviewBackup[] = [],
 ) {
   if (state !== "unlisted")
-    return publishing.publishMarketplaceTopic(topic, contentHash, quizCount, freeQuizCount);
+    return publishing.publishMarketplaceTopic(topic, contentHash, quizCount, freeQuizCount, reviews);
   await publishing.removeMarketplaceTopic(topic.id);
   return {
     kind: "topic" as const,
