@@ -128,7 +128,6 @@ export function QuizManager({
     try {
       const tab = new URL(initialRoute, "app://getgo").searchParams.get("tab");
       return tab === "info" ||
-        tab === "ratings" ||
         tab === "dictionaries" ||
         tab === "assets"
         ? tab

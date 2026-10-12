@@ -183,17 +183,6 @@
     "paidQuizRequiresPaidTopic": "Bài học Độc quyền phải thuộc một chủ đề Độc quyền.",
     "priceRequired": "Nhập giá mua chủ đề.",
     "priceInvalid": "Nhập giá là số nguyên dương.",
-    "demoReviews": {
-      "title": "Đánh giá mẫu",
-      "description": "Chỉ dùng làm dữ liệu kiểm thử. Các mục này được lưu riêng với đánh giá thật của thành viên.",
-      "author": "Thành viên mẫu",
-      "rating": "Số sao",
-      "comment": "Bình luận (không bắt buộc)",
-      "add": "Thêm đánh giá mẫu",
-      "empty": "Chưa có đánh giá mẫu.",
-      "invalid": "Mỗi đánh giá mẫu cần có tên thành viên và số sao từ 1 đến 5.",
-      "summary": "{count} đánh giá · trung bình {average}/5"
-    },
     "columns": {
       "topic": "Chủ đề",
       "type": "Loại",

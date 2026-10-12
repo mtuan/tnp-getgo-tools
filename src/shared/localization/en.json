@@ -183,17 +183,6 @@
     "paidQuizRequiresPaidTopic": "An Exclusive quiz must belong to an Exclusive topic.",
     "priceRequired": "Enter the topic purchase price.",
     "priceInvalid": "Enter a positive whole-number price.",
-    "demoReviews": {
-      "title": "Demo reviews",
-      "description": "Synthetic test data only. These entries are stored separately from genuine member reviews.",
-      "author": "Demo member",
-      "rating": "Stars",
-      "comment": "Comment (optional)",
-      "add": "Add demo review",
-      "empty": "No demo reviews yet.",
-      "invalid": "Every demo review needs a member name and a rating from 1 to 5.",
-      "summary": "{count} reviews · {average}/5 average"
-    },
     "columns": {
       "topic": "Topic",
       "type": "Type",
