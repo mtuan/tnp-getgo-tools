@@ -991,6 +991,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   publishQuiz(contestId: string, quizId: string): Promise<PublishResult>;
   publishContentV2Topic(topicId: string): Promise<ContentV2PublishResult>;
   syncMarketplaceTopicReviews(topicId: string): Promise<{ topicId: string; reviewCount: number }>;
+  syncListedMarketplaceTopicReviews(): Promise<{ topicCount: number; reviewCount: number }>;
   publishContentV2Quiz(
     topicId: string,
     quizId: string,

@@ -13,6 +13,7 @@ import type { FirestorePublishingService } from "./firestore-publishing.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
+import { syncListedMarketplaceTopicReviews } from "./marketplace-review-sync.js";
 
 interface Dependencies {
   mainWindow: BrowserWindow;
@@ -24,6 +25,10 @@ interface Dependencies {
 }
 
 export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth }: Dependencies): void {
+ipcMain.handle(
+  "marketplace:listed-topic-reviews:sync",
+  async () => syncListedMarketplaceTopicReviews(await repositoryRoot(), publishing),
+);
 ipcMain.handle(
   "marketplace:topic-reviews:sync",
   async (_event, topicId: unknown) => {

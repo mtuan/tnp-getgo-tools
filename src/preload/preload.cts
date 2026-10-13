@@ -67,6 +67,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("marketplace:topics:publish", topicId, state),
   syncMarketplaceTopicReviews: (topicId) =>
     ipcRenderer.invoke("marketplace:topic-reviews:sync", topicId),
+  syncListedMarketplaceTopicReviews: () =>
+    ipcRenderer.invoke("marketplace:listed-topic-reviews:sync"),
   syncContentV2Marketplace: (items) =>
     ipcRenderer.invoke("marketplace:topics:sync-all", items),
   listPaymentPackages: () => ipcRenderer.invoke("payment-packages:list"),

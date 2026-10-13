@@ -253,6 +253,19 @@ export function ManagerHeaderControls(context: Context) {
       });
     }));
   };
+  const syncAllListedReviews = () => {
+    if (!window.confirm(copy.syncAllReviewsConfirm)) return;
+    auth.requireAuth(() => runButtonAction("sync-all-reviews", async () => {
+      const result = await window.getgo.syncListedMarketplaceTopicReviews();
+      toast.show({
+        title: copy.reviewsSyncComplete,
+        description: copy.allReviewsSyncCompleteDescription
+          .replace("{reviews}", String(result.reviewCount))
+          .replace("{topics}", String(result.topicCount)),
+        variant: "success",
+      });
+    }));
+  };
   if (!topicMode) return null;
   const items = [
     ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),
@@ -261,6 +274,7 @@ export function ManagerHeaderControls(context: Context) {
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     ...(isContest ? [{ id: "sync-topic", label: copy.syncTopic, icon: RefreshCw, onSelect: () => void syncTopic() }] : []),
     ...(isContest ? [{ id: "sync-reviews", label: copy.syncReviews, icon: RefreshCw, onSelect: () => void syncReviews() }] : []),
+    ...(!isContest ? [{ id: "sync-all-reviews", label: copy.syncAllReviews, icon: RefreshCw, onSelect: () => void syncAllListedReviews() }] : []),
     { id: "list-all", label: copy.listAll, icon: Eye, onSelect: () => void batch("listed") },
     ...(isContest ? [{ id: "list-review-all", label: copy.listAndReviewAll, icon: CheckCheck, onSelect: () => void listAndReviewAll() }] : []),
     ...((isContest || topicsView === "list") ? [{ id: "unlist-all", label: copy.unlistAll, icon: EyeOff, onSelect: () => void batch("unlisted") }] : []),
