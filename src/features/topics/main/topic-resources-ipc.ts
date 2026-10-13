@@ -27,7 +27,21 @@ interface Dependencies {
 export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth }: Dependencies): void {
 ipcMain.handle(
   "marketplace:listed-topic-reviews:sync",
-  async () => syncListedMarketplaceTopicReviews(await repositoryRoot(), publishing),
+  async () => {
+    const jobName = "Sync marketplace reviews · All topics";
+    const active = (await publishJobs.list()).find((job) =>
+      job.name === jobName && ["queued", "running", "paused"].includes(job.status));
+    if (active) return backgroundJobsSnapshot();
+    await publishJobs.start({
+      name: jobName,
+      description: "Restore and verify backed-up reviews for every listed topic",
+      route: "/topics",
+      initialProgressLabel: "Preparing listed topics",
+    }, async (control) => {
+      await syncListedMarketplaceTopicReviews(await repositoryRoot(), publishing, control);
+    });
+    return backgroundJobsSnapshot();
+  },
 );
 ipcMain.handle(
   "marketplace:topic-reviews:sync",

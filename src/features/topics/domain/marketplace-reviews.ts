@@ -6,6 +6,15 @@ export interface MarketplaceTopicReviewBackup {
   createdAt: string;
 }
 
+export interface MarketplaceTopicReview extends MarketplaceTopicReviewBackup {
+  updatedAt: string;
+}
+
+export interface MarketplaceTopicReviewPage {
+  items: MarketplaceTopicReview[];
+  nextCursor: string | null;
+}
+
 const reviewIdPattern = /^[A-Za-z0-9_-]+$/;
 
 export function parseMarketplaceTopicReviewBackups(

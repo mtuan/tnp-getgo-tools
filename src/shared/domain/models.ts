@@ -991,7 +991,9 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   publishQuiz(contestId: string, quizId: string): Promise<PublishResult>;
   publishContentV2Topic(topicId: string): Promise<ContentV2PublishResult>;
   syncMarketplaceTopicReviews(topicId: string): Promise<{ topicId: string; reviewCount: number }>;
-  syncListedMarketplaceTopicReviews(): Promise<{ topicCount: number; reviewCount: number }>;
+  syncListedMarketplaceTopicReviews(): Promise<BackgroundJobsSnapshot>;
+  listMarketplaceTopicReviews(input: { topicId: string; pageSize: number; cursor?: string }): Promise<import("../../features/topics/domain/marketplace-reviews.js").MarketplaceTopicReviewPage>;
+  clearMarketplaceTopicReviews(topicId: string): Promise<{ deleted: number }>;
   publishContentV2Quiz(
     topicId: string,
     quizId: string,

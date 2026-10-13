@@ -9,9 +9,20 @@ import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-s
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
+import { clearMarketplaceTopicReviews, listMarketplaceTopicReviews } from "./marketplace-review-management.js";
 
 interface Dependencies { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; publishJobs: PublishJobManager; firebaseAuth: FirebaseAuthService }
 export function registerContentV2PublishingIpc(ipcMain: IpcMain, { repositoryRoot, publishing, publishJobs, firebaseAuth }: Dependencies): void {
+ipcMain.handle("marketplace:topic-reviews:list", (_event, input: unknown) => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid review list request.");
+  const request = input as { topicId?: unknown; pageSize?: unknown; cursor?: unknown };
+  return listMarketplaceTopicReviews(firebaseAuth, {
+    topicId: request.topicId,
+    pageSize: request.pageSize,
+    cursor: request.cursor,
+  });
+});
+ipcMain.handle("marketplace:topic-reviews:clear", (_event, topicId: unknown) => clearMarketplaceTopicReviews(firebaseAuth, topicId));
 ipcMain.handle(
   "content-v2:topic:publish-preview",
   async (_event, topicId: unknown) => {

@@ -15,6 +15,7 @@ import { renderManagerList } from "./ManagerList";
 import { ManagerHeaderControls } from "./ManagerHeaderControls";
 import { MarketplaceStateCell } from "../../components/MarketplaceStateCell";
 import { marketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
+import { TopicReviewsManager } from "../../components/TopicReviewsManager";
 import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 
@@ -188,6 +189,7 @@ export function renderManagerPage(context: ManagerPageContext) {
               label: "Quizzes",
             },
             { id: "info", label: "Info" },
+            ...(topicMode ? [{ id: "reviews" as const, label: (locale === "vi" ? vi : en).topicReviews.tab }] : []),
             ...(topicMode && selectedTopic?.type === "kid-learning"
               ? [
                   { id: "dictionaries" as const, label: "Dictionaries" },
@@ -231,6 +233,12 @@ export function renderManagerPage(context: ManagerPageContext) {
           )}
         </AccordionGroup>
       )}
+      {topicMode &&
+        isContest &&
+        contestTab === "reviews" &&
+        selectedTopic && (
+          <TopicReviewsManager topicId={selectedTopic.id} locale={locale} />
+        )}
       {topicMode &&
         isContest &&
         contestTab === "dictionaries" &&

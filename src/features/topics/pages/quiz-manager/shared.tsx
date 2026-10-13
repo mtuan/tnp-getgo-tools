@@ -138,7 +138,7 @@ export type ManagerPage =
 export type QuizDetailTab =
   "questions" | "alphabets" | "dictionary" | "info" | "code";
 export type ContestDetailTab =
-  "info" | "quizzes" | "dictionaries" | "assets";
+  "info" | "quizzes" | "reviews" | "dictionaries" | "assets";
 
 export interface QuestionListItem {
   number: string;

@@ -257,28 +257,31 @@ export function ManagerHeaderControls(context: Context) {
     if (!window.confirm(copy.syncAllReviewsConfirm)) return;
     auth.requireAuth(() => runButtonAction("sync-all-reviews", async () => {
       const result = await window.getgo.syncListedMarketplaceTopicReviews();
+      const job = result.jobs.find((item) => item.name === "Sync marketplace reviews · All topics");
       toast.show({
-        title: copy.reviewsSyncComplete,
-        description: copy.allReviewsSyncCompleteDescription
-          .replace("{reviews}", String(result.reviewCount))
-          .replace("{topics}", String(result.topicCount)),
+        title: copy.reviewsSyncStarted,
+        description: job?.description ?? copy.reviewsSyncStartedDescription,
         variant: "success",
+        action: { label: copy.viewJob, onSelect: onOpenJobs },
       });
     }));
   };
   if (!topicMode) return null;
-  const items = [
+  const items: ui.ActionMenuItem[] = [
     ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),
     { id: "create", label: isContest ? "Create quiz" : "Create topic", icon: Plus, onSelect: () => isContest ? setQuizDialog("create") : setContestDialog("create") },
     ...(!isContest && allLegacyQuizCount > 0 ? [{ id: "migrate-all", label: `Migrate all ${allLegacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateAllLegacyQuizzes() }] : []),
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
+    { id: "separator-create", type: "separator" },
     ...(isContest ? [{ id: "sync-topic", label: copy.syncTopic, icon: RefreshCw, onSelect: () => void syncTopic() }] : []),
     ...(isContest ? [{ id: "sync-reviews", label: copy.syncReviews, icon: RefreshCw, onSelect: () => void syncReviews() }] : []),
     ...(!isContest ? [{ id: "sync-all-reviews", label: copy.syncAllReviews, icon: RefreshCw, onSelect: () => void syncAllListedReviews() }] : []),
+    ...(!isContest ? [{ id: "sync", label: copy.syncAllTopics, icon: RefreshCw, disabled: Boolean(sync.job) || loadingSyncPreview, onSelect: () => void openSyncPreview() }] : []),
+    { id: "separator-sync", type: "separator" },
     { id: "list-all", label: copy.listAll, icon: Eye, onSelect: () => void batch("listed") },
     ...(isContest ? [{ id: "list-review-all", label: copy.listAndReviewAll, icon: CheckCheck, onSelect: () => void listAndReviewAll() }] : []),
     ...((isContest || topicsView === "list") ? [{ id: "unlist-all", label: copy.unlistAll, icon: EyeOff, onSelect: () => void batch("unlisted") }] : []),
-    ...(!isContest ? [{ id: "sync", label: sync.label, icon: RefreshCw, disabled: Boolean(sync.job) || loadingSyncPreview, onSelect: () => void openSyncPreview() }, { id: "view", label: topicsView === "tree" ? "Show list view" : "Show tree view", icon: topicsView === "tree" ? Rows3 : ListOrdered, onSelect: () => { const next = topicsView === "tree" ? "list" : "tree"; setTopicsView(next); try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* optional */ } } }] : []),
+    ...(!isContest ? [{ id: "separator-view", type: "separator" as const }, { id: "view", label: topicsView === "tree" ? "Show list view" : "Show tree view", icon: topicsView === "tree" ? Rows3 : ListOrdered, onSelect: () => { const next = topicsView === "tree" ? "list" : "tree"; setTopicsView(next); try { localStorage.setItem("getgo-tools.topics-view", next); } catch { /* optional */ } } }] : []),
   ];
   return <>
     <ui.ControlGroup className="manager-topic-header-controls">

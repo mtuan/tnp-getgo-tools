@@ -2139,6 +2139,12 @@ main {
   text-transform: uppercase;
 }
 
+.ui-action-menu-separator {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--line);
+}
+
 .ui-action-menu > button > .ui-action-menu-trailing-icon {
   margin-left: auto;
 }
@@ -4249,9 +4255,15 @@ tbody tr:hover {
 .ui-table-secondary { display: block; margin-top: 3px; color: var(--muted); font-size: 0.75rem; }
 .members-table-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 12px; }
 .members-table-footer > span { color: var(--muted); font-size: 13px; }
+.topic-reviews-panel { margin-top: 18px; }
+.topic-reviews-panel .ui-panel-body { display: grid; gap: 12px; }
+.topic-reviews-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.topic-reviews-footer > span { color: var(--muted); font-size: 13px; }
 @media (max-width: 800px) {
   .members-table-footer { align-items: stretch; flex-direction: column; }
   .members-table-footer .ui-pagination { justify-content: center; }
+  .topic-reviews-footer { align-items: stretch; flex-direction: column; }
+  .topic-reviews-footer .ui-pagination { justify-content: center; }
 }
 .payment-package-card-shell {
   display: flex;

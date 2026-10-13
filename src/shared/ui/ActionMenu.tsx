@@ -7,13 +7,13 @@ import { useSelectDropdown } from "./Select";
 
 export interface ActionMenuItem {
   id: string;
-  label: string;
+  label?: string;
   icon?: LucideIcon;
   trailingIcon?: LucideIcon;
-  type?: "item" | "label";
+  type?: "item" | "label" | "separator";
   disabled?: boolean;
   color?: "normal" | "danger";
-  onSelect(): void;
+  onSelect?(): void;
 }
 
 // ActionMenu owns the icon-slot convention: callers should provide a
@@ -88,6 +88,8 @@ export function ActionMenu({
             }}
           >
             {items.map((item) => {
+              if (item.type === "separator")
+                return <div className="ui-action-menu-separator" role="separator" key={item.id} />;
               if (item.type === "label")
                 return (
                   <div className="ui-action-menu-label" key={item.id}>
@@ -106,7 +108,7 @@ export function ActionMenu({
                   key={item.id}
                   onClick={() => {
                     dropdown.close(true);
-                    item.onSelect();
+                    item.onSelect?.();
                   }}
                 >
                   <Icon />
