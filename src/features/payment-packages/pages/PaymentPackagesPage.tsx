@@ -6,6 +6,7 @@ import * as ui from "../../../shared/ui";
 import { PaymentPackagesPreview } from "../components/PaymentPackagesPreview";
 import { PaymentEventsManager } from "../components/PaymentEventsManager";
 import { BillingOrdersPage } from "../../payment-orders/components/BillingOrdersPage";
+import type { GetGoAccessPolicy } from "../domain/access-policy";
 
 const emptyPackage = (): PaymentPackage => ({ id: "", name: { en: "", vi: "" }, type: "monthly", info: { en: "", vi: "" }, benefits: { en: [], vi: [] }, price: { amount: 0, currency: "VND" } });
 const toLines = (value: unknown) => String(value ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
@@ -34,6 +35,7 @@ export function PaymentPackagesPage({ locale, initialRoute, onRouteChange }: { l
   );
   const [previewLocale, setPreviewLocale] = useState<AppSettings["locale"]>(locale);
   const [previewEvents, setPreviewEvents] = useState<PaymentEvent[] | null>(null);
+  const [previewAccessPolicy, setPreviewAccessPolicy] = useState<GetGoAccessPolicy | null>(null);
   const [previewSaleId, setPreviewSaleId] = useState("");
   useEffect(() => {
     const nextTab = tabFromRoute(initialRoute);
@@ -41,9 +43,11 @@ export function PaymentPackagesPage({ locale, initialRoute, onRouteChange }: { l
     setSelectedBillingOrderId(orderFromRoute(initialRoute));
   }, [initialRoute]);
   useEffect(() => {
-    if (tab !== "preview" || previewEvents !== null) return;
-    void window.getgo.listPaymentEvents().then(setPreviewEvents);
-  }, [previewEvents, tab]);
+    if (tab !== "preview" || (previewEvents !== null && previewAccessPolicy !== null)) return;
+    void Promise.all([window.getgo.listPaymentEvents(), window.getgo.loadGetGoAccessPolicy()])
+      .then(([events, accessPolicy]) => { setPreviewEvents(events); setPreviewAccessPolicy(accessPolicy); })
+      .catch((error) => toast.show({ title: isVi ? "Không thể tải bản xem trước" : "Could not load preview", description: String(error), variant: "error" }));
+  }, [isVi, previewAccessPolicy, previewEvents, tab, toast]);
   const [eventCreateRequest, setEventCreateRequest] = useState(0);
   const changeTab = (value: PaymentsTab) => {
     setTab(value);
@@ -88,7 +92,7 @@ export function PaymentPackagesPage({ locale, initialRoute, onRouteChange }: { l
       { id: "packages", content: <ui.DataTable rows={items} columns={columns} rowKey={(item) => item.id} ariaLabel={text.title} emptyText={isVi ? "Chưa có gói thanh toán." : "No payment packages."} /> },
       { id: "events", content: <PaymentEventsManager locale={locale} packages={items} createRequest={eventCreateRequest} onCreateRequestHandled={() => setEventCreateRequest(0)} /> },
       { id: "orders", content: <BillingOrdersPage locale={locale} selectedOrderId={selectedBillingOrderId} onSelectedOrderChange={selectBillingOrder} /> },
-      { id: "preview", content: previewEvents === null ? <ui.PageLoading label={isVi ? "Đang tải bản xem trước" : "Loading preview"} /> : <div className="payment-package-preview-section"><div className="payment-package-preview-toolbar"><ui.Select value={previewSaleId} options={previewSaleOptions} onValueChange={setPreviewSaleId} /><ui.SegmentedControl value={previewLocale} options={[{ value: "vi", label: "Tiếng Việt" }, { value: "en", label: "English" }]} ariaLabel={isVi ? "Ngôn ngữ xem trước" : "Preview language"} onValueChange={(value) => setPreviewLocale(value as AppSettings["locale"])} /></div><PaymentPackagesPreview items={items} locale={previewLocale} sale={previewSale} /></div> },
+      { id: "preview", content: previewEvents === null || previewAccessPolicy === null ? <ui.PageLoading label={isVi ? "Đang tải bản xem trước" : "Loading preview"} /> : <div className="payment-package-preview-section"><div className="payment-package-preview-toolbar"><ui.Select value={previewSaleId} options={previewSaleOptions} onValueChange={setPreviewSaleId} /><ui.SegmentedControl value={previewLocale} options={[{ value: "vi", label: "Tiếng Việt" }, { value: "en", label: "English" }]} ariaLabel={isVi ? "Ngôn ngữ xem trước" : "Preview language"} onValueChange={(value) => setPreviewLocale(value as AppSettings["locale"])} /></div><PaymentPackagesPreview items={items} locale={previewLocale} sale={previewSale} accessPolicy={previewAccessPolicy} /></div> },
     ]} />
     {draft && <ui.DialogFrame title={originalId ? text.save : text.create} busy={busy} error={null} cancelLabel={text.cancel} submitLabel={originalId ? text.save : text.create} onClose={() => setDraft(null)} onSubmit={save} onDelete={originalId ? remove : undefined} deleteLabel={isVi ? "Xóa" : "Delete"} deleteConfirmText={isVi ? "Xóa gói thanh toán này?" : "Delete this payment package?"}><ui.Form fields={fields} values={{ ...draft, nameVi: draft.name.vi, nameEn: draft.name.en, infoVi: draft.info.vi, infoEn: draft.info.en, benefitsVi: draft.benefits.vi.join("\n"), benefitsEn: draft.benefits.en.join("\n"), amount: draft.price.amount, currency: draft.price.currency }} onChange={(name, value) => setDraft((current) => { if (!current) return current; if (name === "amount" || name === "currency") return { ...current, price: { ...current.price, [name]: value } }; const match = /^(name|info|benefits)(Vi|En)$/.exec(name); if (!match) return { ...current, [name]: value }; const key = match[1] as "name" | "info" | "benefits"; const language = match[2].toLowerCase() as "vi" | "en"; return { ...current, [key]: { ...current[key], [language]: key === "benefits" ? toLines(value) : String(value ?? "") } }; })} /></ui.DialogFrame>}
   </section>;
