@@ -9,7 +9,7 @@ Tools workflows, migration, and audit automation must stay aligned with it.
 
 - New content receives safe, consistent marketplace defaults.
 - Premium access is defined once at topic level and inherited by quizzes.
-- Guest users can preview a topic through exactly one reviewed quiz.
+- Guest users can preview a topic through one or two of its newest quizzes.
 - Migration and manual authoring use the same deterministic rules.
 - Applying marketplace policy never publishes or syncs Firebase implicitly.
 
@@ -64,25 +64,31 @@ An intentional quiz pricing override is allowed only when the owning workflow
 explicitly supports and preserves it. Audit/apply must report a conflicting
 override before removing it.
 
-## Guest-preview quiz selection
+## Quiz access allocation
 
-A topic may have at most one guest-preview quiz. A quiz is eligible only when:
+For each non-experimental topic, the local access-management workflow sets the
+topic to Premium and allocates quiz access by canonical `order`, then quiz ID:
 
-1. it contains at least one question; and
-2. every question has status `reviewed`.
+- up to 5 quizzes: 1 newest preview and up to 2 oldest Free quizzes;
+- 6–10 quizzes: 1 newest preview and up to 3 oldest Free quizzes;
+- more than 10 quizzes: 2 newest previews and up to 4 oldest Free quizzes;
+- every other quiz removes its explicit pricing and inherits Premium access.
+
+The Free count is capped at `floor((quizCount - 1) / 2)`, so inherited Premium
+quizzes always remain the majority. For example, topics with 3 or 4 quizzes
+receive only 1 Free quiz.
+
+Free and preview selections may overlap for very small topics.
 
 Selection is deterministic:
 
-1. Preserve an eligible quiz already selected for preview.
-2. When a user explicitly selects another eligible quiz, prefer that quiz and
-   disable preview on the previous selection.
-3. Otherwise choose the first eligible quiz by ascending `order`, then quiz ID.
-4. If no quiz is eligible, disable preview on every quiz and report that the
-   topic is waiting for a fully reviewed, non-empty quiz.
+1. Select the newest quizzes by descending `order`, then quiz ID.
+2. When a user explicitly selects another quiz, prefer that quiz while
+   preserving the configured preview count.
 
 The policy is reconciled after saving a quiz, saving a question, marking all
-questions reviewed, and deleting a quiz. Consequently, removing or unreviewing
-the selected quiz causes the next eligible quiz to be selected automatically.
+questions reviewed, and deleting a quiz. Consequently, removing a selected quiz
+causes the next newest quiz to be selected automatically.
 
 ## Tools authoring flow
 

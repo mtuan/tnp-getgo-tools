@@ -13,18 +13,18 @@ import {
   saveContentV2Topic,
 } from "../src/features/topics/repository/content-v2-repository.js";
 
-test("guest preview keeps an eligible manual selection or chooses the first reviewed quiz", () => {
+test("guest preview keeps a manual selection or chooses the newest quiz", () => {
   const candidates = [
     { id: "b", order: 1, preview: false, questionCount: 1, reviewedQuestionCount: 1 },
     { id: "a", order: 0, preview: false, questionCount: 1, reviewedQuestionCount: 1 },
   ];
-  assert.equal(guestPreviewQuizId(candidates), "a");
+  assert.equal(guestPreviewQuizId(candidates), "b");
   assert.equal(guestPreviewQuizId(candidates.map((item) => ({ ...item, preview: item.id === "b" }))), "b");
   assert.equal(guestPreviewQuizId(candidates, "b"), "b");
-  assert.equal(guestPreviewQuizId([{ ...candidates[0], questionCount: 0, reviewedQuestionCount: 0 }]), undefined);
+  assert.equal(guestPreviewQuizId([{ ...candidates[0], questionCount: 0, reviewedQuestionCount: 0 }]), "b");
 });
 
-test("new records receive marketplace defaults and reconciliation selects one reviewed quiz", async () => {
+test("new records receive marketplace defaults and reconciliation selects the newest quiz", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-marketplace-policy-"));
   const topic = await saveContentV2Topic(root, {
     schemaVersion: 2,

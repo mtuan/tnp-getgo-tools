@@ -1,4 +1,5 @@
 import type { ContentV2Quiz, ContentV2Topic } from "./content-v2.js";
+import { marketplaceAccessPlan } from "./marketplace-access-plan.js";
 
 export const marketplaceTopicDefaults = {
   preview: true,
@@ -36,10 +37,12 @@ export function guestPreviewQuizId(
   candidates: readonly GuestPreviewCandidate[],
   preferredQuizId?: string,
 ): string | undefined {
-  const eligible = candidates
-    .filter((quiz) => quiz.questionCount > 0 && quiz.questionCount === quiz.reviewedQuestionCount)
-    .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-  return eligible.find((quiz) => quiz.id === preferredQuizId)?.id
-    ?? eligible.find((quiz) => quiz.preview)?.id
-    ?? eligible[0]?.id;
+  const ordered = [...candidates].sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+  return ordered.find((quiz) => quiz.id === preferredQuizId)?.id
+    ?? ordered.find((quiz) => quiz.preview)?.id
+    ?? ordered.at(-1)?.id;
+}
+
+export function guestPreviewQuizIds(candidates: readonly GuestPreviewCandidate[]): string[] {
+  return marketplaceAccessPlan(candidates).previewIds;
 }

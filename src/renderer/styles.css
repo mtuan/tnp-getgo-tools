@@ -3628,6 +3628,15 @@ tbody tr:hover {
 .marketplace-sync-action li + li {
   margin-top: 2px;
 }
+.crud-dialog.marketplace-access-manager { width: min(920px, calc(100vw - 32px)); }
+.marketplace-access-manager .crud-body { display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
+.marketplace-access-manager-copy { display: grid; gap: 10px; color: var(--text-secondary); }
+.marketplace-access-manager-copy p,
+.marketplace-access-manager-copy ul { margin: 0; }
+.marketplace-access-manager-copy ul { display: grid; gap: 6px; padding-left: 20px; }
+.marketplace-access-manager .ui-data-table { min-height: 0; flex: 1; }
+.marketplace-access-manager .ui-data-table-scroll { height: 100%; overflow-y: auto; scrollbar-gutter: stable; }
+.marketplace-access-manager .ui-data-table thead { position: sticky; z-index: 2; top: 0; background: var(--getgo-panel); box-shadow: 0 1px var(--line); }
 .migration-results-summary {
   display: grid;
   gap: 5px;

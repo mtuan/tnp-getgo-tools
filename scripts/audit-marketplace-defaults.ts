@@ -8,7 +8,7 @@ import {
   patchContentV2TopicMarketplacePolicy,
   reconcileContentV2GuestPreview,
 } from "../src/features/topics/repository/content-v2-repository.js";
-import { guestPreviewQuizId } from "../src/features/topics/domain/marketplace-default-policy.js";
+import { marketplaceAccessPlan } from "../src/features/topics/domain/marketplace-access-plan.js";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
@@ -55,22 +55,27 @@ for (const entry of topicDirectories) {
       questionCount: questions.length,
       reviewedQuestionCount: questions.filter((question) => question.status === "reviewed").length,
     });
-    if (quiz.marketplace?.pricing && quiz.marketplace.pricing.type !== "subscription")
-      issues.push(`${quiz.id} overrides inherited Premium pricing`);
-    if (apply && quiz.marketplace?.pricing && quiz.marketplace.pricing.type !== "subscription") {
-      await patchContentV2QuizMarketplacePolicy(repositoryPath, topic.id, quiz.id, {
-        inheritPricing: true,
-      });
+  }
+
+  const plan = marketplaceAccessPlan(previewCandidates);
+  const expectedPreview = plan.previewIds;
+  const expectedFree = new Set(plan.freeIds);
+  const actualPreviews = previewCandidates.filter((quiz) => quiz.preview).map((quiz) => quiz.id);
+  if (actualPreviews.join("|") !== expectedPreview.join("|"))
+    issues.push(`guest previews should be ${expectedPreview.join(", ") || "none"}`);
+  for (const quiz of previewCandidates) {
+    const loaded = await loadContentV2Quiz(repositoryPath, topic.id, quiz.id);
+    const shouldBeFree = expectedFree.has(quiz.id);
+    const pricingType = loaded.marketplace?.pricing?.type;
+    if (shouldBeFree ? pricingType !== "free" : pricingType !== undefined)
+      issues.push(`${quiz.id} should ${shouldBeFree ? "be Free" : "inherit Premium pricing"}`);
+    if (apply && (shouldBeFree ? pricingType !== "free" : pricingType !== undefined)) {
+      await patchContentV2QuizMarketplacePolicy(repositoryPath, topic.id, quiz.id, shouldBeFree
+        ? { pricing: { type: "free", currency: "VND" } }
+        : { inheritPricing: true });
       changeCount += 1;
     }
   }
-
-  const expectedPreview = guestPreviewQuizId(previewCandidates);
-  const actualPreviews = previewCandidates.filter((quiz) => quiz.preview).map((quiz) => quiz.id);
-  if (expectedPreview && (actualPreviews.length !== 1 || actualPreviews[0] !== expectedPreview))
-    issues.push(`guest preview should be ${expectedPreview}`);
-  if (!expectedPreview && actualPreviews.length) issues.push("ineligible quizzes have guest preview enabled");
-  if (!expectedPreview) warnings.push("waiting for a fully reviewed, non-empty quiz");
 
   if (apply && issues.some((issue) => issue.startsWith("topic "))) {
     await patchContentV2TopicMarketplacePolicy(repositoryPath, topic.id, {

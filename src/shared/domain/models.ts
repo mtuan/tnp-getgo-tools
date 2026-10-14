@@ -146,6 +146,13 @@ export interface MarketplaceStateUpdateResult {
   }>;
 }
 
+export interface MarketplaceAccessManagementResult {
+  content: ContentV2Snapshot;
+  topicCount: number;
+  topicsUpdated: number;
+  quizzesUpdated: number;
+}
+
 export interface ContentV2QuizSummary {
   key: string;
   topicId: string;
@@ -964,6 +971,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   trashContentV2TopicAsset(topicId: string, filename: string): Promise<ContentV2TopicAssetSummary[]>;
   showContentV2TopicAssetsFolder(topicId: string): Promise<void>; saveContentV2Topic(topic: ContentV2Topic): Promise<ContentV2Topic>;
   setContentV2MarketplaceState(target: "topics" | "quizzes", ids: string[], state: import("../../features/topics/domain/content-v2.js").MarketplaceTopicState, topicId?: string): Promise<MarketplaceStateUpdateResult>;
+  applyContentV2MarketplaceAccess(): Promise<MarketplaceAccessManagementResult>;
   saveContentV2Quiz(
     topicId: string,
     quiz: ContentV2Quiz,

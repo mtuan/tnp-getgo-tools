@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCheck, ExternalLink, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3, X } from "lucide-react";
+import { CheckCheck, ExternalLink, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3, ShieldCheck, X } from "lucide-react";
 import type { BackgroundJob, MarketplaceStateUpdateResult, MarketplaceSyncJobItem, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import * as ui from "../../../../shared/ui";
@@ -10,6 +10,7 @@ import { TopicFilterControls } from "./TopicFilterControls";
 import { ManagerSearchInput } from "./ManagerSearchInput";
 import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
 import { useAuth } from "../../../authentication/components/AuthContext";
+import { MarketplaceAccessManager } from "../../components/MarketplaceAccessManager";
 
 type Context = Record<string, any> & { snapshot: RepositoryViewData };
 const activeStatuses = new Set(["queued", "running", "paused"]);
@@ -102,6 +103,9 @@ export function ManagerHeaderControls(context: Context) {
   const [syncPreviewError, setSyncPreviewError] = useState<string | null>(null);
   const [syncPreview, setSyncPreview] = useState<RepositoryViewData["contentV2"] | null>(null);
   const [startingSync, setStartingSync] = useState(false);
+  const [accessManagerOpen, setAccessManagerOpen] = useState(false);
+  const [accessManagerBusy, setAccessManagerBusy] = useState(false);
+  const [accessManagerError, setAccessManagerError] = useState<string | null>(null);
   const openSyncPreview = async () => {
     setSyncPreview(null);
     setSyncPreviewError(null);
@@ -260,6 +264,28 @@ export function ManagerHeaderControls(context: Context) {
       });
     }));
   };
+  const applyAccessManagement = async () => {
+    setAccessManagerBusy(true);
+    setAccessManagerError(null);
+    try {
+      const result = await managerApi.applyContentV2MarketplaceAccess();
+      onSnapshotChange({ ...snapshot, loadedAt: new Date().toISOString(), contentV2: result.content });
+      setAccessManagerOpen(false);
+      toast.show({
+        title: copy.accessManager.saved,
+        description: copy.accessManager.savedDescription
+          .replace("{topics}", String(result.topicsUpdated))
+          .replace("{quizzes}", String(result.quizzesUpdated)),
+        variant: "success",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setAccessManagerError(message);
+      toast.show({ title: copy.accessManager.failed, description: message, variant: "error" });
+    } finally {
+      setAccessManagerBusy(false);
+    }
+  };
   if (!topicMode) return null;
   const items: ui.ActionMenuItem[] = [
     ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),
@@ -267,6 +293,7 @@ export function ManagerHeaderControls(context: Context) {
     ...(!isContest && allLegacyQuizCount > 0 ? [{ id: "migrate-all", label: `Migrate all ${allLegacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateAllLegacyQuizzes() }] : []),
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     { id: "separator-create", type: "separator" },
+    ...(!isContest ? [{ id: "manage-access", label: copy.accessManager.menu, icon: ShieldCheck, onSelect: () => { setAccessManagerError(null); setAccessManagerOpen(true); } }] : []),
     ...(isContest ? [{ id: "sync-topic", label: copy.syncTopic, icon: RefreshCw, onSelect: () => void syncTopic() }] : []),
     ...(isContest ? [{ id: "sync-reviews", label: copy.syncReviews, icon: RefreshCw, onSelect: () => void syncReviews() }] : []),
     ...(!isContest ? [{ id: "sync-all-reviews", label: copy.syncAllReviews, icon: RefreshCw, onSelect: () => void syncAllListedReviews() }] : []),
@@ -321,6 +348,15 @@ export function ManagerHeaderControls(context: Context) {
         setStartingSync(false);
         if (started) setSyncPreviewOpen(false);
       }}
+    />}
+    {accessManagerOpen && <MarketplaceAccessManager
+      topics={snapshot.contentV2.topics}
+      quizzes={snapshot.contentV2.quizzes}
+      locale={locale}
+      busy={accessManagerBusy}
+      error={accessManagerError}
+      onClose={() => { if (!accessManagerBusy) setAccessManagerOpen(false); }}
+      onApply={applyAccessManagement}
     />}
   </>;
 }

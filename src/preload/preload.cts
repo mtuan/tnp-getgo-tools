@@ -146,6 +146,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:topic:save", topic),
   setContentV2MarketplaceState: (target, ids, state, topicId) =>
     ipcRenderer.invoke("content-v2:marketplace-state:set", target, ids, state, topicId),
+  applyContentV2MarketplaceAccess: () =>
+    ipcRenderer.invoke("content-v2:marketplace-access:apply"),
   saveContentV2Quiz: (topicId, quiz) =>
     ipcRenderer.invoke("content-v2:quiz:save", topicId, quiz),
   saveContentV2Question: (topicId, quizId, question) =>

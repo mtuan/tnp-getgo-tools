@@ -13,7 +13,7 @@ import {
 } from "../repository/content-v2-repository.js";
 import { reviewAllContentV2Questions } from "../repository/content-v2-question-review.js";
 import { parseMarketplaceTopicState } from "./marketplace-sync.js";
-import { setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
+import { applyMarketplaceAccessManagement, setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
 import { contentTopicsRoot } from "../repository/content-source.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
@@ -91,6 +91,9 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
       ...(typeof topicIdValue === "string" ? { topicId: validId(topicIdValue, "topic ID") } : {}),
     });
   });
+
+  ipcMain.handle("content-v2:marketplace-access:apply", async () =>
+    applyMarketplaceAccessManagement(await repositoryRoot()));
 
   ipcMain.handle("content-v2:quiz:save", async (_event, topicIdValue: unknown, value: unknown) => {
     const topicId = validId(topicIdValue, "topic ID");

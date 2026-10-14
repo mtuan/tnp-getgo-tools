@@ -452,6 +452,7 @@ export function ContentV2QuizManager(props: Props) {
       saveContentV2Topic: async (topic) => { await window.getgo.saveContentV2Topic(topic); return reloadFromFiles(topic.id); },
       setContentV2MarketplaceState: (target, ids, state, topicId) =>
         window.getgo.setContentV2MarketplaceState(target, ids, state, topicId),
+      applyContentV2MarketplaceAccess: window.getgo.applyContentV2MarketplaceAccess,
       loadContentV2Quiz: window.getgo.loadContentV2Quiz,
       saveContentV2Quiz: async (topicId, quiz) => {
         await window.getgo.saveContentV2Quiz(topicId, quiz);

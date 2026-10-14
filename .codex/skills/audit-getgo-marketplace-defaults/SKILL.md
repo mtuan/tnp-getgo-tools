@@ -1,6 +1,6 @@
 ---
 name: audit-getgo-marketplace-defaults
-description: Audit or normalize GetGo content-v2 topic and quiz marketplace defaults, including Premium inheritance and exactly one reviewed guest-preview quiz per topic. Use when checking or repairing marketplace policy in a tnp-getgo-quizzes repository.
+description: Audit or normalize GetGo content-v2 topic and quiz marketplace defaults, including Premium inheritance, Free oldest quizzes, and newest guest previews. Use when checking or repairing marketplace policy in a tnp-getgo-quizzes repository.
 ---
 
 # Audit GetGo marketplace defaults
@@ -23,14 +23,11 @@ The maintained policy is:
 
 - A topic enables guest preview, is not experimental, and uses Premium
   (`pricing.type = "subscription"`).
-- Quiz pricing inherits from its topic unless it has a supported intentional
-  override.
-- Exactly one eligible quiz per topic enables guest preview. An eligible quiz
-  has at least one question and every question is reviewed.
-- Preserve an eligible quiz already selected for preview. Otherwise select the
-  first eligible quiz by `order`, then by quiz ID.
-- If no quiz is eligible, leave every quiz preview disabled and report that the
-  topic is waiting for a reviewed quiz.
+- Up to 4 of the oldest quizzes are Free according to topic size, capped at
+  `floor((quizCount - 1) / 2)` so inherited Premium quizzes remain the majority;
+  all others inherit Premium pricing from the topic.
+- One newest quiz enables guest preview, or two when the topic has more than 10
+  quizzes. Select previews by newest `order`, then quiz ID.
 
 After applying, run the audit command again and report any remaining issues.
 Treat malformed records and schema errors as blockers; do not bypass them or

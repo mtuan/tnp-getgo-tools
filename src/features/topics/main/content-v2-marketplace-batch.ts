@@ -7,13 +7,53 @@ import {
   type MarketplaceTopicState,
 } from "../../../features/topics/domain/content-v2.js";
 import {
+  loadContentV2TopicsOverview,
   loadContentV2Quiz,
   loadContentV2Topic,
+  patchContentV2QuizMarketplacePolicy,
+  patchContentV2TopicMarketplacePolicy,
   saveContentV2Quiz,
   saveContentV2Topic,
 } from "../repository/content-v2-repository.js";
+import { marketplaceAccessPlan } from "../domain/marketplace-access-plan.js";
+import type { ContentV2Snapshot, MarketplaceAccessManagementResult } from "../../../shared/domain/models.js";
 
 type BatchTarget = "topics" | "quizzes";
+
+export async function applyMarketplaceAccessManagement(root: string): Promise<MarketplaceAccessManagementResult> {
+  const before = (await loadContentV2TopicsOverview(root)).content;
+  const topics = before.topics.filter(topic => topic.marketplace?.experimental !== true);
+  let topicsUpdated = 0;
+  let quizzesUpdated = 0;
+  for (const summary of topics) {
+    if (summary.marketplace?.pricing?.type !== "subscription") {
+      await patchContentV2TopicMarketplacePolicy(root, summary.id, {
+        pricing: { type: "subscription", currency: "VND" },
+      });
+      topicsUpdated += 1;
+    }
+    const quizzes = before.quizzes.filter(quiz => quiz.topicId === summary.id);
+    const plan = marketplaceAccessPlan(quizzes);
+    const preview = new Set(plan.previewIds);
+    const free = new Set(plan.freeIds);
+    for (const quiz of quizzes) {
+      const shouldPreview = preview.has(quiz.id);
+      const shouldBeFree = free.has(quiz.id);
+      const isFree = quiz.marketplace?.pricing?.type === "free";
+      const inherits = quiz.marketplace?.pricing === undefined;
+      if ((quiz.marketplace?.preview === true) === shouldPreview && (shouldBeFree ? isFree : inherits)) continue;
+      await patchContentV2QuizMarketplacePolicy(root, summary.id, quiz.id, {
+        preview: shouldPreview,
+        ...(shouldBeFree
+          ? { pricing: { type: "free" as const, currency: "VND" as const } }
+          : { inheritPricing: true }),
+      });
+      quizzesUpdated += 1;
+    }
+  }
+  const content: ContentV2Snapshot = (await loadContentV2TopicsOverview(root)).content;
+  return { content, topicCount: topics.length, topicsUpdated, quizzesUpdated };
+}
 
 export async function setContentV2MarketplaceState({
   root,
