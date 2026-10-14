@@ -79,24 +79,18 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
 
 export function ManagerHeaderControls(context: Context) {
   const auth = useAuth();
-  const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, quizSearchQuery, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setQuizSearchQuery, setTopicContests, setTopicGrades, setTopicSearchQuery, setTopicStates, setTopicSubjects, setTopicsView, snapshot, toast, topicContestOptions, topicContests, topicGradeOptions, topicGrades, topicMode, topicSearchQuery, topicStateOptions, topicStates, topicSubjectOptions, topicSubjects, topicsView } = context;
+  const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, quizSearchQuery, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setQuizSearchQuery, setTopicGrades, setTopicSearchQuery, setTopicsView, snapshot, toast, topicGradeOptions, topicGrades, topicMode, topicSearchQuery, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
   const selectedTopic = isContest
     ? snapshot.contentV2.topics.find((topic) => topic.id === selectedContest?.id)
     : undefined;
   const hasTopicFilters = Boolean(
     topicSearchQuery.trim() ||
-    topicContests.length ||
-    topicGrades.length ||
-    topicSubjects.length ||
-    topicStates.length,
+    topicGrades.length,
   );
   const clearTopicFilters = () => {
     setTopicSearchQuery("");
-    setTopicContests([]);
     setTopicGrades([]);
-    setTopicSubjects([]);
-    setTopicStates([]);
   };
   const refreshAfterSync = useCallback(async () => {
     const route = await window.getgo.loadContentV2Route();
@@ -293,26 +287,11 @@ export function ManagerHeaderControls(context: Context) {
         onValueChange={isContest ? setQuizSearchQuery : setTopicSearchQuery}
       />
       {!isContest && <TopicFilterControls
-        contestOptions={topicContestOptions}
         gradeOptions={topicGradeOptions}
-        subjectOptions={topicSubjectOptions}
-        stateOptions={topicStateOptions}
-        contests={topicContests}
         grades={topicGrades}
-        subjects={topicSubjects}
-        states={topicStates}
-        contestLabel={copy.filters.contests}
         gradeLabel={copy.filters.grades}
-        subjectLabel={copy.filters.subjects}
-        stateLabel={copy.filters.state}
-        allContestsLabel={copy.filters.allContests}
         allGradesLabel={copy.filters.allGrades}
-        allSubjectsLabel={copy.filters.allSubjects}
-        allStatesLabel={copy.filters.allStates}
-        onContestsChange={setTopicContests}
         onGradesChange={setTopicGrades}
-        onSubjectsChange={setTopicSubjects}
-        onStatesChange={setTopicStates}
       />}
       {!isContest && hasTopicFilters && <ui.Button
         variant="secondary"

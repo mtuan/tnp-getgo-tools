@@ -49,7 +49,7 @@ isContest,
   return (
     <>
           {!isContest && topicMode && (
-            <div hidden={topicsView !== "tree"}>
+            <div>
               {(() => {
               type TopicTreeRow =
                 | {
@@ -70,7 +70,7 @@ isContest,
                         {
                           row: { kind: "topic" as const, contest, summary },
                           hasChildren: summary.quizCount > 0,
-                          ...(treeTopicQuizzes[contest.id]
+                          ...(topicsView === "tree" && treeTopicQuizzes[contest.id]
                             ? {
                                 children: orderByRecent(
                                   snapshot.quizzes.filter(
@@ -96,6 +96,7 @@ isContest,
                   title: "Topic / quiz",
                   width: "calc(100% - 732px)",
                   render: () => null,
+                  sortValue: (row) => row.kind === "topic" ? row.contest.title : row.quiz.title,
                 },
                 {
                   key: "type",
@@ -110,6 +111,11 @@ isContest,
                         quiz.topicId === row.quiz.contest &&
                         quiz.id === row.quiz.id,
                     );
+                    return summary ? quizTypeLabel(summary.type) : row.quiz.type;
+                  },
+                  sortValue: (row) => {
+                    if (row.kind === "topic") return topicTypeLabel(row.summary.type);
+                    const summary = snapshot.contentV2.quizzes.find((quiz) => quiz.topicId === row.quiz.contest && quiz.id === row.quiz.id);
                     return summary ? quizTypeLabel(summary.type) : row.quiz.type;
                   },
                 },
@@ -131,6 +137,11 @@ isContest,
                         inheritedAccess={marketplaceContentAccess(topic?.marketplace)}
                       />
                     );
+                  },
+                  sortValue: (row) => {
+                    if (row.kind === "topic") return marketplaceContentAccess(row.summary.marketplace);
+                    const topic = snapshot.contentV2.topics.find((candidate) => candidate.id === row.quiz.contest);
+                    return marketplaceContentAccess(row.quiz.marketplace, marketplaceContentAccess(topic?.marketplace));
                   },
                 },
                 {
@@ -160,6 +171,15 @@ isContest,
                       </StatusBadge>
                     );
                   },
+                  sortValue: (row) => {
+                    if (row.kind === "quiz") {
+                      const review = contentV2QuizReviewStatus(snapshot, row.quiz);
+                      return review.total ? review.reviewed / review.total : 0;
+                    }
+                    const questions = snapshot.contentV2.questions.filter((question) => question.topicId === row.summary.id);
+                    const reviewed = questions.filter((question) => question.status === "reviewed").length;
+                    return questions.length ? reviewed / questions.length : 0;
+                  },
                 },
                 {
                   key: "state",
@@ -173,6 +193,7 @@ isContest,
                     const quizReview = row.kind === "quiz" ? contentV2QuizReviewStatus(snapshot, row.quiz) : undefined;
                     return <MarketplaceStateCell locale={locale} value={state} target={row.kind === "topic" ? "topics" : "quizzes"} id={row.kind === "topic" ? row.summary.id : row.quiz.id} topicId={row.kind === "quiz" ? row.quiz.contest : undefined} api={managerApi} quizReview={row.kind === "quiz" && quizReview ? { manifestPath: row.quiz.manifestPath, reviewed: quizReview.reviewed, total: quizReview.total } : undefined} onSaved={(value) => toast.show({ title: marketplaceCopy.stateUpdated, description: marketplaceCopy.stateUpdatedDescription.replace("{state}", marketplaceCopy.states[value]), variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                   },
+                  sortValue: (row) => marketplaceStateLabel(row.kind === "topic" ? row.summary.marketplace : row.quiz.marketplace).state,
                 },
                 {
                   key: "preview",
@@ -186,6 +207,7 @@ isContest,
                       : row.quiz.marketplace?.preview === true;
                     return <MarketplacePreviewCell locale={locale} value={preview} target={row.kind === "topic" ? "topics" : "quizzes"} id={row.kind === "topic" ? row.summary.id : row.quiz.id} topicId={row.kind === "quiz" ? row.quiz.contest : undefined} api={managerApi} onSaved={(enabled) => toast.show({ title: marketplaceCopy.previewUpdated, description: enabled ? marketplaceCopy.previewEnabled : marketplaceCopy.previewDisabled, variant: "success" })} onError={(error) => toast.show({ title: marketplaceCopy.publishFailed, description: String(error), variant: "error" })} />;
                   },
+                  sortValue: (row) => (row.kind === "topic" ? row.summary.marketplace?.preview : row.quiz.marketplace?.preview) === true ? 1 : 0,
                 },
                 {
                   key: "sync",
@@ -217,6 +239,11 @@ isContest,
                       </StatusBadge>
                     );
                   },
+                  sortValue: (row) => marketplaceSyncPlanStatus(
+                    syncPlan,
+                    row.kind,
+                    row.kind === "quiz" ? `${row.quiz.contest}/${row.quiz.id}` : row.summary.id,
+                  ),
                 },
               ];
               return (
@@ -243,7 +270,7 @@ isContest,
                     }
                   }}
                   onExpand={(row) =>
-                    row.kind === "topic"
+                    topicsView === "tree" && row.kind === "topic"
                       ? loadTreeTopicQuizzes(row.contest.id)
                       : undefined
                   }

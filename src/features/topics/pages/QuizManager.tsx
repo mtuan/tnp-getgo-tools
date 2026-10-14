@@ -396,19 +396,10 @@ export function QuizManager({
       ? contests.find((item) => item.id === page.contest)
       : null;
   const {
-    topicContestOptions,
-    topicContests,
     topicGradeOptions,
     topicGrades,
     topicMatches,
-    topicSubjectOptions,
-    topicSubjects,
-    topicStateOptions,
-    topicStates,
-    setTopicContests,
     setTopicGrades,
-    setTopicSubjects,
-    setTopicStates,
   } = useTopicListFilters(snapshot.contentV2.topics, locale);
   const visibleContests = useMemo(() => {
     const filtered = contests.filter(
@@ -701,14 +692,8 @@ export function QuizManager({
     onRouteChange,
     onSnapshotChange,
     page,
-    topicContestOptions,
-    topicContests,
     topicGradeOptions,
     topicGrades,
-    topicSubjectOptions,
-    topicSubjects,
-    topicStateOptions,
-    topicStates,
     topicSearchQuery,
     quizSearchQuery,
     quizDialog,
@@ -720,10 +705,7 @@ export function QuizManager({
     setContestTab,
     setMigrationResults,
     setPage,
-    setTopicContests,
     setTopicGrades,
-    setTopicSubjects,
-    setTopicStates,
     setTopicSearchQuery,
     setQuizSearchQuery,
     setQuizDialog,

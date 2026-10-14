@@ -35,7 +35,6 @@ export function renderManagerList(context: ManagerListContext) {
     syncPlan,
     topicMode,
     toast,
-    topicsView,
     visibleContests,
     visibleQuizzes,
   } = context;
@@ -44,8 +43,8 @@ export function renderManagerList(context: ManagerListContext) {
     <>
       {(!isContest || contestTab === "quizzes") && (
         <>
-          {(!topicMode || isContest || topicsView === "tree") && renderTopicTree(context as any)}
-          {(isContest || !topicMode || topicsView === "list") && <div className="manager-table">
+          {(!isContest && topicMode) && renderTopicTree(context as any)}
+          {(isContest || !topicMode) && <div className="manager-table">
               <table>
                 {topicMode && (
                   <colgroup>
