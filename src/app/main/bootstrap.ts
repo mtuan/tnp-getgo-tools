@@ -29,6 +29,7 @@ import { FirestorePublishingService } from "../../features/topics/main/firestore
 import { QuestionFeedbackSyncService } from "../../features/topics/main/question-feedback-sync.js";
 import { registerQuestionFeedbackIpc } from "../../features/topics/main/question-feedback-ipc.js";
 import { registerPaymentPackagesIpc } from "../../features/payment-packages/main/payment-packages-ipc.js";
+import { GetGoAccessPolicyService } from "../../features/payment-packages/main/access-policy-service.js";
 import { registerBillingOrdersIpc } from "../../features/payment-orders/main/billing-orders-ipc.js";
 import { registerMemberManagementIpc } from "../../features/members/main/member-management-ipc.js";
 import { registerContentSafetyIpc } from "../../features/content-safety/main/content-safety-ipc.js";
@@ -498,7 +499,11 @@ app.whenReady().then(async () => {
   registerContentV2CrudIpc(ipcMain, { repositoryRoot });
   registerContentV2PublishingIpc(ipcMain, { repositoryRoot, publishing, publishJobs, firebaseAuth });
   registerQuestionFeedbackIpc(ipcMain, { repositoryRoot, sync: questionFeedbackSync });
-  registerPaymentPackagesIpc(ipcMain, { repositoryRoot, publishing });
+  registerPaymentPackagesIpc(ipcMain, {
+    repositoryRoot,
+    publishing,
+    accessPolicy: new GetGoAccessPolicyService(firebaseAuth),
+  });
   registerBillingOrdersIpc(ipcMain, firebaseAuth);
   registerMemberManagementIpc(ipcMain, firebaseAuth);
   registerContentSafetyIpc(ipcMain, repositoryRoot);

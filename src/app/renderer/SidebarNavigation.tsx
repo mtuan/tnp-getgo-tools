@@ -44,6 +44,8 @@ export function SidebarNavigation({ locale, view, collapsed, deploymentTarget, o
         ? copy.screenshotManager.nav
         : item.id === "avatar-sets"
           ? locale === "vi" ? "Bộ ảnh đại diện" : "Avatar sets"
+          : item.id === "access"
+            ? copy.accessPolicy.tab
           : item.label;
 
   useEffect(() => {

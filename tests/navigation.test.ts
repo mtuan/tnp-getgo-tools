@@ -19,9 +19,10 @@ test("sidebar groups secondary tools and keeps Settings last", () => {
     "screenshots",
     "avatar-sets",
     "payments",
+    "access",
     "members",
     "safe-words",
   ]);
   assert.deepEqual(settingsNavigation.map((item) => item.id), ["settings"]);
-  assert.equal(new Set([...primaryNavigation, ...otherToolsNavigation, ...settingsNavigation].map((item) => item.id)).size, 11);
+  assert.equal(new Set([...primaryNavigation, ...otherToolsNavigation, ...settingsNavigation].map((item) => item.id)).size, 12);
 });

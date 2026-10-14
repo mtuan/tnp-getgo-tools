@@ -40,7 +40,7 @@ export type FormField =
   | (FieldBase & { type: "code"; path: string; language?: "typescript" | "json"; minHeight?: number })
   | (FieldBase & { type: "image"; accept?: string; maxBytes?: number; previewSrc?: string })
   | (FieldBase & { type: "icon"; accept?: string; maxBytes?: number; previewSrc?: string; symbols?: string[] })
-  | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string })
+  | (FieldBase & { type: "number"; min?: number; max?: number; step?: number; placeholder?: string; presentation?: "default" | "row" })
   | (FieldBase & { type: "select"; options: SelectOption[]; placeholder?: string; presentation?: "auto" | "dropdown" | "segmented" })
   | (FieldBase & { type: "multi-select"; options: SelectOption[]; placeholder?: string })
   | (FieldBase & { type: "multi-tag"; placeholder?: string })
@@ -354,7 +354,7 @@ export function FormControl({ field, values, onChange, autoFocus = false }: { fi
 }
 
 function Field({ field, values, errors, onChange, autoFocus }: { field: FormField; values: FormValues; errors: FormErrors; onChange(name: string, value: unknown): void; autoFocus: boolean }) {
-  if (field.type === "toggle" && field.presentation === "row") return <div className={`schema-field schema-toggle-row ${errors[field.name] ? "invalid" : ""}`}>
+  if ((field.type === "toggle" || field.type === "number") && field.presentation === "row") return <div className={`schema-field schema-setting-row ${field.type === "toggle" ? "schema-toggle-row" : "schema-number-row"} ${errors[field.name] ? "invalid" : ""}`}>
     <div><label>{field.label}{field.required && <b>*</b>}</label>{errors[field.name] ? <small className="field-error">{errors[field.name]}</small> : field.helper ? <small>{field.helper}</small> : null}</div>
     <FormControl field={field} values={values} onChange={onChange} autoFocus={autoFocus} />
   </div>

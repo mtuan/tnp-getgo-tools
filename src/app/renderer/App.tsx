@@ -58,6 +58,7 @@ const ImagePdfPage = lazy(() =>
 );
 const AmcImportPage = lazy(() => import("../../features/amc-import/pages/AmcImportPage").then((module) => ({ default: module.AmcImportPage })));
 const PaymentPackagesPage = lazy(() => import("../../features/payment-packages/pages/PaymentPackagesPage").then((module) => ({ default: module.PaymentPackagesPage })));
+const AccessPolicyPage = lazy(() => import("../../features/access-policy/pages/AccessPolicyPage").then((module) => ({ default: module.AccessPolicyPage })));
 const MembersPage = lazy(() => import("../../features/members/pages/MembersPage").then((module) => ({ default: module.MembersPage })));
 const ContentSafetyPage = lazy(() => import("../../features/content-safety/pages/ContentSafetyPage").then((module) => ({ default: module.ContentSafetyPage })));
 const AvatarSetsPage = lazy(() => import("../../features/avatar-sets/pages/AvatarSetsPage").then((module) => ({ default: module.AvatarSetsPage })));
@@ -103,6 +104,7 @@ function viewFromRoute(route: string): View {
     "screenshots", "designs",
     "avatar-sets",
     "payments",
+    "access",
     "members",
     "safe-words",
     "settings",
@@ -143,12 +145,17 @@ function viewFromRoute(route: string): View {
 const normalizedRoute = (route: string) => {
   const value = route.trim();
   if (!value) return "/deploy";
-  return value.startsWith("/") ? value : `/${value}`;
+  const normalized = value.startsWith("/") ? value : `/${value}`;
+  try {
+    const url = new URL(normalized, "app://getgo");
+    if (url.pathname === "/payments" && url.searchParams.get("tab") === "access") return "/access";
+  } catch { /* The route parser will handle malformed routes. */ }
+  return normalized;
 };
 export function App() {
   const toast = useToast();
   const auth = useAuth();
-  const [initialRoute] = useState(readLastRoute);
+  const [initialRoute] = useState(() => normalizedRoute(readLastRoute()));
   const [view, setView] = useState<View>(() => viewFromRoute(initialRoute));
   const [settings, setSettings] = useState<AppSettings>({
     repositoryPath: null,
@@ -394,6 +401,10 @@ export function App() {
     setCurrentRoute(nextRoute);
     setRouteRequest((request) => ({ route: nextRoute, key: request.key + 1 }));
   }, [updateQuizBackAction]);
+  useEffect(() => {
+    const canonical = normalizedRoute(currentRoute);
+    if (canonical !== currentRoute) goToRoute(canonical);
+  }, [currentRoute, goToRoute]);
   useEffect(() => window.getgo.onOpenRoute(goToRoute), [goToRoute]);
   function refreshCurrentRoute() {
     setRouteDraft(currentRoute);
@@ -641,7 +652,7 @@ export function App() {
             view !== "image-pdf" &&
             view !== "amc-import" &&
             view !== "screenshots" && view !== "designs" &&
-            view !== "avatar-sets" ? (
+            view !== "avatar-sets" && view !== "access" ? (
               <section className="welcome">
                 <div className="welcome-mark">
                   <GetGoIcon size={56} />
@@ -740,6 +751,11 @@ export function App() {
             )}
             {settings.repositoryPath && view === "payments" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><PaymentPackagesPage locale={settings.locale} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
+            )}
+            {view === "access" && (
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <AccessPolicyPage locale={settings.locale} />
+              </Suspense>
             )}
             {view === "members" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>

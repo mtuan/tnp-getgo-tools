@@ -5,6 +5,7 @@ import { paymentPackagesSchema } from "../domain/payment-package.js";
 import { paymentEventsSchema } from "../domain/payment-event.js";
 import type { FirestorePublishingService } from "../../topics/main/firestore-publishing.js";
 import { assertRepositoryContentSafe, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
+import type { GetGoAccessPolicyService } from "./access-policy-service.js";
 
 const filePath = (root: string) => path.join(root, "content-v2", "payment-packages.json");
 const eventsFilePath = (root: string) => path.join(root, "content-v2", "payment-events.json");
@@ -20,7 +21,7 @@ async function save(root: string, value: unknown) {
   await fs.writeFile(filePath(root), `${JSON.stringify(packages, null, 2)}\n`, "utf8");
   return packages;
 }
-export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService }) {
+export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; accessPolicy: GetGoAccessPolicyService }) {
   ipcMain.handle("payment-packages:list", async () => load(await dependencies.repositoryRoot()));
   ipcMain.handle("payment-packages:save", async (_event, value: unknown) => save(await dependencies.repositoryRoot(), value));
   ipcMain.handle("payment-packages:sync", async () => {
@@ -29,6 +30,8 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
     await dependencies.publishing.publishPaymentPackages(packages);
     return { count: packages.length, syncedAt: new Date().toISOString() };
   });
+  ipcMain.handle("getgo-access-policy:load", () => dependencies.accessPolicy.load());
+  ipcMain.handle("getgo-access-policy:save", (_event, value: unknown) => dependencies.accessPolicy.save(value));
   const loadEvents = async (root: string) => {
     try { return paymentEventsSchema.parse(JSON.parse(await fs.readFile(eventsFilePath(root), "utf8"))); }
     catch (error) {

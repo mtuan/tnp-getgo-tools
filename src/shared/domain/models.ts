@@ -2,6 +2,7 @@ import type { ContentIcon } from "./content-icon.js";
 import type { StartupEnvironmentDesktopApi } from "../../features/settings/domain/startup-environment.js"; import type { AvatarSetDesktopApi } from "../../features/avatar-sets/domain/avatar-set.js";
 import type { ScreenshotManagerDesktopApi } from "../../features/screenshot-manager/domain/screenshot-project.js"; import type { DesignProjectsDesktopApi } from "../../features/design-projects/domain/design-project.js";
 import type { AmcImportDesktopApi } from "../../features/amc-import/domain/amc-import.js";
+import type { GetGoAccessPolicy } from "../../features/payment-packages/domain/access-policy.js";
 
 export const contentStatuses = [
   "imported",
@@ -911,6 +912,8 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   listPaymentPackages(): Promise<PaymentPackage[]>;
   savePaymentPackages(items: PaymentPackage[]): Promise<PaymentPackage[]>;
   syncPaymentPackages(): Promise<{ count: number; syncedAt: string }>;
+  loadGetGoAccessPolicy(): Promise<GetGoAccessPolicy>;
+  saveGetGoAccessPolicy(policy: GetGoAccessPolicy): Promise<GetGoAccessPolicy>;
   listPaymentEvents(): Promise<PaymentEvent[]>;
   savePaymentEvents(items: PaymentEvent[]): Promise<PaymentEvent[]>;
   syncPaymentEvents(): Promise<{ count: number; syncedAt: string }>;
