@@ -40,11 +40,15 @@ test("card benefits exclude capabilities shared by every card", () => {
     paymentPackage("annual", "annual"),
   ], "en");
 
-  assert.deepEqual(benefits.get("free"), ["Up to 2 student profiles"]);
+  assert.deepEqual(benefits.get("free"), [
+    { label: "Up to 2 student profiles", supported: true },
+    { label: "All Premium content", supported: false },
+    { label: "Question notes", supported: false },
+  ]);
   assert.deepEqual(benefits.get("monthly"), [
-    "Unlimited student profiles",
-    "All Premium content",
-    "Question notes",
+    { label: "Unlimited student profiles", supported: true },
+    { label: "All Premium content", supported: true },
+    { label: "Question notes", supported: true },
   ]);
   assert.deepEqual(benefits.get("annual"), benefits.get("monthly"));
 });

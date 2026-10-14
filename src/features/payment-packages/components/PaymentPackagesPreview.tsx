@@ -1,4 +1,4 @@
-import { Check, Crown } from "lucide-react";
+import { Check, Crown, X } from "lucide-react";
 import type { AppSettings, PaymentEvent, PaymentPackage } from "../../../shared/domain/models";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -49,23 +49,32 @@ export function accessPolicyBenefits(policy: GetGoAccessPolicy, tier: GetGoConfi
   return benefits;
 }
 
-export function packageBenefits(policy: GetGoAccessPolicy, items: PaymentPackage[], locale: AppSettings["locale"]): Map<string, string[]> {
-  const benefitsById = new Map(items.map(item => [
-    item.id,
-    accessPolicyBenefits(policy, item.type === "free" ? "free" : "premium", locale),
-  ]));
-  if (items.length < 2) return benefitsById;
-  const commonBenefits = new Set(benefitsById.get(items[0].id) ?? []);
-  for (const item of items.slice(1)) {
-    const benefits = new Set(benefitsById.get(item.id) ?? []);
-    for (const benefit of commonBenefits) {
-      if (!benefits.has(benefit)) commonBenefits.delete(benefit);
+export type PackageBenefit = { label: string; supported: boolean };
+
+export function packageBenefits(policy: GetGoAccessPolicy, items: PaymentPackage[], locale: AppSettings["locale"]): Map<string, PackageBenefit[]> {
+  const copy = (locale === "vi" ? vi : en).accessPolicy;
+  const configs = items.map(item => policy.packages[item.type === "free" ? "free" : "premium"]);
+  const rows: Array<(config: typeof configs[number]) => PackageBenefit> = [];
+  const differs = <T,>(value: (config: typeof configs[number]) => T) => configs.some(config => value(config) !== value(configs[0]));
+  if (items.length < 2 || differs(config => config.studentLimit)) rows.push(config => ({
+    label: config.studentLimit === -1 ? copy.unlimitedStudentsBenefit : interpolate(copy.studentLimitBenefit, config.studentLimit),
+    supported: true,
+  }));
+  if (items.length < 2 || differs(config => config.topicLimitPerStudent)) rows.push(config => ({
+    label: config.topicLimitPerStudent === -1 ? copy.unlimitedTopicsBenefit : interpolate(copy.topicLimitBenefit, config.topicLimitPerStudent),
+    supported: true,
+  }));
+  for (const feature of getGoConfigurableFeatures) {
+    if (items.length < 2 ? configs[0]?.features[feature] : differs(config => config.features[feature])) {
+      rows.push(config => ({ label: copy[feature], supported: config.features[feature] }));
     }
   }
-  return new Map(Array.from(benefitsById, ([id, benefits]) => [
-    id,
-    benefits.filter(benefit => !commonBenefits.has(benefit)),
-  ]));
+  for (const feature of getGoConfigurableExperimentalFeatures) {
+    if (items.length < 2 ? configs[0]?.experimental[feature] : differs(config => config.experimental[feature])) {
+      rows.push(config => ({ label: copy[feature], supported: config.experimental[feature] }));
+    }
+  }
+  return new Map(items.map((item, index) => [item.id, rows.map(row => row(configs[index]))]));
 }
 
 export function PaymentPackagesPreview({ items, locale, sale, accessPolicy }: { items: PaymentPackage[]; locale: AppSettings["locale"]; sale?: Extract<PaymentEvent, { type: "sale" }>; accessPolicy: GetGoAccessPolicy }) {
@@ -78,7 +87,7 @@ export function PaymentPackagesPreview({ items, locale, sale, accessPolicy }: { 
       <div className={`payment-package-card ${item.type !== "free" ? "featured" : ""}`}>
         <div className="payment-package-card-heading"><div><h2>{item.name[locale]}</h2><p>{item.info[locale]}</p></div><Crown aria-hidden="true" /></div>
         <div className="payment-package-price"><del className={applicableSale ? "" : "is-placeholder"} aria-hidden={!applicableSale}>{applicableSale ? formatter.format(item.price.amount) : "—"}</del><strong>{formatter.format(amount)}</strong><span>{period(item.type, locale)}</span></div>
-        <ul>{benefits.map((benefit) => <li key={benefit}><span><Check aria-hidden="true" /></span>{benefit}</li>)}</ul>
+        <ul>{benefits.map((benefit) => <li className={benefit.supported ? "" : "is-unsupported"} key={benefit.label}><span>{benefit.supported ? <Check aria-hidden="true" /> : <X aria-hidden="true" />}</span>{benefit.label}</li>)}</ul>
         {item.type !== "free" && <button type="button" disabled>{locale === "vi" ? "Đăng ký ngay" : "Subscribe now"}</button>}
       </div>
     </article>; })}

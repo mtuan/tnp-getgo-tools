@@ -4266,18 +4266,27 @@ tbody tr:hover {
   .topic-reviews-footer .ui-pagination { justify-content: center; }
 }
 .payment-package-card-shell {
+  position: relative;
+  box-sizing: border-box;
   display: flex;
+  height: 100%;
   min-height: 488px;
+  flex: 1;
   flex-direction: column;
+  padding-bottom: 54px;
 }
 .payment-package-sale-slot {
-  position: relative;
+  position: absolute;
+  box-sizing: border-box;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 0;
   display: flex;
   height: 86px;
   flex: none;
-  align-items: flex-end;
-  margin: 0 0 -32px;
+  align-items: flex-start;
+  margin: 0;
 }
 
 .payment-package-card {
@@ -4302,9 +4311,9 @@ tbody tr:hover {
   justify-content: space-between;
   gap: 16px;
   min-height: 78px;
-  padding: 0 14px 32px;
+  padding: 32px 14px 0;
   border: 1px solid rgb(255 255 255 / 42%);
-  border-radius: 24px 24px 0 0;
+  border-radius: 0 0 24px 24px;
   color: #431407;
   background: linear-gradient(90deg, #fcd34d, #fb923c);
   box-shadow: 0 8px 20px rgb(124 45 18 / 18%);
@@ -4345,7 +4354,11 @@ tbody tr:hover {
 .payment-package-card li { display: flex; align-items: center; gap: 12px; }
 .payment-package-card li > span { display: grid; width: 30px; height: 30px; flex: none; place-items: center; border-radius: 10px; background: var(--soft); }
 .payment-package-card li svg { width: 16px; }
+.payment-package-card li.is-unsupported { color: var(--muted); }
+.payment-package-card li.is-unsupported > span { color: #dc2626; background: #fee2e2; }
 .payment-package-card.featured li > span { background: rgb(255 255 255 / 15%); }
+.payment-package-card.featured li.is-unsupported { color: rgb(255 255 255 / 68%); }
+.payment-package-card.featured li.is-unsupported > span { color: #fecaca; background: rgb(127 29 29 / 38%); }
 .payment-package-card > button { min-height: 44px; border: 0; border-radius: 14px; background: #4f46e5; color: white; font: inherit; font-weight: 700; opacity: 1; }
 .payment-package-card.featured > button { background: white; color: #5b21b6; }
 @media (prefers-color-scheme: dark) {
