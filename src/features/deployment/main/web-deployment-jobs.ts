@@ -17,7 +17,7 @@ type DeploymentJob = BackgroundJob & {
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
-interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string; deployOutcome?: "deployed" | "up-to-date" | "warning" }
+interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string; deployOutcome?: "deployed" | "up-to-date" | "warning"; deployedResources: Set<string>; persistTimer?: NodeJS.Timeout }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
   development: "deploy:getgo:dev",
@@ -25,8 +25,17 @@ const targetScripts: Record<WebDeploymentTarget, string> = {
   production: "deploy:getgo:production",
 };
 
-function cleanLine(value: string) {
-  return value.replace(/\u001b\[[0-9;]*m/g, "").trim().slice(-2000);
+export function cleanDeploymentLogLine(value: string) {
+  return value
+    .replace(/\u001b\[[0-9;]*m/g, "")
+    .replace(/("?(?:sourceToken|access_token|authorization)"?\s*:\s*")[^"]+/gi, "$1[redacted]")
+    .replace(/(source token|authorization|access_token)[=: ]+\S+/gi, "$1 [redacted]")
+    .trim()
+    .slice(-2000);
+}
+
+export function shouldWaitForFirestoreIndexes(operation: DeploymentOperation, component: DeploymentComponent, deployedResources: ReadonlySet<string>) {
+  return operation === "deploy" && component === "firebase" && deployedResources.has("firestore:indexes");
 }
 
 function reportedDeploymentError(job: DeploymentJob) {
@@ -444,10 +453,13 @@ export class WebDeploymentJobManager {
     else args.push("--no-lint", "--no-typecheck");
     let child: ChildProcess;
     try {
+      const childEnvironment = { ...process.env };
+      delete childEnvironment.DEBUG;
+      delete childEnvironment.FIREBASE_DEBUG;
       child = spawnCommand(npmExecutable, args, {
         cwd: webRoot,
         detached: process.platform !== "win32",
-        env: process.env,
+        env: childEnvironment,
         stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (cause) {
@@ -461,7 +473,7 @@ export class WebDeploymentJobManager {
       await this.persist();
       throw cause;
     }
-    const runtime: Runtime = { child, cancelled: false, finishing: false, phases: new Set(), outputBuffer: "", reportPhase: "startup" };
+    const runtime: Runtime = { child, cancelled: false, finishing: false, phases: new Set(), outputBuffer: "", reportPhase: "startup", deployedResources: new Set() };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
@@ -473,11 +485,15 @@ export class WebDeploymentJobManager {
       const lines = runtime.outputBuffer.split(/\r?\n/);
       runtime.outputBuffer = lines.pop() ?? "";
       for (const raw of lines) {
-        const line = cleanLine(raw);
+        const line = cleanDeploymentLogLine(raw);
         if (!line || runtime.cancelled) continue;
         const deployOutcome = parseDeployResult(line);
         if (deployOutcome) {
           runtime.deployOutcome = deployOutcome;
+          try {
+            const result = JSON.parse(line.slice("GETGO_DEPLOY_RESULT ".length)) as { deployed?: unknown };
+            if (Array.isArray(result.deployed)) runtime.deployedResources = new Set(result.deployed.filter((item): item is string => typeof item === "string"));
+          } catch { /* malformed result is handled by parseDeployResult */ }
           continue;
         }
         job.progressLabel = line;
@@ -488,7 +504,10 @@ export class WebDeploymentJobManager {
           job.completed = Math.min(job.total - 1, runtime.phases.size);
         }
       }
-      void this.persist();
+      if (!runtime.persistTimer) runtime.persistTimer = setTimeout(() => {
+        runtime.persistTimer = undefined;
+        void this.persist();
+      }, 250);
     };
     child.stdout?.on("data", updateOutput);
     child.stderr?.on("data", updateOutput);
@@ -500,10 +519,15 @@ export class WebDeploymentJobManager {
   private async finish(job: DeploymentJob, runtime: Runtime, code: number | null, cause: Error | null) {
     if (this.runtimes.get(job.id) !== runtime || runtime.finishing) return;
     runtime.finishing = true;
+    if (runtime.persistTimer) {
+      clearTimeout(runtime.persistTimer);
+      runtime.persistTimer = undefined;
+      await this.persist();
+    }
     if (!runtime.cancelled) {
       if (!cause && code === 0) {
         try {
-          if (job.operation === "deploy" && runtime.deployOutcome !== "up-to-date" && job.component === "firebase" && job.target) {
+          if (job.component && shouldWaitForFirestoreIndexes(job.operation ?? "deploy", job.component, runtime.deployedResources) && job.target) {
             const webRoot = await this.webRoot();
             const deploymentState = await this.state(job.target);
             this.beginReportStep(job, runtime, "indexes", "Firebase deployment finished; checking composite index readiness.");
