@@ -11,10 +11,9 @@ import { ManagerSearchInput } from "./ManagerSearchInput";
 import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
 import { useAuth } from "../../../authentication/components/AuthContext";
 import { MarketplaceAccessManager } from "../../components/MarketplaceAccessManager";
+import { isActiveMarketplaceSyncJob } from "../../domain/marketplace-sync-job";
 
 type Context = Record<string, any> & { snapshot: RepositoryViewData };
-const activeStatuses = new Set(["queued", "running", "paused"]);
-const isSyncJob = (job: BackgroundJob) => job.kind === "publish" && job.name === "Sync marketplace · All topics" && activeStatuses.has(job.status);
 
 async function loadFreshSyncContent(): Promise<RepositoryViewData["contentV2"]> {
   return (await window.getgo.loadContentV2SyncPreview()).content;
@@ -44,7 +43,7 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
   const [job, setJob] = useState<BackgroundJob | null>(null);
   const activeJobId = useRef<string | null>(null);
   const load = useCallback(async () => {
-    const next = (await window.getgo.getBackgroundJobs()).jobs.find(isSyncJob) ?? null;
+    const next = (await window.getgo.getBackgroundJobs()).jobs.find(isActiveMarketplaceSyncJob) ?? null;
     if (next) activeJobId.current = next.id;
     else if (activeJobId.current) {
       activeJobId.current = null;
@@ -59,7 +58,7 @@ function useMarketplaceSync(locale: Context["locale"], toast: Context["toast"], 
   }, [job, load]);
   const start = async (items: MarketplaceSyncJobItem[]) => {
     try {
-      const nextJob = (await window.getgo.syncContentV2Marketplace(items)).jobs.find(isSyncJob) ?? null;
+      const nextJob = (await window.getgo.syncContentV2Marketplace(items)).jobs.find(isActiveMarketplaceSyncJob) ?? null;
       activeJobId.current = nextJob?.id ?? null;
       setJob(nextJob);
       toast.show({
@@ -209,34 +208,7 @@ export function ManagerHeaderControls(context: Context) {
     const topicId = selectedContest?.id;
     if (!topicId) return;
     if (!window.confirm(copy.syncTopicConfirm)) return;
-    return runButtonAction("sync-topic", async () => {
-    await managerApi.publishContentV2Topic(topicId);
-    const loaded = await window.getgo.loadContentV2Route(topicId);
-    onSnapshotChange({
-      ...snapshot,
-      repositoryPath: loaded.repositoryPath,
-      loadedAt: loaded.loadedAt,
-      contentV2: {
-        ...loaded.content,
-        topics: snapshot.contentV2.topics.map((topic) =>
-          topic.id === topicId ? loaded.content.topics[0] ?? topic : topic,
-        ),
-        quizzes: [
-          ...snapshot.contentV2.quizzes.filter((quiz) => quiz.topicId !== topicId),
-          ...loaded.content.quizzes,
-        ],
-        questions: [
-          ...snapshot.contentV2.questions.filter((question) => question.topicId !== topicId),
-          ...loaded.content.questions,
-        ],
-      },
-    });
-    toast.show({
-      title: copy.topicSyncComplete,
-      description: copy.topicSyncCompleteDescription,
-      variant: "success",
-    });
-    });
+    auth.requireAuth(() => void sync.start([{ kind: "topic", topicId }]));
   };
   const syncReviews = () => {
     const topicId = selectedContest?.id;
@@ -294,7 +266,7 @@ export function ManagerHeaderControls(context: Context) {
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     { id: "separator-create", type: "separator" },
     ...(!isContest ? [{ id: "manage-access", label: copy.accessManager.menu, icon: ShieldCheck, onSelect: () => { setAccessManagerError(null); setAccessManagerOpen(true); } }] : []),
-    ...(isContest ? [{ id: "sync-topic", label: copy.syncTopic, icon: RefreshCw, onSelect: () => void syncTopic() }] : []),
+    ...(isContest ? [{ id: "sync-topic", label: copy.syncTopic, icon: RefreshCw, disabled: Boolean(sync.job), onSelect: () => syncTopic() }] : []),
     ...(isContest ? [{ id: "sync-reviews", label: copy.syncReviews, icon: RefreshCw, onSelect: () => void syncReviews() }] : []),
     ...(!isContest ? [{ id: "sync-all-reviews", label: copy.syncAllReviews, icon: RefreshCw, onSelect: () => void syncAllListedReviews() }] : []),
     ...(!isContest ? [{ id: "sync", label: copy.syncAllTopics, icon: RefreshCw, disabled: Boolean(sync.job) || loadingSyncPreview, onSelect: () => void openSyncPreview() }] : []),
@@ -328,12 +300,6 @@ export function ManagerHeaderControls(context: Context) {
     </ui.ControlGroup>
     {headerStateControl}
     <ui.ActionMenu label="More" disabled={Boolean(buttonAction)} items={items} />
-    <ui.ProcessingOverlay
-      open={buttonAction === "sync-topic"}
-      title={copy.topicSyncInProgress}
-      description={copy.topicSyncInProgressDescription}
-      showElapsed
-    />
     {syncPreviewOpen && <MarketplaceSyncDrawer
       topics={syncPreview?.topics ?? []}
       quizzes={syncPreview?.quizzes ?? []}

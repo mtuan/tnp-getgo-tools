@@ -28,12 +28,30 @@ import { compileQuizSharedCode } from "@tnp/getgo-logics/authoring";
 import { promises as fs } from "node:fs";
 import type { MarketplaceTopicReviewBackup } from "../domain/marketplace-reviews.js";
 import { publishMarketplaceTopicReviews } from "./marketplace-review-publishing.js";
+import { containsContentV2InlineImage } from "../repository/content-v2-inline-assets.js";
 
 type FirestoreValue = Record<string, unknown>;
 type FirestoreDocument = {
   name: string;
   fields?: Record<string, FirestoreValue>;
 };
+
+const firestoreDocumentLimitBytes = 1_048_576;
+
+function assertPublishableFirestoreDocument(
+  label: string,
+  data: Record<string, unknown>,
+): void {
+  if (containsContentV2InlineImage(data))
+    throw new Error(
+      `${label} still contains an inline data:image value after asset normalization. Save the question again or repair its source before publishing.`,
+    );
+  const serializedBytes = Buffer.byteLength(JSON.stringify(data), "utf8");
+  if (serializedBytes >= firestoreDocumentLimitBytes)
+    throw new Error(
+      `${label} is ${serializedBytes.toLocaleString("en-US")} bytes before Firestore encoding and exceeds the ${firestoreDocumentLimitBytes.toLocaleString("en-US")}-byte document limit. Move large content into assets before publishing.`,
+    );
+}
 
 function fieldValue(value: unknown): FirestoreValue {
   if (value === null) return { nullValue: null };
@@ -209,6 +227,28 @@ export function createContentV2QuizPublishPreview(
       `Topic ${topicId} · Quiz “${quiz.title}” (${quiz.id}) · Question ${missingCompiledQuestion.id}: dynamic.compiledJs is missing. The question was not saved after a successful dynamic-code compilation. Open and save this question successfully before publishing.`,
     );
   }
+  const quizDocumentData = {
+    ...quizMetadata,
+    compiledSharedJs,
+    access,
+    questionsCodeFormat: "getgo.questions.v1",
+    questionsCode: buildContentV2QuestionsCode(questions),
+    ...(supportsDynamic ? { dynamic: true, supportsDynamic: true } : {}),
+    quizBuilderApiVersion,
+    contentHash,
+    publishedAt: "<generated at publish time>",
+  };
+  const questionDocuments = questions.map((question) => ({
+    operation: "upsert" as const,
+    path: `${quizPath}/questions/${encodeURIComponent(question.id)}`,
+    data: sanitizeContentV2Question(question),
+  }));
+  assertPublishableFirestoreDocument(`Quiz ${topicId}/${quiz.id}`, quizDocumentData);
+  for (const document of questionDocuments)
+    assertPublishableFirestoreDocument(
+      `Question ${topicId}/${quiz.id}/${decodeURIComponent(document.path.split("/").at(-1)!)}`,
+      document.data,
+    );
   return {
     firestore: {
       marketplaceQuizDocument: {
@@ -222,23 +262,9 @@ export function createContentV2QuizPublishPreview(
       quizDocument: {
         operation: "upsert",
         path: quizPath,
-        data: {
-          ...quizMetadata,
-          compiledSharedJs,
-          access,
-          questionsCodeFormat: "getgo.questions.v1",
-          questionsCode: buildContentV2QuestionsCode(questions),
-          ...(supportsDynamic ? { dynamic: true, supportsDynamic: true } : {}),
-          quizBuilderApiVersion,
-          contentHash,
-          publishedAt: "<generated at publish time>",
-        },
+        data: quizDocumentData,
       },
-      questionDocuments: questions.map((question) => ({
-        operation: "upsert",
-        path: `${quizPath}/questions/${encodeURIComponent(question.id)}`,
-        data: sanitizeContentV2Question(question),
-      })),
+      questionDocuments,
       resourceDocuments: Object.entries(resources).map(([id, data]) => ({
         operation: "upsert",
         // Quiz resources must remain inside the quiz security boundary. Topic

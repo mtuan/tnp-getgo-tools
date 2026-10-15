@@ -2,7 +2,7 @@ import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersi
 import type { MarketplaceSyncJobItem } from "../../../shared/domain/models.js";
 import { reviewedTopicQuizzes } from "../domain/content-v2-publish-policy.js";
 import { marketplaceSyncPlan, marketplaceTopicSyncWork } from "../domain/marketplace-sync-plan.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2TopicFolder, readContentV2QuizPublishState, readContentV2TopicPublishState, reconcileContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2TopicFolder, normalizeContentV2TopicQuestionAssets, readContentV2QuizPublishState, readContentV2TopicPublishState, reconcileContentV2QuizPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
 import { loadContentV2TopicReviews } from "../repository/content-v2-review-repository.js";
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
@@ -25,6 +25,7 @@ export async function syncAllMarketplaceTopics(
   for (const topicId of topicIds) {
     await control.checkpoint();
     await control.report(`Preparing topic · ${topicId}`);
+    await normalizeContentV2TopicQuestionAssets(root, topicId);
     const topic = await saveContentV2Topic(
       root,
       await loadContentV2Topic(root, topicId),

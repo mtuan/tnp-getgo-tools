@@ -14,6 +14,11 @@ import type { FirebaseAuthService } from "../../authentication/main/firebase-aut
 import type { PublishJobManager } from "../../jobs/main/publish-jobs.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 import { syncListedMarketplaceTopicReviews } from "./marketplace-review-sync.js";
+import {
+  isActiveMarketplaceSyncJob,
+  marketplaceSyncAllJobName,
+  marketplaceSyncTopicJobName,
+} from "../domain/marketplace-sync-job.js";
 
 interface Dependencies {
   mainWindow: BrowserWindow;
@@ -149,7 +154,7 @@ ipcMain.handle(
   },
 );
 ipcMain.handle("marketplace:topics:sync-all", async (_event, value: unknown) => {
-  const active = (await publishJobs.list()).find((job) => job.name === "Sync marketplace · All topics" && ["queued", "running", "paused"].includes(job.status));
+  const active = (await publishJobs.list()).find(isActiveMarketplaceSyncJob);
   if (active) return backgroundJobsSnapshot();
   if (!firebaseAuth) throw new Error("Publishing is not initialized.");
   if (!Array.isArray(value)) throw new Error("Invalid marketplace sync plan.");
@@ -168,10 +173,16 @@ ipcMain.handle("marketplace:topics:sync-all", async (_event, value: unknown) => 
   });
   const topicCount = plan.filter((item) => item.kind === "topic").length;
   const quizCount = plan.length - topicCount;
+  const topicIds = [...new Set(plan.map((item) => item.topicId))];
+  const selectedTopicId = topicIds.length === 1 ? topicIds[0] : undefined;
   await publishJobs.start({
-    name: "Sync marketplace · All topics",
+    name: selectedTopicId
+      ? marketplaceSyncTopicJobName(selectedTopicId)
+      : marketplaceSyncAllJobName,
     description: `${topicCount} topics · ${quizCount} quizzes`,
-    route: "/topics",
+    route: selectedTopicId
+      ? `/topics/${encodeURIComponent(selectedTopicId)}`
+      : "/topics",
     initialTotal: plan.length,
     initialProgressLabel: `Preparing ${topicCount} topics and ${quizCount} quizzes`,
   }, async (control) => {

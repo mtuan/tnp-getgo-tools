@@ -2,7 +2,7 @@ import type { IpcMain } from "electron";
 import { contentV2QuizPublishContractVersion, contentV2TopicPublishContractVersion, hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
 import { reviewedTopicQuizzes, shouldPublishContainingTopic, shouldPublishContentV2Quiz } from "../domain/content-v2-publish-policy.js";
 import { createContentV2QuizPublishPreview, createContentV2TopicPublishPreview, type FirestorePublishingService } from "./firestore-publishing.js";
-import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2WorkspaceFromFiles, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
+import { clearContentV2Published, loadContentV2Assets, loadContentV2Question, loadContentV2Quiz, loadContentV2QuizResources, loadContentV2Topic, loadContentV2TopicAssets, loadContentV2WorkspaceFromFiles, normalizeContentV2QuizQuestionAssets, normalizeContentV2TopicQuestionAssets, readContentV2QuizPublishState, readContentV2TopicPublishState, recordContentV2Published, saveContentV2Topic, writeContentV2QuizPublishState, writeContentV2TopicPublishState } from "../repository/content-v2-repository.js";
 import { loadContentV2TopicReviews } from "../repository/content-v2-review-repository.js";
 import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
@@ -75,6 +75,7 @@ ipcMain.handle(
   async (_event, topicId: unknown) => {
     if (typeof topicId !== "string") throw new Error("Invalid topic ID.");
     const root = await repositoryRoot();
+    await normalizeContentV2TopicQuestionAssets(root, topicId);
     const topic = await saveContentV2Topic(
       root,
       await loadContentV2Topic(root, topicId),
@@ -337,6 +338,7 @@ ipcMain.handle(
       throw new Error("Invalid force-sync option.");
     const force = forceValue === true;
     const root = await repositoryRoot();
+    await normalizeContentV2QuizQuestionAssets(root, topicId, quizId);
     const content = (await loadContentV2WorkspaceFromFiles(root, { topicId })).content;
     const summary = content.quizzes.find(
       (item) => item.topicId === topicId && item.id === quizId,

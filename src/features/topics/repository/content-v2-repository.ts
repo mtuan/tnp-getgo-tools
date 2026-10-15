@@ -32,6 +32,7 @@ import {
   withMarketplaceQuizDefaults,
   withMarketplaceTopicDefaults,
 } from "../domain/marketplace-default-policy.js";
+import { extractContentV2InlineImageAssets } from "./content-v2-inline-assets.js";
 
 const topicIdPattern = /^[a-z][a-z0-9_-]*$/;
 const jsonFileCache = new Map<string, { mtimeMs: number; size: number; value: unknown }>();
@@ -1040,17 +1041,29 @@ export async function saveContentV2Question(
   quiz: ContentV2Quiz,
   value: unknown,
 ): Promise<ContentV2Question> {
-  const parsedQuestion = contentV2QuestionSchema.parse(value);
-  await warnForRepositoryContent(repositoryPath, `Question ${quiz.id}/${parsedQuestion.id}`, parsedQuestion);
-  const question = contentV2QuestionSchema.parse(sanitizeVietnamesePronunciationQuestion(parsedQuestion));
+  const rawQuestion = contentV2QuestionSchema.parse(value);
   if (quiz.topicId !== topic.id)
     throw new Error("Quiz does not belong to the selected topic.");
-  assertContentV2Relationship(quiz.type, question.type, "question");
-  const filePath = path.join(
+  assertContentV2Relationship(quiz.type, rawQuestion.type, "question");
+  await warnForRepositoryContent(
+    repositoryPath,
+    `Question ${quiz.id}/${rawQuestion.id}`,
+    rawQuestion,
+  );
+  const quizDirectory = path.join(
     contentRoot(repositoryPath),
     topic.id,
     "quizzes",
     quiz.id,
+  );
+  const normalized = await extractContentV2InlineImageAssets(
+    rawQuestion,
+    path.join(quizDirectory, "assets"),
+  );
+  const parsedQuestion = contentV2QuestionSchema.parse(normalized.value);
+  const question = contentV2QuestionSchema.parse(sanitizeVietnamesePronunciationQuestion(parsedQuestion));
+  const filePath = path.join(
+    quizDirectory,
     "questions",
     `${validateId(question.id, "Question ID")}.json`,
   );
@@ -1067,6 +1080,51 @@ export async function saveContentV2Question(
   if (contentChanged)
     await invalidateQuizPublished(path.join(path.dirname(path.dirname(filePath)), "quiz.json"));
   return question;
+}
+
+export async function normalizeContentV2QuizQuestionAssets(
+  repositoryPath: string,
+  topicId: string,
+  quizId: string,
+): Promise<number> {
+  const [topic, quiz] = await Promise.all([
+    loadContentV2Topic(repositoryPath, topicId),
+    loadContentV2Quiz(repositoryPath, topicId, quizId),
+  ]);
+  const questionsDirectory = path.join(
+    contentRoot(repositoryPath),
+    topicId,
+    "quizzes",
+    quizId,
+    "questions",
+  );
+  let repaired = 0;
+  for (const filePath of await questionFiles(questionsDirectory)) {
+    const question = contentV2QuestionSchema.parse(await readJson(filePath));
+    const normalized = await extractContentV2InlineImageAssets(
+      question,
+      path.join(path.dirname(questionsDirectory), "assets"),
+    );
+    if (!normalized.extractedCount) continue;
+    await saveContentV2Question(repositoryPath, topic, quiz, normalized.value);
+    repaired += 1;
+  }
+  return repaired;
+}
+
+export async function normalizeContentV2TopicQuestionAssets(
+  repositoryPath: string,
+  topicId: string,
+): Promise<number> {
+  const quizzesRoot = path.join(contentRoot(repositoryPath), topicId, "quizzes");
+  let repaired = 0;
+  for (const entry of await directories(quizzesRoot))
+    repaired += await normalizeContentV2QuizQuestionAssets(
+      repositoryPath,
+      topicId,
+      entry,
+    );
+  return repaired;
 }
 
 async function invalidateQuizPublished(quizFilePath: string): Promise<void> {
