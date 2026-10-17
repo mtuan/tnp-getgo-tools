@@ -147,7 +147,9 @@ test("marketplace topic publishing uses the canonical searchable payload", () =>
   assert.equal(data.freeQuizCount, 2);
   assert.equal(data.hasFreeQuiz, true);
   assert.deepEqual(data.grades, [3]);
-  assert.ok((data.filterKeys as string[]).includes("public|g:3"));
+  assert.ok((data.browseKeys as string[]).includes("public|g:3"));
+  assert.ok((data.searchPrefixes as string[]).includes("math"));
+  assert.deepEqual(data.filterKeys, []);
 });
 
 test("paid topic publishing requires a checkout-compatible price", () => {

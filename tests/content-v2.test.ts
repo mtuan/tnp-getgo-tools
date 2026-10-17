@@ -270,7 +270,7 @@ test("marketplace topic publishing preserves the experimental flag", () => {
   assert.equal(published.experimental, true);
 });
 
-test("marketplace topic publishing creates query keys for audience, filters, and normalized search", () => {
+test("marketplace topic publishing keeps browse facets separate from normalized search prefixes", () => {
   const published = sanitizeMarketplaceTopic({
     ...alphabetTopic,
     title: { en: "Math Adventures", vi: "Khám phá Toán" },
@@ -278,13 +278,17 @@ test("marketplace topic publishing creates query keys for audience, filters, and
     grades: [3],
     marketplace: { state: "listed", listed: true, tags: ["Tư duy", "Archimedes"] },
   });
-  const keys = published.filterKeys as string[];
+  const browseKeys = published.browseKeys as string[];
+  const searchPrefixes = published.searchPrefixes as string[];
   assert.equal(published.publishContractVersion, marketplaceTopicPublishContractVersion);
-  assert.ok(keys.includes("public"));
-  assert.ok(keys.includes("public|g:3|s:mathematics"));
-  assert.ok(keys.includes("public|g:3|s:mathematics|q:tu-duy"));
-  assert.ok(keys.includes("admin|q:arch"));
-  assert.ok(!keys.includes("admin|q:math"));
+  assert.ok(browseKeys.includes("public"));
+  assert.ok(browseKeys.includes("public|g:3|s:mathematics"));
+  assert.ok(browseKeys.includes("admin|g:3|s:mathematics"));
+  assert.ok(searchPrefixes.includes("tu-duy"));
+  assert.ok(searchPrefixes.includes("arch"));
+  assert.ok(!searchPrefixes.includes("math"));
+  assert.ok(!browseKeys.some(key => key.includes("|q:")));
+  assert.deepEqual(published.filterKeys, []);
 });
 
 test("topic titles split into persisted search tags", () => {

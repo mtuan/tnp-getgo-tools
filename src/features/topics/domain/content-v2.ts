@@ -16,9 +16,9 @@ export { marketplaceContentAccess, type MarketplaceContentAccess } from "./marke
 export const contentV2QuizPublishContractVersion = 15;
 // Increment when topic documents or shared topic-asset publication changes.
 export const contentV2TopicPublishContractVersion = 3;
-// v4 publishes total/free quiz counts and a direct free-quiz flag on every
-// marketplace topic so clients never scan quiz subcollections for list access.
-export const marketplaceTopicPublishContractVersion = 4;
+// v5 separates compact browse facets from search prefixes so marketplace
+// listings no longer persist their Cartesian product.
+export const marketplaceTopicPublishContractVersion = 5;
 
 export {
   marketplaceTopicState,
@@ -158,7 +158,7 @@ function canonicalMarketplaceSubject(value: string): string {
   return ({ math: "mathematics", maths: "mathematics", mathematics: "mathematics" } as Record<string, string>)[normalized] ?? normalized;
 }
 
-function marketplaceFilterKeys(record: ContentV2Topic, marketplace: Record<string, unknown>): string[] {
+function marketplaceBrowseKeys(record: ContentV2Topic, marketplace: Record<string, unknown>): string[] {
   const audiences = marketplace.experimental === true ? ["admin"] : ["public", "admin"];
   const grades = [...new Set([
     ...(record.grades ?? []).map(String),
@@ -174,8 +174,7 @@ function marketplaceFilterKeys(record: ContentV2Topic, marketplace: Record<strin
     ...subjects.map(subject => `${audience}|s:${subject}`),
     ...grades.flatMap(grade => subjects.map(subject => `${audience}|g:${grade}|s:${subject}`)),
   ]);
-  const terms = marketplaceSearchTerms([marketplace.tags]);
-  return [...new Set(bases.flatMap(base => [base, ...terms.map(term => `${base}|q:${term}`)]))];
+  return [...new Set(bases)];
 }
 
 export function assertMarketplaceTopicPurchaseConfiguration(
@@ -253,7 +252,16 @@ export function sanitizeMarketplaceTopic(
     languages: record.supportedLanguages,
     grades: record.grades,
     order: record.order,
-    filterKeys: marketplaceFilterKeys(record, normalizedMarketplace),
+    type: record.type,
+    subject: "subject" in record ? record.subject : undefined,
+    rounds: "rounds" in record ? record.rounds : undefined,
+    gradeGroups: "gradeGroups" in record ? record.gradeGroups : undefined,
+    browseKeys: marketplaceBrowseKeys(record, normalizedMarketplace),
+    searchPrefixes: marketplaceSearchTerms([normalizedMarketplace.tags]),
+    // Clear the legacy Cartesian search index when an existing listing is
+    // republished. Keeping the field in the update mask removes its old weight
+    // without requiring a separate migration write.
+    filterKeys: [],
   };
 }
 const baseRecord = {

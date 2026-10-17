@@ -557,7 +557,7 @@ export class FirestorePublishingService {
       (parentPath, collectionId) => this.listDocuments(parentPath, collectionId),
     );
     const { document } = await this.getDocument(relativeName);
-    const requiredFields = ["publishContractVersion", "filterKeys", "grades", "subjects", "order", "quizCount", "freeQuizCount", "hasFreeQuiz"];
+    const requiredFields = ["publishContractVersion", "browseKeys", "searchPrefixes", "type", "grades", "subjects", "order", "quizCount", "freeQuizCount", "hasFreeQuiz"];
     const missingFields = requiredFields.filter((key) => !document?.fields || !(key in document.fields));
     if (stringField(document, "contentHash") !== contentHash || missingFields.length) {
       throw new Error(
