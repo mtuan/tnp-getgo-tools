@@ -126,6 +126,10 @@ export function registerBackgroundJobsIpc(
     await fullReleaseJobs.startWebBuild();
     return snapshot();
   });
+  ipcMain.handle("release:web:clear-failed-builds", async () => {
+    await fullReleaseJobs.clearFailedBuilds();
+    return snapshot();
+  });
   ipcMain.handle("release:web:activate", async (_event, target: unknown, releaseId: unknown) => {
     if (!(target === "staging" || target === "production")) throw new Error("Invalid release target.");
     if (typeof releaseId !== "string") throw new Error("Invalid release ID.");

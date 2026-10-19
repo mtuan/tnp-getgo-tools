@@ -312,6 +312,7 @@ const api: DesktopApi = {
   startRelease: (target, scope) => ipcRenderer.invoke("release:start", target, scope),
   listWebReleases: () => ipcRenderer.invoke("release:web:list"),
   startWebBuild: () => ipcRenderer.invoke("release:web:build"),
+  clearFailedWebBuilds: () => ipcRenderer.invoke("release:web:clear-failed-builds"),
   activateWebRelease: (target, releaseId) => ipcRenderer.invoke("release:web:activate", target, releaseId),
   promoteWebRelease: (releaseId) => ipcRenderer.invoke("release:web:promote", releaseId),
   deleteWebRelease: (releaseId) => ipcRenderer.invoke("release:web:delete", releaseId),

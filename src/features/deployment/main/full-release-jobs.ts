@@ -459,4 +459,10 @@ export class FullReleaseJobManager {
     this.jobs = this.jobs.filter(job => activeStatuses.has(job.status));
     await this.persist();
   }
+
+  async clearFailedBuilds() {
+    await this.ensureLoaded();
+    this.jobs = this.jobs.filter(job => !(job.operation === "build" && job.status === "failed"));
+    await this.persist();
+  }
 }

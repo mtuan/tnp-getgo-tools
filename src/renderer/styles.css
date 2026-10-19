@@ -8773,10 +8773,8 @@ button.danger svg {
   flex-wrap: wrap;
   gap: 8px;
 }
-.release-build-statuses {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.release-environment-toggle.is-active {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
 }
 .release-doctor-copy {
   min-height: 32px;

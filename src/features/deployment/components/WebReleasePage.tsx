@@ -20,6 +20,7 @@ export function WebReleasePage({ locale, onOpenJobs }: { locale: AppSettings["lo
   const [optimisticBuild, setOptimisticBuild] = useState<BackgroundJob | null>(null);
   const [busyReleaseId, setBusyReleaseId] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
+  const [clearingFailed, setClearingFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +48,7 @@ export function WebReleasePage({ locale, onOpenJobs }: { locale: AppSettings["lo
     return [...pendingRows, ...releaseRows].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }, [releaseJobs, releases]);
   const selectedJob = selectedJobId ? releaseJobs.find(job => job.id === selectedJobId) ?? null : null;
+  const failedBuildCount = releaseJobs.filter(job => job.operation === "build" && job.status === "failed").length;
 
   const waitForContentRestore = async (releaseId: string) => {
     let snapshot = await window.getgo.restoreWebReleaseContent(releaseId);
@@ -93,21 +95,29 @@ export function WebReleasePage({ locale, onOpenJobs }: { locale: AppSettings["lo
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusyReleaseId(null); }
   };
+  const clearFailedBuilds = async () => {
+    if (!failedBuildCount || !window.confirm(copy.clearFailedConfirm.replace("{count}", String(failedBuildCount)))) return;
+    setClearingFailed(true); setError(null); setSelectedJobId(null);
+    try {
+      setOptimisticBuild(current => current?.status === "failed" ? null : current);
+      setJobs(await window.getgo.clearFailedWebBuilds());
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setClearingFailed(false); }
+  };
 
   const columns: ui.DataColumn<BuildRow>[] = [
     { key: "build", title: copy.buildColumn, width: "24%", sortValue: row => row.release?.releaseId ?? row.createdAt, render: row => <div className="deployment-report-step"><strong>{row.release?.releaseId ?? copy.pendingBuild}</strong><small>{row.release ? row.release.gitCommit.slice(0, 10) : row.job?.id.slice(0, 8)}</small></div> },
     { key: "notes", title: copy.notesColumn, width: "25%", render: row => <div className="deployment-report-step"><strong>{row.job?.progressLabel ?? copy.artifactReady}</strong>{row.job && <small>{row.job.completed}/{row.job.total}</small>}{row.job?.error && <small>{row.job.error}</small>}</div> },
     { key: "created", title: copy.createdColumn, width: 170, sortValue: row => row.createdAt, render: row => new Date(row.createdAt).toLocaleString(locale) },
     { key: "result", title: copy.resultColumn, width: 130, render: row => <ui.StatusBadge tone={row.job?.status === "failed" ? "danger" : row.job && activeStatuses.includes(row.job.status) ? "warning" : "success"}>{row.job?.status ?? copy.success}</ui.StatusBadge> },
-    { key: "status", title: copy.statusColumn, width: 210, render: row => row.release ? <div className="release-build-statuses">{row.release.activeStaging && <ui.StatusBadge tone="success">{copy.activeStaging}</ui.StatusBadge>}{row.release.activeProduction && <ui.StatusBadge tone="success">{copy.activeProduction}</ui.StatusBadge>}{!row.release.activeStaging && !row.release.activeProduction && <ui.StatusBadge tone="neutral">{copy.unused}</ui.StatusBadge>}</div> : <span>—</span> },
-    { key: "actions", title: copy.actionsColumn, role: "actions", width: 330, render: row => <div className="release-doctor-check-actions">
+    { key: "actions", title: copy.actionsColumn, role: "actions", width: 390, render: row => <div className="release-doctor-check-actions">
       {row.job && <ui.Button variant="icon" icon={<Eye />} aria-label={copy.viewResult} title={copy.viewResult} onClick={() => setSelectedJobId(row.job!.id)} />}
-      {row.release && <><ui.Button disabled={Boolean(activeJob || busyReleaseId || row.release.activeStaging)} onClick={() => requireAuth(() => activate(row.release!, "staging"))}>{row.release.activeStaging ? copy.activeStaging : copy.setStaging}</ui.Button><ui.Button variant="solid" disabled={Boolean(activeJob || busyReleaseId || row.release.activeProduction)} onClick={() => requireAuth(() => activate(row.release!, "production"))}>{row.release.activeProduction ? copy.activeProduction : copy.setProduction}</ui.Button><ui.Button variant="icon" color="danger" icon={<Trash2 />} aria-label={copy.deleteVersion} title={row.release.activeStaging || row.release.activeProduction ? copy.activeDeleteBlocked : copy.deleteVersion} loading={busyReleaseId === row.release.releaseId} disabled={Boolean(activeJob || busyReleaseId || row.release.activeStaging || row.release.activeProduction)} onClick={() => requireAuth(() => remove(row.release!))} /></>}
+      {row.release && <><ui.Button className={`release-environment-toggle ${row.release.activeStaging ? "is-active" : ""}`} variant={row.release.activeStaging ? "solid" : "outline"} color={row.release.activeStaging ? "success" : "neutral"} aria-pressed={row.release.activeStaging} disabled={Boolean(activeJob || busyReleaseId)} onClick={() => !row.release!.activeStaging && requireAuth(() => activate(row.release!, "staging"))}>{copy.staging}</ui.Button><ui.Button className={`release-environment-toggle ${row.release.activeProduction ? "is-active" : ""}`} variant={row.release.activeProduction ? "solid" : "outline"} color={row.release.activeProduction ? "success" : "neutral"} aria-pressed={row.release.activeProduction} disabled={Boolean(activeJob || busyReleaseId)} onClick={() => !row.release!.activeProduction && requireAuth(() => activate(row.release!, "production"))}>{copy.production}</ui.Button><ui.Button variant="icon" color="danger" icon={<Trash2 />} aria-label={copy.deleteVersion} title={row.release.activeStaging || row.release.activeProduction ? copy.activeDeleteBlocked : copy.deleteVersion} loading={busyReleaseId === row.release.releaseId} disabled={Boolean(activeJob || busyReleaseId || row.release.activeStaging || row.release.activeProduction)} onClick={() => requireAuth(() => remove(row.release!))} /></>}
     </div> },
   ];
 
   return <section className="deployment-page full-release-page">
-    <div className="deployment-page-heading"><ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={<><ui.Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openJobs}</ui.Button><ui.Button variant="solid" icon={<Rocket />} loading={building} disabled={Boolean(activeJob)} onClick={() => requireAuth(build)}>{copy.build}</ui.Button></>} /></div>
+    <div className="deployment-page-heading"><ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={<><ui.Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openJobs}</ui.Button><ui.ActionMenu label={copy.buildActions} disabled={clearingFailed} items={[{ id: "clear-failed", label: copy.clearFailed, icon: Trash2, color: "danger", disabled: failedBuildCount === 0, onSelect: () => requireAuth(clearFailedBuilds) }]} /><ui.Button variant="solid" icon={<Rocket />} loading={building} disabled={Boolean(activeJob)} onClick={() => requireAuth(build)}>{copy.build}</ui.Button></>} /></div>
     {error && <ui.ErrorFrame message={error} />}
     {loading ? <ui.PageLoading label={copy.loading} /> : <ui.DataTable horizontalScroll ariaLabel={copy.tableLabel} rows={rows} columns={columns} rowKey={row => row.key} emptyText={copy.emptyDescription} defaultSort={{ key: "created", direction: "desc" }} sortLocale={locale} />}
     {selectedJob && <DeploymentJobReportDrawer locale={locale} job={selectedJob} onClose={() => setSelectedJobId(null)} />}
