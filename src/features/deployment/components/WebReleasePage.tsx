@@ -3,7 +3,6 @@ import { BriefcaseBusiness, CircleStop, Eye, Rocket, Trash2 } from "lucide-react
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, WebDeploymentTarget, WebReleaseSummary } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { useAuth } from "../../authentication/components/AuthContext";
-import { isActiveMarketplaceSyncJob } from "../../topics/domain/marketplace-sync-job";
 import { DeploymentJobReportDrawer } from "./DeploymentJobReportDrawer";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
@@ -51,17 +50,6 @@ export function WebReleasePage({ locale, onOpenJobs }: { locale: AppSettings["lo
   const selectedJob = selectedJobId ? releaseJobs.find(job => job.id === selectedJobId) ?? null : null;
   const failedBuildCount = releaseJobs.filter(job => job.operation === "build" && job.status === "failed").length;
 
-  const waitForContentRestore = async (releaseId: string) => {
-    let snapshot = await window.getgo.restoreWebReleaseContent(releaseId);
-    let contentJob = snapshot.jobs.find(isActiveMarketplaceSyncJob);
-    while (contentJob) {
-      await new Promise(resolve => window.setTimeout(resolve, 500));
-      snapshot = await window.getgo.getBackgroundJobs();
-      const settled = snapshot.jobs.find(job => job.id === contentJob?.id);
-      if (settled && ["failed", "cancelled"].includes(settled.status)) throw new Error(settled.error ?? copy.contentSyncFailed);
-      contentJob = snapshot.jobs.find(isActiveMarketplaceSyncJob);
-    }
-  };
   const build = async () => {
     if (activeJob || !window.confirm(copy.buildConfirm)) return;
     const createdAt = new Date().toISOString();
@@ -85,7 +73,7 @@ export function WebReleasePage({ locale, onOpenJobs }: { locale: AppSettings["lo
   const activate = async (release: WebReleaseSummary, target: Exclude<WebDeploymentTarget, "development">) => {
     if (activeJob || !window.confirm(copy.activateConfirm.replace("{release}", release.releaseId).replace("{target}", target))) return;
     setBusyReleaseId(release.releaseId); setError(null);
-    try { await waitForContentRestore(release.releaseId); setJobs(await window.getgo.activateWebRelease(target, release.releaseId)); }
+    try { setJobs(await window.getgo.activateWebRelease(target, release.releaseId)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusyReleaseId(null); }
   };
@@ -128,7 +116,7 @@ export function WebReleasePage({ locale, onOpenJobs }: { locale: AppSettings["lo
       {row.job && <ui.Button variant="icon" icon={<Eye />} aria-label={copy.viewResult} title={copy.viewResult} onClick={() => setSelectedJobId(row.job!.id)} />}
       {row.job && activeStatuses.includes(row.job.status) && <ui.Button variant="icon" color="danger" icon={<CircleStop />} aria-label={copy.cancelBuild} title={copy.cancelBuild} loading={busyJobId === row.job.id} disabled={!row.job.cancellable || Boolean(busyJobId)} onClick={() => requireAuth(() => cancelBuild(row.job!))} />}
       {row.release && <><ui.Button className={`release-environment-toggle ${row.release.activeStaging ? "is-active" : ""}`} variant={row.release.activeStaging ? "solid" : "outline"} color={row.release.activeStaging ? "success" : "neutral"} aria-pressed={row.release.activeStaging} disabled={Boolean(activeJob || busyReleaseId)} onClick={() => !row.release!.activeStaging && requireAuth(() => activate(row.release!, "staging"))}>{copy.staging}</ui.Button><ui.Button className={`release-environment-toggle ${row.release.activeProduction ? "is-active" : ""}`} variant={row.release.activeProduction ? "solid" : "outline"} color={row.release.activeProduction ? "success" : "neutral"} aria-pressed={row.release.activeProduction} disabled={Boolean(activeJob || busyReleaseId)} onClick={() => !row.release!.activeProduction && requireAuth(() => activate(row.release!, "production"))}>{copy.production}</ui.Button></>}
-      {(row.release || (row.job && !activeStatuses.includes(row.job.status))) && <ui.Button variant="icon" color="danger" icon={<Trash2 />} aria-label={copy.deleteVersion} title={row.release?.activeStaging || row.release?.activeProduction ? copy.activeDeleteBlocked : copy.deleteVersion} loading={busyJobId === (row.job?.id ?? row.release?.releaseId)} disabled={Boolean(activeJob || busyReleaseId || busyJobId || row.release?.activeStaging || row.release?.activeProduction)} onClick={() => requireAuth(() => deleteBuild(row))} />}
+      {(row.release || (row.job && !activeStatuses.includes(row.job.status))) && <ui.Button variant="icon" color="danger" icon={<Trash2 />} aria-label={copy.deleteVersion} title={row.release?.activeStaging || row.release?.activeProduction ? copy.activeDeleteBlocked : copy.deleteVersion} loading={busyJobId === (row.job?.id ?? row.release?.releaseId)} disabled={Boolean(row.release && (activeJob || busyReleaseId || row.release.activeStaging || row.release.activeProduction))} onClick={() => requireAuth(() => deleteBuild(row))} />}
     </div> },
   ];
 

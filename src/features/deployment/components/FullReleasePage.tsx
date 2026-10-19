@@ -8,8 +8,6 @@ import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import { DeploymentJobReportDrawer } from "./DeploymentJobReportDrawer";
 import { ReleaseStageStatus } from "./ReleaseStageStatus";
-import { marketplaceSyncPlan } from "../../topics/domain/marketplace-sync-plan";
-import { isActiveMarketplaceSyncJob } from "../../topics/domain/marketplace-sync-job";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
 
@@ -95,30 +93,7 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
     if (!window.confirm(confirmation)) return;
     setReleaseBusy(scope);
     setError(null);
-    try {
-      if (scope === "web" || scope === "all") {
-        const preview = await window.getgo.loadContentV2SyncPreview();
-        const plan = marketplaceSyncPlan(preview.content.topics, preview.content.quizzes);
-        const blocked = plan.filter(item => !item.ready);
-        if (blocked.length > 0) throw new Error(releaseCopy.contentReviewRequired.replace("{count}", String(blocked.length)));
-        const items = plan.map(item => item.kind === "topic"
-          ? { kind: "topic" as const, topicId: item.topic.id }
-          : { kind: "quiz" as const, topicId: item.topic.id, quizId: item.quiz.id });
-        if (items.length > 0) {
-          let jobs = await window.getgo.syncContentV2Marketplace(items);
-          let contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
-          while (contentJob) {
-            await new Promise(resolve => window.setTimeout(resolve, 500));
-            jobs = await window.getgo.getBackgroundJobs();
-            const settled = jobs.jobs.find(job => job.id === contentJob?.id);
-            if (settled && (settled.status === "failed" || settled.status === "cancelled"))
-              throw new Error(settled.error ?? releaseCopy.contentSyncFailed);
-            contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
-          }
-        }
-      }
-      setSnapshot(await window.getgo.startRelease(target, scope));
-    }
+    try { setSnapshot(await window.getgo.startRelease(target, scope)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setReleaseBusy(null); }
   };
@@ -138,19 +113,7 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
     if (activeRelease || !window.confirm(releaseCopy.rollbackConfirm.replace("{release}", releaseId).replace("{target}", target))) return;
     setReleaseBusy("web");
     setError(null);
-    try {
-      let jobs = await window.getgo.restoreWebReleaseContent(releaseId);
-      let contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
-      while (contentJob) {
-        await new Promise(resolve => window.setTimeout(resolve, 500));
-        jobs = await window.getgo.getBackgroundJobs();
-        const settled = jobs.jobs.find(job => job.id === contentJob?.id);
-        if (settled && (settled.status === "failed" || settled.status === "cancelled"))
-          throw new Error(settled.error ?? releaseCopy.contentSyncFailed);
-        contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
-      }
-      setSnapshot(await window.getgo.rollbackWebRelease(target, releaseId));
-    }
+    try { setSnapshot(await window.getgo.rollbackWebRelease(target, releaseId)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setReleaseBusy(null); }
   };
@@ -158,19 +121,7 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
     if (activeRelease || !window.confirm(releaseCopy.promoteConfirm.replace("{release}", releaseId))) return;
     setReleaseBusy("web");
     setError(null);
-    try {
-      let jobs = await window.getgo.restoreWebReleaseContent(releaseId);
-      let contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
-      while (contentJob) {
-        await new Promise(resolve => window.setTimeout(resolve, 500));
-        jobs = await window.getgo.getBackgroundJobs();
-        const settled = jobs.jobs.find(job => job.id === contentJob?.id);
-        if (settled && (settled.status === "failed" || settled.status === "cancelled"))
-          throw new Error(settled.error ?? releaseCopy.contentSyncFailed);
-        contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
-      }
-      setSnapshot(await window.getgo.promoteWebRelease(releaseId));
-    }
+    try { setSnapshot(await window.getgo.promoteWebRelease(releaseId)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setReleaseBusy(null); }
   };

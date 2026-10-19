@@ -109,8 +109,6 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:route:load", topicId),
   loadContentV2SyncPreview: () =>
     ipcRenderer.invoke("content-v2:sync-preview:load"),
-  restoreWebReleaseContent: (releaseId) =>
-    ipcRenderer.invoke("content-v2:release:restore", releaseId),
   loadContentV2Quiz: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:quiz:load", topicId, quizId),
   openQuizSourcePdf: (manifestPath) =>

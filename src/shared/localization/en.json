@@ -760,13 +760,11 @@
       "stagingStatus": "Staging",
       "productionStatus": "Production",
       "promote": "Promote to production",
-      "promoteConfirm": "Promote the exact archived release {release} to production? Its Web bundle, Firebase code and rules, configuration, and shared content will be deployed; user data will not be changed.",
+      "promoteConfirm": "Promote the exact archived release {release} to production? Its Web bundle, Firebase Functions, rules, indexes, and configuration will be deployed; data will not be changed.",
       "noArchivedTitle": "No archived releases",
       "noArchivedDescription": "Create a staging Web release to archive the first bundle.",
       "rollback": "Rollback",
-      "rollbackConfirm": "Rollback {target} Web, Firebase rules, Functions, and shared release data to {release}? User data will not be changed.",
-      "contentReviewRequired": "{count} shared-content items require editorial review before this release can start.",
-      "contentSyncFailed": "Shared-content publication failed. The application release was not started."
+      "rollbackConfirm": "Rollback {target} Web, Firebase rules, indexes, Functions, and configuration to {release}? Data will not be changed."
     },
     "releaseManager": {
       "eyebrow": "Web releases",
@@ -777,7 +775,7 @@
       "buildActions": "Build actions",
       "clearFailed": "Clear failed builds",
       "clearFailedConfirm": "Clear all {count} failed builds from the table? Build artifacts that completed successfully are not affected.",
-      "buildConfirm": "Create a new immutable Web, Firebase, configuration, and shared-content build?",
+      "buildConfirm": "Create a new immutable Web, Firebase Functions, rules, indexes, and configuration build?",
       "tableLabel": "Release builds",
       "buildColumn": "Build",
       "notesColumn": "Notes",
@@ -800,7 +798,7 @@
       "setProduction": "Set as production",
       "staging": "Staging",
       "production": "Production",
-      "activateConfirm": "Deploy build {release} to {target}? This replaces the active Web, Firebase code and rules, configuration, and shared content for that environment. User data is unchanged.",
+      "activateConfirm": "Deploy build {release} to {target}? This replaces the active Web, Firebase Functions, rules, indexes, and configuration. Data is unchanged.",
       "versionsTitle": "Staging versions",
       "versionsDescription": "Select the exact tested staging version to promote. Active staging and production versions are protected from deletion.",
       "loading": "Loading release versions",
@@ -812,17 +810,15 @@
       "selected": "Selected",
       "selectedTitle": "Selected: {release}",
       "noSelection": "Select a staging version",
-      "promoteDescription": "Production receives this version's Web bundle, Firebase code and rules, configuration, and shared content. User data is unchanged.",
+      "promoteDescription": "Production receives this version's Web bundle, Firebase Functions, rules, indexes, and configuration. Data is unchanged.",
       "promote": "Roll to production",
       "alreadyProduction": "Active in production",
       "promoteConfirm": "Roll the exact staging version {release} to production? User data will not be changed.",
       "deleteVersion": "Delete build",
       "deleteBuildConfirm": "Delete build {build} and its job history? Successful unused artifacts and failed build records will be removed.",
       "activeDeleteBlocked": "Active staging or production versions cannot be deleted",
-      "deleteConfirm": "Delete unused build {release} from the release branch and remove its Git tag? Git history remains recoverable.",
-      "releaseRunning": "Release in progress",
-      "contentReviewRequired": "{count} shared-content items require editorial review before a staging release can start.",
-      "contentSyncFailed": "Shared-content publication failed. The application release was not started."
+      "deleteConfirm": "Delete unused build {release} from the releases repository and remove its Git tag? Git history remains recoverable.",
+      "releaseRunning": "Release in progress"
     }
   },
   "quizPublish": {

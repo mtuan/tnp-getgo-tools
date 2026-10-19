@@ -760,13 +760,11 @@
       "stagingStatus": "Staging",
       "productionStatus": "Production",
       "promote": "Đưa lên production",
-      "promoteConfirm": "Đưa chính xác bản lưu trữ {release} lên production? Gói Web, mã và quy tắc Firebase, cấu hình và nội dung dùng chung của bản này sẽ được triển khai; dữ liệu người dùng không thay đổi.",
+      "promoteConfirm": "Đưa chính xác bản lưu trữ {release} lên production? Gói Web, Firebase Functions, quy tắc, chỉ mục và cấu hình của bản này sẽ được triển khai; dữ liệu không thay đổi.",
       "noArchivedTitle": "Chưa có bản lưu trữ",
       "noArchivedDescription": "Tạo bản phát hành Web staging để lưu trữ gói đầu tiên.",
       "rollback": "Quay lui",
-      "rollbackConfirm": "Quay lui Web, quy tắc Firebase, Functions và dữ liệu phát hành dùng chung của {target} về {release}? Dữ liệu người dùng sẽ không thay đổi.",
-      "contentReviewRequired": "Có {count} mục nội dung dùng chung cần được duyệt trước khi bắt đầu phát hành.",
-      "contentSyncFailed": "Xuất bản nội dung dùng chung thất bại. Bản phát hành ứng dụng chưa được bắt đầu."
+      "rollbackConfirm": "Quay lui Web, quy tắc, chỉ mục, Firebase Functions và cấu hình của {target} về {release}? Dữ liệu sẽ không thay đổi."
     },
     "releaseManager": {
       "eyebrow": "Bản phát hành Web",
@@ -777,7 +775,7 @@
       "buildActions": "Thao tác build",
       "clearFailed": "Xóa các build thất bại",
       "clearFailedConfirm": "Xóa tất cả {count} build thất bại khỏi bảng? Các gói build thành công không bị ảnh hưởng.",
-      "buildConfirm": "Tạo một bản build Web, Firebase, cấu hình và nội dung dùng chung bất biến mới?",
+      "buildConfirm": "Tạo một bản build bất biến mới gồm Web, Firebase Functions, quy tắc, chỉ mục và cấu hình?",
       "tableLabel": "Danh sách bản build",
       "buildColumn": "Bản build",
       "notesColumn": "Ghi chú",
@@ -800,7 +798,7 @@
       "setProduction": "Đặt làm production",
       "staging": "Staging",
       "production": "Production",
-      "activateConfirm": "Triển khai bản {release} lên {target}? Thao tác này thay thế Web, mã và quy tắc Firebase, cấu hình và nội dung dùng chung đang hoạt động của môi trường đó. Dữ liệu người dùng không thay đổi.",
+      "activateConfirm": "Triển khai bản {release} lên {target}? Thao tác này thay thế Web, Firebase Functions, quy tắc, chỉ mục và cấu hình đang hoạt động. Dữ liệu không thay đổi.",
       "versionsTitle": "Các phiên bản staging",
       "versionsDescription": "Chọn chính xác phiên bản staging đã kiểm tra để đưa lên production. Phiên bản đang hoạt động trên staging và production được bảo vệ khỏi thao tác xóa.",
       "loading": "Đang tải các phiên bản phát hành",
@@ -812,17 +810,15 @@
       "selected": "Đã chọn",
       "selectedTitle": "Đã chọn: {release}",
       "noSelection": "Chọn một phiên bản staging",
-      "promoteDescription": "Production nhận gói Web, mã và quy tắc Firebase, cấu hình và nội dung dùng chung của phiên bản này. Dữ liệu người dùng không thay đổi.",
+      "promoteDescription": "Production nhận gói Web, Firebase Functions, quy tắc, chỉ mục và cấu hình của phiên bản này. Dữ liệu không thay đổi.",
       "promote": "Đưa lên production",
       "alreadyProduction": "Đang chạy trên production",
       "promoteConfirm": "Đưa chính xác phiên bản staging {release} lên production? Dữ liệu người dùng sẽ không thay đổi.",
       "deleteVersion": "Xóa bản build",
       "deleteBuildConfirm": "Xóa bản build {build} và lịch sử công việc? Gói thành công chưa sử dụng và bản ghi build thất bại sẽ bị xóa.",
       "activeDeleteBlocked": "Không thể xóa phiên bản đang hoạt động trên staging hoặc production",
-      "deleteConfirm": "Xóa bản build chưa sử dụng {release} khỏi nhánh phát hành và xóa Git tag? Vẫn có thể khôi phục từ lịch sử Git.",
-      "releaseRunning": "Đang phát hành",
-      "contentReviewRequired": "Có {count} mục nội dung dùng chung cần được duyệt trước khi bắt đầu phát hành staging.",
-      "contentSyncFailed": "Xuất bản nội dung dùng chung thất bại. Bản phát hành ứng dụng chưa được bắt đầu."
+      "deleteConfirm": "Xóa bản build chưa sử dụng {release} khỏi kho bản phát hành và xóa Git tag? Vẫn có thể khôi phục từ lịch sử Git.",
+      "releaseRunning": "Đang phát hành"
     }
   },
   "quizPublish": {

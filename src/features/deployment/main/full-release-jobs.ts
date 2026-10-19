@@ -95,6 +95,16 @@ export class FullReleaseJobManager {
     throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
   }
 
+  private async releasesRoot() {
+    const configured = process.env.GETGO_RELEASES_ROOT?.trim();
+    const candidate = configured
+      ? path.resolve(configured)
+      : path.resolve(await this.webRoot(), "..", "tnp-getgo-releases");
+    const repository = await fs.stat(path.join(candidate, ".git")).catch(() => null);
+    if (repository?.isDirectory()) return candidate;
+    throw new Error(`GetGo Releases repository was not found at ${candidate}. Clone it or set GETGO_RELEASES_ROOT.`);
+  }
+
   private runCapture(root: string, args: string[], executable = npmExecutable, environment: NodeJS.ProcessEnv = process.env) {
     return new Promise<{ code: number | null; output: string }>((resolve, reject) => {
       const child = spawnCommand(executable, args, { cwd: root, env: environment, stdio: ["ignore", "pipe", "pipe"] });
@@ -183,8 +193,7 @@ export class FullReleaseJobManager {
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
 
   async listWebReleases(): Promise<WebReleaseSummary[]> {
-    const root = await this.webRoot();
-    const releasesRoot = path.join(root, "releases");
+    const releasesRoot = path.join(await this.releasesRoot(), "web");
     const entries = await fs.readdir(releasesRoot, { withFileTypes: true }).catch(() => []);
     const releases = await Promise.all(entries.filter(entry => entry.isDirectory()).map(async (entry): Promise<WebReleaseSummary | null> => {
       try {
@@ -265,7 +274,7 @@ export class FullReleaseJobManager {
     if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another build or release is already active.");
     const job: ReleaseJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "build", target: "staging", releaseScope: "web", buildOnly: true,
-      name: "Web release build", description: "Create one immutable Web, Firebase, configuration, and shared-content bundle",
+      name: "Web release build", description: "Create one immutable Web, Firebase, and environment-configuration bundle",
       status: "queued", completed: 0, total: 12, progressLabel: "Build queued", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Immutable release build queued." }],
     };
@@ -301,6 +310,7 @@ export class FullReleaseJobManager {
 
   private async run(job: ReleaseJob) {
     const root = await this.webRoot();
+    const releasesRoot = await this.releasesRoot();
     if (job.status === "cancelled") return;
     const runtime: Runtime = { cancelled: false, buffers: { stdout: "", stderr: "" }, stageOutcomes: {} };
     this.runtimes.set(job.id, runtime);
@@ -318,7 +328,10 @@ export class FullReleaseJobManager {
         if (runtime.cancelled) return;
         job.progressLabel = command.label;
         job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: `$ npm ${command.args.join(" ")}` });
-        const code = await this.runCommand(job, runtime, root, command.args, completed);
+        const code = await this.runCommand(job, runtime, root, command.args, completed, {
+          ...process.env,
+          GETGO_RELEASES_ROOT: releasesRoot,
+        });
         if (runtime.cancelled) return;
         if (code !== 0) throw new Error(`${command.label} failed with exit code ${code ?? "unknown"}.`);
         completed += command.steps;
@@ -352,9 +365,9 @@ export class FullReleaseJobManager {
     }
   }
 
-  private runCommand(job: ReleaseJob, runtime: Runtime, root: string, args: string[], completedBefore: number) {
+  private runCommand(job: ReleaseJob, runtime: Runtime, root: string, args: string[], completedBefore: number, environment: NodeJS.ProcessEnv) {
     return new Promise<number | null>((resolve, reject) => {
-      const child = spawnCommand(npmExecutable, args, { cwd: root, env: process.env, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawnCommand(npmExecutable, args, { cwd: root, env: environment, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
       runtime.child = child;
       const consume = (stream: "stdout" | "stderr", chunk: Buffer) => {
         const value = runtime.buffers[stream] + chunk.toString("utf8");
