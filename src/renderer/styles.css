@@ -8776,6 +8776,60 @@ button.danger svg {
 .release-environment-toggle.is-active {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
 }
+.release-build-table .ui-data-table table {
+  min-width: 980px;
+}
+.release-build-table .ui-data-table td {
+  height: 82px;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.release-build-identity,
+.release-build-notes {
+  min-width: 0;
+}
+.release-build-identity strong,
+.release-build-identity small,
+.release-build-notes > strong,
+.release-build-error {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.release-build-notes {
+  display: grid;
+  gap: 6px;
+  max-height: 64px;
+  line-height: 1.2;
+}
+.release-build-progress {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.release-build-progress > div {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted, #e2e8f0);
+}
+.release-build-progress > div > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary, #635bff);
+  transition: width 180ms ease;
+}
+.release-build-progress small {
+  white-space: nowrap;
+}
+.release-build-actions {
+  width: max-content;
+  max-width: 100%;
+  flex-wrap: nowrap;
+}
 .release-doctor-copy {
   min-height: 32px;
   padding: 6px 10px;

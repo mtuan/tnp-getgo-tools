@@ -266,7 +266,7 @@ export class FullReleaseJobManager {
     const job: ReleaseJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "build", target: "staging", releaseScope: "web", buildOnly: true,
       name: "Web release build", description: "Create one immutable Web, Firebase, configuration, and shared-content bundle",
-      status: "queued", completed: 0, total: 1, progressLabel: "Build queued", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
+      status: "queued", completed: 0, total: 12, progressLabel: "Build queued", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Immutable release build queued." }],
     };
     this.jobs.unshift(job);
@@ -301,13 +301,14 @@ export class FullReleaseJobManager {
 
   private async run(job: ReleaseJob) {
     const root = await this.webRoot();
+    if (job.status === "cancelled") return;
     const runtime: Runtime = { cancelled: false, buffers: { stdout: "", stderr: "" }, stageOutcomes: {} };
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
     await this.persist();
     const commands = job.buildOnly
-      ? [{ stage: "web" as const, label: "Building immutable release bundle", args: ["run", "release:web:create"], steps: 1 }]
+      ? [{ stage: "web" as const, label: "Building immutable release bundle", args: ["run", "release:web:create"], steps: 12 }]
       : job.archivedOperation
       ? [{ stage: "web" as const, label: job.archivedOperation === "rollback" ? `Rolling back Web and Firebase to ${job.releaseId}` : `Deploying ${job.releaseId} to ${job.target}`, args: ["run", job.archivedOperation === "rollback" ? `release:web:rollback:${job.target}` : job.target === "staging" ? "release:web:staging" : "release:web:production", "--", job.releaseId!], steps: 1 }]
       : releaseCommands(job.target, job.releaseScope ?? "all");
@@ -383,7 +384,7 @@ export class FullReleaseJobManager {
             continue;
           }
           job.logs?.push({ timestamp: new Date().toISOString(), stream, message });
-          job.progressLabel = message;
+          if (!job.buildOnly) job.progressLabel = message;
         }
         if ((job.logs?.length ?? 0) > 2500) job.logs = job.logs!.slice(-2500);
         void this.persist();
@@ -405,11 +406,13 @@ export class FullReleaseJobManager {
     await this.ensureLoaded();
     const job = this.jobs.find(item => item.id === id);
     const runtime = this.runtimes.get(id);
-    if (!job || !runtime || !activeStatuses.has(job.status)) return;
-    runtime.cancelled = true;
-    this.terminate(runtime);
+    if (!job || !activeStatuses.has(job.status)) return;
+    if (runtime) {
+      runtime.cancelled = true;
+      this.terminate(runtime);
+    }
     job.status = "cancelled";
-    job.progressLabel = "Release cancelled";
+    job.progressLabel = job.buildOnly ? "Build cancelled" : "Release cancelled";
     job.cancellable = false;
     job.retryable = true;
     job.finishedAt = new Date().toISOString();
