@@ -10,10 +10,11 @@ export { marketplaceContentAccess, type MarketplaceContentAccess } from "./marke
 
 // Increment when the published quiz payload or Storage layout changes so
 // existing target hashes schedule one corrective sync.
-// v15 enriches question image asset references with intrinsic width/height metadata.
+// v17 forces one verified rewrite of public quiz summaries after inherited
+// marketplace access became part of quiz publication identity.
 // Bumping the contract makes existing published quiz bundles stale so their
-// questions and assets are synchronized together once under the new format.
-export const contentV2QuizPublishContractVersion = 15;
+// marketplace summaries are synchronized once under the corrected contract.
+export const contentV2QuizPublishContractVersion = 17;
 // Increment when topic documents or shared topic-asset publication changes.
 export const contentV2TopicPublishContractVersion = 3;
 // v5 separates compact browse facets from search prefixes so marketplace

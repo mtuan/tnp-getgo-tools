@@ -173,18 +173,22 @@ ipcMain.handle("marketplace:topics:sync-all", async (_event, value: unknown) => 
   });
   const topicCount = plan.filter((item) => item.kind === "topic").length;
   const quizCount = plan.length - topicCount;
+  const expandsTopicQuizzes = topicCount > 0;
+  const syncScopeDescription = expandsTopicQuizzes
+    ? `${topicCount} ${topicCount === 1 ? "topic" : "topics"} and their changed quizzes`
+    : `${quizCount} ${quizCount === 1 ? "quiz" : "quizzes"}`;
   const topicIds = [...new Set(plan.map((item) => item.topicId))];
   const selectedTopicId = topicIds.length === 1 ? topicIds[0] : undefined;
   await publishJobs.start({
     name: selectedTopicId
       ? marketplaceSyncTopicJobName(selectedTopicId)
       : marketplaceSyncAllJobName,
-    description: `${topicCount} topics · ${quizCount} quizzes`,
+    description: syncScopeDescription,
     route: selectedTopicId
       ? `/topics/${encodeURIComponent(selectedTopicId)}`
       : "/topics",
     initialTotal: plan.length,
-    initialProgressLabel: `Preparing ${topicCount} topics and ${quizCount} quizzes`,
+    initialProgressLabel: `Preparing ${syncScopeDescription}`,
   }, async (control) => {
     const root = await repositoryRoot();
     await syncAllMarketplaceTopics(root, plan, publishing, firebaseAuth, control);

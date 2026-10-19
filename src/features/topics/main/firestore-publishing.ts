@@ -823,6 +823,12 @@ export class FirestorePublishingService {
       throw new Error(
         "Firestore verification failed: the quiz hash does not match.",
       );
+    const verifiedMarketplaceQuiz = await this.getDocument(marketplaceQuiz.path);
+    const expectedMarketplaceAccess = marketplaceContentAccess(quiz.marketplace, topicAccess);
+    if (stringField(verifiedMarketplaceQuiz.document, "access") !== expectedMarketplaceAccess)
+      throw new Error(
+        `Firestore verification failed: marketplace quiz access is not ${expectedMarketplaceAccess}.`,
+      );
     await control?.advance("Verified published quiz");
     return {
       kind: "quiz",

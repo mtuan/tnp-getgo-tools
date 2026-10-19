@@ -127,7 +127,19 @@ export async function syncAllMarketplaceTopics(
         withQuestionAssetDimensions(root, topicId, summary.id, question)));
       const assets = await loadContentV2Assets(root, topicId, summary.id, { quiz, questions, resources }, false);
       const previous = await readContentV2QuizPublishState(summary.filePath);
-      const result = await publishing.publishContentV2Quiz(topicId, quiz, marketplaceContentAccess(topic.marketplace), questions, resources, assets, summary.localHash, previous.targets[target.projectId]);
+      const result = await publishing.publishContentV2Quiz(
+        topicId,
+        quiz,
+        marketplaceContentAccess(topic.marketplace),
+        questions,
+        resources,
+        assets,
+        summary.localHash,
+        previous.targets[target.projectId],
+        control,
+        0,
+        summary.publishContractStale,
+      );
       await recordContentV2Published(summary.filePath, result.contentHash, result.publishedAt);
       await writeContentV2QuizPublishState(summary.filePath, { schemaVersion: 1, targets: { ...previous.targets, [result.projectId]: { publishContractVersion: contentV2QuizPublishContractVersion, environment: result.environment, projectId: result.projectId, contentHash: result.contentHash, publishedAt: result.publishedAt, items: result.items } } });
       quizResults.set(summary.key, result);

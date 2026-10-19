@@ -342,6 +342,10 @@ export async function loadContentV2WorkspaceFromFiles(
         : hashContentV2({
             publishContractVersion: contentV2QuizPublishContractVersion,
             quiz: sanitizeContentV2Quiz(quiz),
+            resolvedMarketplaceAccess: marketplaceContentAccess(
+              quiz.marketplace,
+              marketplaceContentAccess(topic.marketplace),
+            ),
             questions: quizQuestions.map((item) =>
               sanitizeContentV2Question(item.record),
             ),
@@ -902,6 +906,7 @@ export async function calculateContentV2QuizHash(
   topicId: string,
   quizId: string,
 ): Promise<string> {
+  const topic = await loadContentV2Topic(repositoryPath, topicId);
   const quiz = await loadContentV2Quiz(repositoryPath, topicId, quizId);
   const questionDirectory = path.join(
     contentRoot(repositoryPath),
@@ -937,6 +942,10 @@ export async function calculateContentV2QuizHash(
   return hashContentV2({
     publishContractVersion: contentV2QuizPublishContractVersion,
     quiz: sanitizeContentV2Quiz(quiz),
+    resolvedMarketplaceAccess: marketplaceContentAccess(
+      quiz.marketplace,
+      marketplaceContentAccess(topic.marketplace),
+    ),
     questions: questions.map(sanitizeContentV2Question),
     resources,
     assets,

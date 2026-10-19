@@ -170,6 +170,9 @@ ipcMain.handle(
             assets,
             quizSummary.localHash,
             publishState.targets[target.projectId],
+            undefined,
+            0,
+            quizSummary.publishContractStale,
           );
           await recordContentV2Published(
             quizSummary.filePath,
@@ -422,7 +425,7 @@ ipcMain.handle(
           publishState.targets[target.projectId],
           control,
           publishContainingTopic ? 2 : 0,
-          force,
+          force || summary.publishContractStale,
         );
         const topicPublishState = await readContentV2TopicPublishState(topicSummary.filePath);
         const topicAssets = await loadContentV2TopicAssets(root, topic, false);
