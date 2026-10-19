@@ -1,13 +1,15 @@
-import { BriefcaseBusiness, Camera, CreditCard, FileDown, Images, KeyRound, Library, MessageSquareWarning, Settings, ShieldCheck, UserRoundCog, UsersRound, type LucideIcon } from "lucide-react";
+import { BriefcaseBusiness, Camera, Code2, CreditCard, FileDown, Images, KeyRound, Library, MessageSquareWarning, Rocket, Settings, ShieldCheck, UserRoundCog, UsersRound, type LucideIcon } from "lucide-react";
 import type { AppSettings } from "../../shared/domain/models";
 import type { SelectOption } from "../../shared/ui/Select";
 
-export type View = "topics" | "quizzes" | "feedbacks" | "jobs" | "deploy"
+export type View = "topics" | "quizzes" | "feedbacks" | "jobs" | "development" | "deploy"
   | "amc-import" | "image-pdf" | "screenshots" | "designs" | "avatar-sets" | "payments" | "access" | "members" | "safe-words" | "settings" | "not-found";
 export type NavigableView = Exclude<View, "not-found">;
 type NavigationItem = { id: NavigableView; label: string; icon: LucideIcon };
 
 export const primaryNavigation: NavigationItem[] = [
+  { id: "development", label: "Development", icon: Code2 },
+  { id: "deploy", label: "Deploy", icon: Rocket },
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "topics", label: "Topics", icon: Library },
   { id: "feedbacks", label: "Feedbacks", icon: MessageSquareWarning },
@@ -29,14 +31,14 @@ export const environmentOptions: SelectOption[] = [
   { value: "production", label: "Production" },
 ];
 
-export const deploymentTargets = ["development", "staging", "production"] as const satisfies readonly AppSettings["environment"][];
+export const deploymentTargets = ["staging", "production"] as const satisfies readonly AppSettings["environment"][];
 
 export function deploymentTargetFromRoute(route: string): AppSettings["environment"] | null {
   let pathname: string;
   try { pathname = new URL(route, "app://getgo").pathname; }
   catch { pathname = route.split("?")[0]; }
-  const target = pathname.match(/^\/deploy\/(development|staging|production)\/?$/)?.[1];
-  return target && deploymentTargets.includes(target as AppSettings["environment"])
-    ? target as AppSettings["environment"]
+  const target = pathname.match(/^\/deploy\/(staging|production)\/?$/)?.[1];
+  return target && deploymentTargets.includes(target as (typeof deploymentTargets)[number])
+    ? target as (typeof deploymentTargets)[number]
     : null;
 }

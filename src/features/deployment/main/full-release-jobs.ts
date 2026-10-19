@@ -2,12 +2,12 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { BackgroundJob, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
-type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "deploy"; releaseScope?: ReleaseScope };
+type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "build" | "deploy"; releaseScope?: ReleaseScope; releaseId?: string; buildOnly?: boolean; archivedOperation?: "activate" | "promote" | "rollback" };
 type Runtime = {
   child?: ChildProcess;
   cancelled: boolean;
@@ -18,8 +18,8 @@ type Runtime = {
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const activeStatuses = new Set(["queued", "running", "paused"]);
 const targetScripts: Record<ReleaseTarget, string> = {
-  staging: "deploy:getgo:staging",
-  production: "deploy:getgo:production",
+  staging: "release:web:staging",
+  production: "release:web:production",
 };
 
 export function releaseCommands(target: ReleaseTarget, scope: ReleaseScope) {
@@ -182,6 +182,99 @@ export class FullReleaseJobManager {
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
 
+  async listWebReleases(): Promise<WebReleaseSummary[]> {
+    const root = await this.webRoot();
+    const releasesRoot = path.join(root, "releases");
+    const entries = await fs.readdir(releasesRoot, { withFileTypes: true }).catch(() => []);
+    const releases = await Promise.all(entries.filter(entry => entry.isDirectory()).map(async (entry): Promise<WebReleaseSummary | null> => {
+      try {
+        const value = JSON.parse(await fs.readFile(path.join(releasesRoot, entry.name, "release.json"), "utf8")) as {
+          releaseId: string; createdAt: string; gitCommit: string; artifact: { bytes: number };
+          environments: { staging: { status: string; events?: Array<{ deployedAt: string }> }; production: { status: string; events?: Array<{ deployedAt: string }> } };
+        };
+        return {
+          releaseId: value.releaseId, createdAt: value.createdAt, gitCommit: value.gitCommit,
+          artifactBytes: value.artifact.bytes, stagingStatus: value.environments.staging.status,
+          productionStatus: value.environments.production.status,
+          stagingDeployedAt: value.environments.staging.events?.at(-1)?.deployedAt,
+          productionDeployedAt: value.environments.production.events?.at(-1)?.deployedAt,
+          activeStaging: false, activeProduction: false,
+        };
+      } catch { return null; }
+    }));
+    const summaries = releases.filter((item): item is WebReleaseSummary => Boolean(item)).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const activeStaging = [...summaries].filter(item => item.stagingDeployedAt).sort((left, right) => right.stagingDeployedAt!.localeCompare(left.stagingDeployedAt!))[0]?.releaseId;
+    const activeProduction = [...summaries].filter(item => item.productionDeployedAt).sort((left, right) => right.productionDeployedAt!.localeCompare(left.productionDeployedAt!))[0]?.releaseId;
+    return summaries.map(item => ({ ...item, activeStaging: item.releaseId === activeStaging, activeProduction: item.releaseId === activeProduction }));
+  }
+
+  async deleteWebRelease(releaseId: string) {
+    await this.ensureLoaded();
+    if (!/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
+    if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Wait for the active release to finish before deleting a version.");
+    const release = (await this.listWebReleases()).find(item => item.releaseId === releaseId);
+    if (!release) throw new Error("Release artifact was not found.");
+    if (release.activeStaging || release.activeProduction) throw new Error("An active staging or production version cannot be deleted.");
+    const root = await this.webRoot();
+    const result = await this.runCapture(root, ["run", "release:web:delete", "--", releaseId]);
+    if (result.code !== 0) throw new Error(usefulDetails(result.output, 20).join("\n") || "Release deletion failed.");
+    return this.listWebReleases();
+  }
+
+  async rollbackWeb(target: ReleaseTarget, releaseId: string) {
+    await this.ensureLoaded();
+    if (!/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
+    if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another release is already active.");
+    if (!(await this.listWebReleases()).some(release => release.releaseId === releaseId)) throw new Error("Release artifact was not found.");
+    const job: ReleaseJob = {
+      id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: "web", releaseId, archivedOperation: "rollback",
+      name: `Web rollback · ${target} · ${releaseId}`, description: `Restore archived Web and Firebase release ${releaseId}`,
+      status: "queued", completed: 0, total: 1, progressLabel: "Starting rollback", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
+      logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `Rollback to ${releaseId} queued.` }],
+    };
+    this.jobs.unshift(job);
+    await this.persist();
+    void this.run(job);
+    return structuredClone(job);
+  }
+
+  async promoteWeb(releaseId: string) {
+    return this.activateWeb("production", releaseId);
+  }
+
+  async activateWeb(target: ReleaseTarget, releaseId: string) {
+    await this.ensureLoaded();
+    if (!/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
+    if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another release is already active.");
+    const release = (await this.listWebReleases()).find(item => item.releaseId === releaseId);
+    if (!release) throw new Error("Release artifact was not found.");
+    const job: ReleaseJob = {
+      id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: "web", releaseId, archivedOperation: "activate",
+      name: `Activate Web build · ${target} · ${releaseId}`, description: `Deploy the exact archived Web and Firebase build ${releaseId} to ${target}`,
+      status: "queued", completed: 0, total: 1, progressLabel: `Starting ${target} deployment`, createdAt: new Date().toISOString(), cancellable: true, retryable: false,
+      logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `Deployment of ${releaseId} to ${target} queued.` }],
+    };
+    this.jobs.unshift(job);
+    await this.persist();
+    void this.run(job);
+    return structuredClone(job);
+  }
+
+  async startWebBuild() {
+    await this.ensureLoaded();
+    if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another build or release is already active.");
+    const job: ReleaseJob = {
+      id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "build", target: "staging", releaseScope: "web", buildOnly: true,
+      name: "Web release build", description: "Create one immutable Web, Firebase, configuration, and shared-content bundle",
+      status: "queued", completed: 0, total: 1, progressLabel: "Build queued", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
+      logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Immutable release build queued." }],
+    };
+    this.jobs.unshift(job);
+    await this.persist();
+    void this.run(job);
+    return structuredClone(job);
+  }
+
   async start(target: ReleaseTarget, scope: ReleaseScope) {
     await this.ensureLoaded();
     if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another release is already active.");
@@ -213,7 +306,11 @@ export class FullReleaseJobManager {
     job.status = "running";
     job.startedAt = new Date().toISOString();
     await this.persist();
-    const commands = releaseCommands(job.target, job.releaseScope ?? "all");
+    const commands = job.buildOnly
+      ? [{ stage: "web" as const, label: "Building immutable release bundle", args: ["run", "release:web:create"], steps: 1 }]
+      : job.archivedOperation
+      ? [{ stage: "web" as const, label: job.archivedOperation === "rollback" ? `Rolling back Web and Firebase to ${job.releaseId}` : `Deploying ${job.releaseId} to ${job.target}`, args: ["run", job.archivedOperation === "rollback" ? `release:web:rollback:${job.target}` : job.target === "staging" ? "release:web:staging" : "release:web:production", "--", job.releaseId!], steps: 1 }]
+      : releaseCommands(job.target, job.releaseScope ?? "all");
     try {
       let completed = 0;
       for (const command of commands) {
@@ -233,7 +330,7 @@ export class FullReleaseJobManager {
         await this.persist();
       }
       job.status = "completed";
-      job.progressLabel = "Release completed";
+      job.progressLabel = job.buildOnly ? "Build completed" : "Release completed";
       job.cancellable = false;
       job.finishedAt = new Date().toISOString();
       job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: "Release completed." });
@@ -276,6 +373,13 @@ export class FullReleaseJobManager {
           if (message.startsWith("GETGO_DEPLOY_RESULT ")) {
             const outcome = parseDeployResult(message);
             if (outcome) runtime.stageOutcomes.web = outcome;
+            continue;
+          }
+          if (message.startsWith("GETGO_RELEASE_ARTIFACT ")) {
+            try {
+              const artifact = JSON.parse(message.slice("GETGO_RELEASE_ARTIFACT ".length)) as { releaseId?: string };
+              if (artifact.releaseId) job.releaseId = artifact.releaseId;
+            } catch { /* Keep the raw build output when an artifact event is malformed. */ }
             continue;
           }
           job.logs?.push({ timestamp: new Date().toISOString(), stream, message });
@@ -337,7 +441,10 @@ export class FullReleaseJobManager {
   async retry(id: string) {
     await this.ensureLoaded();
     const job = this.jobs.find(item => item.id === id);
-    if (job?.retryable) await this.start(job.target, job.releaseScope ?? "all");
+    if (!job?.retryable) return;
+    if (job.buildOnly) await this.startWebBuild();
+    else if (job.archivedOperation === "activate" && job.releaseId) await this.activateWeb(job.target, job.releaseId);
+    else await this.start(job.target, job.releaseScope ?? "all");
   }
 
   async delete(id: string) {

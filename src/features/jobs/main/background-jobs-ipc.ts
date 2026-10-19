@@ -121,6 +121,32 @@ export function registerBackgroundJobsIpc(
     await fullReleaseJobs.start(target, scope);
     return snapshot();
   });
+  ipcMain.handle("release:web:list", () => fullReleaseJobs.listWebReleases());
+  ipcMain.handle("release:web:build", async () => {
+    await fullReleaseJobs.startWebBuild();
+    return snapshot();
+  });
+  ipcMain.handle("release:web:activate", async (_event, target: unknown, releaseId: unknown) => {
+    if (!(target === "staging" || target === "production")) throw new Error("Invalid release target.");
+    if (typeof releaseId !== "string") throw new Error("Invalid release ID.");
+    await fullReleaseJobs.activateWeb(target, releaseId);
+    return snapshot();
+  });
+  ipcMain.handle("release:web:promote", async (_event, releaseId: unknown) => {
+    if (typeof releaseId !== "string") throw new Error("Invalid release ID.");
+    await fullReleaseJobs.promoteWeb(releaseId);
+    return snapshot();
+  });
+  ipcMain.handle("release:web:delete", async (_event, releaseId: unknown) => {
+    if (typeof releaseId !== "string") throw new Error("Invalid release ID.");
+    return fullReleaseJobs.deleteWebRelease(releaseId);
+  });
+  ipcMain.handle("release:web:rollback", async (_event, target: unknown, releaseId: unknown) => {
+    if (!(target === "staging" || target === "production")) throw new Error("Web rollback is available only for staging and production.");
+    if (typeof releaseId !== "string") throw new Error("Invalid release ID.");
+    await fullReleaseJobs.rollbackWeb(target, releaseId);
+    return snapshot();
+  });
   ipcMain.handle("native-version:update", async (_event, increment: unknown) => {
     if (!(increment === "patch" || increment === "minor" || increment === "major")) throw new Error("Invalid native version increment.");
     return nativeDeploymentJobs.updateVersion(increment);

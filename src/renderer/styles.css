@@ -8773,6 +8773,11 @@ button.danger svg {
   flex-wrap: wrap;
   gap: 8px;
 }
+.release-build-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .release-doctor-copy {
   min-height: 32px;
   padding: 6px 10px;

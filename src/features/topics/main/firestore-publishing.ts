@@ -584,6 +584,11 @@ export class FirestorePublishingService {
     await this.commit([{ delete: marketplaceTopicPath(topicId) }]);
   }
 
+  async listContentV2TopicIds(): Promise<string[]> {
+    return (await this.listDocumentNames("getgo-content-v2/catalog", "topics"))
+      .map(name => decodeURIComponent(name.split("/").at(-1)!));
+  }
+
   async removeContentV2Topic(topicId: string, control?: PublishJobControl): Promise<void> {
     const quizIds = (await this.listDocumentNames(contentV2TopicPath(topicId), "quizzes"))
       .map((name) => decodeURIComponent(name.split("/").at(-1)!));

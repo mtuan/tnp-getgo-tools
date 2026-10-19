@@ -8,7 +8,7 @@ import { DeploymentJobReportDrawer } from "../components/DeploymentJobReportDraw
 import { NativeDeploymentCards } from "../components/NativeDeploymentCards";
 import { useAuth } from "../../authentication/components/AuthContext";
 import { LocalRuntimeCard } from "../components/LocalRuntimeCard";
-import { FullReleasePage } from "../components/FullReleasePage";
+import { WebReleasePage } from "../components/WebReleasePage";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
@@ -19,13 +19,10 @@ type DeploymentPageProps = {
 };
 
 export function DeploymentPage(props: DeploymentPageProps) {
-  if (props.environment !== "development") {
-    return <FullReleasePage locale={props.locale} target={props.environment} onOpenJobs={props.onOpenJobs} />;
-  }
-  return <DevelopmentDeploymentPage {...props} />;
+  return <WebReleasePage locale={props.locale} onOpenJobs={props.onOpenJobs} />;
 }
 
-function DevelopmentDeploymentPage({
+export function DevelopmentDeploymentPage({
   locale,
   environment,
   onOpenJobs,

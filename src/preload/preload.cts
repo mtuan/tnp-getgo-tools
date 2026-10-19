@@ -109,6 +109,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:route:load", topicId),
   loadContentV2SyncPreview: () =>
     ipcRenderer.invoke("content-v2:sync-preview:load"),
+  restoreWebReleaseContent: (releaseId) =>
+    ipcRenderer.invoke("content-v2:release:restore", releaseId),
   loadContentV2Quiz: (topicId, quizId) =>
     ipcRenderer.invoke("content-v2:quiz:load", topicId, quizId),
   openQuizSourcePdf: (manifestPath) =>
@@ -308,6 +310,12 @@ const api: DesktopApi = {
   getDeploymentState: (target) => ipcRenderer.invoke("deployment:state", target),
   runReleaseDoctor: (target) => ipcRenderer.invoke("release:doctor", target),
   startRelease: (target, scope) => ipcRenderer.invoke("release:start", target, scope),
+  listWebReleases: () => ipcRenderer.invoke("release:web:list"),
+  startWebBuild: () => ipcRenderer.invoke("release:web:build"),
+  activateWebRelease: (target, releaseId) => ipcRenderer.invoke("release:web:activate", target, releaseId),
+  promoteWebRelease: (releaseId) => ipcRenderer.invoke("release:web:promote", releaseId),
+  deleteWebRelease: (releaseId) => ipcRenderer.invoke("release:web:delete", releaseId),
+  rollbackWebRelease: (target, releaseId) => ipcRenderer.invoke("release:web:rollback", target, releaseId),
   updateNativeVersion: (increment) => ipcRenderer.invoke("native-version:update", increment),
   openNativeProject: (platform, target, product) => ipcRenderer.invoke("native-project:open", platform, target, product),
   getLocalWebRuntime: (product) => ipcRenderer.invoke("local-web:state", product),

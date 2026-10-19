@@ -1,5 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 import { contentTopicsRoot } from "../repository/content-source.js";
 import { dialog, shell, type BrowserWindow, type IpcMain } from "electron";
 import { hashContentV2, marketplaceContentAccess, marketplaceTopicState, sanitizeMarketplaceTopic, withMarketplaceTopicState } from "../domain/content-v2.js";
@@ -30,6 +32,19 @@ interface Dependencies {
 }
 
 export function registerTopicResourcesIpc(ipcMain: IpcMain, { mainWindow, repositoryRoot, publishing, publishJobs, backgroundJobsSnapshot, firebaseAuth }: Dependencies): void {
+const extractArchive = (archive: string, destination: string) => new Promise<void>((resolve, reject) => {
+  const child = spawn("tar", ["-xzf", archive, "-C", destination], { stdio: "ignore" });
+  child.once("error", reject);
+  child.once("close", code => code === 0 ? resolve() : reject(new Error(`Could not extract release archive (exit ${code ?? "unknown"}).`)));
+});
+
+const removePublishState = async (directory: string): Promise<void> => {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const filePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) await removePublishState(filePath);
+    else if (entry.name === "publish-state.json") await fs.rm(filePath, { force: true });
+  }
+};
 ipcMain.handle(
   "marketplace:listed-topic-reviews:sync",
   async () => {
@@ -233,6 +248,38 @@ ipcMain.handle("content-v2:sync-preview:load", async () => {
       issues: loaded.flatMap((item) => item.content.issues),
     },
   };
+});
+ipcMain.handle("content-v2:release:restore", async (_event, releaseId: unknown) => {
+  if (typeof releaseId !== "string" || !/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
+  const active = (await publishJobs.list()).find(isActiveMarketplaceSyncJob);
+  if (active) return backgroundJobsSnapshot();
+  const quizRoot = await repositoryRoot();
+  const archive = path.resolve(quizRoot, "..", "tnp-getgo-web", "releases", releaseId, "bundle.tar.gz");
+  await fs.access(archive);
+  const temporaryRoot = await fs.mkdtemp(path.join(tmpdir(), "getgo-release-content-"));
+  await extractArchive(archive, temporaryRoot);
+  await removePublishState(path.join(temporaryRoot, "content"));
+  const target = await firebaseAuth.publishingTarget();
+  const overview = await loadContentV2TopicsOverview(temporaryRoot, target.projectId);
+  const plan = overview.content.topics.map(topic => ({ kind: "topic" as const, topicId: topic.id }));
+  await publishJobs.start({
+    name: marketplaceSyncAllJobName,
+    description: `Restore shared content from ${releaseId}`,
+    route: "/deploy",
+    initialTotal: Math.max(1, plan.length),
+    initialProgressLabel: `Preparing ${releaseId}`,
+  }, async control => {
+    try {
+      const publishedTopicIds = await publishing.listContentV2TopicIds();
+      await syncAllMarketplaceTopics(temporaryRoot, plan, publishing, firebaseAuth, control);
+      const archivedTopicIds = new Set(plan.map(item => item.topicId));
+      for (const topicId of publishedTopicIds)
+        if (!archivedTopicIds.has(topicId)) await publishing.removeContentV2Topic(topicId, control);
+    } finally {
+      await fs.rm(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+  return backgroundJobsSnapshot();
 });
 ipcMain.handle("content-v2:topic:load", async (_event, topicId: unknown) => {
   if (typeof topicId !== "string") throw new Error("Invalid topic ID.");

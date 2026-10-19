@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, BriefcaseBusiness, Check, CheckCircle2, Copy, ExternalLink, Eye, RefreshCw, Rocket, Server, Smartphone, UploadCloud } from "lucide-react";
-import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, ReleaseDoctorSnapshot, ReleaseScope, WebDeploymentTarget } from "../../../shared/domain/models";
+import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { useAuth } from "../../authentication/components/AuthContext";
 import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
@@ -8,6 +8,8 @@ import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import { DeploymentJobReportDrawer } from "./DeploymentJobReportDrawer";
 import { ReleaseStageStatus } from "./ReleaseStageStatus";
+import { marketplaceSyncPlan } from "../../topics/domain/marketplace-sync-plan";
+import { isActiveMarketplaceSyncJob } from "../../topics/domain/marketplace-sync-job";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
 
@@ -27,9 +29,14 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [copiedCheckId, setCopiedCheckId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [webReleases, setWebReleases] = useState<WebReleaseSummary[]>([]);
 
   const loadJobs = useCallback(async () => {
-    try { setSnapshot(await window.getgo.getBackgroundJobs()); }
+    try {
+      const [jobs, releases] = await Promise.all([window.getgo.getBackgroundJobs(), window.getgo.listWebReleases()]);
+      setSnapshot(jobs);
+      setWebReleases(releases);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }, []);
 
@@ -88,7 +95,30 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
     if (!window.confirm(confirmation)) return;
     setReleaseBusy(scope);
     setError(null);
-    try { setSnapshot(await window.getgo.startRelease(target, scope)); }
+    try {
+      if (scope === "web" || scope === "all") {
+        const preview = await window.getgo.loadContentV2SyncPreview();
+        const plan = marketplaceSyncPlan(preview.content.topics, preview.content.quizzes);
+        const blocked = plan.filter(item => !item.ready);
+        if (blocked.length > 0) throw new Error(releaseCopy.contentReviewRequired.replace("{count}", String(blocked.length)));
+        const items = plan.map(item => item.kind === "topic"
+          ? { kind: "topic" as const, topicId: item.topic.id }
+          : { kind: "quiz" as const, topicId: item.topic.id, quizId: item.quiz.id });
+        if (items.length > 0) {
+          let jobs = await window.getgo.syncContentV2Marketplace(items);
+          let contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
+          while (contentJob) {
+            await new Promise(resolve => window.setTimeout(resolve, 500));
+            jobs = await window.getgo.getBackgroundJobs();
+            const settled = jobs.jobs.find(job => job.id === contentJob?.id);
+            if (settled && (settled.status === "failed" || settled.status === "cancelled"))
+              throw new Error(settled.error ?? releaseCopy.contentSyncFailed);
+            contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
+          }
+        }
+      }
+      setSnapshot(await window.getgo.startRelease(target, scope));
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setReleaseBusy(null); }
   };
@@ -103,6 +133,46 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
             : action === "retry" ? await window.getgo.retryBackgroundJob(job.id)
               : await window.getgo.deleteBackgroundJob(job.id));
     } finally { setBusyJob(null); }
+  };
+  const rollbackRelease = async (releaseId: string) => {
+    if (activeRelease || !window.confirm(releaseCopy.rollbackConfirm.replace("{release}", releaseId).replace("{target}", target))) return;
+    setReleaseBusy("web");
+    setError(null);
+    try {
+      let jobs = await window.getgo.restoreWebReleaseContent(releaseId);
+      let contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
+      while (contentJob) {
+        await new Promise(resolve => window.setTimeout(resolve, 500));
+        jobs = await window.getgo.getBackgroundJobs();
+        const settled = jobs.jobs.find(job => job.id === contentJob?.id);
+        if (settled && (settled.status === "failed" || settled.status === "cancelled"))
+          throw new Error(settled.error ?? releaseCopy.contentSyncFailed);
+        contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
+      }
+      setSnapshot(await window.getgo.rollbackWebRelease(target, releaseId));
+    }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setReleaseBusy(null); }
+  };
+  const promoteRelease = async (releaseId: string) => {
+    if (activeRelease || !window.confirm(releaseCopy.promoteConfirm.replace("{release}", releaseId))) return;
+    setReleaseBusy("web");
+    setError(null);
+    try {
+      let jobs = await window.getgo.restoreWebReleaseContent(releaseId);
+      let contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
+      while (contentJob) {
+        await new Promise(resolve => window.setTimeout(resolve, 500));
+        jobs = await window.getgo.getBackgroundJobs();
+        const settled = jobs.jobs.find(job => job.id === contentJob?.id);
+        if (settled && (settled.status === "failed" || settled.status === "cancelled"))
+          throw new Error(settled.error ?? releaseCopy.contentSyncFailed);
+        contentJob = jobs.jobs.find(isActiveMarketplaceSyncJob);
+      }
+      setSnapshot(await window.getgo.promoteWebRelease(releaseId));
+    }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setReleaseBusy(null); }
   };
 
   return <section className="deployment-page full-release-page">
@@ -130,6 +200,24 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
               {check.status !== "ready" && <ui.Button className="release-doctor-copy" icon={copiedCheckId === check.id ? <Check /> : <Copy />} onClick={() => void copyDoctorError(check)}>
                 {copiedCheckId === check.id ? releaseCopy.copiedError : releaseCopy.copyError}
               </ui.Button>}
+            </div>
+          </article>)}
+        </div>}
+      </ui.PanelBody>
+    </ui.Panel>
+
+    <ui.Panel title={releaseCopy.archivedTitle} description={releaseCopy.archivedDescription}>
+      <ui.PanelBody>
+        {webReleases.length === 0 ? <div className="ui-data-table-empty"><strong>{releaseCopy.noArchivedTitle}</strong><p>{releaseCopy.noArchivedDescription}</p></div> : <div className="release-doctor-checks">
+          {webReleases.map(release => <article className="release-doctor-check" key={release.releaseId}>
+            <span className="release-doctor-icon" aria-hidden="true"><Server /></span>
+            <div><h3>{release.releaseId}</h3><p>{new Date(release.createdAt).toLocaleString(locale)} · {release.gitCommit.slice(0, 10)}</p></div>
+            <div className="release-doctor-check-actions">
+              <ui.StatusBadge tone={release.stagingStatus === "deployed" ? "success" : "neutral"}>{releaseCopy.stagingStatus}: {release.stagingStatus}</ui.StatusBadge>
+              <ui.StatusBadge tone={release.productionStatus === "deployed" ? "success" : "neutral"}>{releaseCopy.productionStatus}: {release.productionStatus}</ui.StatusBadge>
+              {target === "production" && release.stagingStatus === "deployed" && release.productionStatus !== "deployed"
+                ? <ui.Button variant="solid" icon={<Rocket />} loading={releaseBusy === "web"} disabled={Boolean(activeRelease)} onClick={() => requireAuth(() => promoteRelease(release.releaseId))}>{releaseCopy.promote}</ui.Button>
+                : <ui.Button variant="solid" icon={<RefreshCw />} loading={releaseBusy === "web"} disabled={Boolean(activeRelease)} onClick={() => requireAuth(() => rollbackRelease(release.releaseId))}>{releaseCopy.rollback}</ui.Button>}
             </div>
           </article>)}
         </div>}

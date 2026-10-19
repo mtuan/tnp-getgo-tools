@@ -53,6 +53,7 @@ const rendererStartupLog = (
 const JobsPage = lazy(() => import("../../features/jobs/pages/JobsPage").then((module) => ({ default: module.JobsPage })));
 const QuestionFeedbackPage = lazy(() => import("../../features/feedback/pages/QuestionFeedbackPage").then((module) => ({ default: module.QuestionFeedbackPage })));
 const DeploymentPage = lazy(() => import("../../features/deployment/pages/DeploymentPage").then((module) => ({ default: module.DeploymentPage })));
+const DevelopmentDeploymentPage = lazy(() => import("../../features/deployment/pages/DeploymentPage").then((module) => ({ default: module.DevelopmentDeploymentPage })));
 const ImagePdfPage = lazy(() =>
   import("../../features/image-pdf/pages/ImagePdfPage").then((module) => ({ default: module.ImagePdfPage })),
 );
@@ -96,6 +97,7 @@ function viewFromRoute(route: string): View {
     pathname = route.split("?")[0];
   }
   if (pathname === "/deploy" || pathname.startsWith("/deploy/")) return "deploy";
+  if (pathname === "/development") return "development";
   const staticView = [
     "feedbacks",
     "jobs",
@@ -148,6 +150,7 @@ const normalizedRoute = (route: string) => {
   const normalized = value.startsWith("/") ? value : `/${value}`;
   try {
     const url = new URL(normalized, "app://getgo");
+    if (url.pathname.startsWith("/deploy/")) return "/deploy";
     if (url.pathname === "/payments" && url.searchParams.get("tab") === "access") return "/access";
   } catch { /* The route parser will handle malformed routes. */ }
   return normalized;
@@ -414,6 +417,15 @@ export function App() {
     }));
   }
   function navigate(view: NavigableView) {
+    if (view === "development") {
+      goToRoute("/development");
+      if (settings.environment !== "development") void changeEnvironment("development");
+      return;
+    }
+    if (view === "deploy") {
+      goToRoute("/deploy");
+      return;
+    }
     goToRoute(view === "quizzes" ? "/quizzes/contests" : `/${view}`);
   }
 
@@ -567,10 +579,8 @@ export function App() {
           locale={settings.locale}
           view={view}
           collapsed={sidebarCollapsed}
-          deploymentTarget={deploymentTarget}
           onExpandSidebar={() => setSidebarCollapsed(false)}
           onNavigate={navigate}
-          onNavigateDeployment={(target) => goToRoute(`/deploy/${target}`)}
         />
         <div className="sidebar-footer">
           <span className="sidebar-workspace">
@@ -726,6 +736,11 @@ export function App() {
                   environment={deploymentTarget}
                   onOpenJobs={() => goToRoute("/jobs")}
                 />
+              </Suspense>
+            )}
+            {settings.repositoryPath && view === "development" && (
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>
+                <DevelopmentDeploymentPage locale={settings.locale} environment="development" onOpenJobs={() => goToRoute("/jobs")} />
               </Suspense>
             )}
             {view === "image-pdf" && (
