@@ -197,7 +197,6 @@ export class WebDeploymentJobManager {
       hash.update(await this.hashDirectory(path.join(webRoot, relativePath)) ?? "");
     for (const relativePath of [
       "index.html", "package.json", "package-lock.json", "tsconfig.app.json", "vite.config.ts",
-      "configs/apps/getgo/callables.json",
     ]) hash.update(await this.hashFile(path.join(webRoot, relativePath)) ?? "");
     for (const targetName of ["getgo-dev", "getgo-staging", "getgo"]) {
       hash.update(await this.hashFile(path.join(webRoot, "configs", "deploys", targetName, ".env")) ?? "");
