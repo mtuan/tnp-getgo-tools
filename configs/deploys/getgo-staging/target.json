@@ -1,0 +1,17 @@
+{
+  "description": "GetGo staging",
+  "apps": ["getgo"],
+  "firebaseProject": "tnp-getgo-stg",
+  "firebaseConfig": "configs/deploys/getgo/firebase.json",
+  "resourceDir": "configs/deploys/getgo",
+  "buildMode": "getgo-staging",
+  "envFile": "configs/deploys/getgo-staging/.env",
+  "functionsRegion": "us-central1",
+  "functionsArtifactsLocations": ["asia-southeast1", "us-central1"],
+  "functionCodebases": [
+    {"id": "account", "name": "getgo-account"},
+    {"id": "marketplace", "name": "getgo-marketplace"},
+    {"id": "billing", "name": "getgo-billing", "requiredSecrets": ["GETGO_VIETQR_CONFIG"]}
+  ],
+  "url": "https://tnp-getgo-stg.web.app"
+}

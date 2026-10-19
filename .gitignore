@@ -7,4 +7,16 @@ release/
 .env.local
 *.env
 *.env.zip
+.state/
+
+# Public Firebase Web SDK configuration used by the deployment engine.
+!configs/deploys/**/.env
+configs/deploys/**/.firebase/
+configs/deploys/**/service-account.json
+configs/deploys/*/firebase.json
+configs/deploys/*/firestore.rules
+configs/deploys/*/firestore.indexes.json
+configs/deploys/*/storage.rules
+configs/deploys/*/functions/
+configs/deploys/*/functions-*/
 tnp-getgo-7a1f66e6430c.json

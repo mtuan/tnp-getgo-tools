@@ -16,7 +16,7 @@ type DeploymentJob = BackgroundJob & {
 };
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
-interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string }
+interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string; items?: DeploymentItemState[] }
 interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string; deployOutcome?: "deployed" | "up-to-date" | "warning"; deployedResources: Set<string>; persistTimer?: NodeJS.Timeout }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
@@ -55,7 +55,7 @@ function outputPhase(line: string, component: DeploymentComponent) {
   if (line.includes("Generating shared editor types") || line.includes("Generating canonical Firebase rules") || line.includes("Checking and building @tnp/getgo-logics")) return "dependencies";
   if (component === "firebase" && line.includes("Synced firestore.rules")) return "firestore";
   if (component === "firebase" && line.includes("Synced storage.rules")) return "storage";
-  if (component === "firebase" && (line.includes("Assembled functions/src") || line.includes("Building functions"))) return "functions";
+  if (component === "firebase" && (line.includes("Assembled functions/src") || line.includes("Installing locked dependencies") || line.includes("Building functions"))) return "functions";
   if (component === "web" && (line.includes("Building…") || /vite v\d/i.test(line))) return "build";
   if (component === "web" && /built in \d/i.test(line)) return "bundle";
   if (line.includes("Resources to deploy:") || line.includes("Resources (would be deployed):")) return "plan";
@@ -162,6 +162,10 @@ export class WebDeploymentJobManager {
     throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
   }
 
+  private deploysRoot() {
+    return path.join(this.toolsAppPath, "configs", "deploys");
+  }
+
   private async hashFile(filePath: string) {
     try { return createHash("sha256").update(await fs.readFile(filePath)).digest("hex"); }
     catch { return null; }
@@ -199,8 +203,8 @@ export class WebDeploymentJobManager {
       "index.html", "package.json", "package-lock.json", "tsconfig.app.json", "vite.config.ts",
     ]) hash.update(await this.hashFile(path.join(webRoot, relativePath)) ?? "");
     for (const targetName of ["getgo-dev", "getgo-staging", "getgo"]) {
-      hash.update(await this.hashFile(path.join(webRoot, "configs", "deploys", targetName, ".env")) ?? "");
-      hash.update(await this.hashFile(path.join(webRoot, "configs", "deploys", targetName, "target.json")) ?? "");
+      hash.update(await this.hashFile(path.join(this.deploysRoot(), targetName, ".env")) ?? "");
+      hash.update(await this.hashFile(path.join(this.deploysRoot(), targetName, "target.json")) ?? "");
     }
     hash.update(await this.hashDirectory(path.join(webRoot, "node_modules", "@tnp", "getgo-logics")) ?? "");
     try {
@@ -221,7 +225,7 @@ export class WebDeploymentJobManager {
     return hash.digest("hex");
   }
 
-  private async hashFirebaseInputs(webRoot: string, targetName: string, deployRoot: string, apps: string[]) {
+  private async hashFirebaseInputs(webRoot: string, targetName: string, apps: string[]) {
     const hash = createHash("sha256");
     const appsRoot = path.join(webRoot, "configs", "apps");
     hash.update(await this.hashDirectory(path.join(appsRoot, "_shared", "functions")) ?? "");
@@ -230,29 +234,29 @@ export class WebDeploymentJobManager {
       hash.update(await this.hashFile(path.join(appsRoot, app, "firestore.indexes.json")) ?? "");
     }
     hash.update(await this.hashDirectory(path.join(webRoot, "..", "tnp-getgo-logics", "firebase-rules", "generated")) ?? "");
-    const functionsTemplate = path.join(deployRoot, "functions");
+    const functionsTemplate = path.join(webRoot, "..", "tnp-getgo-logics", "firebase-backend", "functions-template");
     for (const filename of ["package.json", "package-lock.json", "tsconfig.json"])
       hash.update(await this.hashFile(path.join(functionsTemplate, filename)) ?? "");
-    hash.update(await this.hashDirectory(path.join(functionsTemplate, "vendor")) ?? "");
-    hash.update(await this.hashFile(path.join(webRoot, "configs", "deploys", targetName, "target.json")) ?? "");
+    hash.update(await this.hashDirectory(path.join(webRoot, "vendor")) ?? "");
+    hash.update(await this.hashFile(path.join(this.deploysRoot(), targetName, "target.json")) ?? "");
     return hash.digest("hex");
   }
 
   private async localItems(component: DeploymentComponent, webRoot: string, target: WebDeploymentTarget): Promise<DeploymentItemState[]> {
     const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
-    const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as {
+    const targetConfig = JSON.parse(await fs.readFile(path.join(this.deploysRoot(), targetName, "target.json"), "utf8")) as {
       envFile?: string;
       apps?: string[];
       firebaseConfig?: string;
       resourceDir?: string;
       functionCodebases?: Array<{id: string; name: string}>;
     };
-    const deployRoot = path.join(webRoot, targetConfig.resourceDir ?? `configs/deploys/${targetName}`);
+    const deployRoot = path.join(this.toolsAppPath, targetConfig.resourceDir ?? `configs/deploys/${targetName}`);
     if (component === "web")
       return [
         { id: "web", localHash: await this.hashDirectory(path.join(webRoot, "dist")), deployedHash: null, changed: false },
         { id: "web-inputs", localHash: await this.hashHostingInputs(webRoot), deployedHash: null, changed: false },
-        { id: "web-config", localHash: await this.hashFile(path.resolve(webRoot, targetConfig.firebaseConfig ?? path.join(deployRoot, "firebase.json"))), deployedHash: null, changed: false },
+        { id: "web-config", localHash: await this.hashFile(path.resolve(this.toolsAppPath, targetConfig.firebaseConfig ?? path.join(deployRoot, "firebase.json"))), deployedHash: null, changed: false },
       ];
     const ruleItems = await Promise.all([
       ["firestore-rules", "firestore.rules"],
@@ -267,7 +271,7 @@ export class WebDeploymentJobManager {
     })));
     return [
       ...ruleItems,
-      { id: "firebase-inputs", localHash: await this.hashFirebaseInputs(webRoot, targetName, deployRoot, targetConfig.apps ?? ["getgo"]), deployedHash: null, changed: false },
+      { id: "firebase-inputs", localHash: await this.hashFirebaseInputs(webRoot, targetName, targetConfig.apps ?? ["getgo"]), deployedHash: null, changed: false },
       ...functionItems,
     ];
   }
@@ -288,10 +292,10 @@ export class WebDeploymentJobManager {
   }
 
   private async recordDeployment(component: DeploymentComponent, target: WebDeploymentTarget) {
-    const state = await this.state(target);
-    const version = (component === "web" ? state.web : state.rules).deployedVersion;
+    const items = await this.localItems(component, await this.webRoot(), target);
+    const version = this.componentVersion(component, items, "localHash");
     if (!version) return;
-    const record: DeploymentRecord = { component, target, deployedAt: new Date().toISOString(), version };
+    const record: DeploymentRecord = { component, target, deployedAt: new Date().toISOString(), version, items };
     this.deployments = [record, ...this.deployments.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
   }
 
@@ -338,8 +342,12 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const webRoot = await this.webRoot();
     const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
-    const targetConfig = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, "target.json"), "utf8")) as { firebaseProject: string; functionsRegion?: string; functionCodebases?: Array<{name: string}>; url: string };
-    const deployed = JSON.parse(await fs.readFile(path.join(webRoot, "configs", "deploys", targetName, ".deploy-hashes.json"), "utf8").catch(() => "{}")) as Record<string, string>;
+    const targetConfig = JSON.parse(await fs.readFile(path.join(this.deploysRoot(), targetName, "target.json"), "utf8")) as { firebaseProject: string; functionsRegion?: string; functionCodebases?: Array<{name: string}>; url: string };
+    const latestDeployments = new Map<DeploymentComponent, DeploymentRecord>();
+    for (const component of ["web", "firebase"] as const) {
+      const deployment = this.deployments.find(item => item.target === target && item.component === component);
+      if (deployment) latestDeployments.set(component, deployment);
+    }
     const legacyFirebaseBuild = this.builds.find((item) =>
       item.component === "firebase"
       && item.target === target
@@ -384,9 +392,9 @@ export class WebDeploymentJobManager {
             ["firebase-inputs", "firebase:inputs"],
             ...(targetConfig.functionCodebases ?? []).map(({name}) => [`functions:${name}`, `functions:${name}`]),
           ];
-      const items = keys.map(([id, key]) => {
+      const items = keys.map(([id]) => {
         const localHash = currentItems[component]?.find((item) => item.id === id)?.localHash ?? null;
-        const deployedHash = deployed[key] ?? null;
+        const deployedHash = latestDeployments.get(component)?.items?.find(item => item.id === id)?.localHash ?? null;
         return { id: id as DeploymentItemState["id"], localHash, deployedHash, changed: Boolean(localHash && localHash !== deployedHash) };
       });
       const status = !build ? "build-required" : items.every((item) => !item.deployedHash) ? "not-deployed" : items.some((item) => item.changed) ? "changed" : "up-to-date";
@@ -453,6 +461,8 @@ export class WebDeploymentJobManager {
     let child: ChildProcess;
     try {
       const childEnvironment = { ...process.env };
+      childEnvironment.GETGO_TOOLS_ROOT = this.toolsAppPath;
+      childEnvironment.GETGO_DEPLOY_STATE_ROOT = path.join(this.userDataPath, "deployment-state");
       delete childEnvironment.DEBUG;
       delete childEnvironment.FIREBASE_DEBUG;
       child = spawnCommand(npmExecutable, args, {

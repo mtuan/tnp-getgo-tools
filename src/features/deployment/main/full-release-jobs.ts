@@ -96,6 +96,10 @@ export class FullReleaseJobManager {
     throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
   }
 
+  private deploysRoot() {
+    return path.join(this.toolsAppPath, "configs", "deploys");
+  }
+
   private async releasesRoot() {
     const configured = process.env.GETGO_RELEASES_ROOT?.trim();
     const candidate = configured
@@ -119,7 +123,7 @@ export class FullReleaseJobManager {
 
   private async webDoctor(root: string, target: ReleaseTarget): Promise<ReleaseDoctorCheck> {
     const targetName = target === "staging" ? "getgo-staging" : "getgo";
-    const directory = path.join(root, "configs", "deploys", targetName);
+    const directory = path.join(this.deploysRoot(), targetName);
     try {
       const config = JSON.parse(await fs.readFile(path.join(directory, "target.json"), "utf8")) as {
         firebaseProject?: string;
@@ -128,8 +132,8 @@ export class FullReleaseJobManager {
         requiredSecrets?: string[];
         functionCodebases?: Array<{ id: string; name: string; requiredSecrets?: string[] }>;
       };
-      const resourceDirectory = path.resolve(root, config.resourceDir ?? `configs/deploys/${targetName}`);
-      const firebaseConfigPath = path.resolve(root, config.firebaseConfig ?? path.join(resourceDirectory, "firebase.json"));
+      const resourceDirectory = path.resolve(this.toolsAppPath, config.resourceDir ?? `configs/deploys/${targetName}`);
+      const firebaseConfigPath = path.resolve(this.toolsAppPath, config.firebaseConfig ?? path.join(resourceDirectory, "firebase.json"));
       await Promise.all([
         fs.access(path.join(directory, ".env")), fs.access(firebaseConfigPath),
         fs.access(path.join(resourceDirectory, "firestore.rules")), fs.access(path.join(resourceDirectory, "firestore.indexes.json")),
@@ -186,9 +190,10 @@ export class FullReleaseJobManager {
       this.nativeDoctor(root, target, "android"),
     ]);
     const targetName = target === "staging" ? "getgo-staging" : "getgo";
-    const targetConfig = JSON.parse(await fs.readFile(path.join(root, "configs", "deploys", targetName, "target.json"), "utf8")) as { url?: string };
-    const webDeploymentRecord = await fs.stat(path.join(root, "configs", "deploys", targetName, ".deploy-hashes.json")).catch(() => null);
-    return { target, checkedAt: new Date().toISOString(), ready: checks.every(check => check.status !== "action-required"), checks, webUrl: targetConfig.url, lastDeployedAt: webDeploymentRecord ? { web: webDeploymentRecord.mtime.toISOString() } : undefined };
+    const targetConfig = JSON.parse(await fs.readFile(path.join(this.deploysRoot(), targetName, "target.json"), "utf8")) as { url?: string };
+    const deployedRelease = (await this.listWebReleases()).find(release => target === "staging" ? release.activeStaging : release.activeProduction);
+    const deployedAt = target === "staging" ? deployedRelease?.stagingDeployedAt : deployedRelease?.productionDeployedAt;
+    return { target, checkedAt: new Date().toISOString(), ready: checks.every(check => check.status !== "action-required"), checks, webUrl: targetConfig.url, lastDeployedAt: deployedAt ? { web: deployedAt } : undefined };
   }
 
   async list() { await this.ensureLoaded(); return structuredClone(this.jobs); }
@@ -331,6 +336,8 @@ export class FullReleaseJobManager {
         job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: `$ npm ${command.args.join(" ")}` });
         const code = await this.runCommand(job, runtime, root, command.args, completed, {
           ...process.env,
+          GETGO_TOOLS_ROOT: this.toolsAppPath,
+          GETGO_DEPLOY_STATE_ROOT: path.join(this.userDataPath, "deployment-state"),
           GETGO_RELEASES_ROOT: releasesRoot,
           GETGO_RELEASE_NOTE: job.releaseNote ?? "",
         });

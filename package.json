@@ -25,7 +25,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "check:source-size": "node scripts/check-source-size.mjs",
     "marketplace:defaults": "tsx scripts/audit-marketplace-defaults.ts",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "node --test scripts/deployment/*.test.mjs && tsx --test tests/**/*.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
@@ -73,6 +73,9 @@
     "npmRebuild": false,
     "files": [
       "dist/**/*",
+      "configs/deploys/README.md",
+      "configs/deploys/*/target.json",
+      "configs/deploys/*/.env",
       "package.json"
     ],
     "directories": {

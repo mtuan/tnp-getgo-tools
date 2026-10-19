@@ -1,0 +1,16 @@
+{
+  "description": "GetGo — student learning platform",
+  "apps": ["getgo"],
+  "firebaseProject": "tnp-getgo",
+  "firebaseConfig": "configs/deploys/getgo/firebase.json",
+  "buildMode": "getgo",
+  "envFile": "configs/deploys/getgo/.env",
+  "functionsRegion": "us-central1",
+  "functionsArtifactsLocations": ["asia-southeast1", "us-central1"],
+  "functionCodebases": [
+    {"id": "account", "name": "getgo-account"},
+    {"id": "marketplace", "name": "getgo-marketplace"},
+    {"id": "billing", "name": "getgo-billing", "requiredSecrets": ["GETGO_VIETQR_CONFIG"]}
+  ],
+  "url": "https://tnp-getgo.web.app"
+}

@@ -1,0 +1,27 @@
+{
+  "description": "GetGo development",
+  "apps": [
+    "getgo"
+  ],
+  "firebaseProject": "tnp-getgo-dev",
+  "firebaseConfig": "configs/deploys/getgo/firebase.json",
+  "resourceDir": "configs/deploys/getgo",
+  "buildMode": "getgo-dev",
+  "envFile": "configs/deploys/getgo-dev/.env",
+  "functionsRegion": "asia-southeast1",
+  "functionsArtifactsLocations": [
+    "asia-southeast1"
+  ],
+  "functionCodebases": [
+    {"id": "account", "name": "getgo-account"},
+    {"id": "marketplace", "name": "getgo-marketplace"},
+    {"id": "billing", "name": "getgo-billing", "requiredSecrets": ["GETGO_VIETQR_CONFIG"]}
+  ],
+  "singaporeMigration": {
+    "destinationRegion": "asia-southeast1",
+    "sourceFunctionsRegion": "us-central1",
+    "sourceStorageBucket": "tnp-getgo-dev.firebasestorage.app",
+    "destinationStorageBucket": "tnp-getgo-dev-asia-southeast1"
+  },
+  "url": "https://tnp-getgo-dev.web.app"
+}
