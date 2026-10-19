@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseDeployResult, releaseCommands } from "../src/features/deployment/main/full-release-jobs.js";
+import { archivedWebDeploymentSteps, parseDeployResult, releaseCommands } from "../src/features/deployment/main/full-release-jobs.js";
+
+test("archived Web deployments expose detailed progress tasks", () => {
+  assert.equal(archivedWebDeploymentSteps, 8);
+});
 
 test("staging release deploys the complete Web target before store uploads", () => {
   assert.deepEqual(releaseCommands("staging", "all"), [

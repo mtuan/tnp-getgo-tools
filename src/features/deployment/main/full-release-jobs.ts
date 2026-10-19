@@ -17,6 +17,7 @@ type Runtime = {
 
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const activeStatuses = new Set(["queued", "running", "paused"]);
+export const archivedWebDeploymentSteps = 8;
 const targetScripts: Record<ReleaseTarget, string> = {
   staging: "release:web:staging",
   production: "release:web:production",
@@ -198,11 +199,11 @@ export class FullReleaseJobManager {
     const releases = await Promise.all(entries.filter(entry => entry.isDirectory()).map(async (entry): Promise<WebReleaseSummary | null> => {
       try {
         const value = JSON.parse(await fs.readFile(path.join(releasesRoot, entry.name, "release.json"), "utf8")) as {
-          releaseId: string; createdAt: string; gitCommit: string; artifact: { bytes: number };
+          releaseId: string; createdAt: string; gitCommit: string; note?: string; artifact: { bytes: number };
           environments: { staging: { status: string; events?: Array<{ deployedAt: string }> }; production: { status: string; events?: Array<{ deployedAt: string }> } };
         };
         return {
-          releaseId: value.releaseId, createdAt: value.createdAt, gitCommit: value.gitCommit,
+          releaseId: value.releaseId, createdAt: value.createdAt, gitCommit: value.gitCommit, note: value.note,
           artifactBytes: value.artifact.bytes, stagingStatus: value.environments.staging.status,
           productionStatus: value.environments.production.status,
           stagingDeployedAt: value.environments.staging.events?.at(-1)?.deployedAt,
@@ -238,7 +239,7 @@ export class FullReleaseJobManager {
     const job: ReleaseJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: "web", releaseId, archivedOperation: "rollback",
       name: `Web rollback · ${target} · ${releaseId}`, description: `Restore archived Web and Firebase release ${releaseId}`,
-      status: "queued", completed: 0, total: 1, progressLabel: "Starting rollback", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
+      status: "queued", completed: 0, total: archivedWebDeploymentSteps, progressLabel: "Starting rollback", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `Rollback to ${releaseId} queued.` }],
     };
     this.jobs.unshift(job);
@@ -260,7 +261,7 @@ export class FullReleaseJobManager {
     const job: ReleaseJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: "web", releaseId, archivedOperation: "activate",
       name: `Activate Web build · ${target} · ${releaseId}`, description: `Deploy the exact archived Web and Firebase build ${releaseId} to ${target}`,
-      status: "queued", completed: 0, total: 1, progressLabel: `Starting ${target} deployment`, createdAt: new Date().toISOString(), cancellable: true, retryable: false,
+      status: "queued", completed: 0, total: archivedWebDeploymentSteps, progressLabel: `Starting ${target} deployment`, createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `Deployment of ${releaseId} to ${target} queued.` }],
     };
     this.jobs.unshift(job);
@@ -269,11 +270,11 @@ export class FullReleaseJobManager {
     return structuredClone(job);
   }
 
-  async startWebBuild() {
+  async startWebBuild(note?: string) {
     await this.ensureLoaded();
     if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another build or release is already active.");
     const job: ReleaseJob = {
-      id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "build", target: "staging", releaseScope: "web", buildOnly: true,
+      id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "build", target: "staging", releaseScope: "web", buildOnly: true, releaseNote: note?.trim() || undefined,
       name: "Web release build", description: "Create one immutable Web, Firebase, and environment-configuration bundle",
       status: "queued", completed: 0, total: 12, progressLabel: "Build queued", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Immutable release build queued." }],
@@ -320,7 +321,7 @@ export class FullReleaseJobManager {
     const commands = job.buildOnly
       ? [{ stage: "web" as const, label: "Building immutable release bundle", args: ["run", "release:web:create"], steps: 12 }]
       : job.archivedOperation
-      ? [{ stage: "web" as const, label: job.archivedOperation === "rollback" ? `Rolling back Web and Firebase to ${job.releaseId}` : `Deploying ${job.releaseId} to ${job.target}`, args: ["run", job.archivedOperation === "rollback" ? `release:web:rollback:${job.target}` : job.target === "staging" ? "release:web:staging" : "release:web:production", "--", job.releaseId!], steps: 1 }]
+      ? [{ stage: "web" as const, label: job.archivedOperation === "rollback" ? `Rolling back Web and Firebase to ${job.releaseId}` : `Deploying ${job.releaseId} to ${job.target}`, args: ["run", job.archivedOperation === "rollback" ? `release:web:rollback:${job.target}` : job.target === "staging" ? "release:web:staging" : "release:web:production", "--", job.releaseId!], steps: archivedWebDeploymentSteps }]
       : releaseCommands(job.target, job.releaseScope ?? "all");
     try {
       let completed = 0;
@@ -331,6 +332,7 @@ export class FullReleaseJobManager {
         const code = await this.runCommand(job, runtime, root, command.args, completed, {
           ...process.env,
           GETGO_RELEASES_ROOT: releasesRoot,
+          GETGO_RELEASE_NOTE: job.releaseNote ?? "",
         });
         if (runtime.cancelled) return;
         if (code !== 0) throw new Error(`${command.label} failed with exit code ${code ?? "unknown"}.`);
@@ -458,7 +460,7 @@ export class FullReleaseJobManager {
     await this.ensureLoaded();
     const job = this.jobs.find(item => item.id === id);
     if (!job?.retryable) return;
-    if (job.buildOnly) await this.startWebBuild();
+    if (job.buildOnly) await this.startWebBuild(job.releaseNote);
     else if (job.archivedOperation === "activate" && job.releaseId) await this.activateWeb(job.target, job.releaseId);
     else await this.start(job.target, job.releaseScope ?? "all");
   }

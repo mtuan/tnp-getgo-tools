@@ -8825,6 +8825,73 @@ button.danger svg {
 .release-build-progress small {
   white-space: nowrap;
 }
+.release-build-note {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-secondary, #64748b);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow-wrap: anywhere;
+}
+.release-build-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.release-build-status-heading > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.release-deploy-summary {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+.release-deploy-summary > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.release-deploy-summary > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.release-deploy-summary dt {
+  color: var(--text-secondary, #64748b);
+  font-weight: 700;
+}
+.release-deploy-summary dd {
+  min-width: 0;
+  margin: 0;
+}
+.release-deploy-summary dd strong,
+.release-deploy-summary dd small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.release-deploy-summary dd small {
+  margin-top: 4px;
+  color: var(--text-secondary, #64748b);
+}
+.release-deploy-summary ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+}
+@media (max-width: 640px) {
+  .release-deploy-summary > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
 .release-build-actions {
   width: max-content;
   max-width: 100%;

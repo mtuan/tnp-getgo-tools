@@ -19,7 +19,7 @@ type DeploymentPageProps = {
 };
 
 export function DeploymentPage(props: DeploymentPageProps) {
-  return <WebReleasePage locale={props.locale} onOpenJobs={props.onOpenJobs} />;
+  return <WebReleasePage locale={props.locale} />;
 }
 
 export function DevelopmentDeploymentPage({
