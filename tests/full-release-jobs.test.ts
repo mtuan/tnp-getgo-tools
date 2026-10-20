@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { archivedWebDeploymentSteps, parseDeployResult, releaseCommands } from "../src/features/deployment/main/full-release-jobs.js";
+
+const source = readFileSync(new URL("../src/features/deployment/main/full-release-jobs.ts", import.meta.url), "utf8");
 
 test("archived Web deployments expose detailed progress tasks", () => {
   assert.equal(archivedWebDeploymentSteps, 8);
@@ -42,4 +45,8 @@ test("deployment result distinguishes a real publish from an up-to-date no-op", 
   assert.equal(parseDeployResult('GETGO_DEPLOY_RESULT {"outcome":"warning","deployed":[]}'), "warning");
   assert.equal(parseDeployResult("GETGO_RELEASE_PROGRESS {}"), null);
   assert.equal(parseDeployResult("GETGO_DEPLOY_RESULT not-json"), null);
+});
+
+test("full releases share the Tools Git-project deployment baseline", () => {
+  assert.doesNotMatch(source, /GETGO_DEPLOY_STATE_ROOT/);
 });

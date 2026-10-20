@@ -344,7 +344,6 @@ export class FullReleaseJobManager {
         const code = await this.runCommand(job, runtime, root, command.args, completed, {
           ...process.env,
           GETGO_TOOLS_ROOT: this.toolsAppPath,
-          GETGO_DEPLOY_STATE_ROOT: path.join(this.userDataPath, "deployment-state"),
           GETGO_RELEASES_ROOT: releasesRoot,
           GETGO_RELEASE_NOTE: job.releaseNote ?? "",
         });

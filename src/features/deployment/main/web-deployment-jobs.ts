@@ -1,7 +1,8 @@
-import type { ChildProcess } from "node:child_process";
+import { execFile, type ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { promisify } from "node:util";
 import type { BackgroundJob, DeploymentComponent, DeploymentComponentState, DeploymentItemState, DeploymentJobReportStep, DeploymentOperation, DeploymentStateSnapshot, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
@@ -15,6 +16,7 @@ type DeploymentJob = BackgroundJob & {
   operation?: DeploymentOperation;
 };
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
+const execFileAsync = promisify(execFile);
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string; items?: DeploymentItemState[] }
 interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string; deployOutcome?: "deployed" | "up-to-date" | "warning"; deployedResources: Set<string>; persistTimer?: NodeJS.Timeout }
@@ -166,6 +168,12 @@ export class WebDeploymentJobManager {
     return path.join(this.toolsAppPath, "configs", "deploys");
   }
 
+  private async deploymentHashes(targetName: string): Promise<Record<string, string>> {
+    const filePath = path.join(this.toolsAppPath, ".state", "deployments", `${targetName}.json`);
+    try { return JSON.parse(await fs.readFile(filePath, "utf8")) as Record<string, string>; }
+    catch { return {}; }
+  }
+
   private async hashFile(filePath: string) {
     try { return createHash("sha256").update(await fs.readFile(filePath)).digest("hex"); }
     catch { return null; }
@@ -186,13 +194,16 @@ export class WebDeploymentJobManager {
     catch { return null; }
   }
 
-  private async hashFunctionCodebase(root: string) {
-    const hash = createHash("sha256");
-    hash.update(await this.hashDirectory(path.join(root, "src")) ?? "");
-    hash.update(await this.hashFile(path.join(root, "package.json")) ?? "");
-    hash.update(await this.hashFile(path.join(root, "package-lock.json")) ?? "");
-    hash.update(await this.hashDirectory(path.join(root, "vendor")) ?? "");
-    return hash.digest("hex");
+  private async hashFunctions(root: string, codebase: string): Promise<DeploymentItemState[]> {
+    const script = path.join(this.toolsAppPath, "scripts", "deployment", "function-deploy-hashes.mjs");
+    const { stdout } = await execFileAsync(process.env.NODE_BINARY || "node", [script, root], { maxBuffer: 10 * 1024 * 1024 });
+    const hashes = JSON.parse(stdout) as Record<string, string>;
+    return Object.entries(hashes).map(([name, localHash]) => ({
+      id: `functions:${codebase}:${name}`,
+      localHash,
+      deployedHash: null,
+      changed: false,
+    }));
   }
 
   private async hashHostingInputs(webRoot: string) {
@@ -263,12 +274,9 @@ export class WebDeploymentJobManager {
       ["firestore-indexes", "firestore.indexes.json"],
       ["storage-rules", "storage.rules"],
     ].map(async ([id, filename]) => ({ id: id as DeploymentItemState["id"], localHash: await this.hashFile(path.join(deployRoot, filename)), deployedHash: null, changed: false })));
-    const functionItems = await Promise.all((targetConfig.functionCodebases ?? []).map(async (codebase) => ({
-      id: `functions:${codebase.name}` as const,
-      localHash: await this.hashFunctionCodebase(path.join(deployRoot, `functions-${codebase.id}`)),
-      deployedHash: null,
-      changed: false,
-    })));
+    const functionItems = (await Promise.all((targetConfig.functionCodebases ?? []).map(codebase =>
+      this.hashFunctions(path.join(deployRoot, `functions-${codebase.id}`), codebase.name)
+    ))).flat();
     return [
       ...ruleItems,
       { id: "firebase-inputs", localHash: await this.hashFirebaseInputs(webRoot, targetName, targetConfig.apps ?? ["getgo"]), deployedHash: null, changed: false },
@@ -343,11 +351,7 @@ export class WebDeploymentJobManager {
     const webRoot = await this.webRoot();
     const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
     const targetConfig = JSON.parse(await fs.readFile(path.join(this.deploysRoot(), targetName, "target.json"), "utf8")) as { firebaseProject: string; functionsRegion?: string; functionCodebases?: Array<{name: string}>; url: string };
-    const latestDeployments = new Map<DeploymentComponent, DeploymentRecord>();
-    for (const component of ["web", "firebase"] as const) {
-      const deployment = this.deployments.find(item => item.target === target && item.component === component);
-      if (deployment) latestDeployments.set(component, deployment);
-    }
+    const deployedHashes = await this.deploymentHashes(targetName);
     const legacyFirebaseBuild = this.builds.find((item) =>
       item.component === "firebase"
       && item.target === target
@@ -390,11 +394,13 @@ export class WebDeploymentJobManager {
             ["firestore-indexes", "firestore:indexes"],
             ["storage-rules", "storage"],
             ["firebase-inputs", "firebase:inputs"],
-            ...(targetConfig.functionCodebases ?? []).map(({name}) => [`functions:${name}`, `functions:${name}`]),
+            ...(currentItems.firebase ?? [])
+              .filter((item) => item.id.startsWith("functions:"))
+              .map((item) => [item.id, item.id]),
           ];
-      const items = keys.map(([id]) => {
+      const items = keys.map(([id, hashKey]) => {
         const localHash = currentItems[component]?.find((item) => item.id === id)?.localHash ?? null;
-        const deployedHash = latestDeployments.get(component)?.items?.find(item => item.id === id)?.localHash ?? null;
+        const deployedHash = deployedHashes[hashKey] ?? null;
         return { id: id as DeploymentItemState["id"], localHash, deployedHash, changed: Boolean(localHash && localHash !== deployedHash) };
       });
       const status = !build ? "build-required" : items.every((item) => !item.deployedHash) ? "not-deployed" : items.some((item) => item.changed) ? "changed" : "up-to-date";
@@ -462,7 +468,6 @@ export class WebDeploymentJobManager {
     try {
       const childEnvironment = { ...process.env };
       childEnvironment.GETGO_TOOLS_ROOT = this.toolsAppPath;
-      childEnvironment.GETGO_DEPLOY_STATE_ROOT = path.join(this.userDataPath, "deployment-state");
       delete childEnvironment.DEBUG;
       delete childEnvironment.FIREBASE_DEBUG;
       child = spawnCommand(npmExecutable, args, {

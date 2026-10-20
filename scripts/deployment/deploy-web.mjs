@@ -347,13 +347,13 @@ function hashFirebaseInputs() {
 }
 
 function getStoredHashes(targetName) {
-  const stateRoot = process.env.GETGO_DEPLOY_STATE_ROOT || join(toolsRoot, '.state')
+  const stateRoot = join(toolsRoot, '.state')
   const p = join(stateRoot, 'deployments', `${targetName}.json`)
   return existsSync(p) ? JSON.parse(readFileSync(p, 'utf-8')) : {}
 }
 
 function saveHashes(targetName, hashes) {
-  const stateRoot = process.env.GETGO_DEPLOY_STATE_ROOT || join(toolsRoot, '.state')
+  const stateRoot = join(toolsRoot, '.state')
   const directory = join(stateRoot, 'deployments')
   mkdirSync(directory, { recursive: true })
   const p = join(directory, `${targetName}.json`)
@@ -1050,12 +1050,6 @@ if (hasStorageRules) {
 }
 if (hasFunctions) {
   for (const codebase of effectiveFunctionCodebases) {
-    const digest = createHash('sha256')
-    digest.update(hashDir(join(codebase.dir, 'src')))
-    digest.update(hashFile(join(codebase.dir, 'package.json')))
-    digest.update(hashFile(join(codebase.dir, 'package-lock.json')))
-    digest.update(hashDir(join(codebase.dir, 'vendor')))
-    currentHashes[`functions:${codebase.name ?? 'default'}`] = digest.digest('hex')
     for (const [name, hash] of functionDeployHashes(codebase.dir)) {
       const key = `functions:${codebase.name ?? 'default'}:${name}`
       currentHashes[key] = hash
@@ -1087,7 +1081,7 @@ const willDeployStorage   = !webOnly && hasStorageRules && hashChanged('storage'
 // buildFunctionsOnly: assemble + compile but never deploy functions to production
 const skippedFunctionCodebases = !webOnly && hasFunctions && !buildFunctionsOnly
   ? effectiveFunctionCodebases.filter(codebase =>
-      hashChanged(`functions:${codebase.name ?? 'default'}`) &&
+      [...currentFunctionHashes.entries()].some(([key, value]) => value.codebase === codebase && hashChanged(key)) &&
       codebase.requiredSecrets.some(secret => missingFunctionSecrets.includes(secret))
     )
   : []
@@ -1097,7 +1091,8 @@ const skippedFunctionCodebases = !webOnly && hasFunctions && !buildFunctionsOnly
 // the final outcome as "warning" so the UI never claims a clean deployment.
 const changedFunctionCodebases = !webOnly && hasFunctions && !buildFunctionsOnly
   ? effectiveFunctionCodebases.filter(codebase =>
-      hashChanged(`functions:${codebase.name ?? 'default'}`) &&
+      (force || [...currentFunctionHashes.entries()].some(([key, value]) => value.codebase === codebase && hashChanged(key)) ||
+        Object.keys(storedHashes).some(key => key.startsWith(`functions:${codebase.name ?? 'default'}:`) && !currentFunctionHashes.has(key))) &&
       !skippedFunctionCodebases.includes(codebase)
     )
   : []
@@ -1282,7 +1277,7 @@ if (!buildOnly && (deployTargets.length > 0 || (buildFunctionsOnly && hasFunctio
     const prefix = `${codebaseKey}:`
     for (const key of Object.keys(newHashes)) if (key.startsWith(prefix)) delete newHashes[key]
     for (const [key, value] of currentFunctionHashes) if (value.codebase === codebase) newHashes[key] = value.hash
-    newHashes[codebaseKey] = currentHashes[codebaseKey]
+    delete newHashes[codebaseKey]
   }
   if (willDeployHosting) newHashes['hosting:inputs'] = currentHashes['hosting:inputs']
   if (willDeployHosting) newHashes['hosting:config'] = currentHashes['hosting:config']
