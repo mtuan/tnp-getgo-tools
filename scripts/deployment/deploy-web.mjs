@@ -36,7 +36,7 @@
 import { execSync, spawnSync }               from 'child_process'
 import { tmpdir }                            from 'os'
 import { readFileSync, writeFileSync, copyFileSync,
-         existsSync, mkdirSync, readdirSync, rmSync } from 'fs'
+         existsSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'fs'
 import { dirname, join, relative }           from 'path'
 import { createHash }                        from 'crypto'
 import { loadEnv }                           from 'vite'
@@ -423,6 +423,8 @@ const {
   resourceDir = `configs/deploys/${target}`,
 } = config
 const deployDir = resolveDeploymentPath(resourceDir)
+const functionsTemplateDir = join(logicsRoot, 'firebase-backend', 'functions-template')
+const storedHashes = force ? {} : getStoredHashes(target)
 const toolsEnvPath = join(toolsRoot, '.env')
 if (!existsSync(toolsEnvPath)) fail(`Missing GetGo Tools configuration: ${toolsEnvPath}`)
 const toolsEnv = loadEnv('getgo-runtime', toolsRoot, '')
@@ -441,6 +443,19 @@ if (!deployOnly) {
     process.env[key] = value
   }
   console.log('  🔐 Loaded Firebase target configuration from GetGo Tools.')
+  // A Firebase-only run can prove a no-op directly from canonical source
+  // inputs. Do this before prepare:shared, cloud checks, source assembly, and
+  // per-export TypeScript analysis; those steps are required only when the
+  // deployable Firebase inputs changed.
+  if (firebaseOnlyScope && !buildOnly && !force) {
+    const firebaseInputHash = hashFirebaseInputs()
+    if (storedHashes['firebase:inputs'] === firebaseInputHash) {
+      console.log('  ⚡ Firebase source inputs match the last successful deployment.')
+      console.log('  ⚡ Everything is already up to date. No preparation or cloud deployment is needed.\n')
+      console.log(`GETGO_DEPLOY_RESULT ${JSON.stringify({ outcome: 'up-to-date', deployed: [] })}`)
+      process.exit(0)
+    }
+  }
   run(
     'npm run prepare:shared',
     '🧩 Generating shared Firebase dependencies…',
@@ -448,7 +463,8 @@ if (!deployOnly) {
 }
 // skipHosting: skip vite build + hosting deploy (but still build + deploy functions)
 // devFunctionsDir: use an external functions dir instead of deployDir/functions
-const functionsTemplateDir = join(logicsRoot, 'firebase-backend', 'functions-template')
+const functionsDependencyCacheDir = join(toolsRoot, '.state', 'functions-dependencies')
+const sharedFunctionsNodeModules = join(functionsDependencyCacheDir, 'node_modules')
 const effectiveFunctionsDir = devFunctionsDir ? resolveDeploymentPath(devFunctionsDir) : join(deployDir, 'functions')
 const effectiveFunctionCodebases = functionCodebases.length > 0
   ? functionCodebases.map(({ id, name, requiredSecrets = [] }) => ({
@@ -589,6 +605,47 @@ function copyFunctionSourceFile(from, sourceRoot, toRoot) {
   )
 }
 
+function functionDependencyInputs() {
+  const packagePath = join(functionsTemplateDir, 'package.json')
+  const lockPath = join(functionsTemplateDir, 'package-lock.json')
+  const manifest = JSON.parse(readFileSync(packagePath, 'utf8'))
+  const localArchives = Object.values(manifest.dependencies ?? {})
+    .filter(value => typeof value === 'string' && value.startsWith('file:vendor/'))
+    .map(value => {
+      const archiveName = value.slice('file:vendor/'.length)
+      const candidates = [join(root, 'vendor', archiveName), join(functionsTemplateDir, 'vendor', archiveName)]
+      const source = candidates.find(existsSync)
+      if (!source) fail(`Missing Functions vendored dependency: ${archiveName}`)
+      return { archiveName, source }
+    })
+  const digest = createHash('sha256').update(readFileSync(packagePath)).update(readFileSync(lockPath))
+  for (const archive of localArchives) digest.update(archive.archiveName).update(readFileSync(archive.source))
+  return { packagePath, lockPath, localArchives, hash: digest.digest('hex') }
+}
+
+function ensureSharedFunctionDependencies() {
+  const inputs = functionDependencyInputs()
+  const markerPath = join(functionsDependencyCacheDir, '.inputs-sha256')
+  const installedHash = existsSync(markerPath) ? readFileSync(markerPath, 'utf8').trim() : ''
+  if (installedHash === inputs.hash && existsSync(sharedFunctionsNodeModules)) {
+    console.log('  ⚡  Reusing shared Cloud Functions dependencies.')
+    return
+  }
+  mkdirSync(functionsDependencyCacheDir, { recursive: true })
+  copyFileSync(inputs.packagePath, join(functionsDependencyCacheDir, 'package.json'))
+  copyFileSync(inputs.lockPath, join(functionsDependencyCacheDir, 'package-lock.json'))
+  const vendorDir = join(functionsDependencyCacheDir, 'vendor')
+  rmSync(vendorDir, { recursive: true, force: true })
+  mkdirSync(vendorDir, { recursive: true })
+  for (const archive of inputs.localArchives) copyFileSync(archive.source, join(vendorDir, archive.archiveName))
+  runInDirectory(
+    'npm ci --ignore-scripts --no-audit --no-fund',
+    'Installing shared locked Cloud Functions dependencies…',
+    functionsDependencyCacheDir,
+  )
+  writeFileSync(markerPath, `${inputs.hash}\n`, 'utf8')
+}
+
 function assembleFunctionsSrc() {
   const templateDir = functionsTemplateDir
   if (!existsSync(join(templateDir, 'package.json'))) return
@@ -644,6 +701,9 @@ function assembleFunctionsSrc() {
       mkdirSync(outputVendorDir, {recursive: true})
       copyFileSync(archivePath, join(outputVendorDir, archiveName))
     }
+    const nodeModulesLink = join(functionsDir, 'node_modules')
+    rmSync(nodeModulesLink, { recursive: true, force: true })
+    symlinkSync(sharedFunctionsNodeModules, nodeModulesLink, 'dir')
     if (existsSync(srcDir)) rmSync(srcDir, { recursive: true })
     mkdirSync(srcDir, { recursive: true })
     const selectedBlocks = exportBlocks.map(block => ({
@@ -872,6 +932,7 @@ if (!deployOnly) {
   }
   if (!webOnly) assembleFunctionsSrc()
 }
+if (!webOnly && existsSync(join(functionsTemplateDir, 'package.json'))) ensureSharedFunctionDependencies()
 
 // ── Guard: env file must exist to lint/build/deploy ─────────────────────────
 
@@ -1015,7 +1076,6 @@ releaseProgress(2, 'Code checks complete')
 // a build timestamp, so rebuilding first would make identical source appear
 // changed and force an unnecessary hosting deployment.
 
-const storedHashes = force ? {} : getStoredHashes(target)
 const hostingInputHash = hashHostingInputs()
 const shouldBuildHosting =
   !firebaseOnly && !skipHosting && !firebaseOnlyScope && !deployOnly &&
@@ -1036,6 +1096,7 @@ releaseProgress(3, 'Web artifact ready')
 
 const currentHashes = {}
 const currentFunctionHashes = new Map()
+const legacyFunctionCodebaseHashes = new Map()
 
 if (!firebaseOnly && !skipHosting && !firebaseOnlyScope) {
   currentHashes['hosting'] = hashDir(join(root, 'dist'))
@@ -1050,6 +1111,12 @@ if (hasStorageRules) {
 }
 if (hasFunctions) {
   for (const codebase of effectiveFunctionCodebases) {
+    const legacyDigest = createHash('sha256')
+    legacyDigest.update(hashDir(join(codebase.dir, 'src')))
+    legacyDigest.update(hashFile(join(codebase.dir, 'package.json')))
+    legacyDigest.update(hashFile(join(codebase.dir, 'package-lock.json')))
+    legacyDigest.update(hashDir(join(codebase.dir, 'vendor')))
+    legacyFunctionCodebaseHashes.set(codebase, legacyDigest.digest('hex'))
     for (const [name, hash] of functionDeployHashes(codebase.dir)) {
       const key = `functions:${codebase.name ?? 'default'}:${name}`
       currentHashes[key] = hash
@@ -1063,8 +1130,9 @@ for (const codebase of effectiveFunctionCodebases) {
   const codebaseName = codebase.name ?? 'default'
   const codebaseKey = `functions:${codebaseName}`
   const prefix = `${codebaseKey}:`
-  if (storedHashes[codebaseKey] !== currentHashes[codebaseKey] || Object.keys(storedHashes).some(key => key.startsWith(prefix))) continue
+  if (storedHashes[codebaseKey] !== legacyFunctionCodebaseHashes.get(codebase)) continue
   for (const [key, value] of currentFunctionHashes) if (value.codebase === codebase) storedHashes[key] = value.hash
+  delete storedHashes[codebaseKey]
   migratedFunctionHashes = true
 }
 
@@ -1150,7 +1218,10 @@ console.log([
 ].join('\n'))
 
 if (!buildOnly && deployTargets.length === 0 && !(buildFunctionsOnly && hasFunctions)) {
-  if (migratedFunctionHashes) saveHashes(target, storedHashes)
+  if (!webOnly && skippedFunctionCodebases.length === 0) {
+    storedHashes['firebase:inputs'] = currentHashes['firebase:inputs']
+  }
+  if (migratedFunctionHashes || (!webOnly && skippedFunctionCodebases.length === 0)) saveHashes(target, storedHashes)
   console.log(skippedFunctionCodebases.length > 0
     ? '  ⚠️  All deployable resources are up to date. Secret-dependent Functions remain skipped.\n'
     : '  ⚡  Everything is already up to date. No resources need deployment.\n')
@@ -1175,16 +1246,6 @@ if (willDeployFunctions || (!webOnly && (buildFunctionsOnly || (buildOnly && has
     : changedFunctionCodebases
   for (const codebase of codebasesToBuild) {
     const codebaseName = codebase.name ?? 'default'
-    try {
-      releaseProgress(4, `Installing dependencies: ${codebaseName}`)
-      runInDirectory(
-        'npm ci --ignore-scripts --no-audit --no-fund',
-        `Installing locked dependencies: ${codebaseName}…`,
-        codebase.dir,
-      )
-    } catch (err) {
-      fail(`Cloud Functions dependency installation failed for ${codebaseName}. Fix the package lock or registry access and retry.`)
-    }
     try {
       releaseProgress(4, `Building functions: ${codebaseName}`)
       const buildInfo = join(tmpdir(), `getgo-functions-${createHash('sha256').update(codebase.dir).digest('hex').slice(0, 12)}.tsbuildinfo`)
@@ -1281,7 +1342,7 @@ if (!buildOnly && (deployTargets.length > 0 || (buildFunctionsOnly && hasFunctio
   }
   if (willDeployHosting) newHashes['hosting:inputs'] = currentHashes['hosting:inputs']
   if (willDeployHosting) newHashes['hosting:config'] = currentHashes['hosting:config']
-  if (!webOnly && deployTargets.length > 0) newHashes['firebase:inputs'] = currentHashes['firebase:inputs']
+  if (!webOnly && deployTargets.length > 0 && skippedFunctionCodebases.length === 0) newHashes['firebase:inputs'] = currentHashes['firebase:inputs']
   saveHashes(target, newHashes)
   console.log(`GETGO_DEPLOY_RESULT ${JSON.stringify({
     outcome: skippedFunctionCodebases.length > 0 ? 'warning' : 'deployed',

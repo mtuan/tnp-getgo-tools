@@ -3,7 +3,7 @@ import { AlertTriangle, BriefcaseBusiness, Check, CheckCircle2, Copy, ExternalLi
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { useAuth } from "../../authentication/components/AuthContext";
-import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
+import { BackgroundJobsTable, type BackgroundJobAction, type BusyBackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 import { DeploymentJobReportDrawer } from "./DeploymentJobReportDrawer";
@@ -23,7 +23,7 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
   const [doctorBusy, setDoctorBusy] = useState(false);
   const [releaseBusy, setReleaseBusy] = useState<ReleaseScope | null>(null);
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
-  const [busyJob, setBusyJob] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<BusyBackgroundJobAction>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [copiedCheckId, setCopiedCheckId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,14 +100,14 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
   const control = async (job: BackgroundJob, action: BackgroundJobAction) => {
     if (action === "cancel" && !window.confirm(copy.cancelConfirm.replace("{name}", job.name))) return;
     if (action === "delete" && !window.confirm(copy.deleteConfirm.replace("{name}", job.name))) return;
-    setBusyJob(job.id);
+    setBusyAction({ jobId: job.id, action });
     try {
       setSnapshot(action === "pause" ? await window.getgo.pauseBackgroundJob(job.id)
         : action === "resume" ? await window.getgo.resumeBackgroundJob(job.id)
           : action === "cancel" ? await window.getgo.cancelBackgroundJob(job.id)
             : action === "retry" ? await window.getgo.retryBackgroundJob(job.id)
               : await window.getgo.deleteBackgroundJob(job.id));
-    } finally { setBusyJob(null); }
+    } finally { setBusyAction(null); }
   };
   const rollbackRelease = async (releaseId: string) => {
     if (activeRelease || !window.confirm(releaseCopy.rollbackConfirm.replace("{release}", releaseId).replace("{target}", target))) return;
@@ -201,7 +201,7 @@ export function FullReleasePage({ locale, target, onOpenJobs }: {
 
     <section className="deployment-jobs">
       <div><h2>{releaseCopy.historyTitle}</h2><ui.Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openAllJobs}</ui.Button></div>
-      <BackgroundJobsTable locale={locale} ariaLabel={releaseCopy.historyTitle} rows={releaseJobs} busyJob={busyJob} emptyText={releaseCopy.noReleases} onAction={(job, action) => void control(job, action)} />
+      <BackgroundJobsTable locale={locale} ariaLabel={releaseCopy.historyTitle} rows={releaseJobs} busyAction={busyAction} emptyText={releaseCopy.noReleases} onAction={(job, action) => void control(job, action)} />
     </section>
     {selectedJob && <DeploymentJobReportDrawer locale={locale} job={selectedJob} onClose={() => setSelectedJobId(null)} />}
   </section>;

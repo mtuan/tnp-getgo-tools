@@ -678,8 +678,8 @@ export type LocalWebProtocol = "http" | "https";
 export interface DeploymentJobReportStep {
   id: string;
   label: string;
-  status: "completed" | "failed" | "cancelled";
-  startedAt: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled" | "skipped";
+  startedAt?: string;
   finishedAt?: string;
   durationMs?: number;
   details: string[];

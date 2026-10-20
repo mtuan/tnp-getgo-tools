@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BriefcaseBusiness } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, DeploymentComponent, DeploymentOperation, DeploymentProduct, DeploymentStateSnapshot, LocalWebProtocol, LocalWebRuntimeSnapshot } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
-import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
+import { BackgroundJobsTable, type BackgroundJobAction, type BusyBackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
 import { DeploymentServiceCards } from "../components/DeploymentServiceCards";
 import { DeploymentJobReportDrawer } from "../components/DeploymentJobReportDrawer";
 import { NativeDeploymentCards } from "../components/NativeDeploymentCards";
@@ -31,9 +31,10 @@ export function DevelopmentDeploymentPage({
   const { requireAuth } = useAuth();
   const [product, setProduct] = useState<DeploymentProduct>("web");
   const [busy, setBusy] = useState<DeploymentComponent | null>(null);
-  const [busyJob, setBusyJob] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<BusyBackgroundJobAction>(null);
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
   const [deploymentState, setDeploymentState] = useState<DeploymentStateSnapshot | null>(null);
+  const deploymentStateLoadingRef = useRef(false);
   const [versionBusy, setVersionBusy] = useState(false);
   const [localWeb, setLocalWeb] = useState<LocalWebRuntimeSnapshot | null>(null);
   const [localWebAction, setLocalWebAction] = useState<"start" | "restart" | "stop" | null>(null);
@@ -60,12 +61,16 @@ export function DevelopmentDeploymentPage({
   }, []);
 
   const loadDeploymentState = useCallback(async () => {
+    if (deploymentStateLoadingRef.current) return;
+    deploymentStateLoadingRef.current = true;
     const requestedEnvironment = environment;
     try {
       const state = await window.getgo.getDeploymentState(requestedEnvironment);
       if (environmentRef.current === requestedEnvironment) setDeploymentState(state);
     } catch (cause) {
       if (environmentRef.current === requestedEnvironment) setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      deploymentStateLoadingRef.current = false;
     }
   }, [environment]);
 
@@ -105,7 +110,7 @@ export function DevelopmentDeploymentPage({
   useEffect(() => {
     setDeploymentState(null);
     void loadDeploymentState();
-    const timer = window.setInterval(() => void loadDeploymentState(), 250);
+    const timer = window.setInterval(() => void loadDeploymentState(), 2000);
     return () => window.clearInterval(timer);
   }, [loadDeploymentState]);
   useEffect(() => {
@@ -241,7 +246,7 @@ export function DevelopmentDeploymentPage({
   const control = async (job: BackgroundJob, action: BackgroundJobAction) => {
     if (action === "cancel" && !window.confirm(copy.cancelConfirm.replace("{name}", job.name))) return;
     if (action === "delete" && !window.confirm(copy.deleteConfirm.replace("{name}", job.name))) return;
-    setBusyJob(job.id);
+    setBusyAction({ jobId: job.id, action });
     try {
       setSnapshot(action === "pause"
         ? await window.getgo.pauseBackgroundJob(job.id)
@@ -253,7 +258,7 @@ export function DevelopmentDeploymentPage({
               ? await window.getgo.retryBackgroundJob(job.id)
               : await window.getgo.deleteBackgroundJob(job.id));
     } finally {
-      setBusyJob(null);
+      setBusyAction(null);
     }
   };
 
@@ -297,7 +302,7 @@ export function DevelopmentDeploymentPage({
     </>}
     <section className="deployment-jobs">
       <div><h2>{copy.relatedJobs}</h2><ui.Button icon={<BriefcaseBusiness />} onClick={onOpenJobs}>{copy.openAllJobs}</ui.Button></div>
-      <BackgroundJobsTable locale={locale} ariaLabel={copy.relatedJobs} rows={deployments} busyJob={busyJob} emptyText={copy.noRelatedJobs} onAction={(job, action) => void control(job, action)} />
+      <BackgroundJobsTable locale={locale} ariaLabel={copy.relatedJobs} rows={deployments} busyAction={busyAction} emptyText={copy.noRelatedJobs} onAction={(job, action) => void control(job, action)} />
     </section>
     {selectedLogJob && <DeploymentJobReportDrawer locale={locale} job={selectedLogJob} onClose={() => setLogSelection(null)} />}
   </section>;

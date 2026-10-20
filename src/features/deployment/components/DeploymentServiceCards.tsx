@@ -29,8 +29,9 @@ export function DeploymentServiceCards({
   latestJob,
 }: DeploymentServiceCardsProps) {
   const copy = (locale === "vi" ? vi : en).deployment;
-  const stateCopy = (status?: string) => status === "up-to-date"
-    ? copy.upToDate
+  const stateCopy = (status?: string) => !status
+    ? copy.loadingState
+    : status === "up-to-date" ? copy.upToDate
     : status === "changed"
       ? copy.changesDetected
       : status === "not-deployed"
@@ -43,7 +44,7 @@ export function DeploymentServiceCards({
         <div className="deployment-card-copy">
           <div className="deployment-card-title">
             <h2>{copy.rulesTitle}</h2>
-            <span className={`badge deployment-state-${state?.rules.status ?? "build-required"}`}>{stateCopy(state?.rules.status)}</span>
+            <span className={`badge deployment-state-${state?.rules.status ?? "loading"}`}>{stateCopy(state?.rules.status)}</span>
           </div>
           <dl className="deployment-card-facts">
             <div><dt>{copy.firebaseProject}</dt><dd>{state?.firebaseProject ?? "—"}</dd></div>
@@ -66,7 +67,7 @@ export function DeploymentServiceCards({
         <div className="deployment-card-copy">
           <div className="deployment-card-title">
             <h2>{copy.webTitle}</h2>
-            <span className={`badge deployment-state-${state?.web.status ?? "build-required"}`}>{stateCopy(state?.web.status)}</span>
+            <span className={`badge deployment-state-${state?.web.status ?? "loading"}`}>{stateCopy(state?.web.status)}</span>
           </div>
           <dl className="deployment-card-facts">
             <div><dt>{copy.hostingTarget}</dt><dd>{state?.target ?? "—"}</dd></div>

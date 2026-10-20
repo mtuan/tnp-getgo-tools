@@ -3,7 +3,7 @@ import { Rocket, Trash2 } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot, WebDeploymentTarget, WebReleaseSummary } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { useAuth } from "../../authentication/components/AuthContext";
-import { BackgroundJobsTable, type BackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
+import { BackgroundJobsTable, type BackgroundJobAction, type BusyBackgroundJobAction } from "../../jobs/components/BackgroundJobsTable";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
@@ -22,6 +22,7 @@ export function WebReleasePage({ locale }: { locale: AppSettings["locale"] }) {
   const [optimisticBuild, setOptimisticBuild] = useState<BackgroundJob | null>(null);
   const [busyReleaseId, setBusyReleaseId] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
+  const [busyJobAction, setBusyJobAction] = useState<BusyBackgroundJobAction>(null);
   const [building, setBuilding] = useState(false);
   const [buildDialogOpen, setBuildDialogOpen] = useState(false);
   const [buildValues, setBuildValues] = useState<ui.FormValues>({ note: "" });
@@ -90,7 +91,7 @@ export function WebReleasePage({ locale }: { locale: AppSettings["locale"] }) {
   const controlJob = async (job: BackgroundJob, action: BackgroundJobAction) => {
     if (action === "cancel" && !window.confirm(jobsCopy.cancelConfirm.replace("{name}", job.name))) return;
     if (action === "delete" && !window.confirm(jobsCopy.deleteConfirm.replace("{name}", job.name))) return;
-    setBusyJobId(job.id); setError(null);
+    setBusyJobId(job.id); setBusyJobAction({ jobId: job.id, action }); setError(null);
     try {
       setJobs(action === "pause" ? await window.getgo.pauseBackgroundJob(job.id)
         : action === "resume" ? await window.getgo.resumeBackgroundJob(job.id)
@@ -98,7 +99,7 @@ export function WebReleasePage({ locale }: { locale: AppSettings["locale"] }) {
             : action === "retry" ? await window.getgo.retryBackgroundJob(job.id)
               : await window.getgo.deleteBackgroundJob(job.id));
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setBusyJobId(null); }
+    finally { setBusyJobId(null); setBusyJobAction(null); }
   };
   const deleteBuild = async (row: BuildRow) => {
     if (row.release?.activeStaging || row.release?.activeProduction || (row.job && activeStatuses.includes(row.job.status))) return;
@@ -137,7 +138,7 @@ export function WebReleasePage({ locale }: { locale: AppSettings["locale"] }) {
   return <section className="deployment-page">
     <div className="deployment-page-heading"><ui.PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} actions={<><ui.ActionMenu label={copy.buildActions} disabled={clearingFailed} items={[{ id: "clear-failed", label: copy.clearFailed, icon: Trash2, color: "danger", disabled: failedBuildCount === 0, onSelect: () => requireAuth(clearFailedBuilds) }]} /><ui.Button variant="solid" icon={<Rocket />} loading={building} disabled={Boolean(activeJob)} onClick={() => { setBuildValues({ note: "" }); setBuildDialogOpen(true); }}>{copy.build}</ui.Button></>} /><ui.Tabs<ReleaseTab> items={[{ id: "builds", label: copy.buildsTab }, { id: "jobs", label: copy.jobsTab }]} value={tab} onChange={setTab} ariaLabel={copy.tabsLabel} variant="underline" /></div>
     {error && <ui.ErrorFrame message={error} />}
-    {loading ? <ui.PageLoading label={copy.loading} /> : <ui.TabPanels<ReleaseTab> value={tab} preserveMounted={false} items={[{ id: "builds", content: <div className="release-build-table"><ui.DataTable horizontalScroll ariaLabel={copy.tableLabel} rows={rows} columns={columns} rowKey={row => row.key} emptyText={copy.emptyDescription} defaultSort={{ key: "created", direction: "desc" }} sortLocale={locale} /></div> }, { id: "jobs", content: <BackgroundJobsTable locale={locale} ariaLabel={copy.jobsTableLabel} rows={releaseJobs} busyJob={busyJobId} emptyText={copy.jobsEmpty} onAction={(job, action) => requireAuth(() => controlJob(job, action))} /> }]} />}
+    {loading ? <ui.PageLoading label={copy.loading} /> : <ui.TabPanels<ReleaseTab> value={tab} preserveMounted={false} items={[{ id: "builds", content: <div className="release-build-table"><ui.DataTable horizontalScroll ariaLabel={copy.tableLabel} rows={rows} columns={columns} rowKey={row => row.key} emptyText={copy.emptyDescription} defaultSort={{ key: "created", direction: "desc" }} sortLocale={locale} /></div> }, { id: "jobs", content: <BackgroundJobsTable locale={locale} ariaLabel={copy.jobsTableLabel} rows={releaseJobs} busyAction={busyJobAction} emptyText={copy.jobsEmpty} onAction={(job, action) => requireAuth(() => controlJob(job, action))} /> }]} />}
     {buildDialogOpen && <ui.DialogFrame presentation="modal" title={copy.buildDialogTitle} busy={building} error={null} cancelLabel={copy.cancel} submitLabel={copy.build} onClose={() => !building && setBuildDialogOpen(false)} onSubmit={event => requireAuth(() => build(event))}><ui.Form fields={buildFields} values={buildValues} onChange={(name, value) => setBuildValues(current => ({ ...current, [name]: value }))} /></ui.DialogFrame>}
     {deploymentConfirmation && <ui.DialogFrame presentation="modal" title={copy.deployDialogTitle} busy={busyReleaseId === deploymentConfirmation.release.releaseId} error={null} cancelLabel={copy.cancel} submitLabel={copy.deployAction.replace("{target}", deploymentConfirmation.target === "staging" ? copy.staging : copy.production)} submitColor="primary" onClose={() => !busyReleaseId && setDeploymentConfirmation(null)} onSubmit={event => { event.preventDefault(); requireAuth(() => activate(deploymentConfirmation.release, deploymentConfirmation.target)); }}><dl className="release-deploy-summary"><div><dt>{copy.deployBuildLabel}</dt><dd><strong>{deploymentConfirmation.release.releaseId}</strong><small>{deploymentConfirmation.release.gitCommit}</small></dd></div><div><dt>{copy.deployDestinationLabel}</dt><dd><ui.StatusBadge tone="warning">{deploymentConfirmation.target === "staging" ? copy.staging : copy.production}</ui.StatusBadge></dd></div><div><dt>{copy.deployIncludesLabel}</dt><dd><ul><li>{copy.deployWeb}</li><li>{copy.deployFunctions}</li><li>{copy.deployRules}</li><li>{copy.deployIndexes}</li><li>{copy.deployConfiguration}</li></ul></dd></div><div><dt>{copy.deployDataLabel}</dt><dd>{copy.deployDataUnchanged}</dd></div></dl></ui.DialogFrame>}
   </section>;

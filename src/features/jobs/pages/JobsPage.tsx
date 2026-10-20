@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { AppSettings, BackgroundJob, BackgroundJobsSnapshot } from "../../../shared/domain/models";
 import { Button, ErrorFrame, PageHeader, PageLoading, Pagination, ProcessingOverlay, usePagination } from "../../../shared/ui";
-import { BackgroundJobsTable, type BackgroundJobAction } from "../components/BackgroundJobsTable";
+import { BackgroundJobsTable, type BackgroundJobAction, type BusyBackgroundJobAction } from "../components/BackgroundJobsTable";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
@@ -18,7 +18,7 @@ export function JobsPage({
   const copy = (locale === "vi" ? vi : en).jobs;
   const [snapshot, setSnapshot] = useState<BackgroundJobsSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busyJob, setBusyJob] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<BusyBackgroundJobAction>(null);
   const [clearingFinished, setClearingFinished] = useState(false);
   const hasActiveJobs = snapshot?.jobs.some((job) => activeStatuses.has(job.status)) ?? false;
   const jobs = snapshot?.jobs ?? [];
@@ -41,34 +41,34 @@ export function JobsPage({
 
   const cancel = async (job: BackgroundJob) => {
     if (!window.confirm(copy.cancelConfirm.replace("{name}", job.name))) return;
-    setBusyJob(job.id);
+    setBusyAction({ jobId: job.id, action: "cancel" });
     try {
       setSnapshot(await window.getgo.cancelBackgroundJob(job.id));
     } finally {
-      setBusyJob(null);
+      setBusyAction(null);
     }
   };
 
   const changeExecution = async (job: BackgroundJob, action: "pause" | "resume") => {
-    setBusyJob(job.id);
+    setBusyAction({ jobId: job.id, action });
     try {
       setSnapshot(action === "pause"
         ? await window.getgo.pauseBackgroundJob(job.id)
         : await window.getgo.resumeBackgroundJob(job.id));
     } finally {
-      setBusyJob(null);
+      setBusyAction(null);
     }
   };
 
   const terminalAction = async (job: BackgroundJob, action: "retry" | "delete") => {
     if (action === "delete" && !window.confirm(copy.deleteConfirm.replace("{name}", job.name))) return;
-    setBusyJob(job.id);
+    setBusyAction({ jobId: job.id, action });
     try {
       setSnapshot(action === "retry"
         ? await window.getgo.retryBackgroundJob(job.id)
         : await window.getgo.deleteBackgroundJob(job.id));
     } finally {
-      setBusyJob(null);
+      setBusyAction(null);
     }
   };
 
@@ -98,7 +98,7 @@ export function JobsPage({
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<Button variant="solid" color="danger" icon={<Trash2 />} disabled={!finishedCount || clearingFinished} onClick={() => void clearFinished()}>{copy.clearFinished}</Button>} />
     {error && <div className="jobs-load-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>{copy.retry}</Button></div>}
     {!error && snapshot && <>
-      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentJobs} rows={pagination.pageItems} busyJob={busyJob} emptyText={copy.empty} onAction={jobAction} onOpenRoute={onOpenQuiz} />
+      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentJobs} rows={pagination.pageItems} busyAction={busyAction} emptyText={copy.empty} onAction={jobAction} onOpenRoute={onOpenQuiz} />
       <Pagination locale={locale} page={pagination.page} pageCount={pagination.pageCount} onPageChange={pagination.setPage} />
     </>}
     <ProcessingOverlay open={clearingFinished} title={copy.clearingFinished} />

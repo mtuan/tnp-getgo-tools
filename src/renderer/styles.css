@@ -7993,7 +7993,8 @@ button.danger svg {
   color: #4338ca;
   background: #eef2ff;
 }
-.job-status-queued {
+.job-status-queued,
+.job-status-pending {
   color: #a16207;
   background: #fef9c3;
 }
@@ -8005,7 +8006,8 @@ button.danger svg {
   color: #be123c;
   background: #ffe4e6;
 }
-.job-status-cancelled {
+.job-status-cancelled,
+.job-status-skipped {
   color: #64748b;
   background: #f1f5f9;
 }
@@ -8137,6 +8139,13 @@ button.danger svg {
 .crud-dialog.deployment-report-drawer {
   width: min(880px, calc(100vw - 32px));
 }
+.deployment-report-panels {
+  display: grid;
+  gap: 10px;
+}
+.deployment-report-panels .ui-accordion-panel {
+  margin-bottom: 0;
+}
 .deployment-report-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8171,10 +8180,9 @@ button.danger svg {
 }
 .job-live-output {
   display: grid;
-  max-height: min(46vh, 520px);
-  min-height: 160px;
+  min-height: 96px;
   padding: 12px 14px;
-  overflow: auto;
+  overflow: visible;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--soft);
@@ -8208,6 +8216,32 @@ button.danger svg {
   display: grid;
   min-width: 0;
   gap: 3px;
+}
+.deployment-report-tasks .ui-data-table td {
+  height: 42px;
+  padding-block: 5px;
+}
+.deployment-report-task-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.deployment-report-task-progress {
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.deployment-report-task-progress progress {
+  width: 100%;
+  height: 7px;
+  accent-color: #4f46e5;
+}
+.deployment-report-task-progress small {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
 }
 @media (max-width: 720px) {
   .deployment-report-summary {
@@ -8627,7 +8661,8 @@ button.danger svg {
   color: #047857;
   background: #d1fae5;
 }
-.deployment-state-build-required {
+.deployment-state-build-required,
+.deployment-state-loading {
   color: #64748b;
   background: #f1f5f9;
 }
@@ -11131,6 +11166,7 @@ body {
 
   .job-status-cancelled,
   .deployment-state-build-required,
+  .deployment-state-loading,
   .local-web-state-offline {
     color: #cbd5e1;
     background: #334155;

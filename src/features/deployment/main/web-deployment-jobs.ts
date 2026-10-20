@@ -19,7 +19,7 @@ const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const execFileAsync = promisify(execFile);
 interface BuildRecord { component: DeploymentComponent; target: WebDeploymentTarget; format?: "shared-v1"; builtAt: string; items: DeploymentItemState[] }
 interface DeploymentRecord { component: DeploymentComponent; target: WebDeploymentTarget; deployedAt: string; version: string; items?: DeploymentItemState[] }
-interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string; deployOutcome?: "deployed" | "up-to-date" | "warning"; deployedResources: Set<string>; persistTimer?: NodeJS.Timeout }
+interface Runtime { child: ChildProcess; cancelled: boolean; finishing: boolean; phases: Set<string>; outputBuffer: string; reportPhase?: string; deployOutcome?: "deployed" | "up-to-date" | "warning"; deployedResources: Set<string>; persistTimer?: NodeJS.Timeout; killTimer?: NodeJS.Timeout }
 
 const targetScripts: Record<WebDeploymentTarget, string> = {
   development: "deploy:getgo:dev",
@@ -49,8 +49,7 @@ function reportedDeploymentError(job: DeploymentJob) {
 }
 
 function progressTotal(operation: DeploymentOperation, component: DeploymentComponent) {
-  if (operation === "build") return component === "firebase" ? 6 : 4;
-  return component === "firebase" ? 8 : 6;
+  return reportStepIds(operation, component).length;
 }
 
 function outputPhase(line: string, component: DeploymentComponent) {
@@ -78,6 +77,24 @@ const phaseLabels: Record<string, string> = {
   indexes: "Wait for Firestore indexes",
   complete: "Finalize report",
 };
+
+function reportStepIds(operation: DeploymentOperation, component: DeploymentComponent) {
+  const steps = component === "firebase"
+    ? ["startup", "dependencies", "firestore", "storage", "functions", "plan"]
+    : ["startup", "dependencies", "build", "bundle", "plan"];
+  if (operation === "deploy") steps.push("deploy");
+  if (operation === "deploy" && component === "firebase") steps.push("indexes");
+  return [...steps, "complete"];
+}
+
+function createReportSteps(operation: DeploymentOperation, component: DeploymentComponent, startedAt: string): DeploymentJobReportStep[] {
+  return reportStepIds(operation, component).map((id, index) => ({
+    id,
+    label: phaseLabels[id] ?? id,
+    status: index === 0 ? "running" : "pending",
+    ...(index === 0 ? { startedAt, details: ["Deployment process queued."] } : { details: [] }),
+  }));
+}
 
 export class WebDeploymentJobManager {
   private jobs: DeploymentJob[] = [];
@@ -110,25 +127,31 @@ export class WebDeploymentJobManager {
       this.jobs = (stored.jobs ?? []).slice(0, 50).map((storedJob) => {
         const job = { ...storedJob, component: migrateComponent(storedJob.component) } as DeploymentJob;
         if (["queued", "running", "paused"].includes(job.status)) {
-          job.status = "failed";
+          const completedNoOp = job.progressLabel?.includes("Everything is already up to date. No preparation or cloud deployment is needed.");
+          job.status = completedNoOp ? "completed" : "failed";
+          if (completedNoOp) job.completed = job.total;
           job.cancellable = false;
-          job.retryable = Boolean(job.component && job.target);
+          job.retryable = completedNoOp ? false : Boolean(job.component && job.target);
           job.finishedAt = new Date().toISOString();
-          job.error = "Deployment was interrupted when GetGo Tools stopped.";
+          job.error = completedNoOp ? undefined : "Deployment was interrupted when GetGo Tools stopped.";
         }
         if (job.status === "failed" && /^Deployment exited with code/.test(job.error ?? ""))
           job.error = reportedDeploymentError(job) ?? job.error;
-        if (job.report && !job.report.finishedAt && ["failed", "cancelled"].includes(job.status)) {
+        if (job.report && !job.report.finishedAt && ["completed", "failed", "cancelled"].includes(job.status)) {
           const finishedAt = job.finishedAt ?? new Date().toISOString();
-          const lastStep = job.report.steps.at(-1);
-          if (lastStep && !lastStep.finishedAt) {
-            lastStep.status = job.status === "cancelled" ? "cancelled" : "failed";
+          const lastStep = job.report.steps.find(step => step.status === "running");
+          if (lastStep && lastStep.startedAt && !lastStep.finishedAt) {
+            lastStep.status = job.status === "completed" ? "completed" : job.status === "cancelled" ? "cancelled" : "failed";
             lastStep.finishedAt = finishedAt;
             lastStep.durationMs = Math.max(0, Date.parse(finishedAt) - Date.parse(lastStep.startedAt));
           }
           job.report.finishedAt = finishedAt;
           job.report.durationMs = Math.max(0, Date.parse(finishedAt) - Date.parse(job.report.startedAt));
-          job.report.steps.push({ id: "complete", label: phaseLabels.complete, status: job.status === "cancelled" ? "cancelled" : "failed", startedAt: finishedAt, finishedAt, durationMs: 0, details: job.error ? [job.error] : [] });
+          for (const step of job.report.steps) if (step.status === "pending") step.status = "skipped";
+          const complete = job.report.steps.find(step => step.id === "complete");
+          const reportStatus = job.status === "completed" ? "completed" : job.status === "cancelled" ? "cancelled" : "failed";
+          if (complete) Object.assign(complete, { status: reportStatus, startedAt: finishedAt, finishedAt, durationMs: 0, details: job.error ? [job.error] : [] });
+          else job.report.steps.push({ id: "complete", label: phaseLabels.complete, status: reportStatus, startedAt: finishedAt, finishedAt, durationMs: 0, details: job.error ? [job.error] : [] });
         }
         return job;
       });
@@ -238,14 +261,15 @@ export class WebDeploymentJobManager {
 
   private async hashFirebaseInputs(webRoot: string, targetName: string, apps: string[]) {
     const hash = createHash("sha256");
-    const appsRoot = path.join(webRoot, "configs", "apps");
-    hash.update(await this.hashDirectory(path.join(appsRoot, "_shared", "functions")) ?? "");
+    const logicsRoot = path.join(webRoot, "..", "tnp-getgo-logics");
+    const backendRoot = path.join(logicsRoot, "firebase-backend");
+    hash.update(await this.hashDirectory(path.join(backendRoot, "functions", "shared")) ?? "");
     for (const app of apps) {
-      hash.update(await this.hashDirectory(path.join(appsRoot, app, "functions")) ?? "");
-      hash.update(await this.hashFile(path.join(appsRoot, app, "firestore.indexes.json")) ?? "");
+      hash.update(await this.hashDirectory(path.join(backendRoot, "functions", app)) ?? "");
+      hash.update(await this.hashFile(path.join(backendRoot, "indexes", `${app}.firestore.indexes.json`)) ?? "");
     }
-    hash.update(await this.hashDirectory(path.join(webRoot, "..", "tnp-getgo-logics", "firebase-rules", "generated")) ?? "");
-    const functionsTemplate = path.join(webRoot, "..", "tnp-getgo-logics", "firebase-backend", "functions-template");
+    hash.update(await this.hashDirectory(path.join(logicsRoot, "firebase-rules", "generated")) ?? "");
+    const functionsTemplate = path.join(backendRoot, "functions-template");
     for (const filename of ["package.json", "package-lock.json", "tsconfig.json"])
       hash.update(await this.hashFile(path.join(functionsTemplate, filename)) ?? "");
     hash.update(await this.hashDirectory(path.join(webRoot, "vendor")) ?? "");
@@ -290,6 +314,30 @@ export class WebDeploymentJobManager {
     this.builds = [record, ...this.builds.filter((item) => item.component !== component || item.target !== target)].slice(0, 12);
   }
 
+  private async recordFirebaseBuildFromDeploymentHashes(target: WebDeploymentTarget) {
+    const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
+    const hashes = await this.deploymentHashes(targetName);
+    const idByHashKey: Record<string, DeploymentItemState["id"]> = {
+      "firestore:rules": "firestore-rules",
+      "firestore:indexes": "firestore-indexes",
+      storage: "storage-rules",
+      "firebase:inputs": "firebase-inputs",
+    };
+    const items = Object.entries(hashes)
+      .filter(([key]) => key in idByHashKey || key.startsWith("functions:"))
+      .map(([key, hash]) => ({ id: idByHashKey[key] ?? key, localHash: hash, deployedHash: hash, changed: false }));
+    const record: BuildRecord = { component: "firebase", target, format: "shared-v1", builtAt: new Date().toISOString(), items };
+    this.builds = [record, ...this.builds.filter((item) => item.component !== "firebase" || item.target !== target)].slice(0, 12);
+    return record;
+  }
+
+  private recordDeploymentFromBuild(build: BuildRecord) {
+    const version = this.componentVersion(build.component, build.items, "localHash");
+    if (!version) return;
+    const record: DeploymentRecord = { component: build.component, target: build.target, deployedAt: new Date().toISOString(), version, items: build.items };
+    this.deployments = [record, ...this.deployments.filter((item) => item.component !== build.component || item.target !== build.target)].slice(0, 12);
+  }
+
   private componentVersion(component: DeploymentComponent, items: DeploymentItemState[], source: "localHash" | "deployedHash") {
     const values = items
       .filter((item) => component === "web" ? item.id !== "web-inputs" : item.id !== "web" && item.id !== "web-inputs" && item.id !== "web-config" && item.id !== "firebase-inputs")
@@ -308,8 +356,8 @@ export class WebDeploymentJobManager {
   }
 
   private closeReportStep(job: DeploymentJob, status: DeploymentJobReportStep["status"] = "completed") {
-    const step = job.report?.steps.at(-1);
-    if (!step || step.finishedAt) return;
+    const step = job.report?.steps.find(item => item.status === "running");
+    if (!step?.startedAt || step.finishedAt) return;
     step.finishedAt = new Date().toISOString();
     step.durationMs = Math.max(0, Date.parse(step.finishedAt) - Date.parse(step.startedAt));
     step.status = status;
@@ -320,29 +368,41 @@ export class WebDeploymentJobManager {
     if (runtime.reportPhase !== id) {
       this.closeReportStep(job);
       runtime.reportPhase = id;
-      job.report.steps.push({ id, label: phaseLabels[id] ?? id, status: "completed", startedAt: new Date().toISOString(), details: [] });
+      let step = job.report.steps.find(item => item.id === id);
+      if (!step) {
+        step = { id, label: phaseLabels[id] ?? id, status: "pending", details: [] };
+        const completeIndex = job.report.steps.findIndex(item => item.id === "complete");
+        if (completeIndex < 0) job.report.steps.push(step);
+        else job.report.steps.splice(completeIndex, 0, step);
+      }
+      step.status = "running";
+      step.startedAt = new Date().toISOString();
     }
     if (detail) {
-      const step = job.report.steps.at(-1)!;
+      const step = job.report.steps.find(item => item.id === id)!;
       step.details.push(detail);
       if (step.details.length > 200) step.details.shift();
     }
   }
 
-  private async finalizeReport(job: DeploymentJob, status: DeploymentJobReportStep["status"]) {
+  private async finalizeReport(job: DeploymentJob, status: DeploymentJobReportStep["status"], collectArtifactMetadata = true) {
     if (!job.report || !job.component || !job.target) return;
     this.closeReportStep(job, status);
     const now = new Date().toISOString();
-    job.report.steps.push({ id: "complete", label: phaseLabels.complete, status, startedAt: now, finishedAt: now, durationMs: 0, details: job.error ? [job.error] : [] });
+    for (const step of job.report.steps) if (step.status === "pending") step.status = "skipped";
+    const complete = job.report.steps.find(step => step.id === "complete");
+    if (complete) Object.assign(complete, { status, startedAt: now, finishedAt: now, durationMs: 0, details: job.error ? [job.error] : [] });
+    else job.report.steps.push({ id: "complete", label: phaseLabels.complete, status, startedAt: now, finishedAt: now, durationMs: 0, details: job.error ? [job.error] : [] });
     job.report.finishedAt = now;
     job.report.durationMs = Math.max(0, Date.parse(now) - Date.parse(job.report.startedAt));
+    if (!collectArtifactMetadata) return;
     try {
       const state = await this.state(job.target);
       const componentState = job.component === "web" ? state.web : state.rules;
       job.report.version = job.operation === "build" ? componentState.buildVersion : componentState.deployedVersion;
       job.report.items = componentState.items;
     } catch (cause) {
-      job.report.steps.at(-1)!.details.push(`Could not collect artifact metadata: ${cause instanceof Error ? cause.message : String(cause)}`);
+      job.report.steps.find(step => step.id === "complete")?.details.push(`Could not collect artifact metadata: ${cause instanceof Error ? cause.message : String(cause)}`);
     }
   }
 
@@ -350,7 +410,7 @@ export class WebDeploymentJobManager {
     await this.ensureLoaded();
     const webRoot = await this.webRoot();
     const targetName = target === "development" ? "getgo-dev" : target === "staging" ? "getgo-staging" : "getgo";
-    const targetConfig = JSON.parse(await fs.readFile(path.join(this.deploysRoot(), targetName, "target.json"), "utf8")) as { firebaseProject: string; functionsRegion?: string; functionCodebases?: Array<{name: string}>; url: string };
+    const targetConfig = JSON.parse(await fs.readFile(path.join(this.deploysRoot(), targetName, "target.json"), "utf8")) as { firebaseProject: string; functionsRegion?: string; functionCodebases?: Array<{name: string}>; apps?: string[]; resourceDir?: string; url: string };
     const deployedHashes = await this.deploymentHashes(targetName);
     const legacyFirebaseBuild = this.builds.find((item) =>
       item.component === "firebase"
@@ -376,9 +436,21 @@ export class WebDeploymentJobManager {
       legacyWebBuild.format = "shared-v1";
       await this.persist();
     }
+    const firebaseBuild = this.builds.find((item) => item.component === "firebase" && item.target === target && item.format === "shared-v1");
+    const firebaseCurrentItems = firebaseBuild?.items.map(item => ({ ...item })) ?? [];
+    const refreshFirebaseHash = (id: DeploymentItemState["id"], localHash: string | null) => {
+      const item = firebaseCurrentItems.find(candidate => candidate.id === id);
+      if (item) item.localHash = localHash;
+      else firebaseCurrentItems.push({ id, localHash, deployedHash: null, changed: false });
+    };
+    const deployRoot = path.join(this.toolsAppPath, targetConfig.resourceDir ?? `configs/deploys/${targetName}`);
+    refreshFirebaseHash("firestore-rules", await this.hashFile(path.join(deployRoot, "firestore.rules")));
+    refreshFirebaseHash("firestore-indexes", await this.hashFile(path.join(deployRoot, "firestore.indexes.json")));
+    refreshFirebaseHash("storage-rules", await this.hashFile(path.join(deployRoot, "storage.rules")));
+    refreshFirebaseHash("firebase-inputs", await this.hashFirebaseInputs(webRoot, targetName, targetConfig.apps ?? ["getgo"]));
     const currentItems: Partial<Record<DeploymentComponent, DeploymentItemState[]>> = {
       web: await this.localItems("web", webRoot, target),
-      firebase: await this.localItems("firebase", webRoot, target),
+      firebase: firebaseCurrentItems,
     };
     const componentState = (component: DeploymentComponent): DeploymentComponentState => {
       const build = this.builds.find((item) =>
@@ -454,7 +526,7 @@ export class WebDeploymentJobManager {
         target,
         startedAt: new Date().toISOString(),
         items: [],
-        steps: [{ id: "startup", label: phaseLabels.startup, status: "completed", startedAt: new Date().toISOString(), details: ["Deployment process queued."] }],
+        steps: createReportSteps(operation, component, new Date().toISOString()),
       },
     };
     this.jobs.unshift(job);
@@ -515,7 +587,7 @@ export class WebDeploymentJobManager {
         this.beginReportStep(job, runtime, phase ?? runtime.reportPhase ?? "startup", line);
         if (phase && !runtime.phases.has(phase)) {
           runtime.phases.add(phase);
-          job.completed = Math.min(job.total - 1, runtime.phases.size);
+          job.completed = Math.min(job.total - 1, job.report?.steps.filter((step) => step.status === "completed").length ?? runtime.phases.size);
         }
       }
       if (!runtime.persistTimer) runtime.persistTimer = setTimeout(() => {
@@ -533,6 +605,10 @@ export class WebDeploymentJobManager {
   private async finish(job: DeploymentJob, runtime: Runtime, code: number | null, cause: Error | null) {
     if (this.runtimes.get(job.id) !== runtime || runtime.finishing) return;
     runtime.finishing = true;
+    if (runtime.killTimer) {
+      clearTimeout(runtime.killTimer);
+      runtime.killTimer = undefined;
+    }
     if (runtime.persistTimer) {
       clearTimeout(runtime.persistTimer);
       runtime.persistTimer = undefined;
@@ -567,11 +643,18 @@ export class WebDeploymentJobManager {
             job.status = "completed";
             job.completed = job.total;
             job.progressLabel = job.operation === "build" ? "Built" : runtime.deployOutcome === "up-to-date" ? "Up to date" : runtime.deployOutcome === "warning" ? "Completed with warnings" : "Deployed";
-            if ((job.operation === "build" || job.operation === "deploy") && job.component && job.target)
-              await this.recordBuild(job.component, job.target);
-            if (job.operation === "deploy" && runtime.deployOutcome === "deployed" && job.component && job.target)
-              await this.recordDeployment(job.component, job.target);
-            await this.finalizeReport(job, "completed");
+            if ((job.operation === "build" || job.operation === "deploy") && job.component && job.target) {
+              if (job.component === "firebase") {
+                const build = await this.recordFirebaseBuildFromDeploymentHashes(job.target);
+                if (job.operation === "deploy" && runtime.deployOutcome === "deployed") this.recordDeploymentFromBuild(build);
+                job.report!.items = build.items;
+                job.report!.version = this.componentVersion("firebase", build.items, "deployedHash");
+              } else {
+                await this.recordBuild(job.component, job.target);
+                if (job.operation === "deploy" && runtime.deployOutcome === "deployed") await this.recordDeployment(job.component, job.target);
+              }
+            }
+            await this.finalizeReport(job, "completed", job.component !== "firebase");
           }
         } catch (waitCause) {
           if (!(waitCause instanceof FirestoreIndexWaitCancelledError) && !runtime.cancelled) {
@@ -603,7 +686,11 @@ export class WebDeploymentJobManager {
       runtime.child.kill(signal);
       return;
     }
-    process.kill(-runtime.child.pid, signal);
+    try {
+      process.kill(-runtime.child.pid, signal);
+    } catch (cause) {
+      if ((cause as NodeJS.ErrnoException).code !== "ESRCH") throw cause;
+    }
   }
 
   async pause(id: string) {
@@ -636,12 +723,17 @@ export class WebDeploymentJobManager {
     runtime.cancelled = true;
     if (job.status === "paused") this.signal(runtime, "SIGCONT");
     this.signal(runtime, "SIGTERM");
+    runtime.killTimer = setTimeout(() => {
+      runtime.killTimer = undefined;
+      if (this.runtimes.get(id) === runtime && runtime.child.exitCode === null) this.signal(runtime, "SIGKILL");
+    }, 5_000);
+    runtime.killTimer.unref();
     job.status = "cancelled";
     job.progressLabel = "Cancelled";
     job.cancellable = false;
     job.retryable = true;
     job.finishedAt = new Date().toISOString();
-    await this.finalizeReport(job, "cancelled");
+    await this.finalizeReport(job, "cancelled", false);
     await this.persist();
   }
 
