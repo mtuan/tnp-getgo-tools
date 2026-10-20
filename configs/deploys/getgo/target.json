@@ -10,7 +10,7 @@
   "functionCodebases": [
     {"id": "account", "name": "getgo-account"},
     {"id": "marketplace", "name": "getgo-marketplace"},
-    {"id": "billing", "name": "getgo-billing", "requiredSecrets": ["GETGO_VIETQR_CONFIG"]}
+    {"id": "billing", "name": "getgo-billing", "requiredSecrets": ["GETGO_VIETQR_CONFIG", "GETGO_APPLE_IAP_CONFIG"]}
   ],
   "url": "https://tnp-getgo.web.app"
 }
