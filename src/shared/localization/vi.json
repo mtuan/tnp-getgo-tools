@@ -821,6 +821,7 @@
       "setProduction": "Đặt làm production",
       "staging": "Staging",
       "production": "Production",
+      "openActiveEnvironment": "Mở trang web {target} đang hoạt động",
       "activateConfirm": "Triển khai bản {release} lên {target}? Thao tác này thay thế Web, Firebase Functions, quy tắc, chỉ mục và cấu hình đang hoạt động. Dữ liệu không thay đổi.",
       "versionsTitle": "Các phiên bản staging",
       "versionsDescription": "Chọn chính xác phiên bản staging đã kiểm tra để đưa lên production. Phiên bản đang hoạt động trên staging và production được bảo vệ khỏi thao tác xóa.",

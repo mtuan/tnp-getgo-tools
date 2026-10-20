@@ -7,8 +7,19 @@ type PublishJob = BackgroundJob & { kind: "publish" };
 export interface PublishJobControl {
   checkpoint(): Promise<void>;
   setTotal(total: number, label: string): Promise<void>;
+  addTotal(amount: number, label: string): Promise<void>;
   advance(label: string, amount?: number): Promise<void>;
   report(label: string): Promise<void>;
+}
+
+export function publishJobDetailControl(control: PublishJobControl): PublishJobControl {
+  return {
+    checkpoint: () => control.checkpoint(),
+    setTotal: (_total, label) => control.report(label),
+    addTotal: (_amount, label) => control.report(label),
+    advance: (label) => control.report(label),
+    report: (label) => control.report(label),
+  };
 }
 interface Runtime { paused: boolean; cancelled: boolean; resume?: () => void }
 type PublishTask = (control: PublishJobControl) => Promise<unknown>;
@@ -187,6 +198,12 @@ export class PublishJobManager {
       job.logs?.push({ timestamp: new Date().toISOString(), stream: "stdout", message: label });
       await this.persist();
     };
+    const addTotal = async (amount: number, label: string) => {
+      job.total += Math.max(0, Math.floor(amount));
+      job.progressLabel = label;
+      job.logs?.push({ timestamp: new Date().toISOString(), stream: "stdout", message: label });
+      await this.persist();
+    };
     const advance = async (label: string, amount = 1) => {
       job.completed = Math.min(job.total, job.completed + Math.max(0, Math.floor(amount)));
       job.progressLabel = label;
@@ -206,7 +223,7 @@ export class PublishJobManager {
     if (job.progressLabel === "Waiting") job.progressLabel = "Publishing";
     await this.persist();
     try {
-      const result = await task({ checkpoint, setTotal, advance, report });
+      const result = await task({ checkpoint, setTotal, addTotal, advance, report });
       await checkpoint();
       job.status = "completed";
       job.completed = job.total;

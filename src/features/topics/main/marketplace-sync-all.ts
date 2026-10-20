@@ -7,7 +7,7 @@ import { loadContentV2TopicReviews } from "../repository/content-v2-review-repos
 import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
 import type { FirestorePublishingService } from "./firestore-publishing.js";
 import { syncMarketplaceTopic, syncedMarketplaceMetadata } from "./marketplace-sync.js";
-import type { PublishJobControl } from "../../jobs/main/publish-jobs.js";
+import { publishJobDetailControl, type PublishJobControl } from "../../jobs/main/publish-jobs.js";
 import { publishedItemKey, type ContentV2PublishedItem } from "../domain/content-v2-publish-state.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
 
@@ -19,6 +19,7 @@ export async function syncAllMarketplaceTopics(
   control: PublishJobControl,
 ): Promise<void> {
   await control.setTotal(requestedPlan.length, "Initializing marketplace sync");
+  const detailControl = publishJobDetailControl(control);
   const target = await firebaseAuth.publishingTarget();
   const quizFailures: string[] = [];
   const topicIds = [...new Set(requestedPlan.map((item) => item.topicId))];
@@ -49,6 +50,11 @@ export async function syncAllMarketplaceTopics(
     // prevents a stale renderer request from leaving newer filesystem changes
     // behind and guarantees the next plan for this target is empty.
     const topicPlan = plan;
+    const plannedKeys = new Set(topicPlan.map((item) => item.kind === "quiz" ? `quiz:${item.quiz.id}` : "topic"));
+    const skippedRequestedCount = requested.filter((item) => !plannedKeys.has(item.kind === "quiz" ? `quiz:${item.quizId}` : "topic")).length;
+    const additionalWork = topicPlan.length + skippedRequestedCount - requested.length;
+    if (additionalWork > 0)
+      await control.addTotal(additionalWork, `Discovered ${additionalWork} additional marketplace ${additionalWork === 1 ? "item" : "items"}`);
     const topicSummary = next.topics.find((item) => item.id === topicId);
     if (!topicSummary) throw new Error(`Topic ${topicId} was not found.`);
     const state = marketplaceTopicState(topic.marketplace);
@@ -56,14 +62,14 @@ export async function syncAllMarketplaceTopics(
       const topicQuizzes = next.quizzes.filter((item) => item.topicId === topicId);
       for (const quiz of topicQuizzes) {
         const publishState = await readContentV2QuizPublishState(quiz.filePath);
-        await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], control);
+        await publishing.removeContentV2StorageItems(publishState.targets[target.projectId], detailControl);
         await clearContentV2Published(quiz.filePath);
         const { [target.projectId]: _removed, ...remainingTargets } = publishState.targets;
         await writeContentV2QuizPublishState(quiz.filePath, { schemaVersion: 1, targets: remainingTargets });
         if (requestedKeys.has(`quiz:${quiz.id}`))
           await control.advance(`Removed quiz · ${quiz.title}`);
       }
-      await publishing.removeContentV2Topic(topicId, control);
+      await publishing.removeContentV2Topic(topicId, detailControl);
       await clearContentV2Published(topicSummary.filePath);
       const saved = await saveContentV2Topic(root, {
         ...topic,
@@ -108,7 +114,7 @@ export async function syncAllMarketplaceTopics(
       await control.report(`Synchronizing quiz · ${summary.title} · ${topicId}/${summary.id}`);
       try {
       if (item.action === "remove") {
-        await publishing.deleteContentV2TopicQuizzes(topicId, [summary.id]);
+        await publishing.deleteContentV2TopicQuizzes(topicId, [summary.id], detailControl);
         await clearContentV2Published(summary.filePath);
         const previous = await readContentV2QuizPublishState(summary.filePath);
         const { [target.projectId]: _removed, ...remainingTargets } = previous.targets;
@@ -136,7 +142,7 @@ export async function syncAllMarketplaceTopics(
         assets,
         summary.localHash,
         previous.targets[target.projectId],
-        control,
+        detailControl,
         0,
         summary.publishContractStale,
       );
@@ -162,7 +168,7 @@ export async function syncAllMarketplaceTopics(
     if (syncWork.uploadTopicAssets) {
       const topicAssets = await loadContentV2TopicAssets(root, topic, false);
       await control.report(`Topic assets discovered · ${topicSummary.title} · ${topicAssets.length} files`);
-      topicAssetItems = await publishing.uploadContentV2TopicAssets(topicId, topicAssets, control, previousTargetState);
+      topicAssetItems = await publishing.uploadContentV2TopicAssets(topicId, topicAssets, detailControl, previousTargetState);
     } else {
       await control.report(`Topic assets unchanged · ${topicSummary.title} · upload skipped`);
     }

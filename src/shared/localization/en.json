@@ -821,6 +821,7 @@
       "setProduction": "Set as production",
       "staging": "Staging",
       "production": "Production",
+      "openActiveEnvironment": "Open the active {target} website",
       "activateConfirm": "Deploy build {release} to {target}? This replaces the active Web, Firebase Functions, rules, indexes, and configuration. Data is unchanged.",
       "versionsTitle": "Staging versions",
       "versionsDescription": "Select the exact tested staging version to promote. Active staging and production versions are protected from deletion.",

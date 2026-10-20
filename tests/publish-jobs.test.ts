@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { PublishJobManager } from "../src/features/jobs/main/publish-jobs.js";
+import { PublishJobManager, publishJobDetailControl } from "../src/features/jobs/main/publish-jobs.js";
 
 test("publish jobs persist completed and failed operation history", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-jobs-"));
@@ -45,6 +45,50 @@ test("publish jobs expose item-level totals and current-step progress", async ()
   assert.equal(job.total, 5);
   assert.equal(job.completed, 5);
   assert.equal(job.progressLabel, "Published");
+});
+
+test("nested publish details do not consume overall progress", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-details-"));
+  const manager = new PublishJobManager(directory);
+  await manager.track(
+    { name: "Sync marketplace", description: "Two quizzes", route: "/topics", initialTotal: 2 },
+    async (control) => {
+      const detail = publishJobDetailControl(control);
+      await detail.setTotal(50, "Publishing first quiz");
+      await detail.advance("Verified published quiz");
+      await control.advance("Synchronized first quiz");
+      await detail.setTotal(75, "Publishing second quiz");
+      await detail.advance("Uploading assets 1/10");
+      const running = (await manager.list())[0]!;
+      assert.equal(running.completed, 1);
+      assert.equal(running.total, 2);
+      assert.equal(running.progressLabel, "Uploading assets 1/10");
+      await control.advance("Synchronized second quiz");
+    },
+  );
+  const completed = (await manager.list())[0]!;
+  assert.equal(completed.completed, 2);
+  assert.equal(completed.total, 2);
+});
+
+test("publish jobs add newly discovered work without resetting completed progress", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-publish-discovered-"));
+  const manager = new PublishJobManager(directory);
+  await manager.track(
+    { name: "Sync marketplace", description: "One preview item", route: "/topics", initialTotal: 1 },
+    async (control) => {
+      await control.addTotal(2, "Discovered 2 additional marketplace items");
+      await control.advance("Synchronized first item");
+      const running = (await manager.list())[0]!;
+      assert.equal(running.completed, 1);
+      assert.equal(running.total, 3);
+      await control.advance("Synchronized second item");
+      await control.advance("Synchronized third item");
+    },
+  );
+  const completed = (await manager.list())[0]!;
+  assert.equal(completed.completed, 3);
+  assert.equal(completed.total, 3);
 });
 
 test("publish jobs expose known totals immediately when started", async () => {

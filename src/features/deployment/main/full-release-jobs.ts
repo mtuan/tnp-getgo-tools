@@ -200,6 +200,12 @@ export class FullReleaseJobManager {
 
   async listWebReleases(): Promise<WebReleaseSummary[]> {
     const releasesRoot = path.join(await this.releasesRoot(), "web");
+    const [stagingConfig, productionConfig] = await Promise.all([
+      fs.readFile(path.join(this.deploysRoot(), "getgo-staging", "target.json"), "utf8"),
+      fs.readFile(path.join(this.deploysRoot(), "getgo", "target.json"), "utf8"),
+    ]);
+    const stagingUrl = (JSON.parse(stagingConfig) as { url: string }).url;
+    const productionUrl = (JSON.parse(productionConfig) as { url: string }).url;
     const entries = await fs.readdir(releasesRoot, { withFileTypes: true }).catch(() => []);
     const releases = await Promise.all(entries.filter(entry => entry.isDirectory()).map(async (entry): Promise<WebReleaseSummary | null> => {
       try {
@@ -211,6 +217,7 @@ export class FullReleaseJobManager {
           releaseId: value.releaseId, createdAt: value.createdAt, gitCommit: value.gitCommit, note: value.note,
           artifactBytes: value.artifact.bytes, stagingStatus: value.environments.staging.status,
           productionStatus: value.environments.production.status,
+          stagingUrl, productionUrl,
           stagingDeployedAt: value.environments.staging.events?.at(-1)?.deployedAt,
           productionDeployedAt: value.environments.production.events?.at(-1)?.deployedAt,
           activeStaging: false, activeProduction: false,
