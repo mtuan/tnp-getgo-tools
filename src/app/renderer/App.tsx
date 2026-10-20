@@ -765,7 +765,7 @@ export function App() {
               </Suspense>
             )}
             {settings.repositoryPath && view === "payments" && (
-              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><PaymentPackagesPage locale={settings.locale} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
+              <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}><PaymentPackagesPage locale={settings.locale} environment={settings.environment} initialRoute={routeRequest.route} onRouteChange={setCurrentRoute} /></Suspense>
             )}
             {view === "access" && (
               <Suspense fallback={<PageLoading label={settings.locale === "vi" ? "Đang tải trang" : "Loading page"} />}>

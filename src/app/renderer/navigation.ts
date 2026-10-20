@@ -13,13 +13,13 @@ export const primaryNavigation: NavigationItem[] = [
   { id: "jobs", label: "Jobs", icon: BriefcaseBusiness },
   { id: "topics", label: "Topics", icon: Library },
   { id: "feedbacks", label: "Feedbacks", icon: MessageSquareWarning },
+  { id: "payments", label: "Payments", icon: CreditCard },
 ];
 export const otherToolsNavigation: NavigationItem[] = [
   { id: "amc-import", label: "AMC importer", icon: FileDown },
   { id: "image-pdf", label: "Image to PDF", icon: Images },
   { id: "screenshots", label: "Screenshots", icon: Camera },
   { id: "avatar-sets", label: "Avatar sets", icon: UserRoundCog },
-  { id: "payments", label: "Payments", icon: CreditCard },
   { id: "access", label: "Access", icon: KeyRound },
   { id: "members", label: "Members", icon: UsersRound },
   { id: "safe-words", label: "Safe words", icon: ShieldCheck },

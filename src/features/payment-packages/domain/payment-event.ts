@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paymentTargetEnvironmentsSchema } from "./payment-environment.js";
 
 const baseEventSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
@@ -8,6 +9,7 @@ const baseEventSchema = z.object({
   startsOn: z.string().date(),
   endsOn: z.string().date(),
   enabled: z.boolean().default(true),
+  targetEnvironments: paymentTargetEnvironmentsSchema,
 }).refine((value) => value.endsOn >= value.startsOn, {
   message: "Event end date must not be before its start date.",
   path: ["endsOn"],

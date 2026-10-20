@@ -4,7 +4,7 @@ import { deploymentTargetFromRoute, deploymentTargets, otherToolsNavigation, pri
 
 test("sidebar exposes Development and Deploy as separate root pages", () => {
   assert.deepEqual(deploymentTargets, ["staging", "production"]);
-  assert.deepEqual(primaryNavigation.map((item) => item.id), ["development", "deploy", "jobs", "topics", "feedbacks"]);
+  assert.deepEqual(primaryNavigation.map((item) => item.id), ["development", "deploy", "jobs", "topics", "feedbacks", "payments"]);
   assert.equal(deploymentTargetFromRoute("/deploy/development"), null);
   assert.equal(deploymentTargetFromRoute("/deploy/staging?section=doctor"), "staging");
   assert.equal(deploymentTargetFromRoute("/deploy/production/"), "production");
@@ -18,7 +18,6 @@ test("sidebar groups secondary tools and keeps Settings last", () => {
     "image-pdf",
     "screenshots",
     "avatar-sets",
-    "payments",
     "access",
     "members",
     "safe-words",

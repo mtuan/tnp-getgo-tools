@@ -6,6 +6,8 @@ import { paymentEventsSchema } from "../domain/payment-event.js";
 import type { FirestorePublishingService } from "../../topics/main/firestore-publishing.js";
 import { assertRepositoryContentSafe, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 import type { GetGoAccessPolicyService } from "./access-policy-service.js";
+import type { AppSettings } from "../../../shared/domain/models.js";
+import { paymentEventsForEnvironment, paymentPackagesForEnvironment } from "../domain/payment-environment.js";
 
 const filePath = (root: string) => path.join(root, "content-v2", "payment-packages.json");
 const eventsFilePath = (root: string) => path.join(root, "content-v2", "payment-events.json");
@@ -21,14 +23,16 @@ async function save(root: string, value: unknown) {
   await fs.writeFile(filePath(root), `${JSON.stringify(packages, null, 2)}\n`, "utf8");
   return packages;
 }
-export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; accessPolicy: GetGoAccessPolicyService }) {
+export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; accessPolicy: GetGoAccessPolicyService; targetEnvironment(): Promise<AppSettings["environment"]> }) {
   ipcMain.handle("payment-packages:list", async () => load(await dependencies.repositoryRoot()));
   ipcMain.handle("payment-packages:save", async (_event, value: unknown) => save(await dependencies.repositoryRoot(), value));
   ipcMain.handle("payment-packages:sync", async () => {
     const packages = await load(await dependencies.repositoryRoot());
     await assertRepositoryContentSafe(await dependencies.repositoryRoot(), "Payment packages", packages);
-    await dependencies.publishing.publishPaymentPackages(packages);
-    return { count: packages.length, syncedAt: new Date().toISOString() };
+    const environment = await dependencies.targetEnvironment();
+    const targeted = paymentPackagesForEnvironment(packages, environment);
+    await dependencies.publishing.publishPaymentPackages(targeted);
+    return { count: targeted.length, syncedAt: new Date().toISOString() };
   });
   ipcMain.handle("getgo-access-policy:load", () => dependencies.accessPolicy.load());
   ipcMain.handle("getgo-access-policy:save", (_event, value: unknown) => dependencies.accessPolicy.save(value));
@@ -59,7 +63,9 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
     const root = await dependencies.repositoryRoot();
     const events = await loadEvents(root);
     await assertRepositoryContentSafe(root, "Payment events", events);
-    await dependencies.publishing.publishPaymentEvents(events);
-    return { count: events.length, syncedAt: new Date().toISOString() };
+    const environment = await dependencies.targetEnvironment();
+    const targeted = paymentEventsForEnvironment(events, environment);
+    await dependencies.publishing.publishPaymentEvents(targeted);
+    return { count: targeted.length, syncedAt: new Date().toISOString() };
   });
 }

@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { paymentTargetEnvironmentsSchema } from "./payment-environment.js";
 
 export const paymentPackageSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
   platform: z.enum(["web", "ios", "android"]).default("web"),
+  targetEnvironments: paymentTargetEnvironmentsSchema,
   name: z.object({ en: z.string().min(1), vi: z.string().min(1) }),
   type: z.enum(["free", "monthly", "annual", "one-time"]),
   info: z.object({ en: z.string(), vi: z.string() }),

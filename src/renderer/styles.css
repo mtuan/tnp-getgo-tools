@@ -4256,7 +4256,10 @@ tbody tr:hover {
   padding: 4px 4px 14px;
   scrollbar-gutter: stable;
 }
+.payment-package-list,
 .payment-package-preview-section { display: grid; gap: 16px; }
+.payment-package-filters { justify-content: flex-end; }
+.payment-package-filters .ui-select { min-width: 180px; }
 .payment-package-preview-toolbar { display: flex; justify-content: flex-end; gap: 12px; }
 .payment-package-preview-toolbar .ui-select { min-width: 300px; }
 .members-page { min-width: 0; }

@@ -20,6 +20,7 @@ test("accepts sale package targets", () => {
     targets: { packageIds: ["getgo-family-annual"] },
   });
   assert.equal(event.type, "sale");
+  if (event.type === "sale") assert.deepEqual(event.targetEnvironments, ["development", "staging", "production"]);
 });
 
 test("accepts premium preview user targets", () => {
@@ -30,6 +31,7 @@ test("accepts premium preview user targets", () => {
     targets: { userTypes: ["new-registration", "legacy-migration"] },
   });
   assert.equal(event.type, "premium-preview");
+  assert.deepEqual(event.targetEnvironments, ["development", "staging", "production"]);
 });
 
 test("rejects an inverted event date range", () => {

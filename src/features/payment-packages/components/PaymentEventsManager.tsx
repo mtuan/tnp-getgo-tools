@@ -3,12 +3,15 @@ import { Pencil } from "lucide-react";
 import type { AppSettings, PaymentEvent, PaymentPackage } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import { suggestPaymentEventId } from "../domain/payment-event";
+import { paymentTargetEnvironments } from "../domain/payment-environment";
+import en from "../../../shared/localization/en.json";
+import vi from "../../../shared/localization/vi.json";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyEvent = (): PaymentEvent => ({
   id: "", type: "sale", name: { en: "", vi: "" }, info: { en: "", vi: "" },
   recurrence: "one-time", startsOn: today(), endsOn: today(), enabled: true,
-  discountPercent: 10, targets: { packageIds: [] },
+  targetEnvironments: [...paymentTargetEnvironments], discountPercent: 10, targets: { packageIds: [] },
 });
 
 const eventFormValues = (event: PaymentEvent): ui.FormValues => ({
@@ -16,13 +19,14 @@ const eventFormValues = (event: PaymentEvent): ui.FormValues => ({
   ...(event.type === "sale" ? { packageIds: event.targets.packageIds } : { userTypes: event.targets.userTypes }),
 });
 
-function validateEvent(event: PaymentEvent, isVi: boolean): ui.FormErrors {
+function validateEvent(event: PaymentEvent, isVi: boolean, targetEnvironmentsRequired: string): ui.FormErrors {
   const required = isVi ? "Trường này là bắt buộc." : "This field is required.";
   const errors: ui.FormErrors = {};
   if (!event.name.vi.trim()) errors.nameVi = required;
   if (!event.startsOn) errors.startsOn = required;
   if (!event.endsOn) errors.endsOn = required;
   else if (event.startsOn && event.endsOn < event.startsOn) errors.endsOn = isVi ? "Ngày kết thúc phải từ ngày bắt đầu trở đi." : "End date must be on or after the start date.";
+  if (!event.targetEnvironments.length) errors.targetEnvironments = targetEnvironmentsRequired;
   if (event.type === "sale") {
     if (!event.targets.packageIds.length) errors.packageIds = required;
     if (event.discountPercent < 1 || event.discountPercent > 100) errors.discountPercent = isVi ? "Nhập giá trị từ 1 đến 100." : "Enter a value from 1 to 100.";
@@ -37,6 +41,7 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
   locale: AppSettings["locale"]; packages: PaymentPackage[]; createRequest: number; onCreateRequestHandled(): void;
 }) {
   const isVi = locale === "vi";
+  const paymentCopy = (isVi ? vi : en).payments;
   const toast = ui.useToast();
   const [events, setEvents] = useState<PaymentEvent[] | null>(null);
   const [draft, setDraft] = useState<PaymentEvent | null>(null);
@@ -44,6 +49,8 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ui.FormErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<PaymentEvent["type"] | "all">("all");
+  const [environmentFilter, setEnvironmentFilter] = useState<AppSettings["environment"] | "all">("all");
   useEffect(() => { void window.getgo.listPaymentEvents().then(setEvents).catch((error) => toast.show({ title: isVi ? "Không thể tải sự kiện" : "Could not load events", description: String(error), variant: "error" })); }, []);
   useEffect(() => { if (!createRequest) return; setOriginalId(null); setFieldErrors({}); setSaveError(null); setDraft(emptyEvent()); onCreateRequestHandled(); }, [createRequest, onCreateRequestHandled]);
 
@@ -54,6 +61,7 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
       [{ type: "text", name: "nameVi", label: "Tên (VI)", required: true, requiredMessage }, { type: "text", name: "nameEn", label: "Name (EN)" }],
       [{ type: "textarea", name: "infoVi", label: "Thông tin (VI)" }, { type: "textarea", name: "infoEn", label: "Information (EN)" }],
       [{ type: "select", name: "recurrence", label: isVi ? "Lặp lại" : "Recurrence", options: [{ value: "one-time", label: isVi ? "Một lần" : "One-time" }, { value: "yearly", label: isVi ? "Hàng năm" : "Yearly" }] }, { type: "date", name: "startsOn", label: isVi ? "Bắt đầu" : "Starts on", required: true, requiredMessage }, { type: "date", name: "endsOn", label: isVi ? "Kết thúc" : "Ends on", required: true, requiredMessage }],
+      { type: "multi-select", name: "targetEnvironments", label: paymentCopy.targetEnvironments, required: true, requiredMessage: paymentCopy.targetEnvironmentsRequired, options: paymentTargetEnvironments.map((value) => ({ value, label: paymentCopy.environments[value] })) },
     ];
     const specific: ui.FormSchema[] = draft?.type === "sale" ? [
       [{ type: "number", name: "discountPercent", label: isVi ? "Giảm giá (%)" : "Discount (%)", required: true, requiredMessage, min: 1, max: 100 }],
@@ -63,12 +71,12 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
       { type: "multi-select", name: "userTypes", label: isVi ? "Người dùng áp dụng" : "Target users", required: true, requiredMessage, options: [{ value: "new-registration", label: isVi ? "Đăng ký mới" : "New registrations" }, { value: "legacy-migration", label: isVi ? "Di chuyển lần đầu" : "First legacy migration" }] },
     ];
     return [...common, ...specific];
-  }, [draft?.type, isVi, locale, originalId, packages]);
+  }, [draft?.type, isVi, locale, packages, paymentCopy]);
 
   const persist = async (event: FormEvent) => {
     event.preventDefault(); if (!draft || !events) return;
     setSaveError(null);
-    const errors = validateEvent(draft, isVi);
+    const errors = validateEvent(draft, isVi, paymentCopy.targetEnvironmentsRequired);
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;
     const reservedIds = events.filter((item) => item.id !== originalId).map((item) => item.id);
@@ -97,16 +105,22 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
     { key: "type", title: isVi ? "Loại" : "Type", render: (item) => item.type === "sale" ? (isVi ? "Khuyến mãi" : "Sale") : (isVi ? "Dùng thử Premium" : "Premium preview") },
     { key: "dates", title: isVi ? "Thời gian" : "Dates", render: (item) => <div><strong>{item.recurrence === "yearly" ? (isVi ? "Hàng năm" : "Yearly") : (isVi ? "Một lần" : "One-time")}</strong><span className="ui-table-secondary">{item.startsOn} – {item.endsOn}</span></div> },
     { key: "target", title: isVi ? "Đối tượng" : "Target", render: (item) => item.type === "sale" ? item.targets.packageIds.map((id) => packages.find((entry) => entry.id === id)?.name[locale] ?? id).join(", ") : item.targets.userTypes.map((type) => type === "new-registration" ? (isVi ? "Đăng ký mới" : "New registrations") : (isVi ? "Di chuyển lần đầu" : "First migration")).join(", ") },
+    { key: "environments", title: paymentCopy.targetEnvironments, render: (item) => item.targetEnvironments.map((value) => paymentCopy.environments[value]).join(", ") },
     { key: "value", title: isVi ? "Quyền lợi" : "Benefit", align: "center", render: (item) => <ui.StatusBadge tone="success">{item.type === "sale" ? `-${item.discountPercent}%` : `${item.premiumDays} ${isVi ? "ngày" : "days"}`}</ui.StatusBadge> },
     { key: "status", title: isVi ? "Trạng thái" : "Status", align: "center", render: (item) => <ui.StatusBadge tone={item.enabled ? "success" : "neutral"}>{item.enabled ? (isVi ? "Đang bật" : "Enabled") : (isVi ? "Đã tắt" : "Disabled")}</ui.StatusBadge> },
     { key: "actions", title: "", role: "actions", width: 56, render: (item) => <ui.TableActionButton icon={<Pencil />} aria-label={isVi ? "Sửa" : "Edit"} onClick={() => { setOriginalId(item.id); setFieldErrors({}); setSaveError(null); setDraft(structuredClone(item)); }} /> },
-  ], [isVi, locale, packages]);
+  ], [isVi, locale, packages, paymentCopy]);
+  const filteredEvents = useMemo(() => events?.filter((event) =>
+    (typeFilter === "all" || event.type === typeFilter)
+    && (environmentFilter === "all" || event.targetEnvironments.includes(environmentFilter)),
+  ) ?? [], [environmentFilter, events, typeFilter]);
   if (events === null) return <ui.PageLoading label={isVi ? "Đang tải trang" : "Loading page"} />;
   return <>
-    <ui.DataTable rows={events} columns={columns} rowKey={(item) => item.id} ariaLabel={isVi ? "Sự kiện" : "Events"} emptyText={isVi ? "Chưa có sự kiện." : "No events."} />
+    <div className="payment-package-list"><ui.ControlGroup className="payment-package-filters"><ui.Select value={typeFilter} ariaLabel={paymentCopy.filterEventType} options={[{ value: "all", label: paymentCopy.allEventTypes }, { value: "sale", label: paymentCopy.sale }, { value: "premium-preview", label: paymentCopy.premiumPreview }]} onValueChange={(value) => setTypeFilter(value as PaymentEvent["type"] | "all")} /><ui.Select value={environmentFilter} ariaLabel={paymentCopy.filterEnvironment} options={[{ value: "all", label: paymentCopy.allEnvironments }, ...paymentTargetEnvironments.map((value) => ({ value, label: paymentCopy.environments[value] }))]} onValueChange={(value) => setEnvironmentFilter(value as AppSettings["environment"] | "all")} /></ui.ControlGroup><ui.DataTable rows={filteredEvents} columns={columns} rowKey={(item) => item.id} ariaLabel={isVi ? "Sự kiện" : "Events"} emptyText={events.length ? paymentCopy.noMatchingEvents : (isVi ? "Chưa có sự kiện." : "No events.")} /></div>
     {draft && <ui.DialogFrame title={originalId ? (isVi ? "Sửa sự kiện" : "Edit event") : (isVi ? "Tạo sự kiện" : "Create event")} busy={busy} error={saveError} onClose={() => setDraft(null)} onSubmit={persist} onDelete={originalId ? remove : undefined} deleteConfirmText={isVi ? "Xóa sự kiện này?" : "Delete this event?"}><ui.Form fields={fields} values={eventFormValues(draft)} errors={fieldErrors} onChange={(name, value) => { setFieldErrors((current) => { const next = { ...current }; delete next[name]; return next; }); setSaveError(null); setDraft((current) => {
       if (!current) return current;
-      if (name === "type") return value === "premium-preview" ? { ...emptyEvent(), ...current, type: "premium-preview", premiumDays: 14, targets: { userTypes: ["new-registration"] } } : { ...emptyEvent(), ...current, type: "sale", discountPercent: 10, targets: { packageIds: [] } };
+      if (name === "type") return value === "premium-preview" ? { ...current, type: "premium-preview", premiumDays: 14, targets: { userTypes: ["new-registration"] } } : { ...current, type: "sale", discountPercent: 10, targets: { packageIds: [] } };
+      if (name === "targetEnvironments") return { ...current, targetEnvironments: value as AppSettings["environment"][] };
       if (name === "packageIds" && current.type === "sale") return { ...current, targets: { packageIds: value as string[] } };
       if (name === "userTypes" && current.type === "premium-preview") return { ...current, targets: { userTypes: value as Array<"new-registration" | "legacy-migration"> } };
       const match = /^(name|info)(Vi|En)$/.exec(name);

@@ -1114,6 +1114,24 @@
       "pageInfo": "Current page"
     }
   },
+  "payments": {
+    "nav": "Payments",
+    "actions": "Actions",
+    "targetEnvironments": "Target environments",
+    "targetEnvironmentsRequired": "Select at least one target environment.",
+    "allEnvironments": "All",
+    "allPlatforms": "All platforms",
+    "filterPlatform": "Filter by platform",
+    "filterEnvironment": "Filter by environment",
+    "filterEventType": "Filter by event type",
+    "allEventTypes": "All event types",
+    "sale": "Sale",
+    "premiumPreview": "Premium preview",
+    "noMatchingPackages": "No packages match these filters.",
+    "noMatchingEvents": "No events match these filters.",
+    "syncTo": "Sync to {environment}",
+    "environments": { "development": "Development", "staging": "Staging", "production": "Production" }
+  },
   "billingOrders": {
     "tab": "Orders",
     "title": "Billing orders",

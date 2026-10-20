@@ -8,6 +8,7 @@ import type { PaymentPackage } from "../src/shared/domain/models";
 const paymentPackage = (id: string, type: PaymentPackage["type"]): PaymentPackage => ({
   id,
   platform: "web",
+  targetEnvironments: ["development", "staging", "production"],
   type,
   name: { en: id, vi: id },
   info: { en: "", vi: "" },
@@ -18,7 +19,9 @@ const paymentPackage = (id: string, type: PaymentPackage["type"]): PaymentPackag
 test("payment packages default legacy records to Web and accept native platforms", () => {
   const legacy = { ...paymentPackage("monthly", "monthly") } as Partial<PaymentPackage>;
   delete legacy.platform;
+  delete legacy.targetEnvironments;
   assert.equal(paymentPackageSchema.parse(legacy).platform, "web");
+  assert.deepEqual(paymentPackageSchema.parse(legacy).targetEnvironments, ["development", "staging", "production"]);
   assert.equal(paymentPackageSchema.parse({ ...legacy, platform: "ios" }).platform, "ios");
   assert.equal(paymentPackageSchema.parse({ ...legacy, platform: "android" }).platform, "android");
 });

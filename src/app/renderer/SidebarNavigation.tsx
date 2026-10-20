@@ -30,6 +30,8 @@ export function SidebarNavigation({ locale, view, collapsed, onExpandSidebar, on
       ? copy.deployment.targets.development
       : item.id === "deploy"
         ? copy.deployment.releaseManager.title
+      : item.id === "payments"
+        ? copy.payments.nav
     : item.id === "image-pdf"
       ? copy.imagePdf.nav
       : item.id === "screenshots"

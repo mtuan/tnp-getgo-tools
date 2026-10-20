@@ -503,6 +503,7 @@ app.whenReady().then(async () => {
     repositoryRoot,
     publishing,
     accessPolicy: new GetGoAccessPolicyService(firebaseAuth),
+    targetEnvironment: async () => (await firebaseAuth!.publishingTarget()).environment,
   });
   registerBillingOrdersIpc(ipcMain, firebaseAuth);
   registerMemberManagementIpc(ipcMain, firebaseAuth);

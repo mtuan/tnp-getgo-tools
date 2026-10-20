@@ -736,11 +736,13 @@ export interface MarketplaceSyncJobItem {
 }
 export interface PaymentPackage {
   id: string; platform: "web" | "ios" | "android"; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
+  targetEnvironments: Array<AppSettings["environment"]>;
   info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
 }
 interface PaymentEventBase {
   id: string; name: { en: string; vi: string }; info: { en: string; vi: string };
   recurrence: "one-time" | "yearly"; startsOn: string; endsOn: string; enabled: boolean;
+  targetEnvironments: Array<AppSettings["environment"]>;
 }
 export type PaymentEvent = PaymentEventBase & (
   | { type: "sale"; discountPercent: number; targets: { packageIds: string[] } }
