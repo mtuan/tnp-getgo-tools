@@ -777,6 +777,15 @@ export interface BillingOrderQuery {
   limit?: number;
 }
 export interface BillingOrderPage { items: BillingOrderListItem[]; nextCursor: string | null }
+export interface PaymentReviewItem {
+  id: string; paymentId: string; parentUid: string; parentName: string; parentEmail: string;
+  transactionId: string; orderId: string; providerTransactionId: string; productId: string;
+  productName?: { en?: string; vi?: string }; amount: number; currency: string;
+  transferredAt: string | null; reason: string; status: "pending" | "resolved";
+  note: string; feedback: string; requestedAt: string | null; updatedAt: string | null;
+  resolvedAt: string | null; resolvedBy: string | null;
+}
+export interface PaymentReviewPage { items: PaymentReviewItem[]; nextCursor: string | null }
 export interface BillingOrderUser {
   id: string;
   name: string;
@@ -928,6 +937,8 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   syncPaymentEvents(): Promise<{ count: number; syncedAt: string }>;
   listBillingOrders(query: BillingOrderQuery): Promise<BillingOrderPage>;
   loadBillingOrderDetail(orderId: string): Promise<BillingOrderDetail>;
+  listPaymentReviews(cursor?: string, limit?: number): Promise<PaymentReviewPage>;
+  resolvePaymentReview(reviewId: string, feedback: string): Promise<PaymentReviewItem>;
   listGetGoMembers(query: GetGoMemberQuery): Promise<GetGoMemberPage>;
   setGetGoMembership(memberId: string, membership: GetGoMembershipTier, startsAt?: string | null, expiresAt?: string | null): Promise<void>;
   deleteGetGoMember(memberId: string): Promise<{ deleted: true; authenticationDeleted: boolean }>;
