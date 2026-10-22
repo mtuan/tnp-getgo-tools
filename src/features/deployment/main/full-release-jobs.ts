@@ -2,11 +2,14 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, DeploymentJobReportStep, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseReadiness, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { BackgroundJob, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseReadiness, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 import { createWebReleaseReadiness } from "./web-release-readiness.js";
-import { configureAppleIapSecret } from "./apple-iap-secret.js";
+import { configureAppleIapSecret, configureGooglePlayIapSecret } from "./apple-iap-secret.js";
+import { advanceReleaseJobReport, archivedWebDeploymentSteps, createReleaseJobReport, finishReleaseJobReport } from "./release-job-report.js";
+
+export { archivedWebDeploymentSteps } from "./release-job-report.js";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
 type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "build" | "deploy"; releaseScope?: ReleaseScope; releaseId?: string; buildOnly?: boolean; checklistBypassed?: boolean; archivedOperation?: "activate" | "promote" | "rollback" };
@@ -19,16 +22,6 @@ type Runtime = {
 
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const activeStatuses = new Set(["queued", "running", "paused"]);
-export const archivedWebDeploymentSteps = 8;
-const webReleaseBuildSteps = [
-  { id: "build", label: "Validate source and build application", startsAt: 0 },
-  { id: "payload", label: "Assemble Web and Firebase payload", startsAt: 6 },
-  { id: "environment", label: "Package environment configurations", startsAt: 7 },
-  { id: "inputs", label: "Finalize release inputs", startsAt: 8 },
-  { id: "archive", label: "Create and verify immutable archive", startsAt: 9 },
-  { id: "commit", label: "Commit and tag release", startsAt: 10 },
-  { id: "push", label: "Push release archive", startsAt: 11 },
-] as const;
 const targetScripts: Record<ReleaseTarget, string> = {
   staging: "release:web:staging",
   production: "release:web:production",
@@ -60,50 +53,6 @@ function usefulDetails(output: string, limit = 250) {
   const lines = output.split(/\r?\n/).map(cleanLine).filter(Boolean);
   if (lines.length <= limit) return lines;
   return [`… ${lines.length - limit} earlier diagnostic lines omitted`, ...lines.slice(-limit)];
-}
-
-function createWebReleaseBuildSteps(): DeploymentJobReportStep[] {
-  return webReleaseBuildSteps.map(step => ({ id: step.id, label: step.label, status: "pending", details: [] }));
-}
-
-function advanceWebReleaseBuildReport(job: ReleaseJob, completed: number, detail: string) {
-  if (!job.report || !job.buildOnly) return;
-  const now = new Date().toISOString();
-  let activeIndex = completed >= 12 ? webReleaseBuildSteps.length : 0;
-  if (completed < 12) {
-    for (let index = 0; index < webReleaseBuildSteps.length; index += 1) {
-      if (completed >= webReleaseBuildSteps[index].startsAt) activeIndex = index;
-    }
-  }
-  job.report.steps.forEach((step, index) => {
-    if (index < activeIndex || completed >= 12) {
-      if (step.status !== "completed") {
-        step.startedAt ??= index === 0 ? job.report!.startedAt : now;
-        step.finishedAt = now;
-        step.durationMs = Math.max(0, Date.parse(now) - Date.parse(step.startedAt));
-        step.status = "completed";
-      }
-    } else if (index === activeIndex) {
-      step.status = "running";
-      step.startedAt ??= now;
-      if (detail && !step.details.includes(detail)) step.details.push(detail);
-    }
-  });
-}
-
-function finishWebReleaseBuildReport(job: ReleaseJob, status: "completed" | "failed" | "cancelled") {
-  if (!job.report || !job.buildOnly) return;
-  const now = job.finishedAt ?? new Date().toISOString();
-  const active = job.report.steps.find(step => step.status === "running");
-  if (active) {
-    active.status = status;
-    active.finishedAt = now;
-    active.durationMs = active.startedAt ? Math.max(0, Date.parse(now) - Date.parse(active.startedAt)) : 0;
-    if (job.error) active.details.push(job.error);
-  }
-  for (const step of job.report.steps) if (step.status === "pending") step.status = "skipped";
-  job.report.finishedAt = now;
-  job.report.durationMs = Math.max(0, Date.parse(now) - Date.parse(job.report.startedAt));
 }
 
 export class FullReleaseJobManager {
@@ -308,6 +257,7 @@ export class FullReleaseJobManager {
       name: `Web rollback · ${target} · ${releaseId}`, description: `Restore archived Web and Firebase release ${releaseId}`,
       status: "queued", completed: 0, total: archivedWebDeploymentSteps, progressLabel: "Starting rollback", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `Rollback to ${releaseId} queued.` }],
+      report: createReleaseJobReport("deploy", target, new Date().toISOString(), "archived"),
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -331,21 +281,21 @@ export class FullReleaseJobManager {
     await configureAppleIapSecret(this.toolsAppPath, await this.webRoot(), target);
   }
 
+  async configureGooglePlayIapSecret(target: ReleaseTarget): Promise<void> {
+    await configureGooglePlayIapSecret(this.toolsAppPath, await this.webRoot(), target);
+  }
+
   async activateWeb(target: ReleaseTarget, releaseId: string, bypassChecklist = false) {
     await this.ensureLoaded();
     if (!/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
     if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another release is already active.");
-    const readiness = await this.webReleaseReadiness(target, releaseId);
-    if (!readiness.ready && (target === "production" || !bypassChecklist)) {
-      const failed = readiness.checks.filter(check => check.status !== "ready").map(check => check.title).join(", ");
-      throw new Error(`${target === "production" ? "Production" : "Staging"} checklist is not ready: ${failed}.`);
-    }
     const job: ReleaseJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: "web", releaseId, archivedOperation: "activate",
       checklistBypassed: target === "staging" && bypassChecklist,
       name: `Activate Web build · ${target} · ${releaseId}`, description: `Deploy the exact archived Web and Firebase build ${releaseId} to ${target}`,
       status: "queued", completed: 0, total: archivedWebDeploymentSteps, progressLabel: `Starting ${target} deployment`, createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `Deployment of ${releaseId} to ${target} queued.` }],
+      report: createReleaseJobReport("deploy", target, new Date().toISOString(), "archived"),
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -361,10 +311,7 @@ export class FullReleaseJobManager {
       name: "Web release build", description: "Create one immutable Web, Firebase, and environment-configuration bundle",
       status: "queued", completed: 0, total: 12, progressLabel: "Build queued", createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Immutable release build queued." }],
-      report: {
-        operation: "build", component: "release", target: "staging", startedAt: new Date().toISOString(),
-        items: [], steps: createWebReleaseBuildSteps(),
-      },
+      report: createReleaseJobReport("build", "staging", new Date().toISOString(), "build"),
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -389,6 +336,7 @@ export class FullReleaseJobManager {
       status: "queued", completed: 0, total: commands.reduce((total, command) => total + command.steps, 0), progressLabel: "Starting release", createdAt: new Date().toISOString(),
       cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `${names[scope]} queued after Release Doctor passed.` }],
+      report: createReleaseJobReport("deploy", target, new Date().toISOString(), "release", scope),
     };
     this.jobs.unshift(job);
     await this.persist();
@@ -404,9 +352,9 @@ export class FullReleaseJobManager {
     this.runtimes.set(job.id, runtime);
     job.status = "running";
     job.startedAt = new Date().toISOString();
-    if (job.buildOnly && job.report) {
+    if (job.report) {
       job.report.startedAt = job.startedAt;
-      advanceWebReleaseBuildReport(job, 0, "Immutable release build started.");
+      advanceReleaseJobReport(job, 0, job.buildOnly ? "Immutable release build started." : "Release started.");
     }
     await this.persist();
     const commands = job.buildOnly
@@ -415,6 +363,18 @@ export class FullReleaseJobManager {
       ? [{ stage: "web" as const, label: job.archivedOperation === "rollback" ? `Rolling back Web and Firebase to ${job.releaseId}` : `Deploying ${job.releaseId} to ${job.target}`, args: ["run", job.archivedOperation === "rollback" ? `release:web:rollback:${job.target}` : job.target === "staging" ? "release:web:staging" : "release:web:production", "--", job.releaseId!], steps: archivedWebDeploymentSteps }]
       : releaseCommands(job.target, job.releaseScope ?? "all");
     try {
+      if (job.archivedOperation === "activate" && job.releaseId) {
+        job.progressLabel = "Checking deployment readiness";
+        job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: "Rechecking deployment readiness before deployment starts." });
+        await this.persist();
+        const readiness = await this.webReleaseReadiness(job.target, job.releaseId);
+        if (!readiness.ready && (job.target === "production" || !job.checklistBypassed)) {
+          const failed = readiness.checks.filter(check => check.status !== "ready").map(check => check.title).join(", ");
+          throw new Error(`${job.target === "production" ? "Production" : "Staging"} checklist is not ready: ${failed}.`);
+        }
+        if (runtime.cancelled) return;
+        job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: "Deployment readiness confirmed." });
+      }
       let completed = 0;
       for (const command of commands) {
         if (runtime.cancelled) return;
@@ -430,6 +390,7 @@ export class FullReleaseJobManager {
         if (code !== 0) throw new Error(`${command.label} failed with exit code ${code ?? "unknown"}.`);
         completed += command.steps;
         job.completed = completed;
+        advanceReleaseJobReport(job, completed, `${command.label} completed.`);
         const outcome = runtime.stageOutcomes[command.stage] ?? "deployed";
         job.releaseStageOutcomes = { ...job.releaseStageOutcomes, [command.stage]: outcome };
         if (outcome === "deployed") {
@@ -442,7 +403,7 @@ export class FullReleaseJobManager {
       job.cancellable = false;
       job.finishedAt = new Date().toISOString();
       job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: "Release completed." });
-      finishWebReleaseBuildReport(job, "completed");
+      finishReleaseJobReport(job, "completed");
     } catch (cause) {
       if (!runtime.cancelled) {
         job.status = "failed";
@@ -452,7 +413,7 @@ export class FullReleaseJobManager {
         job.retryable = true;
         job.finishedAt = new Date().toISOString();
         job.logs?.push({ timestamp: job.finishedAt, stream: "stderr", message: job.error });
-        finishWebReleaseBuildReport(job, "failed");
+        finishReleaseJobReport(job, "failed");
       }
     } finally {
       this.runtimes.delete(job.id);
@@ -477,9 +438,7 @@ export class FullReleaseJobManager {
               const progress = JSON.parse(message.slice("GETGO_RELEASE_PROGRESS ".length)) as { completed?: number; total?: number; label?: string };
               if (typeof progress.completed === "number") job.completed = Math.min(job.total, completedBefore + progress.completed);
               if (typeof progress.label === "string" && progress.label) job.progressLabel = progress.label;
-              if (job.buildOnly && progress.total === undefined && typeof progress.completed === "number") {
-                advanceWebReleaseBuildReport(job, progress.completed, progress.label ?? "");
-              }
+              if (typeof progress.completed === "number") advanceReleaseJobReport(job, completedBefore + progress.completed, progress.label ?? "");
             } catch { /* Keep the raw deployment output when a progress event is malformed. */ }
             continue;
           }
@@ -528,7 +487,7 @@ export class FullReleaseJobManager {
     job.cancellable = false;
     job.retryable = true;
     job.finishedAt = new Date().toISOString();
-    finishWebReleaseBuildReport(job, "cancelled");
+    finishReleaseJobReport(job, "cancelled");
     await this.persist();
   }
 

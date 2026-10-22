@@ -16,10 +16,11 @@ interface Props {
   readiness: WebReleaseReadiness | null;
   error: string | null;
   busy: boolean;
-  configurationBusy: boolean;
+  configurationBusy: "apple" | "google" | null;
   onClose(): void;
   onRefresh(): void;
   onConfigureApple(): void;
+  onConfigureGoogle(): void;
   onCreateBuild(): void;
   onDeployToStaging(): void;
   onDeploy(bypassChecklist: boolean): void;
@@ -54,7 +55,12 @@ export function WebReleaseDeploymentDialog(props: Props) {
     if (details.includes("GETGO_APPLE_IAP_CONFIG")) fixes.push({
       id: "apple", problem: copy.appleProblem, fix: copy.appleFix.replace("{project}", project),
       command: `printf '%s' '{"bundleId":"com.tnpglobal.getgo","appAppleId":6776639420}' | npm exec -- firebase functions:secrets:set GETGO_APPLE_IAP_CONFIG --project ${project} --data-file=- --format=json`,
-      action: <ui.Button variant="solid" color="warning" icon={<Settings2 />} loading={props.configurationBusy} disabled={props.busy} onClick={props.onConfigureApple}>{copy.setUp}</ui.Button>,
+      action: <ui.Button variant="solid" color="warning" icon={<Settings2 />} loading={props.configurationBusy === "apple"} disabled={props.busy || props.configurationBusy !== null} onClick={props.onConfigureApple}>{copy.setUp}</ui.Button>,
+    });
+    if (details.includes("GETGO_GOOGLE_PLAY_IAP_CONFIG")) fixes.push({
+      id: "google-play", problem: copy.googlePlayProblem, fix: copy.googlePlayFix.replace("{project}", project),
+      command: `printf '%s' '{"packageName":"com.tnp.getgo"}' | npm exec -- firebase functions:secrets:set GETGO_GOOGLE_PLAY_IAP_CONFIG --project ${project} --data-file=- --format=json`,
+      action: <ui.Button variant="solid" color="warning" icon={<Settings2 />} loading={props.configurationBusy === "google"} disabled={props.busy || props.configurationBusy !== null} onClick={props.onConfigureGoogle}>{copy.setUp}</ui.Button>,
     });
     if (details.includes("GETGO_VIETQR_CONFIG")) fixes.push({
       id: "vietqr", problem: copy.bankProblem, fix: copy.bankFix.replace("{project}", project),
@@ -79,6 +85,7 @@ export function WebReleaseDeploymentDialog(props: Props) {
     if (check.status === "ready") return copy.environmentReadySummary;
     const details = check.details.join(" ");
     if (details.includes("GETGO_APPLE_IAP_CONFIG")) return copy.applePurchaseMissing;
+    if (details.includes("GETGO_GOOGLE_PLAY_IAP_CONFIG")) return copy.googlePlayPurchaseMissing;
     if (details.includes("GETGO_VIETQR_CONFIG")) return copy.bankTransferMissing;
     return check.status === "warning" ? copy.environmentWarningSummary : copy.environmentBlockedSummary;
   };

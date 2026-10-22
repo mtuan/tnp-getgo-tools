@@ -3,6 +3,7 @@ import type { AppSettings, BackgroundJob, BackgroundJobLog, DeploymentItemState,
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
+import { jobStatusLabel } from "../../jobs/components/JobStatusBadge";
 
 function duration(value?: number) {
   if (value === undefined) return "—";
@@ -86,7 +87,7 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
           <div><small>{copy.operation}</small><strong>{job.operation ?? report?.operation ?? job.kind}</strong></div>
           <div><small>{copy.component}</small><strong>{job.component ?? report?.component ?? "—"}</strong></div>
           <div><small>{copy.environment}</small><strong>{job.target ?? report?.target ?? "—"}</strong></div>
-          <div><small>{copy.result}</small><strong>{job.status}</strong></div>
+          <div><small>{copy.result}</small><strong>{jobStatusLabel(job.status, locale)}</strong></div>
           <div><small>{copy.version}</small><code>{version ?? "—"}</code></div>
           <div><small>{copy.totalTime}</small><strong>{duration(report?.durationMs ?? elapsedMs)}</strong></div>
           <div><small>{copy.started}</small><span>{job.startedAt ? new Date(job.startedAt).toLocaleString(locale) : "—"}</span></div>

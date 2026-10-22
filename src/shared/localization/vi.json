@@ -528,6 +528,14 @@
     "delete": "Xóa công việc",
     "deleteConfirm": "Xóa {name} khỏi lịch sử công việc?",
     "cancelConfirm": "Hủy {name}? Tác vụ đang chạy sẽ bị dừng.",
+    "statuses": {
+      "queued": "Đang chờ",
+      "running": "Đang chạy",
+      "paused": "Tạm dừng",
+      "completed": "Hoàn tất",
+      "cancelled": "Đã hủy",
+      "failed": "Thất bại"
+    },
     "report": {
       "title": "Báo cáo {name}",
       "summary": "Tổng quan",
@@ -827,6 +835,8 @@
     "artifactFix": "Tạo bản build phát hành mới, sau đó triển khai bản đã hoàn tất.",
     "appleProblem": "Không thể xác minh giao dịch đăng ký Apple.",
     "appleFix": "Chọn Thiết lập, hoặc đặt GETGO_APPLE_IAP_CONFIG trong dự án Firebase {project} bằng lệnh đã sao chép.",
+    "googlePlayProblem": "Không thể xác minh giao dịch đăng ký Google Play.",
+    "googlePlayFix": "Chọn Thiết lập, hoặc đặt GETGO_GOOGLE_PLAY_IAP_CONFIG trong dự án Firebase {project} bằng lệnh đã sao chép.",
     "bankProblem": "Dịch vụ xử lý thanh toán chuyển khoản chưa được cấu hình.",
     "bankFix": "Đặt GETGO_VIETQR_CONFIG trong dự án Firebase {project}. Sao chép và chạy lệnh trong terminal, sau đó nhập cấu hình VietQR khi được hỏi.",
     "firebaseLoginProblem": "GetGo Tools chưa đăng nhập Firebase.",
@@ -846,6 +856,7 @@
       "environmentWarningSummary": "Một số dịch vụ vẫn cần được thiết lập.",
       "environmentBlockedSummary": "Môi trường đích chưa sẵn sàng.",
       "applePurchaseMissing": "Xác minh thanh toán Apple vẫn cần được thiết lập.",
+      "googlePlayPurchaseMissing": "Xác minh thanh toán Google Play vẫn cần được thiết lập.",
       "bankTransferMissing": "Thanh toán chuyển khoản vẫn cần được thiết lập.",
       "stagingCheck": "Thử nghiệm staging",
       "stagingReadySummary": "Bản build này đã được triển khai lên staging.",

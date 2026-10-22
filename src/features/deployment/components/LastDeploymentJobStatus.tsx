@@ -1,6 +1,7 @@
 import type { AppSettings, BackgroundJob } from "../../../shared/domain/models";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
+import { jobStatusLabel } from "../../jobs/components/JobStatusBadge";
 
 function relativeTime(value: string, locale: AppSettings["locale"]): string {
   const elapsedSeconds = Math.round((new Date(value).getTime() - Date.now()) / 1_000);
@@ -33,18 +34,6 @@ function jobDuration(job: BackgroundJob): number | undefined {
   return Math.max(0, Date.parse(job.finishedAt) - Date.parse(job.startedAt));
 }
 
-function statusLabel(job: BackgroundJob, locale: AppSettings["locale"], localhost: boolean): string {
-  const copy = (locale === "vi" ? vi : en).deployment.lastJob;
-  if (localhost && job.operation === "run") {
-    if (job.status === "failed") return copy.startFailed;
-    if (job.status === "cancelled") return copy.startCancelled;
-    return copy.started;
-  }
-  const operation = job.operation === "run-device" ? "run" : job.operation ?? "deploy";
-  const labels = copy[operation];
-  return labels[job.status];
-}
-
 export function LastDeploymentJobStatus({
   job,
   locale,
@@ -59,7 +48,7 @@ export function LastDeploymentJobStatus({
   const timestamp = job.startedAt ?? job.createdAt;
   const elapsed = jobDuration(job);
   const showDuration = elapsed !== undefined && (localhost || ["completed", "failed", "cancelled"].includes(job.status));
-  const label = localhost && showDuration ? copy.localhostBuilt : statusLabel(job, locale, localhost);
+  const label = jobStatusLabel(job.status, locale);
   return (
     <p className={`deployment-last-job deployment-last-job-${job.status}`}>
       <strong>{label}{showDuration ? ` ${copy.inDuration} ${duration(elapsed, locale)}` : ""}</strong>

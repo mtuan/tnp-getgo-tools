@@ -315,6 +315,7 @@ const api: DesktopApi = {
   clearFailedWebBuilds: () => ipcRenderer.invoke("release:web:clear-failed-builds"),
   getWebReleaseReadiness: (target, releaseId) => ipcRenderer.invoke("release:web:readiness", target, releaseId),
   configureAppleIapSecret: (target) => ipcRenderer.invoke("release:web:configure-apple-iap", target),
+  configureGooglePlayIapSecret: (target) => ipcRenderer.invoke("release:web:configure-google-play-iap", target),
   activateWebRelease: (target, releaseId, bypassChecklist) => ipcRenderer.invoke("release:web:activate", target, releaseId, bypassChecklist),
   promoteWebRelease: (releaseId) => ipcRenderer.invoke("release:web:promote", releaseId),
   deleteWebRelease: (releaseId) => ipcRenderer.invoke("release:web:delete", releaseId),

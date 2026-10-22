@@ -528,6 +528,14 @@
     "delete": "Delete job",
     "deleteConfirm": "Delete {name} from job history?",
     "cancelConfirm": "Cancel {name}? The active operation will be stopped.",
+    "statuses": {
+      "queued": "Queued",
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    },
     "report": {
       "title": "{name} report",
       "summary": "Summary",
@@ -827,6 +835,8 @@
     "artifactFix": "Create a new release build, then deploy that completed build.",
     "appleProblem": "Apple subscription purchases cannot be verified.",
     "appleFix": "Select Set up, or set GETGO_APPLE_IAP_CONFIG in Firebase project {project} using the copied command.",
+    "googlePlayProblem": "Google Play subscription purchases cannot be verified.",
+    "googlePlayFix": "Select Set up, or set GETGO_GOOGLE_PLAY_IAP_CONFIG in Firebase project {project} using the copied command.",
     "bankProblem": "Bank-transfer payment processing is not configured.",
     "bankFix": "Set GETGO_VIETQR_CONFIG in Firebase project {project}. Copy the command, run it in a terminal, then enter the VietQR configuration when prompted.",
     "firebaseLoginProblem": "GetGo Tools is not signed in to Firebase.",
@@ -846,6 +856,7 @@
       "environmentWarningSummary": "Some services still need setup.",
       "environmentBlockedSummary": "The destination is not ready yet.",
       "applePurchaseMissing": "Apple purchase verification still needs setup.",
+      "googlePlayPurchaseMissing": "Google Play purchase verification still needs setup.",
       "bankTransferMissing": "Bank transfer payments still need setup.",
       "stagingCheck": "Staging test",
       "stagingReadySummary": "This build has already been deployed to staging.",

@@ -40,3 +40,24 @@ export async function configureAppleIapSecret(toolsRoot: string, webRoot: string
     throw new Error(message ?? "Apple purchase setup failed.");
   }
 }
+
+export async function configureGooglePlayIapSecret(toolsRoot: string, webRoot: string, target: ReleaseTarget) {
+  const targetName = target === "staging" ? "getgo-staging" : "getgo";
+  const [targetConfigSource, nativeConfigSource] = await Promise.all([
+    fs.readFile(path.join(toolsRoot, "configs", "deploys", targetName, "target.json"), "utf8"),
+    fs.readFile(path.join(webRoot, "configs", "native", target, "config.json"), "utf8"),
+  ]);
+  const targetConfig = JSON.parse(targetConfigSource) as { firebaseProject?: string };
+  const nativeConfig = JSON.parse(nativeConfigSource) as { android?: { packageName?: string } };
+  if (!targetConfig.firebaseProject) throw new Error("The Firebase project is missing from the deployment configuration.");
+  const packageName = nativeConfig.android?.packageName;
+  if (!packageName) throw new Error("The Android package name is missing from the native configuration.");
+  const result = await runFirebase(webRoot, [
+    "exec", "--", "firebase", "functions:secrets:set", "GETGO_GOOGLE_PLAY_IAP_CONFIG",
+    "--project", targetConfig.firebaseProject, "--data-file=-", "--format=json",
+  ], JSON.stringify({ packageName }));
+  if (result.code !== 0) {
+    const message = result.output.split(/\r?\n/).map(line => line.trim()).filter(Boolean).at(-1);
+    throw new Error(message ?? "Google Play purchase setup failed.");
+  }
+}
