@@ -23,15 +23,35 @@ test("accepts sale package targets", () => {
   if (event.type === "sale") assert.deepEqual(event.targetEnvironments, ["development", "staging", "production"]);
 });
 
-test("accepts premium preview user targets", () => {
+test("accepts premium preview user and registration-platform targets", () => {
   const event = paymentEventSchema.parse({
     ...base,
     type: "premium-preview",
     premiumDays: 14,
-    targets: { userTypes: ["new-registration", "legacy-migration"] },
+    targets: { userTypes: ["new-registration", "legacy-migration"], platforms: ["web"] },
   });
   assert.equal(event.type, "premium-preview");
   assert.deepEqual(event.targetEnvironments, ["development", "staging", "production"]);
+  if (event.type === "premium-preview") assert.deepEqual(event.targets.platforms, ["web"]);
+});
+
+test("keeps legacy premium preview events available on every platform", () => {
+  const event = paymentEventSchema.parse({
+    ...base,
+    type: "premium-preview",
+    premiumDays: 14,
+    targets: { userTypes: ["new-registration"] },
+  });
+  if (event.type === "premium-preview") assert.deepEqual(event.targets.platforms, ["web", "ios", "android"]);
+});
+
+test("rejects a premium preview without a registration platform", () => {
+  assert.throws(() => paymentEventSchema.parse({
+    ...base,
+    type: "premium-preview",
+    premiumDays: 14,
+    targets: { userTypes: ["new-registration"], platforms: [] },
+  }));
 });
 
 test("rejects an inverted event date range", () => {

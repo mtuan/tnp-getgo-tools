@@ -1,6 +1,7 @@
 import { createPrivateKey, createSign } from "node:crypto";
 import { promises as fs } from "node:fs";
 import type { PaymentEvent, PaymentPackage } from "../../../shared/domain/models.js";
+import { paymentEventIsActive } from "../domain/payment-event.js";
 
 type Sale = Extract<PaymentEvent, { type: "sale" }>;
 type JsonApiResource = { id: string; type: string; attributes?: Record<string, unknown>; relationships?: Record<string, { data?: { id: string } }> };
@@ -10,14 +11,6 @@ export const unexpectedStoreOffers = <T>(existing: T[], allowedKeys: Set<string>
 
 const asPem = async (value: string) => value.includes("BEGIN PRIVATE KEY") ? value.replace(/\\n/g, "\n") : fs.readFile(value, "utf8");
 const base64Url = (value: string | Buffer) => Buffer.from(value).toString("base64url");
-const today = () => new Date().toISOString().slice(0, 10);
-const monthDay = (value: string) => value.slice(5);
-export const nativeOfferIsActive = (event: Sale, current = today()) => {
-  if (!event.enabled) return false;
-  if (event.recurrence === "one-time") return current >= event.startsOn && current <= event.endsOn;
-  const day = monthDay(current); const start = monthDay(event.startsOn); const end = monthDay(event.endsOn);
-  return start <= end ? day >= start && day <= end : day >= start || day <= end;
-};
 
 export function targetNativePackages(event: Sale, packages: PaymentPackage[]): PaymentPackage[] {
   const selected = packages.filter(item => event.targets.packageIds.includes(item.id));
@@ -119,7 +112,7 @@ class GoogleClient {
     const existing = await this.request(root, undefined, true) as { state?: string } | null;
     if (existing) await this.request(`${root}?updateMask=phases,targeting,regionalConfigs,offerTags&regionsVersion.version=2022%2F02`, { method: "PATCH", body: JSON.stringify(body) });
     else await this.request(`/subscriptions/${pkg.storeProductId}/basePlans/${pkg.storeBasePlanId}/offers?offerId=${offerId}&regionsVersion.version=2022%2F02`, { method: "POST", body: JSON.stringify(body) });
-    if (nativeOfferIsActive(event)) await this.request(`${root}:activate`, { method: "POST", body: "{}" });
+    if (paymentEventIsActive(event)) await this.request(`${root}:activate`, { method: "POST", body: "{}" });
     else if (existing?.state === "ACTIVE") await this.request(`${root}:deactivate`, { method: "POST", body: "{}" });
   }
 }

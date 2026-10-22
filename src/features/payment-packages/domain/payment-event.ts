@@ -26,6 +26,7 @@ const premiumPreviewEventSchema = z.object({
   premiumDays: z.number().int().min(1).max(365),
   targets: z.object({
     userTypes: z.array(z.enum(["new-registration", "legacy-migration"])).min(1),
+    platforms: z.array(z.enum(["web", "ios", "android"])).min(1).default(["web", "ios", "android"]),
   }),
 });
 
@@ -34,6 +35,15 @@ export const paymentEventSchema = z.intersection(
   z.discriminatedUnion("type", [saleEventSchema, premiumPreviewEventSchema]),
 );
 export type PaymentEvent = z.infer<typeof paymentEventSchema>;
+type EventSchedule = Pick<PaymentEvent, "enabled" | "recurrence" | "startsOn" | "endsOn">;
+
+export function paymentEventIsActive(event: EventSchedule, date = new Date()): boolean {
+  if (!event.enabled) return false;
+  const current = date.toISOString().slice(0, 10);
+  if (event.recurrence === "one-time") return current >= event.startsOn && current <= event.endsOn;
+  const day = current.slice(5); const start = event.startsOn.slice(5); const end = event.endsOn.slice(5);
+  return start <= end ? day >= start && day <= end : day >= start || day <= end;
+}
 export const paymentEventsSchema = z.array(paymentEventSchema).superRefine((events, context) => {
   const seen = new Set<string>();
   events.forEach((event, index) => {

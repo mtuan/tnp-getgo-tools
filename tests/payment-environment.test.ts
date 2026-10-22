@@ -22,7 +22,7 @@ test("package sync selects only the active environment and strips deployment met
 test("event sync selects sales and premium previews for the active environment", () => {
   const events: PaymentEvent[] = [
     { id: "staging-sale", type: "sale", targetEnvironments: ["staging"], name: { en: "Sale", vi: "Sale" }, info: { en: "", vi: "" }, recurrence: "one-time", startsOn: "2026-10-01", endsOn: "2026-10-31", enabled: true, discountPercent: 10, targets: { packageIds: ["monthly"] } },
-    { id: "preview", type: "premium-preview", targetEnvironments: ["staging"], name: { en: "Preview", vi: "Preview" }, info: { en: "", vi: "" }, recurrence: "one-time", startsOn: "2026-10-01", endsOn: "2026-10-31", enabled: true, premiumDays: 14, targets: { userTypes: ["new-registration"] } },
+    { id: "preview", type: "premium-preview", targetEnvironments: ["staging"], name: { en: "Preview", vi: "Preview" }, info: { en: "", vi: "" }, recurrence: "one-time", startsOn: "2026-10-01", endsOn: "2026-10-31", enabled: true, premiumDays: 14, targets: { userTypes: ["new-registration"], platforms: ["web"] } },
   ];
   const production = paymentEventsForEnvironment(events, "production");
   assert.deepEqual(production.map((item) => item.id), []);

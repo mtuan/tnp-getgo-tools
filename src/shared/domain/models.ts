@@ -748,7 +748,7 @@ interface PaymentEventBase {
 }
 export type PaymentEvent = PaymentEventBase & (
   | { type: "sale"; discountPercent: number; targets: { packageIds: string[] } }
-  | { type: "premium-preview"; premiumDays: number; targets: { userTypes: Array<"new-registration" | "legacy-migration"> } }
+  | { type: "premium-preview"; premiumDays: number; targets: { userTypes: Array<"new-registration" | "legacy-migration">; platforms: Array<"web" | "ios" | "android"> } }
 );
 export type BillingOrderStatus = "creating" | "pending" | "paid" | "failed" | "cancelled" | "expired" | "needs-review" | "unknown";
 export type BillingPurchaseType = "subscription" | "topic" | "unknown";

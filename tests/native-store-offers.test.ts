@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PaymentEvent, PaymentPackage } from "../src/shared/domain/models.js";
-import { nativeOfferIsActive, targetNativePackages, unexpectedStoreOffers } from "../src/features/payment-packages/main/native-store-offers.js";
+import { targetNativePackages, unexpectedStoreOffers } from "../src/features/payment-packages/main/native-store-offers.js";
+import { paymentEventIsActive } from "../src/features/payment-packages/domain/payment-event.js";
 
 const sale: Extract<PaymentEvent, { type: "sale" }> = {
   id: "new-year", type: "sale", name: { en: "New Year", vi: "Năm mới" }, info: { en: "", vi: "" },
@@ -19,9 +20,9 @@ test("maps a selected Web plan to equivalent native introductory plans", () => {
 });
 
 test("yearly native offer windows wrap across New Year", () => {
-  assert.equal(nativeOfferIsActive(sale, "2026-12-31"), true);
-  assert.equal(nativeOfferIsActive(sale, "2027-01-03"), true);
-  assert.equal(nativeOfferIsActive(sale, "2027-06-01"), false);
+  assert.equal(paymentEventIsActive(sale, new Date("2026-12-31T12:00:00Z")), true);
+  assert.equal(paymentEventIsActive(sale, new Date("2027-01-03T12:00:00Z")), true);
+  assert.equal(paymentEventIsActive(sale, new Date("2027-06-01T12:00:00Z")), false);
 });
 
 test("authoritative reconciliation identifies every console offer absent from Tools", () => {
