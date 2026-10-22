@@ -736,7 +736,7 @@ export function App() {
                   environment={deploymentTarget}
                   onOpenJobs={() => goToRoute("/jobs")}
                   route={currentRoute}
-                  onNavigate={goToRoute}
+                  onNavigate={setCurrentRoute}
                 />
               </Suspense>
             )}
