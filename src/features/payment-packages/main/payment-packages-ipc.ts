@@ -6,12 +6,21 @@ import { paymentEventsSchema } from "../domain/payment-event.js";
 import type { FirestorePublishingService } from "../../topics/main/firestore-publishing.js";
 import { assertRepositoryContentSafe, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 import type { GetGoAccessPolicyService } from "./access-policy-service.js";
-import type { AppSettings } from "../../../shared/domain/models.js";
+import type { AppSettings, PaymentEvent, PaymentPackage } from "../../../shared/domain/models.js";
 import { paymentEventsForEnvironment, paymentPackagesForEnvironment } from "../domain/payment-environment.js";
+import { syncNativeStoreOffers } from "./native-store-offers.js";
 
 const filePath = (root: string) => path.join(root, "content-v2", "payment-packages.json");
 const eventsFilePath = (root: string) => path.join(root, "content-v2", "payment-events.json");
 const legacySalesFilePath = (root: string) => path.join(root, "content-v2", "payment-sales.json");
+function expandNativeSaleTargets(events: PaymentEvent[], packages: PaymentPackage[]): PaymentEvent[] {
+  return events.map(event => {
+    if (event.type !== "sale") return event;
+    const selectedTypes = new Set(packages.filter(item => event.targets.packageIds.includes(item.id)).map(item => item.type));
+    const nativeIds = packages.filter(item => item.platform !== "web" && selectedTypes.has(item.type)).map(item => item.id);
+    return { ...event, targets: { packageIds: [...new Set([...event.targets.packageIds, ...nativeIds])] } };
+  });
+}
 async function load(root: string) {
   try { return paymentPackagesSchema.parse(JSON.parse(await fs.readFile(filePath(root), "utf8"))); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
@@ -64,8 +73,14 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
     const events = await loadEvents(root);
     await assertRepositoryContentSafe(root, "Payment events", events);
     const environment = await dependencies.targetEnvironment();
-    const targeted = paymentEventsForEnvironment(events, environment);
-    await dependencies.publishing.publishPaymentEvents(targeted);
-    return { count: targeted.length, syncedAt: new Date().toISOString() };
+    const allPackages = await load(root);
+    const targetedPackages = allPackages.filter(item => item.targetEnvironments.includes(environment));
+    const expanded = expandNativeSaleTargets(events.filter(item => item.targetEnvironments.includes(environment)), targetedPackages);
+    const targeted = paymentEventsForEnvironment(expanded, environment);
+    await dependencies.publishing.publishPaymentEvents(targeted as Array<Record<string, unknown>>);
+    const nativeOffers = environment === "production"
+      ? await syncNativeStoreOffers(expanded, targetedPackages)
+      : { apple: 0, google: 0, skipped: [] };
+    return { count: targeted.length, syncedAt: new Date().toISOString(), nativeOffers };
   });
 }

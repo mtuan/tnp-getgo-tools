@@ -737,7 +737,7 @@ export interface MarketplaceSyncJobItem {
   quizId?: string;
 }
 export interface PaymentPackage {
-  id: string; platform: "web" | "ios" | "android"; storeProductId?: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
+  id: string; platform: "web" | "ios" | "android"; storeProductId?: string; storeBasePlanId?: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
   targetEnvironments: Array<AppSettings["environment"]>;
   info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
 }
@@ -936,7 +936,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   saveGetGoAccessPolicy(policy: GetGoAccessPolicy): Promise<GetGoAccessPolicy>;
   listPaymentEvents(): Promise<PaymentEvent[]>;
   savePaymentEvents(items: PaymentEvent[]): Promise<PaymentEvent[]>;
-  syncPaymentEvents(): Promise<{ count: number; syncedAt: string }>;
+  syncPaymentEvents(): Promise<{ count: number; syncedAt: string; nativeOffers: { apple: number; google: number; skipped: string[] } }>;
   listBillingOrders(query: BillingOrderQuery): Promise<BillingOrderPage>;
   loadBillingOrderDetail(orderId: string): Promise<BillingOrderDetail>;
   listPaymentReviews(cursor?: string, limit?: number): Promise<PaymentReviewPage>;
