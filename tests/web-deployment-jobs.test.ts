@@ -32,6 +32,17 @@ test("deployment reports expose the complete task list before work starts", () =
   assert.match(source, /for \(const step of job\.report\.steps\) if \(step\.status === "pending"\) step\.status = "skipped"/);
   assert.match(source, /total: progressTotal\(operation, component\)/);
   assert.match(source, /return reportStepIds\(operation, component\)\.length/);
+  assert.match(source, /compatibility: "Test legacy Firebase compatibility"/);
+});
+
+test("staging and production Firebase preparation run legacy compatibility tests", () => {
+  assert.match(deployScript, /function runFirebaseRulesCompatibilityTests\(\)/);
+  assert.match(deployScript, /target === 'getgo-dev' \|\| webOnly \|\| deployOnly/);
+  assert.match(deployScript, /'npm run test:firebase-rules'/);
+  const assembleStorage = deployScript.indexOf('assembleStorageRules()');
+  const compatibilityTest = deployScript.lastIndexOf('runFirebaseRulesCompatibilityTests()');
+  const assembleFunctions = deployScript.lastIndexOf('assembleFunctionsSrc()');
+  assert.ok(assembleStorage >= 0 && compatibilityTest > assembleStorage && assembleFunctions > compatibilityTest);
 });
 
 test("unchanged Firebase-only deployments exit before expensive preparation", () => {

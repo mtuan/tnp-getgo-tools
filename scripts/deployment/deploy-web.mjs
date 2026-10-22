@@ -793,6 +793,20 @@ function assembleFirestoreFiles() {
       fail(`Missing required Firestore rule contract: ${requiredMatch}`)
     }
   }
+  const legacyMarker = '// ── Legacy GetGo mobile compatibility'
+  const legacyRulesStart = rulesOut.indexOf(legacyMarker)
+  if (legacyRulesStart < 0) fail('Missing legacy GetGo Firestore compatibility contract.')
+  const legacyRules = rulesOut.slice(legacyRulesStart)
+  for (const requiredMatch of [
+    'match /getgo-contests/{contestName}',
+    'match /getgo-support-threads/{threadId}',
+    'match /getgo-support-active/{userId}',
+    '!request.resource.data.keys().hasAny(getGoBillingFields())',
+  ]) {
+    if (!legacyRules.includes(requiredMatch)) {
+      fail(`Missing legacy GetGo Firestore rule contract: ${requiredMatch}`)
+    }
+  }
   writeFileSync(join(deployDir, 'firestore.rules'), rulesOut, 'utf-8')
 
   // ── Validate: catch undefined function references before deploy ────────────
@@ -921,14 +935,45 @@ function assembleStorageRules() {
   if (!existsSync(rulesSource)) {
     fail('Missing @tnp/getgo-logics Firebase Storage rules. Run npm run prepare:shared.')
   }
-  writeFileSync(join(deployDir, 'storage.rules'), readFileSync(rulesSource, 'utf-8'), 'utf-8')
+  const rulesOut = readFileSync(rulesSource, 'utf-8')
+  const legacyMarker = '// ── Legacy GetGo mobile compatibility'
+  const legacyRulesStart = rulesOut.indexOf(legacyMarker)
+  if (legacyRulesStart < 0) fail('Missing legacy GetGo Storage compatibility contract.')
+  const legacyRules = rulesOut.slice(legacyRulesStart)
+  for (const requiredMatch of [
+    'match /getgo-quizzes/{allPaths=**}',
+    'match /getgo-practices/{allPaths=**}',
+    'match /getgo-sources/{allPaths=**}',
+    'match /quizzes/{allPaths=**}',
+    'match /getgo-support/{uid}/{threadId}/{fileName}',
+  ]) {
+    if (!legacyRules.includes(requiredMatch)) {
+      fail(`Missing legacy GetGo Storage rule contract: ${requiredMatch}`)
+    }
+  }
+  writeFileSync(join(deployDir, 'storage.rules'), rulesOut, 'utf-8')
   console.log('  🔧  Synced storage.rules (@tnp/getgo-logics)')
+}
+
+function runFirebaseRulesCompatibilityTests() {
+  if (target === 'getgo-dev' || webOnly || deployOnly) return
+  const packagePath = join(logicsRoot, 'package.json')
+  if (!existsSync(packagePath)) {
+    fail(`GetGo Logics repository was not found at ${logicsRoot}; Firebase rules compatibility tests cannot run.`)
+  }
+  runInDirectory(
+    'npm run test:firebase-rules',
+    '🛡️  Running Firebase rules compatibility tests…',
+    logicsRoot,
+  )
+  console.log('  ✅ Firebase rules compatibility tests passed.')
 }
 
 if (!deployOnly) {
   if (!webOnly) {
     assembleFirestoreFiles()
     assembleStorageRules()
+    runFirebaseRulesCompatibilityTests()
   }
   if (!webOnly) assembleFunctionsSrc()
 }

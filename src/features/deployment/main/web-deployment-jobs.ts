@@ -56,6 +56,7 @@ function outputPhase(line: string, component: DeploymentComponent) {
   if (line.includes("Generating shared editor types") || line.includes("Generating canonical Firebase rules") || line.includes("Checking and building @tnp/getgo-logics")) return "dependencies";
   if (component === "firebase" && line.includes("Synced firestore.rules")) return "firestore";
   if (component === "firebase" && line.includes("Synced storage.rules")) return "storage";
+  if (component === "firebase" && line.includes("Running Firebase rules compatibility tests")) return "compatibility";
   if (component === "firebase" && (line.includes("Assembled functions/src") || line.includes("Installing locked dependencies") || line.includes("Building functions"))) return "functions";
   if (component === "web" && (line.includes("Building…") || /vite v\d/i.test(line))) return "build";
   if (component === "web" && /built in \d/i.test(line)) return "bundle";
@@ -69,6 +70,7 @@ const phaseLabels: Record<string, string> = {
   dependencies: "Prepare shared dependencies",
   firestore: "Generate Firestore rules and indexes",
   storage: "Generate Cloud Storage rules",
+  compatibility: "Test legacy Firebase compatibility",
   functions: "Build Cloud Functions",
   build: "Compile Web application",
   bundle: "Finalize Web bundle",
@@ -80,7 +82,7 @@ const phaseLabels: Record<string, string> = {
 
 function reportStepIds(operation: DeploymentOperation, component: DeploymentComponent) {
   const steps = component === "firebase"
-    ? ["startup", "dependencies", "firestore", "storage", "functions", "plan"]
+    ? ["startup", "dependencies", "firestore", "storage", "compatibility", "functions", "plan"]
     : ["startup", "dependencies", "build", "bundle", "plan"];
   if (operation === "deploy") steps.push("deploy");
   if (operation === "deploy" && component === "firebase") steps.push("indexes");
