@@ -82,7 +82,7 @@ export function PaymentPackagesPreview({ items, locale, sale, accessPolicy }: { 
   const orderedItems = orderedPreviewPackages(items);
   const benefitsById = packageBenefits(accessPolicy, orderedItems, locale);
   return <div className="payment-package-preview" aria-label={locale === "vi" ? "Xem trước các gói" : "Package preview"}>
-    {orderedItems.map((item) => { const applicableSale = sale?.targets.packageIds.includes(item.id) && item.price.amount > 0 ? sale : undefined; const amount = applicableSale ? Math.round(item.price.amount * (100 - applicableSale.discountPercent) / 100) : item.price.amount; const benefits = benefitsById.get(item.id) ?? []; return <article className="payment-package-card-shell" key={item.id}>
+    {orderedItems.map((item) => { const applicableSale = sale?.targets.packageIds.includes(item.id) && item.price.amount > 0 ? sale : undefined; const amount = applicableSale ? Math.round(item.price.amount * (100 - applicableSale.discountPercent) / 100) : item.price.amount; const configuredBenefits = item.benefits[locale].map(label => ({ label, supported: true })); const benefits = configuredBenefits.length ? configuredBenefits : benefitsById.get(item.id) ?? []; return <article className="payment-package-card-shell" key={item.id}>
       <div className="payment-package-sale-slot">{applicableSale && <div className="payment-package-sale"><span>{applicableSale.name[locale]}</span><strong>{locale === "vi" ? "Giảm" : "Save"} {applicableSale.discountPercent}%</strong></div>}</div>
       <div className={`payment-package-card ${item.type !== "free" ? "featured" : ""}`}>
         <div className="payment-package-card-heading"><div><h2>{item.name[locale]}</h2><p>{item.info[locale]}</p></div><Crown aria-hidden="true" /></div>

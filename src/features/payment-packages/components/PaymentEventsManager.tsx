@@ -8,6 +8,7 @@ import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
 const today = () => new Date().toISOString().slice(0, 10);
+const packagePlatformLabel = (platform: PaymentPackage["platform"]) => platform === "ios" ? "iOS" : platform === "android" ? "Android" : "Web";
 const emptyEvent = (): PaymentEvent => ({
   id: "", type: "sale", name: { en: "", vi: "" }, info: { en: "", vi: "" },
   recurrence: "one-time", startsOn: today(), endsOn: today(), enabled: true,
@@ -65,7 +66,7 @@ export function PaymentEventsManager({ locale, packages, createRequest, onCreate
     ];
     const specific: ui.FormSchema[] = draft?.type === "sale" ? [
       [{ type: "number", name: "discountPercent", label: isVi ? "Giảm giá (%)" : "Discount (%)", required: true, requiredMessage, min: 1, max: 100 }],
-      { type: "multi-select", name: "packageIds", label: isVi ? "Gói áp dụng" : "Target packages", required: true, requiredMessage, options: packages.map((item) => ({ value: item.id, label: item.name[locale] })) },
+      { type: "multi-select", name: "packageIds", label: isVi ? "Gói Web áp dụng" : "Target Web packages", required: true, requiredMessage, options: packages.filter((item) => item.platform === "web").map((item) => ({ value: item.id, label: `${item.name[locale]} (${packagePlatformLabel(item.platform)})` })) },
     ] : [
       [{ type: "number", name: "premiumDays", label: isVi ? "Số ngày Premium" : "Premium days", required: true, requiredMessage, min: 1, max: 365 }],
       { type: "multi-select", name: "userTypes", label: isVi ? "Người dùng áp dụng" : "Target users", required: true, requiredMessage, options: [{ value: "new-registration", label: isVi ? "Đăng ký mới" : "New registrations" }, { value: "legacy-migration", label: isVi ? "Di chuyển lần đầu" : "First legacy migration" }] },

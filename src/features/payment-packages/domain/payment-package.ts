@@ -4,6 +4,7 @@ import { paymentTargetEnvironmentsSchema } from "./payment-environment.js";
 export const paymentPackageSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
   platform: z.enum(["web", "ios", "android"]).default("web"),
+  storeProductId: z.string().trim().min(1).optional(),
   targetEnvironments: paymentTargetEnvironmentsSchema,
   name: z.object({ en: z.string().min(1), vi: z.string().min(1) }),
   type: z.enum(["free", "monthly", "annual", "one-time"]),

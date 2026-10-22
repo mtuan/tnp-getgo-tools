@@ -24,6 +24,7 @@ test("payment packages default legacy records to Web and accept native platforms
   assert.deepEqual(paymentPackageSchema.parse(legacy).targetEnvironments, ["development", "staging", "production"]);
   assert.equal(paymentPackageSchema.parse({ ...legacy, platform: "ios" }).platform, "ios");
   assert.equal(paymentPackageSchema.parse({ ...legacy, platform: "android" }).platform, "android");
+  assert.equal(paymentPackageSchema.parse({ ...legacy, platform: "ios", storeProductId: "com.tnp.getgo.premium.monthly" }).storeProductId, "com.tnp.getgo.premium.monthly");
 });
 
 test("preview benefits follow the free access-policy configuration", () => {

@@ -737,7 +737,7 @@ export interface MarketplaceSyncJobItem {
   quizId?: string;
 }
 export interface PaymentPackage {
-  id: string; platform: "web" | "ios" | "android"; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
+  id: string; platform: "web" | "ios" | "android"; storeProductId?: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
   targetEnvironments: Array<AppSettings["environment"]>;
   info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
 }
