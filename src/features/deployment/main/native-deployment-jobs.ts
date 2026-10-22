@@ -9,6 +9,7 @@ import { spawnCommand } from "../../../shared/main/spawn-command.js";
 
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
+type NativeProgressStatus = "running" | "completed";
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 
 export function resolveIosSigningState(environment: Record<string, string | undefined>): IosSigningState {
@@ -64,6 +65,16 @@ function cleanOutput(value: string) {
   return value.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "").trimEnd().slice(-4000);
 }
 
+export function nativeDeploymentStepDefinitions(operation: DeploymentOperation, platform: NativePlatform) {
+  if (platform === "ios" && (operation === "build" || operation === "deploy")) return [
+    { id: "prepare", label: "Prepare Web and iOS project" },
+    { id: "archive", label: "Archive signed iOS app" },
+    { id: "export", label: "Export IPA" },
+    ...(operation === "deploy" ? [{ id: "upload", label: "Upload to App Store Connect" }] : []),
+  ];
+  return [{ id: "native-workflow", label: operation === "deploy" ? `Build and upload ${platform} app` : `${operation} ${platform} app` }];
+}
+
 function failureSummary(job: NativeJob, fallback: string) {
   const patterns = [
     /\[error\]/i, /(^|\s)error:/i, /enoent/i, /exception:/i,
@@ -108,6 +119,7 @@ export class NativeDeploymentJobManager {
       this.jobs = (JSON.parse(await fs.readFile(this.filePath, "utf8")) as NativeJob[]).slice(0, 50);
     } catch { this.jobs = []; }
     for (const job of this.jobs) {
+      this.ensureReport(job);
       if (["queued", "running", "paused"].includes(job.status)) {
         job.status = "failed";
         job.error = "Native deployment was interrupted when GetGo Tools stopped.";
@@ -121,6 +133,37 @@ export class NativeDeploymentJobManager {
       }
     }
     await this.persist();
+  }
+
+  private ensureReport(job: NativeJob) {
+    if (job.report) return;
+    const platform: NativePlatform = job.component === "mobile-ios" ? "ios" : "android";
+    const steps = nativeDeploymentStepDefinitions(job.operation ?? "deploy", platform);
+    const completedJob = job.status === "completed";
+    job.total = steps.length;
+    job.completed = completedJob ? steps.length : 0;
+    job.report = {
+      operation: job.operation ?? "deploy", component: job.component, target: job.target,
+      startedAt: job.startedAt ?? job.createdAt, finishedAt: job.finishedAt, durationMs: job.durationMs,
+      version: job.version, items: [],
+      steps: steps.map(step => ({ ...step, status: completedJob ? "completed" : "pending", details: [] })),
+    };
+  }
+
+  private applyProgress(job: NativeJob, marker: { id: string; label?: string; status: NativeProgressStatus }) {
+    this.ensureReport(job);
+    const step = job.report!.steps.find(item => item.id === marker.id);
+    if (!step) return;
+    const now = new Date().toISOString();
+    if (marker.label) step.label = marker.label;
+    if (!step.startedAt) step.startedAt = now;
+    step.status = marker.status;
+    if (marker.status === "completed") {
+      step.finishedAt = now;
+      step.durationMs = Math.max(0, Date.parse(now) - Date.parse(step.startedAt));
+    }
+    job.completed = job.report!.steps.filter(item => item.status === "completed").length;
+    job.progressLabel = step.label;
   }
 
   private async persist() {
@@ -224,10 +267,11 @@ export class NativeDeploymentJobManager {
         : operation === "build"
         ? `Compile and sign the ${target} ${this.config.technology} ${platform} artifact`
         : `Build if required and upload the ${target} ${this.config.technology} ${platform} artifact`,
-      status: "queued", completed: 0, total: 4, progressLabel: "Starting native workflow",
+      status: "queued", completed: 0, total: nativeDeploymentStepDefinitions(operation, platform).length, progressLabel: "Starting native workflow",
       createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: "Native workflow queued." }],
     };
+    this.ensureReport(job);
     this.jobs.unshift(job);
     await this.persist();
     await this.run(job, platform);
@@ -274,11 +318,17 @@ export class NativeDeploymentJobManager {
             job.version = metadata.version;
             job.buildNumber = metadata.buildNumber;
           } catch { /* Keep the output line; invalid metadata must not stop the build. */ }
+        } else if (message.startsWith("GETGO_NATIVE_PROGRESS ")) {
+          try {
+            const marker = JSON.parse(message.slice("GETGO_NATIVE_PROGRESS ".length)) as { id?: unknown; label?: unknown; status?: unknown };
+            if (typeof marker.id === "string" && (marker.status === "running" || marker.status === "completed")) {
+              this.applyProgress(job, { id: marker.id, label: typeof marker.label === "string" ? marker.label : undefined, status: marker.status });
+            }
+          } catch { /* Invalid progress output remains available in the log. */ }
         }
       }
       if ((job.logs?.length ?? 0) > 1500) job.logs = job.logs!.slice(-1500);
-      if (lines.at(-1)) job.progressLabel = lines.at(-1)!.slice(-500);
-      job.completed = Math.min(job.total - 1, job.completed + 1);
+      if (lines.at(-1) && !lines.at(-1)!.startsWith("GETGO_NATIVE_")) job.progressLabel = lines.at(-1)!.slice(-500);
       void this.persist();
     };
     child.stdout?.on("data", chunk => output("stdout", chunk));
@@ -299,7 +349,22 @@ export class NativeDeploymentJobManager {
       const fallback = cause?.message ?? `Native workflow exited with code ${code ?? "unknown"}.`;
       job.error = job.status === "failed" ? failureSummary(job, fallback) : undefined;
       job.progressLabel = job.status === "completed" ? (job.operation === "run" ? "Simulator launched" : job.operation === "build" ? "Built" : "Uploaded") : "Failed";
-      job.completed = job.status === "completed" ? job.total : job.completed;
+      this.ensureReport(job);
+      const now = new Date().toISOString();
+      if (job.status === "completed") {
+        for (const step of job.report!.steps) {
+          step.status = "completed";
+          step.startedAt ??= job.startedAt;
+          step.finishedAt ??= now;
+          if (step.startedAt && step.finishedAt) step.durationMs ??= Math.max(0, Date.parse(step.finishedAt) - Date.parse(step.startedAt));
+        }
+      } else {
+        const failed = job.report!.steps.find(step => step.status === "running")
+          ?? job.report!.steps.find(step => step.status === "pending");
+        if (failed) { failed.status = "failed"; failed.startedAt ??= job.startedAt; failed.finishedAt = now; failed.details.push(job.error ?? "Native workflow failed."); }
+        for (const step of job.report!.steps.filter(step => step.status === "pending")) step.status = "skipped";
+      }
+      job.completed = job.report!.steps.filter(step => step.status === "completed").length;
       job.retryable = job.status === "failed";
     }
     job.logs?.push({ timestamp: new Date().toISOString(), stream: "system", message: job.status === "completed" ? "Native workflow completed." : job.error ?? `Native workflow ${job.status}.` });
@@ -307,6 +372,11 @@ export class NativeDeploymentJobManager {
     job.finishedAt = new Date().toISOString();
     if (job.startedAt)
       job.durationMs = Math.max(0, Date.parse(job.finishedAt) - Date.parse(job.startedAt));
+    if (job.report) {
+      job.report.finishedAt = job.finishedAt;
+      job.report.durationMs = job.durationMs;
+      job.report.version = job.version;
+    }
     await this.persist();
   }
 
@@ -336,6 +406,15 @@ export class NativeDeploymentJobManager {
     this.runtimes.delete(id);
     job.status = "cancelled"; job.cancellable = false; job.retryable = true;
     job.progressLabel = "Cancelled"; job.finishedAt = new Date().toISOString();
+    this.ensureReport(job);
+    const active = job.report!.steps.find(step => step.status === "running");
+    if (active) { active.status = "cancelled"; active.finishedAt = job.finishedAt; }
+    for (const step of job.report!.steps.filter(step => step.status === "pending")) step.status = "skipped";
+    job.report!.finishedAt = job.finishedAt;
+    if (job.startedAt) {
+      job.durationMs = Math.max(0, Date.parse(job.finishedAt) - Date.parse(job.startedAt));
+      job.report!.durationMs = job.durationMs;
+    }
     job.logs?.push({ timestamp: job.finishedAt, stream: "system", message: "Native workflow cancelled." });
     await this.persist();
   }

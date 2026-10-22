@@ -19,3 +19,9 @@ test("the report task table renders measured job progress", () => {
   assert.match(drawerSource, /Math\.round\(\(step\.completed! \/ step\.total!\) \* 100\)/);
   assert.match(drawerSource, /step\.status === "running" && !hasMeasuredProgress/);
 });
+
+test("every job report uses the same canonical inline section layout", () => {
+  assert.match(drawerSource, /className="deployment-report-panels deployment-report-sections-inline"/);
+  assert.equal((drawerSource.match(/variant="inline"/g) ?? []).length, 4);
+  assert.doesNotMatch(drawerSource, /isWebReleaseReport|sectionVariant|variant="panel"/);
+});
