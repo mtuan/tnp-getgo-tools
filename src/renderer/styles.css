@@ -8942,6 +8942,146 @@ button.danger svg {
   gap: 16px;
   margin: 0;
 }
+.crud-dialog.presentation-modal.release-readiness-dialog {
+  width: min(620px, calc(100vw - 64px));
+}
+.crud-dialog.presentation-modal.release-readiness-dialog.is-loading .crud-body {
+  padding: 0;
+}
+.release-readiness-loading {
+  min-height: 180px;
+}
+.release-readiness-load-error {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+.release-target-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+.release-target-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.release-target-summary span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.release-target-summary strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.release-readiness {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+.release-readiness-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.release-readiness-heading h3,
+.release-readiness-heading p {
+  margin: 0;
+}
+.release-readiness-heading h3 {
+  color: var(--text);
+  font-size: 15px;
+}
+.release-readiness-heading p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.release-readiness-list {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.release-readiness-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  padding: 11px 12px;
+  background: var(--soft);
+}
+.release-readiness-item + .release-readiness-item {
+  border-top: 1px solid var(--line);
+}
+.release-readiness-item .release-doctor-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.release-readiness-item .release-doctor-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.release-readiness-item h3,
+.release-readiness-item p,
+.release-deploy-note {
+  margin: 0;
+}
+.release-readiness-item h3 {
+  color: var(--text);
+  font-size: 13px;
+}
+.release-readiness-content {
+  min-width: 0;
+}
+.release-remediation-list,
+.release-remediation {
+  display: grid;
+  gap: 6px;
+}
+.release-remediation-list {
+  margin-top: 5px;
+}
+.release-remediation + .release-remediation {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.release-remediation p strong {
+  color: var(--text);
+}
+.release-remediation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.release-remediation-actions .ui-button {
+  min-height: 30px;
+}
+.release-readiness-item p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.release-deploy-note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
 .release-deploy-summary > div {
   display: grid;
   grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
@@ -8979,6 +9119,9 @@ button.danger svg {
   padding-left: 20px;
 }
 @media (max-width: 640px) {
+  .crud-dialog.presentation-modal.release-readiness-dialog {
+    width: calc(100vw - 32px);
+  }
   .release-deploy-summary > div {
     grid-template-columns: 1fr;
     gap: 6px;

@@ -2,12 +2,14 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, DeploymentJobReportStep, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { BackgroundJob, DeploymentJobReportStep, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseReadiness, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
+import { createWebReleaseReadiness } from "./web-release-readiness.js";
+import { configureAppleIapSecret } from "./apple-iap-secret.js";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
-type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "build" | "deploy"; releaseScope?: ReleaseScope; releaseId?: string; buildOnly?: boolean; archivedOperation?: "activate" | "promote" | "rollback" };
+type ReleaseJob = BackgroundJob & { component: "release"; target: ReleaseTarget; operation: "build" | "deploy"; releaseScope?: ReleaseScope; releaseId?: string; buildOnly?: boolean; checklistBypassed?: boolean; archivedOperation?: "activate" | "promote" | "rollback" };
 type Runtime = {
   child?: ChildProcess;
   cancelled: boolean;
@@ -317,14 +319,30 @@ export class FullReleaseJobManager {
     return this.activateWeb("production", releaseId);
   }
 
-  async activateWeb(target: ReleaseTarget, releaseId: string) {
+  async webReleaseReadiness(target: ReleaseTarget, releaseId: string): Promise<WebReleaseReadiness> {
+    if (!/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
+    const release = (await this.listWebReleases()).find(item => item.releaseId === releaseId);
+    if (!release) throw new Error("Release artifact was not found.");
+    const environment = await this.webDoctor(await this.webRoot(), target);
+    return createWebReleaseReadiness(target, release, environment);
+  }
+
+  async configureAppleIapSecret(target: ReleaseTarget): Promise<void> {
+    await configureAppleIapSecret(this.toolsAppPath, await this.webRoot(), target);
+  }
+
+  async activateWeb(target: ReleaseTarget, releaseId: string, bypassChecklist = false) {
     await this.ensureLoaded();
     if (!/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
     if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another release is already active.");
-    const release = (await this.listWebReleases()).find(item => item.releaseId === releaseId);
-    if (!release) throw new Error("Release artifact was not found.");
+    const readiness = await this.webReleaseReadiness(target, releaseId);
+    if (!readiness.ready && (target === "production" || !bypassChecklist)) {
+      const failed = readiness.checks.filter(check => check.status !== "ready").map(check => check.title).join(", ");
+      throw new Error(`${target === "production" ? "Production" : "Staging"} checklist is not ready: ${failed}.`);
+    }
     const job: ReleaseJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "deploy", target, releaseScope: "web", releaseId, archivedOperation: "activate",
+      checklistBypassed: target === "staging" && bypassChecklist,
       name: `Activate Web build · ${target} · ${releaseId}`, description: `Deploy the exact archived Web and Firebase build ${releaseId} to ${target}`,
       status: "queued", completed: 0, total: archivedWebDeploymentSteps, progressLabel: `Starting ${target} deployment`, createdAt: new Date().toISOString(), cancellable: true, retryable: false,
       logs: [{ timestamp: new Date().toISOString(), stream: "system", message: `Deployment of ${releaseId} to ${target} queued.` }],
@@ -541,7 +559,7 @@ export class FullReleaseJobManager {
     const job = this.jobs.find(item => item.id === id);
     if (!job?.retryable) return;
     if (job.buildOnly) await this.startWebBuild(job.releaseNote);
-    else if (job.archivedOperation === "activate" && job.releaseId) await this.activateWeb(job.target, job.releaseId);
+    else if (job.archivedOperation === "activate" && job.releaseId) await this.activateWeb(job.target, job.releaseId, job.checklistBypassed);
     else await this.start(job.target, job.releaseScope ?? "all");
   }
 

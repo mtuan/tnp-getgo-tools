@@ -18,8 +18,8 @@ type DeploymentPageProps = {
   onOpenJobs(): void;
 };
 
-export function DeploymentPage(props: DeploymentPageProps) {
-  return <WebReleasePage locale={props.locale} />;
+export function DeploymentPage(props: DeploymentPageProps & { route: string; onNavigate(route: string): void }) {
+  return <WebReleasePage locale={props.locale} route={props.route} onNavigate={props.onNavigate} />;
 }
 
 export function DevelopmentDeploymentPage({

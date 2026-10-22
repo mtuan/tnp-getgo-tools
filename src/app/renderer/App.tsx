@@ -735,6 +735,8 @@ export function App() {
                   locale={settings.locale}
                   environment={deploymentTarget}
                   onOpenJobs={() => goToRoute("/jobs")}
+                  route={currentRoute}
+                  onNavigate={goToRoute}
                 />
               </Suspense>
             )}

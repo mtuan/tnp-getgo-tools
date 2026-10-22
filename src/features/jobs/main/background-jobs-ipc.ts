@@ -164,10 +164,20 @@ export function registerBackgroundJobsIpc(
     await fullReleaseJobs.clearFailedBuilds();
     return snapshot();
   });
-  ipcMain.handle("release:web:activate", async (_event, target: unknown, releaseId: unknown) => {
+  ipcMain.handle("release:web:readiness", async (_event, target: unknown, releaseId: unknown) => {
     if (!(target === "staging" || target === "production")) throw new Error("Invalid release target.");
     if (typeof releaseId !== "string") throw new Error("Invalid release ID.");
-    await fullReleaseJobs.activateWeb(target, releaseId);
+    return fullReleaseJobs.webReleaseReadiness(target, releaseId);
+  });
+  ipcMain.handle("release:web:configure-apple-iap", async (_event, target: unknown) => {
+    if (!(target === "staging" || target === "production")) throw new Error("Invalid release target.");
+    await fullReleaseJobs.configureAppleIapSecret(target);
+  });
+  ipcMain.handle("release:web:activate", async (_event, target: unknown, releaseId: unknown, bypassChecklist: unknown) => {
+    if (!(target === "staging" || target === "production")) throw new Error("Invalid release target.");
+    if (typeof releaseId !== "string") throw new Error("Invalid release ID.");
+    if (bypassChecklist !== undefined && typeof bypassChecklist !== "boolean") throw new Error("Invalid checklist bypass.");
+    await fullReleaseJobs.activateWeb(target, releaseId, bypassChecklist === true);
     return snapshot();
   });
   ipcMain.handle("release:web:promote", async (_event, releaseId: unknown) => {

@@ -251,6 +251,8 @@ function deployRelease(environment, releaseId, operation) {
   releaseProgress(0, `Validating ${releaseId}`)
   assertGitLfs()
   const manifest = readManifest(releaseId)
+  if (environment === 'production' && manifest.environments.staging.status !== 'deployed')
+    fail(`${releaseId} must be deployed to staging before production.`)
   const archive = join(releasesRoot, releaseId, manifest.artifact.file)
   if (!existsSync(archive)) fail(`Missing Git LFS artifact ${archive}. Run git lfs pull.`)
   if (sha256(archive) !== manifest.artifact.sha256) fail(`Checksum mismatch for ${releaseId}.`)
@@ -279,6 +281,8 @@ function deployRelease(environment, releaseId, operation) {
     targetConfig.functionCodebases ?? [],
   )
   const functionPlan = planReleaseFunctionDeployment(targetConfig, firebaseConfig, missingSecrets)
+  if (environment === 'production' && functionPlan.skippedCodebases.length > 0)
+    fail(`Production requires every configured Function codebase. Missing secrets: ${missingSecrets.join(', ')}.`)
   if (functionPlan.skippedCodebases.length > 0) {
     console.warn('\n⚠️  Skipping optional Function codebases whose required secrets are unavailable:')
     for (const codebase of functionPlan.skippedCodebases) {
