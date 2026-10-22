@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { AppSettings, WebBuildReadiness } from "../../../shared/domain/models";
 import * as ui from "../../../shared/ui";
 import en from "../../../shared/localization/en.json";
@@ -27,48 +27,35 @@ export function WebReleaseBuildDialog(props: Props) {
   const breakdown = dirty.map(repository => copy.repositoryChangeCount
     .replace("{repository}", copy.buildRepositories[repository.id])
     .replace("{count}", String(repository.changes.length))).join(" · ");
+  const blockedSummary = (dirty.length === 1 ? copy.pendingChangesSingle : copy.pendingChangesMultiple)
+    .replace("{count}", String(changedCount))
+    .replace("{repository}", dirty[0] ? copy.buildRepositories[dirty[0].id] : "")
+    .replace("{breakdown}", breakdown);
+  const blocked = !loading && props.readiness?.ready !== true;
+  const title = props.readiness?.ready
+    ? props.error ? copy.buildCouldNotStart : copy.buildDialogTitle
+    : loading ? copy.buildDialogTitle
+      : props.readiness ? copy.saveChangesTitle : copy.buildReadinessFailedTitle;
 
   return <ui.DialogFrame
     presentation="modal"
-    title={copy.buildDialogTitle}
+    className="release-build-dialog"
+    title={title}
     busy={props.busy}
     error={null}
     cancelLabel={copy.cancel}
     submitLabel={copy.build}
     submitDisabled={!props.readiness?.ready}
     hideFooter={loading}
+    footer={blocked ?
+      <ui.Button variant="solid" icon={<RefreshCw />} loading={props.checking} onClick={props.onRefresh}>{copy.checkAgain}</ui.Button>
+      : undefined}
     onClose={props.onClose}
     onSubmit={props.onSubmit}
   >
-    {loading ? <ui.PageLoading label={copy.checkingBuildReadiness} /> : props.readiness ? <>
-      {props.error && props.readiness.ready && <article className="release-readiness-item release-doctor-check-action-required">
-        <span className="release-doctor-icon" aria-hidden="true"><AlertTriangle /></span>
-        <div className="release-readiness-content"><h3>{copy.buildCouldNotStart}</h3><p>{copy.buildCouldNotStartDescription}</p></div>
-      </article>}
-      <section className="release-readiness">
-        <div className="release-readiness-heading">
-          <div><h3>{copy.sourceCheckTitle}</h3><p>{props.readiness.ready ? copy.sourceReady : copy.sourceBlocked}</p></div>
-          <ui.Button variant="icon" icon={<RefreshCw />} aria-label={copy.checkAgain} title={copy.checkAgain} loading={props.checking} disabled={props.busy} onClick={props.onRefresh} />
-        </div>
-        <div className="release-readiness-list">
-          {props.readiness.ready ? <article className="release-readiness-item release-doctor-check-ready">
-            <span className="release-doctor-icon" aria-hidden="true"><CheckCircle2 /></span>
-            <div className="release-readiness-content"><h3>{copy.cleanSource}</h3><p>{copy.cleanSourceDescription}</p></div>
-            <ui.StatusBadge tone="success">{copy.ready}</ui.StatusBadge>
-          </article> : <article className="release-readiness-item release-doctor-check-action-required">
-            <span className="release-doctor-icon" aria-hidden="true"><AlertTriangle /></span>
-            <div className="release-readiness-content">
-              <h3>{copy.unsavedWork}</h3>
-              <p>{copy.unsavedWorkSummary.replace("{count}", String(changedCount)).replace("{breakdown}", breakdown)}</p>
-            </div>
-          </article>}
-        </div>
-      </section>
-      {props.readiness.ready && <ui.Form fields={props.fields} values={props.values} onChange={props.onValuesChange} />}
-    </> : <article className="release-readiness-item release-doctor-check-action-required">
-      <span className="release-doctor-icon" aria-hidden="true"><AlertTriangle /></span>
-      <div className="release-readiness-content"><h3>{copy.buildReadinessFailedTitle}</h3><p>{copy.buildReadinessFailed}</p></div>
-      <ui.Button variant="solid" color="warning" icon={<RefreshCw />} loading={props.checking} onClick={props.onRefresh}>{copy.checkAgain}</ui.Button>
-    </article>}
+    {loading ? <ui.PageLoading className="release-build-loading" label={copy.checkingBuildReadiness} /> : props.readiness?.ready ? <>
+      {props.error && <p className="release-build-message">{copy.buildCouldNotStartDescription}</p>}
+      <ui.Form fields={props.fields} values={props.values} onChange={props.onValuesChange} />
+    </> : <p className="release-build-message">{props.readiness ? blockedSummary : copy.buildReadinessFailed}</p>}
   </ui.DialogFrame>;
 }

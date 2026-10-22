@@ -8945,6 +8945,18 @@ button.danger svg {
 .crud-dialog.presentation-modal.release-readiness-dialog {
   width: min(620px, calc(100vw - 64px));
 }
+.crud-dialog.presentation-modal.release-build-dialog {
+  width: min(520px, calc(100vw - 40px));
+}
+.release-build-loading {
+  min-height: 120px;
+}
+.release-build-message {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
 .crud-dialog.presentation-modal.release-readiness-dialog.is-loading .crud-body {
   padding: 0;
 }
