@@ -47,6 +47,8 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
   const version = job.version
     ? `${job.version}${job.buildNumber ? ` (${job.buildNumber})` : ""}`
     : report?.version;
+  const isWebReleaseReport = job.component === "release";
+  const sectionVariant = isWebReleaseReport ? "inline" : "panel";
   const errorDebugText = [
     job.name,
     `Status: ${job.status}`,
@@ -75,8 +77,8 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
 
   return <ui.DialogFrame presentation="drawer" className="deployment-report-drawer" hideFooter title={copy.title.replace("{name}", job.name)} busy={false} error={null} onClose={onClose} onSubmit={event => event.preventDefault()}>
     {job.error && <ui.ErrorFrame message={job.error} copyValue={errorDebugText} />}
-    <div className="deployment-report-panels">
-      <ui.AccordionSection title={copy.summary} expanded={expanded.summary} onExpandedChange={value => setSectionExpanded("summary", value)}>
+    <div className={`deployment-report-panels ${isWebReleaseReport ? "deployment-report-sections-inline" : ""}`.trim()}>
+      <ui.AccordionSection variant={sectionVariant} title={copy.summary} expanded={expanded.summary} onExpandedChange={value => setSectionExpanded("summary", value)}>
         <div className="deployment-report-summary">
           <div><small>{copy.operation}</small><strong>{job.operation ?? report?.operation ?? job.kind}</strong></div>
           <div><small>{copy.component}</small><strong>{job.component ?? report?.component ?? "—"}</strong></div>
@@ -88,15 +90,15 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
           <div><small>{copy.finished}</small><span>{job.finishedAt ? new Date(job.finishedAt).toLocaleString(locale) : "—"}</span></div>
         </div>
       </ui.AccordionSection>
-      {report && <ui.AccordionSection className="deployment-report-tasks" title={copy.steps} expanded={expanded.tasks} onExpandedChange={value => setSectionExpanded("tasks", value)}>
+      {report && <ui.AccordionSection variant={sectionVariant} className="deployment-report-tasks" title={copy.steps} expanded={expanded.tasks} onExpandedChange={value => setSectionExpanded("tasks", value)}>
         <ui.DataTable ariaLabel={copy.steps} rows={report.steps} columns={stepColumns} rowKey={(step, index) => `${step.id}-${index}`} emptyText={copy.noSteps} />
       </ui.AccordionSection>}
-      <ui.AccordionSection title={copy.liveOutput} expanded={expanded.output} onExpandedChange={value => setSectionExpanded("output", value)}>
+      <ui.AccordionSection variant={sectionVariant} title={copy.liveOutput} expanded={expanded.output} onExpandedChange={value => setSectionExpanded("output", value)}>
         <div ref={outputRef} className="job-live-output" role="log" aria-live="polite" aria-label={copy.liveOutput}>
           {logs.length ? logs.map((log, index) => <div className={`job-log-line job-log-${log.stream}`} key={`${log.timestamp}-${index}`}><time>{new Date(log.timestamp).toLocaleTimeString(locale)}</time><span>{log.message}</span></div>) : <p>{copy.noOutput}</p>}
         </div>
       </ui.AccordionSection>
-      {report && <ui.AccordionSection title={copy.artifacts} expanded={expanded.artifacts} onExpandedChange={value => setSectionExpanded("artifacts", value)}>
+      {report && <ui.AccordionSection variant={sectionVariant} title={copy.artifacts} expanded={expanded.artifacts} onExpandedChange={value => setSectionExpanded("artifacts", value)}>
         <ui.DataTable ariaLabel={copy.artifacts} rows={report.items} columns={artifactColumns} rowKey={item => item.id} emptyText={copy.noArtifacts} />
       </ui.AccordionSection>}
     </div>

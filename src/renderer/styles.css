@@ -8146,6 +8146,57 @@ button.danger svg {
 .deployment-report-panels .ui-accordion-panel {
   margin-bottom: 0;
 }
+.deployment-report-sections-inline {
+  gap: 0;
+}
+.deployment-report-sections-inline .ui-accordion-inline {
+  border: 0;
+  background: transparent;
+}
+.deployment-report-sections-inline .ui-accordion-header {
+  min-height: 42px;
+}
+.deployment-report-sections-inline .ui-accordion-toggle {
+  gap: 8px;
+  padding: 8px 0;
+}
+.deployment-report-sections-inline .ui-accordion-toggle > svg {
+  width: 15px;
+}
+.deployment-report-sections-inline .ui-accordion-content {
+  padding: 2px 0 10px;
+}
+.deployment-report-sections-inline .deployment-report-summary {
+  gap: 0 20px;
+}
+.deployment-report-sections-inline .deployment-report-summary > div {
+  grid-template-columns: 90px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+.deployment-report-sections-inline .deployment-report-summary > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.deployment-report-sections-inline .ui-data-table,
+.deployment-report-sections-inline .job-live-output {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.deployment-report-sections-inline .job-live-output {
+  min-height: 72px;
+  padding: 6px 0;
+}
+.deployment-report-sections-inline .deployment-report-tasks .ui-data-table td {
+  height: 36px;
+  padding-block: 3px;
+}
 .deployment-report-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8246,6 +8297,9 @@ button.danger svg {
 @media (max-width: 720px) {
   .deployment-report-summary {
     grid-template-columns: 1fr;
+  }
+  .deployment-report-sections-inline .deployment-report-summary > div:nth-last-child(2) {
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
   }
 }
 @media (prefers-color-scheme: dark) {

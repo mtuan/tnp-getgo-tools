@@ -9,6 +9,16 @@ test("archived Web deployments expose detailed progress tasks", () => {
   assert.equal(archivedWebDeploymentSteps, 8);
 });
 
+test("immutable Web builds expose structured task progress", () => {
+  assert.match(source, /Validate source and build application/);
+  assert.match(source, /Assemble Web and Firebase payload/);
+  assert.match(source, /Create and verify immutable archive/);
+  assert.match(source, /report:\s*\{[\s\S]*?steps: createWebReleaseBuildSteps\(\)/);
+  assert.match(source, /advanceWebReleaseBuildReport\(job, progress\.completed/);
+  assert.match(source, /finishWebReleaseBuildReport\(job, "failed"\)/);
+  assert.match(source, /finishWebReleaseBuildReport\(job, "cancelled"\)/);
+});
+
 test("staging release deploys the complete Web target before store uploads", () => {
   assert.deepEqual(releaseCommands("staging", "all"), [
     { stage: "web", label: "Deploying Web and Firebase", args: ["run", "release:web:staging"], steps: 7 },
