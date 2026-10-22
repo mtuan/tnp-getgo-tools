@@ -51,6 +51,37 @@ export function registerBackgroundJobsIpc(
         ...(job.finishedAt ? [{ timestamp: job.finishedAt, stream: "system" as const, message: `AI migration ${job.status}.` }] : []),
       ],
     }));
+    const withTaskReport = (job: BackgroundJob): BackgroundJob => {
+      if (job.report) return job;
+      const status = job.status === "completed" ? "completed"
+        : job.status === "failed" ? "failed"
+          : job.status === "cancelled" ? "cancelled"
+            : job.status === "queued" ? "pending" : "running";
+      const startedAt = job.startedAt ?? job.createdAt;
+      return {
+        ...job,
+        report: {
+          operation: job.operation ?? "run",
+          component: job.component ?? job.kind,
+          target: job.target,
+          startedAt,
+          finishedAt: job.finishedAt,
+          durationMs: job.finishedAt ? Math.max(0, Date.parse(job.finishedAt) - Date.parse(startedAt)) : undefined,
+          items: [],
+          steps: [{
+            id: "overall-progress",
+            label: job.name,
+            status,
+            startedAt,
+            finishedAt: job.finishedAt,
+            durationMs: job.finishedAt ? Math.max(0, Date.parse(job.finishedAt) - Date.parse(startedAt)) : undefined,
+            completed: job.completed,
+            total: Math.max(1, job.total),
+            details: job.error ? [job.error] : [],
+          }],
+        },
+      };
+    };
     const withFallbackLogs = (job: BackgroundJob): BackgroundJob => {
       if (job.logs?.length || job.report?.steps.some(step => step.details.length)) return job;
       return {
@@ -63,6 +94,7 @@ export function registerBackgroundJobsIpc(
       };
     };
     const jobs = [...migrated, ...published, ...deployments, ...nativeDeployments, ...releases, ...appNativeJobs, ...amcImports]
+      .map(withTaskReport)
       .map(withFallbackLogs)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     return { aiConcurrency: migration.concurrency, jobs };

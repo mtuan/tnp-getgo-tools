@@ -682,12 +682,14 @@ export interface DeploymentJobReportStep {
   startedAt?: string;
   finishedAt?: string;
   durationMs?: number;
+  completed?: number;
+  total?: number;
   details: string[];
 }
 export interface DeploymentJobReport {
   operation: DeploymentOperation;
-  component: DeploymentComponent;
-  target: WebDeploymentTarget;
+  component: DeploymentComponent | BackgroundJobKind;
+  target?: WebDeploymentTarget;
   startedAt: string;
   finishedAt?: string;
   durationMs?: number;
