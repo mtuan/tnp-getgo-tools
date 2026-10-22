@@ -817,7 +817,7 @@ function assembleFirestoreFiles() {
     .replace(/\/\/[^\n]*/g, '')          // line comments
   const definedFns  = new Set([...rulesStripped.matchAll(/\bfunction\s+(\w+)\s*\(/g)].map(m => m[1]))
   // Built-in Firestore Rules functions — not defined by us but always available
-  const BUILTIN_FNS = new Set(['get', 'exists', 'getAfter', 'debug'])
+  const BUILTIN_FNS = new Set(['get', 'exists', 'getAfter', 'existsAfter', 'debug'])
   // Language keywords / built-in methods that look like calls but aren't function defs
   const KEYWORDS = new Set(['if', 'return', 'match', 'allow', 'function', 'let', 'in',
     'hasAll', 'hasAny', 'hasOnly', 'keys', 'values', 'size', 'toUtf8', 'toBase64',

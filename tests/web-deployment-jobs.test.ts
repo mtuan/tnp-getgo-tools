@@ -45,6 +45,10 @@ test("staging and production Firebase preparation run legacy compatibility tests
   assert.ok(assembleStorage >= 0 && compatibilityTest > assembleStorage && assembleFunctions > compatibilityTest);
 });
 
+test("Firestore rule validation accepts post-commit access built-ins", () => {
+  assert.match(deployScript, /\['get', 'exists', 'getAfter', 'existsAfter', 'debug'\]/);
+});
+
 test("unchanged Firebase-only deployments exit before expensive preparation", () => {
   const fastPath = deployScript.indexOf("storedHashes['firebase:inputs'] === firebaseInputHash");
   const preparation = deployScript.indexOf("'npm run prepare:shared'");
