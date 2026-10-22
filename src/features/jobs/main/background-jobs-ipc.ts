@@ -124,6 +124,7 @@ export function registerBackgroundJobsIpc(
     return snapshot();
   });
   ipcMain.handle("release:web:list", () => fullReleaseJobs.listWebReleases());
+  ipcMain.handle("release:web:build-readiness", () => fullReleaseJobs.webBuildReadiness());
   ipcMain.handle("release:web:build", async (_event, note: unknown) => {
     if (note !== undefined && typeof note !== "string") throw new Error("Invalid build note.");
     if (typeof note === "string" && note.length > 500) throw new Error("Build notes cannot exceed 500 characters.");

@@ -62,10 +62,6 @@ export function WebReleaseDeploymentDialog(props: Props) {
       command: `printf '%s' '{"packageName":"com.tnp.getgo"}' | npm exec -- firebase functions:secrets:set GETGO_GOOGLE_PLAY_IAP_CONFIG --project ${project} --data-file=- --format=json`,
       action: <ui.Button variant="solid" color="warning" icon={<Settings2 />} loading={props.configurationBusy === "google"} disabled={props.busy || props.configurationBusy !== null} onClick={props.onConfigureGoogle}>{copy.setUp}</ui.Button>,
     });
-    if (details.includes("GETGO_VIETQR_CONFIG")) fixes.push({
-      id: "vietqr", problem: copy.bankProblem, fix: copy.bankFix.replace("{project}", project),
-      command: `npm exec -- firebase functions:secrets:set GETGO_VIETQR_CONFIG --project ${project}`,
-    });
     if (/authentication is required/i.test(check.summary)) fixes.push({
       id: "firebase-login", problem: copy.firebaseLoginProblem, fix: copy.firebaseLoginFix,
       command: "npm exec -- firebase login",
@@ -86,7 +82,6 @@ export function WebReleaseDeploymentDialog(props: Props) {
     const details = check.details.join(" ");
     if (details.includes("GETGO_APPLE_IAP_CONFIG")) return copy.applePurchaseMissing;
     if (details.includes("GETGO_GOOGLE_PLAY_IAP_CONFIG")) return copy.googlePlayPurchaseMissing;
-    if (details.includes("GETGO_VIETQR_CONFIG")) return copy.bankTransferMissing;
     return check.status === "warning" ? copy.environmentWarningSummary : copy.environmentBlockedSummary;
   };
   const checkCopy = (check: WebReleaseReadiness["checks"][number]) => {

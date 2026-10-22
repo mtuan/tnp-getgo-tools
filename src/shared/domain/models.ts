@@ -628,6 +628,8 @@ export type ReleaseDoctorCheckStatus = "checking" | "ready" | "warning" | "actio
 export interface ReleaseDoctorSnapshot { target: Exclude<WebDeploymentTarget, "development">; checkedAt: string; ready: boolean; checks: ReleaseDoctorCheck[]; webUrl?: string; lastDeployedAt?: Partial<Record<"web" | "ios" | "android", string>>; } export interface WebReleaseSummary { releaseId: string; createdAt: string; gitCommit: string; note?: string; stagingStatus: string; productionStatus: string; artifactBytes: number; stagingUrl: string; productionUrl: string; stagingDeployedAt?: string; productionDeployedAt?: string; activeStaging: boolean; activeProduction: boolean; }
 export interface WebReleaseReadinessCheck { id: "artifact" | "environment" | "staging"; status: Exclude<ReleaseDoctorCheckStatus, "checking">; title: string; summary: string; details: string[]; }
 export interface WebReleaseReadiness { target: Exclude<WebDeploymentTarget, "development">; releaseId: string; checkedAt: string; ready: boolean; checks: WebReleaseReadinessCheck[]; }
+export interface WebBuildRepositoryStatus { id: "web" | "tools" | "logics"; changes: string[]; }
+export interface WebBuildReadiness { checkedAt: string; ready: boolean; repositories: WebBuildRepositoryStatus[]; }
 export interface DeploymentItemState {
   id: "firestore-rules" | "firestore-indexes" | "storage-rules" | "firebase-inputs" | `functions:${string}` | "web" | "web-inputs" | "web-config";
   localHash: string | null;
@@ -742,6 +744,24 @@ export interface PaymentPackage {
   id: string; platform: "web" | "ios" | "android"; storeProductId?: string; storeBasePlanId?: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
   targetEnvironments: Array<AppSettings["environment"]>;
   info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
+}
+export interface VietQrConfigurationInput {
+  apiBaseUrl: string;
+  apiUsername: string;
+  apiPassword: string;
+  bankCode: string;
+  bankAccount: string;
+  userBankName: string;
+  callbackUsername: string;
+  callbackPassword: string;
+  callbackSigningKey: string;
+}
+export interface VietQrRuntimeStatus {
+  enabled: boolean;
+  configuredAt: string | null;
+  configuredBy: string | null;
+  environment: "sandbox" | "production" | null;
+  bankAccountLast4: string | null;
 }
 interface PaymentEventBase {
   id: string; name: { en: string; vi: string }; info: { en: string; vi: string };
@@ -934,6 +954,9 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   listPaymentPackages(): Promise<PaymentPackage[]>;
   savePaymentPackages(items: PaymentPackage[]): Promise<PaymentPackage[]>;
   syncPaymentPackages(): Promise<{ count: number; syncedAt: string }>;
+  getVietQrRuntimeStatus(): Promise<VietQrRuntimeStatus>;
+  configureVietQrRuntime(input: VietQrConfigurationInput): Promise<VietQrRuntimeStatus>;
+  disableVietQrRuntime(): Promise<VietQrRuntimeStatus>;
   loadGetGoAccessPolicy(): Promise<GetGoAccessPolicy>;
   saveGetGoAccessPolicy(policy: GetGoAccessPolicy): Promise<GetGoAccessPolicy>;
   listPaymentEvents(): Promise<PaymentEvent[]>;
@@ -1125,7 +1148,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   getAiMigrationJobs(): Promise<AiMigrationJobsSnapshot>;
   getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;
   startDeployment(operation: DeploymentOperation, component: DeploymentComponent, target: WebDeploymentTarget, product?: DeploymentProduct): Promise<BackgroundJobsSnapshot>; getDeploymentState(target: WebDeploymentTarget): Promise<DeploymentStateSnapshot>;
-  runReleaseDoctor(target: Exclude<WebDeploymentTarget, "development">): Promise<ReleaseDoctorSnapshot>; startRelease(target: Exclude<WebDeploymentTarget, "development">, scope: ReleaseScope): Promise<BackgroundJobsSnapshot>; startWebBuild(note?: string): Promise<BackgroundJobsSnapshot>; clearFailedWebBuilds(): Promise<BackgroundJobsSnapshot>; listWebReleases(): Promise<WebReleaseSummary[]>; getWebReleaseReadiness(target: Exclude<WebDeploymentTarget, "development">, releaseId: string): Promise<WebReleaseReadiness>; configureAppleIapSecret(target: Exclude<WebDeploymentTarget, "development">): Promise<void>; configureGooglePlayIapSecret(target: Exclude<WebDeploymentTarget, "development">): Promise<void>; activateWebRelease(target: Exclude<WebDeploymentTarget, "development">, releaseId: string, bypassChecklist?: boolean): Promise<BackgroundJobsSnapshot>; promoteWebRelease(releaseId: string): Promise<BackgroundJobsSnapshot>; deleteWebRelease(releaseId: string): Promise<WebReleaseSummary[]>; rollbackWebRelease(target: Exclude<WebDeploymentTarget, "development">, releaseId: string): Promise<BackgroundJobsSnapshot>;
+  runReleaseDoctor(target: Exclude<WebDeploymentTarget, "development">): Promise<ReleaseDoctorSnapshot>; startRelease(target: Exclude<WebDeploymentTarget, "development">, scope: ReleaseScope): Promise<BackgroundJobsSnapshot>; getWebBuildReadiness(): Promise<WebBuildReadiness>; startWebBuild(note?: string): Promise<BackgroundJobsSnapshot>; clearFailedWebBuilds(): Promise<BackgroundJobsSnapshot>; listWebReleases(): Promise<WebReleaseSummary[]>; getWebReleaseReadiness(target: Exclude<WebDeploymentTarget, "development">, releaseId: string): Promise<WebReleaseReadiness>; configureAppleIapSecret(target: Exclude<WebDeploymentTarget, "development">): Promise<void>; configureGooglePlayIapSecret(target: Exclude<WebDeploymentTarget, "development">): Promise<void>; activateWebRelease(target: Exclude<WebDeploymentTarget, "development">, releaseId: string, bypassChecklist?: boolean): Promise<BackgroundJobsSnapshot>; promoteWebRelease(releaseId: string): Promise<BackgroundJobsSnapshot>; deleteWebRelease(releaseId: string): Promise<WebReleaseSummary[]>; rollbackWebRelease(target: Exclude<WebDeploymentTarget, "development">, releaseId: string): Promise<BackgroundJobsSnapshot>;
   updateNativeVersion(increment: "patch" | "minor" | "major"): Promise<NativeVersionState>;
   openNativeProject(platform: "ios" | "android", target: WebDeploymentTarget, product?: DeploymentProduct): Promise<void>;
   getLocalWebRuntime(runtime?: LocalRuntimeId): Promise<LocalWebRuntimeSnapshot>;

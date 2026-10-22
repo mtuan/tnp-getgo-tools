@@ -15,7 +15,7 @@
   "functionCodebases": [
     {"id": "account", "name": "getgo-account"},
     {"id": "marketplace", "name": "getgo-marketplace"},
-    {"id": "billing", "name": "getgo-billing", "requiredSecrets": ["GETGO_VIETQR_CONFIG", "GETGO_APPLE_IAP_CONFIG", "GETGO_GOOGLE_PLAY_IAP_CONFIG"]}
+    {"id": "billing", "name": "getgo-billing", "requiredSecrets": ["GETGO_APPLE_IAP_CONFIG", "GETGO_GOOGLE_PLAY_IAP_CONFIG"]}
   ],
   "singaporeMigration": {
     "destinationRegion": "asia-southeast1",

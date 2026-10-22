@@ -85,6 +85,13 @@ test("Web activation queues before its remote readiness recheck", () => {
   assert.match(runner, /await this\.webReleaseReadiness\(job\.target, job\.releaseId\)/);
 });
 
+test("Web builds reject uncommitted source before creating a job", () => {
+  const startBuild = source.slice(source.indexOf("async startWebBuild"), source.indexOf("async start(target"));
+  assert.match(startBuild, /const readiness = await this\.webBuildReadiness\(\)/);
+  assert.ok(startBuild.indexOf("if (!readiness.ready)") < startBuild.indexOf("const job: ReleaseJob"));
+  assert.ok(startBuild.indexOf("if (!readiness.ready)") < startBuild.indexOf("this.jobs.unshift(job)"));
+});
+
 test("only staging activation can retain an explicit checklist bypass", () => {
   assert.match(source, /checklistBypassed: target === "staging" && bypassChecklist/);
 });
@@ -102,6 +109,7 @@ test("every Web target declares Google Play purchase verification", () => {
     };
     const billing = config.functionCodebases.find(codebase => codebase.id === "billing");
     assert.ok(billing?.requiredSecrets?.includes("GETGO_GOOGLE_PLAY_IAP_CONFIG"));
+    assert.ok(!billing?.requiredSecrets?.includes("GETGO_VIETQR_CONFIG"), "VietQR is configured after deployment at runtime");
   }
 });
 

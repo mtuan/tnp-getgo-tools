@@ -2,11 +2,12 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { BackgroundJob, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, WebReleaseReadiness, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import type { AppSettings, BackgroundJob, ReleaseDoctorCheck, ReleaseDoctorSnapshot, ReleaseScope, VietQrConfigurationInput, WebBuildReadiness, WebReleaseReadiness, WebReleaseSummary, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 import { createWebReleaseReadiness } from "./web-release-readiness.js";
 import { configureAppleIapSecret, configureGooglePlayIapSecret } from "./apple-iap-secret.js";
+import { configureVietQrRuntime } from "./vietqr-runtime-config.js";
 import { advanceReleaseJobReport, archivedWebDeploymentSteps, createReleaseJobReport, finishReleaseJobReport } from "./release-job-report.js";
 
 export { archivedWebDeploymentSteps } from "./release-job-report.js";
@@ -98,6 +99,28 @@ export class FullReleaseJobManager {
     });
     if (root) return root;
     throw new Error("GetGo Web repository was not found. Set GETGO_WEB_ROOT to its absolute path.");
+  }
+
+  private async relatedRoot(packageName: string, directoryName: string, environmentVariable: string) {
+    const root = await findRelatedRepository(this.toolsAppPath, { packageName, directoryName, environmentVariable });
+    if (root) return root;
+    throw new Error(`${directoryName} repository was not found. Set ${environmentVariable} to its absolute path.`);
+  }
+
+  async webBuildReadiness(): Promise<WebBuildReadiness> {
+    const repositories = await Promise.all([
+      this.webRoot().then(root => ({ id: "web" as const, root })),
+      this.relatedRoot("@tnp/getgo-tools", "tnp-getgo-tools", "GETGO_TOOLS_ROOT").then(root => ({ id: "tools" as const, root })),
+      this.relatedRoot("@tnp/getgo-logics", "tnp-getgo-logics", "GETGO_LOGICS_ROOT").then(root => ({ id: "logics" as const, root })),
+    ]);
+    const statuses = await Promise.all(repositories.map(async repository => {
+      const result = await this.runCapture(repository.root, ["status", "--porcelain", "--untracked-files=all"], "git");
+      if (result.code !== 0) throw new Error(`Could not inspect ${repository.id} repository changes: ${cleanLine(result.output) || `git exited with ${result.code ?? "an unknown status"}`}.`);
+      const changes = result.output.split(/\r?\n/).filter(Boolean)
+        .filter(line => repository.id !== "web" || !line.slice(3).startsWith("releases/"));
+      return { id: repository.id, changes };
+    }));
+    return { checkedAt: new Date().toISOString(), ready: statuses.every(status => status.changes.length === 0), repositories: statuses };
   }
 
   private deploysRoot() {
@@ -285,6 +308,10 @@ export class FullReleaseJobManager {
     await configureGooglePlayIapSecret(this.toolsAppPath, await this.webRoot(), target);
   }
 
+  async configureVietQr(environment: AppSettings["environment"], input: VietQrConfigurationInput) {
+    return configureVietQrRuntime(this.toolsAppPath, await this.webRoot(), environment, input);
+  }
+
   async activateWeb(target: ReleaseTarget, releaseId: string, bypassChecklist = false) {
     await this.ensureLoaded();
     if (!/^[a-z0-9][a-z0-9.-]+$/i.test(releaseId)) throw new Error("Invalid release ID.");
@@ -306,6 +333,8 @@ export class FullReleaseJobManager {
   async startWebBuild(note?: string) {
     await this.ensureLoaded();
     if (this.jobs.some(job => activeStatuses.has(job.status))) throw new Error("Another build or release is already active.");
+    const readiness = await this.webBuildReadiness();
+    if (!readiness.ready) throw new Error("Commit or stash all Web, Tools, and Logics changes before creating a release build.");
     const job: ReleaseJob = {
       id: randomUUID(), kind: "deploy", deploymentProduct: "web", component: "release", operation: "build", target: "staging", releaseScope: "web", buildOnly: true, releaseNote: note?.trim() || undefined,
       name: "Web release build", description: "Create one immutable Web, Firebase, and environment-configuration bundle",

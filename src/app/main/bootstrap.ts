@@ -504,6 +504,8 @@ app.whenReady().then(async () => {
     publishing,
     accessPolicy: new GetGoAccessPolicyService(firebaseAuth),
     targetEnvironment: async () => (await firebaseAuth!.publishingTarget()).environment,
+    firebaseAuth,
+    releases: fullReleaseJobs,
   });
   registerBillingOrdersIpc(ipcMain, firebaseAuth);
   registerMemberManagementIpc(ipcMain, firebaseAuth);

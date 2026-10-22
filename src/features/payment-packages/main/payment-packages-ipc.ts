@@ -7,6 +7,9 @@ import type { FirestorePublishingService } from "../../topics/main/firestore-pub
 import { assertRepositoryContentSafe, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 import type { GetGoAccessPolicyService } from "./access-policy-service.js";
 import type { AppSettings, PaymentEvent, PaymentPackage } from "../../../shared/domain/models.js";
+import type { VietQrConfigurationInput, VietQrRuntimeStatus } from "../../../shared/domain/models.js";
+import type { FirebaseAuthService } from "../../authentication/main/firebase-auth.js";
+import type { FullReleaseJobManager } from "../../deployment/main/full-release-jobs.js";
 import { paymentEventsForEnvironment, paymentPackagesForEnvironment } from "../domain/payment-environment.js";
 import { syncNativeStoreOffers } from "./native-store-offers.js";
 
@@ -32,7 +35,7 @@ async function save(root: string, value: unknown) {
   await fs.writeFile(filePath(root), `${JSON.stringify(packages, null, 2)}\n`, "utf8");
   return packages;
 }
-export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; accessPolicy: GetGoAccessPolicyService; targetEnvironment(): Promise<AppSettings["environment"]> }) {
+export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { repositoryRoot(): Promise<string>; publishing: FirestorePublishingService; accessPolicy: GetGoAccessPolicyService; targetEnvironment(): Promise<AppSettings["environment"]>; firebaseAuth: FirebaseAuthService; releases: FullReleaseJobManager }) {
   ipcMain.handle("payment-packages:list", async () => load(await dependencies.repositoryRoot()));
   ipcMain.handle("payment-packages:save", async (_event, value: unknown) => save(await dependencies.repositoryRoot(), value));
   ipcMain.handle("payment-packages:sync", async () => {
@@ -42,6 +45,47 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
     const targeted = paymentPackagesForEnvironment(packages, environment);
     await dependencies.publishing.publishPaymentPackages(targeted);
     return { count: targeted.length, syncedAt: new Date().toISOString() };
+  });
+  const runtimeStatus = async (): Promise<VietQrRuntimeStatus> => {
+    const { response } = await dependencies.firebaseAuth.firestoreRequest("/getgo-config/payment-runtime");
+    if (response.status === 404) return { enabled: false, configuredAt: null, configuredBy: null, environment: null, bankAccountLast4: null };
+    const payload = await response.json().catch(() => ({})) as { fields?: Record<string, { mapValue?: { fields?: Record<string, { booleanValue?: boolean; stringValue?: string }> } }> };
+    if (!response.ok) throw new Error(`Could not load VietQR runtime status (HTTP ${response.status}).`);
+    const fields = payload.fields?.vietqr?.mapValue?.fields ?? {};
+    return {
+      enabled: fields.enabled?.booleanValue === true,
+      configuredAt: fields.configuredAt?.stringValue ?? null,
+      configuredBy: fields.configuredBy?.stringValue ?? null,
+      environment: fields.environment?.stringValue === "production" ? "production" : fields.environment?.stringValue === "sandbox" ? "sandbox" : null,
+      bankAccountLast4: fields.bankAccountLast4?.stringValue ?? null,
+    };
+  };
+  const writeRuntimeStatus = async (status: VietQrRuntimeStatus) => {
+    const { response } = await dependencies.firebaseAuth.firestoreRequest("/getgo-config/payment-runtime?updateMask.fieldPaths=vietqr", {
+      method: "PATCH",
+      body: JSON.stringify({ fields: { vietqr: { mapValue: { fields: {
+        enabled: { booleanValue: status.enabled },
+        configuredAt: status.configuredAt ? { stringValue: status.configuredAt } : { nullValue: null },
+        configuredBy: status.configuredBy ? { stringValue: status.configuredBy } : { nullValue: null },
+        environment: status.environment ? { stringValue: status.environment } : { nullValue: null },
+        bankAccountLast4: status.bankAccountLast4 ? { stringValue: status.bankAccountLast4 } : { nullValue: null },
+      } } } } }),
+    });
+    if (!response.ok) throw new Error(`Could not update VietQR runtime status (HTTP ${response.status}).`);
+    return status;
+  };
+  ipcMain.handle("vietqr-runtime:status", runtimeStatus);
+  ipcMain.handle("vietqr-runtime:configure", async (_event, value: unknown) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid VietQR configuration.");
+    const input = value as VietQrConfigurationInput;
+    const environment = await dependencies.targetEnvironment();
+    const result = await dependencies.releases.configureVietQr(environment, input);
+    const auth = await dependencies.firebaseAuth.authorizationContext();
+    return writeRuntimeStatus({ enabled: true, configuredAt: new Date().toISOString(), configuredBy: auth.email, environment: result.environment, bankAccountLast4: result.bankAccountLast4 });
+  });
+  ipcMain.handle("vietqr-runtime:disable", async () => {
+    const current = await runtimeStatus();
+    return writeRuntimeStatus({ ...current, enabled: false });
   });
   ipcMain.handle("getgo-access-policy:load", () => dependencies.accessPolicy.load());
   ipcMain.handle("getgo-access-policy:save", (_event, value: unknown) => dependencies.accessPolicy.save(value));
