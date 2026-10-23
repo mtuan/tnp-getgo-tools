@@ -13,6 +13,8 @@ import vi from "../../../../shared/localization/vi.json";
 import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
 import { MarketplaceAccessBadge } from "../../components/MarketplaceAccessBadge";
 import { marketplaceContentAccess } from "../../domain/marketplace-content-access";
+import { AiGeneratedIndicator } from "../../components/AiGeneratedIndicator";
+import { aiGeneratedQuizKeys } from "../../domain/ai-generation-status";
 
 type ContestWithQuizzes = ContestSummary & { quizzes: QuizSummary[] };
 type ManagerListContext = Record<string, any> & {
@@ -39,6 +41,7 @@ export function renderManagerList(context: ManagerListContext) {
     visibleQuizzes,
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
+  const aiQuizKeys = aiGeneratedQuizKeys(snapshot.contentV2.questions);
   return (
     <>
       {(!isContest || contestTab === "quizzes") && (
@@ -135,7 +138,13 @@ export function renderManagerList(context: ManagerListContext) {
                                   kind="quiz"
                                 />
                                 <div>
-                                  <QuizTitle title={quiz.title} dynamic={contentQuiz?.dynamic} />
+                                  <QuizTitle
+                                    title={quiz.title}
+                                    dynamic={contentQuiz?.dynamic}
+                                    indicator={aiQuizKeys.has(`${quiz.contest}/${quiz.id}`)
+                                      ? <AiGeneratedIndicator locale={locale} kind="quiz" />
+                                      : undefined}
+                                  />
                                   <span>{quiz.id}</span>
                                 </div>
                               </div>
@@ -223,7 +232,13 @@ export function renderManagerList(context: ManagerListContext) {
                                     kind="quiz"
                                   />
                                   <div>
-                                    <QuizTitle title={quiz.title} dynamic={quiz.dynamic} />
+                                    <QuizTitle
+                                      title={quiz.title}
+                                      dynamic={quiz.dynamic}
+                                      indicator={aiQuizKeys.has(`${quiz.contest}/${quiz.id}`)
+                                        ? <AiGeneratedIndicator locale={locale} kind="quiz" />
+                                        : undefined}
+                                    />
                                     <span>{quiz.id}</span>
                                   </div>
                                 </div>

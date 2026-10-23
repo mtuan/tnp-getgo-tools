@@ -118,6 +118,10 @@
     "nothingToGenerate": "Không có câu hỏi cần tạo",
     "nothingToGenerateDescription": "Tất cả câu hỏi phù hợp đã được tạo bằng kỹ năng hiện tại."
   },
+  "aiGenerated": {
+    "questionTitle": "Được tạo bằng kỹ năng AI hiện tại",
+    "quizTitle": "Có câu hỏi được tạo bằng kỹ năng AI hiện tại"
+  },
   "marketplaceManager": {
     "tab": "Kho nội dung",
     "loadingTopics": "Đang tải chủ đề",

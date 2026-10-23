@@ -6,9 +6,13 @@ import { questionHasDynamicParams } from "../../quiz-editor/domain/question-dyna
 export const codexQuestionGenerator = "getgo-convert-static-quiz@1";
 export const codexQuestionGeneratorMarker = `// @generated-by ${codexQuestionGenerator}`;
 
+export function hasCurrentCodexSkillMarker(source?: string): boolean {
+  return source?.includes(codexQuestionGeneratorMarker) === true;
+}
+
 export function wasGeneratedByCurrentCodexSkill(question: QuizQuestionRecord): boolean {
   return question.aiResponse?.model === "codex-cli"
-    || question.advancedDynamic?.paramsGeneratorTs.includes(codexQuestionGeneratorMarker) === true;
+    || hasCurrentCodexSkillMarker(question.advancedDynamic?.paramsGeneratorTs);
 }
 
 export function isBulkCodexQuestionCandidate(question: QuizQuestionRecord): boolean {

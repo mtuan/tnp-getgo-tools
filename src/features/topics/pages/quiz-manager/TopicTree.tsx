@@ -13,6 +13,8 @@ import vi from "../../../../shared/localization/vi.json";
 import { quizTypeLabel, topicTypeLabel } from "./contentTypeLabel";
 import { MarketplaceAccessBadge } from "../../components/MarketplaceAccessBadge";
 import { marketplaceContentAccess } from "../../domain/marketplace-content-access";
+import { AiGeneratedIndicator } from "../../components/AiGeneratedIndicator";
+import { aiGeneratedQuizKeys } from "../../domain/ai-generation-status";
 import {
   orderByRecent,
   quizActivityKey,
@@ -46,6 +48,7 @@ isContest,
     visibleContests
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
+  const aiQuizKeys = aiGeneratedQuizKeys(snapshot.contentV2.questions);
   return (
     <>
           {!isContest && topicMode && (
@@ -276,7 +279,18 @@ isContest,
                   }
                   renderIdentity={(row, _depth, toggle) => row.kind === "topic"
                     ? <TopicQuizTreeIdentity toggle={toggle} topicId={row.contest.id} reference={row.contest.settings.book.icon} title={row.contest.title} description={row.contest.description || row.contest.id} kind="topic" count={row.summary.quizCount} />
-                    : <TopicQuizTreeIdentity toggle={toggle} topicId={row.quiz.contest} reference={row.quiz.icon} title={row.quiz.title} description={row.quiz.id} kind="quiz" dynamic={row.quiz.dynamic} />}
+                    : <TopicQuizTreeIdentity
+                        toggle={toggle}
+                        topicId={row.quiz.contest}
+                        reference={row.quiz.icon}
+                        title={row.quiz.title}
+                        description={row.quiz.id}
+                        kind="quiz"
+                        dynamic={row.quiz.dynamic}
+                        indicator={aiQuizKeys.has(`${row.quiz.contest}/${row.quiz.id}`)
+                          ? <AiGeneratedIndicator locale={locale} kind="quiz" />
+                          : undefined}
+                      />}
                 />
               );
               })()}

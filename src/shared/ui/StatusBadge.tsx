@@ -13,5 +13,5 @@ export function StatusBadge({ children, tone = "neutral", className = "", title,
   const classes = ["ui-status-badge", `ui-status-badge-${tone}`, onClick && "ui-status-badge-clickable", className].filter(Boolean).join(" ");
   return onClick
     ? <button type="button" className={classes} title={title} aria-label={ariaLabel} onClick={(event) => { event.stopPropagation(); onClick(); }}>{children}</button>
-    : <span className={classes} title={title}>{children}</span>;
+    : <span className={classes} title={title} aria-label={ariaLabel}>{children}</span>;
 }

@@ -146,6 +146,7 @@ export interface QuestionListItem {
   category: string;
   prompt: string;
   dynamic: boolean;
+  aiGenerated: boolean;
   hasImages: boolean;
   reviewed: boolean;
   status: string;

@@ -198,6 +198,7 @@ export interface ContentV2QuestionSummary {
   category?: string;
   hasImages?: boolean;
   dynamic?: boolean;
+  aiGenerated?: boolean;
 }
 
 export interface ContentV2Snapshot {

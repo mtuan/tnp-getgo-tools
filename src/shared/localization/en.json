@@ -118,6 +118,10 @@
     "nothingToGenerate": "No questions need generation",
     "nothingToGenerateDescription": "Every eligible question has already been generated with the current skill."
   },
+  "aiGenerated": {
+    "questionTitle": "Generated with the current AI skill",
+    "quizTitle": "Contains questions generated with the current AI skill"
+  },
   "marketplaceManager": {
     "tab": "Marketplace",
     "loadingTopics": "Loading topics",

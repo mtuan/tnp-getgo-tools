@@ -4165,6 +4165,19 @@ tbody tr:hover {
   color: #b91c1c;
   background: #fee2e2;
 }
+.ai-generated-indicator {
+  display: inline-flex;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: #0891b2;
+}
+.ai-generated-indicator > svg {
+  width: 16px;
+  height: 16px;
+}
 .topic-status-na {
   display: inline-block;
   color: #94a3b8;
@@ -11447,6 +11460,10 @@ body {
   .ui-status-badge-primary {
     color: #ddd6fe;
     background: #4c1d95;
+  }
+
+  .ai-generated-indicator {
+    color: #67e8f9;
   }
 
   .ui-status-badge-info {

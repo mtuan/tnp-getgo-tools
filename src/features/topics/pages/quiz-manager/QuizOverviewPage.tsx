@@ -16,7 +16,8 @@ import vi from "../../../../shared/localization/vi.json";
 import { effectiveQuizReviewCounts, QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
 import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 import { QuizCompareTab } from "./QuizCompareTab";
-import { isBulkCodexQuestionCandidate } from "../../../ai/domain/bulk-question-generation";
+import { isBulkCodexQuestionCandidate, wasGeneratedByCurrentCodexSkill } from "../../../ai/domain/bulk-question-generation";
+import { AiGeneratedIndicator } from "../../components/AiGeneratedIndicator";
 
 type QuizOverviewContext = Record<string, any> & {
   questionRecords: import("../../../../shared/domain/models").QuizQuestionRecord[];
@@ -79,6 +80,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     quiz.questionCount ?? 0,
   );
   const bulkAiCandidates = questionRecords.filter(isBulkCodexQuestionCandidate);
+  const aiGeneratedCount = questionRecords.filter(wasGeneratedByCurrentCodexSkill).length;
     return (
       <section className="manager editor-page">
         <PageHeader
@@ -96,19 +98,22 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           title={quiz.title}
           description={`${quiz.id} · ${[quiz.grade && `Grade ${quiz.grade}`, quiz.round, quiz.year].filter(Boolean).join(" · ")}`}
           titleAction={
-            <Button
-              className="ui-page-header-folder"
-              icon={<FolderOpen />}
-              variant="icon"
-              disabled={Boolean(buttonAction)}
-              aria-label="Show quiz in folder"
-              title="Show quiz in folder"
-              onClick={() =>
-                void runButtonAction("show-quiz-folder", () =>
-                  managerApi.showInFolder(quiz.manifestPath),
-                )
-              }
-            />
+            <>
+              {aiGeneratedCount > 0 && <AiGeneratedIndicator locale={locale} kind="quiz" />}
+              <Button
+                className="ui-page-header-folder"
+                icon={<FolderOpen />}
+                variant="icon"
+                disabled={Boolean(buttonAction)}
+                aria-label="Show quiz in folder"
+                title="Show quiz in folder"
+                onClick={() =>
+                  void runButtonAction("show-quiz-folder", () =>
+                    managerApi.showInFolder(quiz.manifestPath),
+                  )
+                }
+              />
+            </>
           }
           actions={
             <>

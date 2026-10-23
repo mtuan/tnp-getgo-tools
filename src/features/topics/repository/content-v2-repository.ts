@@ -33,6 +33,7 @@ import {
   withMarketplaceTopicDefaults,
 } from "../domain/marketplace-default-policy.js";
 import { extractContentV2InlineImageAssets } from "./content-v2-inline-assets.js";
+import { hasCurrentCodexSkillMarker } from "../../ai/domain/bulk-question-generation.js";
 
 const topicIdPattern = /^[a-z][a-z0-9_-]*$/;
 const jsonFileCache = new Map<string, { mtimeMs: number; size: number; value: unknown }>();
@@ -267,6 +268,7 @@ export async function loadContentV2WorkspaceFromFiles(
                     category: question.category,
                     hasImages: question.assets.length > 0,
                     dynamic: Boolean(question.dynamic),
+                    aiGenerated: hasCurrentCodexSkillMarker(question.dynamic?.paramsGeneratorTs),
                   }
                 : {}),
             },

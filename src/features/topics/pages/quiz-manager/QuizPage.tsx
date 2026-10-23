@@ -12,6 +12,8 @@ import { preferredQuestionPrompt, type QuestionListItem } from "./shared";
 import { renderActiveQuestion } from "./ActiveQuestionPage";
 import { renderQuizOverview } from "./QuizOverviewPage";
 import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
+import { wasGeneratedByCurrentCodexSkill } from "../../../ai/domain/bulk-question-generation";
+import { AiGeneratedIndicator } from "../../components/AiGeneratedIndicator";
 
 
 type QuizPageContext = Record<string, any> & {
@@ -92,6 +94,7 @@ export function renderQuizPage(context: QuizPageContext) {
         : preferredQuestionPrompt(record.text_en, record.text_vn),
       dynamic: record.authoringMode === "reference"
         || questionHasDynamicParams(record.advancedDynamic),
+      aiGenerated: wasGeneratedByCurrentCodexSkill(record),
       hasImages: questionContainsImages(record),
       reviewed: questionIsVerified(record),
       status: questionStatus(record),
@@ -211,8 +214,9 @@ export function renderQuizPage(context: QuizPageContext) {
         title: "Question text",
         render: (item) => (
           <span className="question-text">
-            {item.prompt}
+            <span>{item.prompt}</span>
             {item.dynamic && <Zap aria-label="Dynamic question" />}
+            {item.aiGenerated && <AiGeneratedIndicator locale={locale} />}
           </span>
         ),
       },

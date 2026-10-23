@@ -47,6 +47,7 @@ export function TopicQuizTreeIdentity({
   kind,
   count,
   dynamic,
+  indicator,
 }: {
   toggle: ReactNode;
   topicId: string;
@@ -56,18 +57,20 @@ export function TopicQuizTreeIdentity({
   kind: "topic" | "quiz";
   count?: number;
   dynamic?: boolean;
+  indicator?: ReactNode;
 }) {
   return <div className="topics-tree-identity">
     {toggle}
     <TopicQuizIcon topicId={topicId} reference={reference} label={title} kind={kind} />
-    <div><QuizTitle title={title} count={count} dynamic={dynamic} /><span>{description}</span></div>
+    <div><QuizTitle title={title} count={count} dynamic={dynamic} indicator={indicator} /><span>{description}</span></div>
   </div>;
 }
 
-export function QuizTitle({ title, count, dynamic }: { title: string; count?: number; dynamic?: boolean }) {
+export function QuizTitle({ title, count, dynamic, indicator }: { title: string; count?: number; dynamic?: boolean; indicator?: ReactNode }) {
   return <strong className="quiz-title-with-state">
     <span>{title}{count === undefined ? "" : ` (${count})`}</span>
     {dynamic && <Zap aria-label="Dynamic quiz" />}
+    {indicator}
   </strong>;
 }
 

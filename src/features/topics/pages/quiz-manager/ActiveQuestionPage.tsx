@@ -15,6 +15,7 @@ import { PronunciationQuestionEditor } from "../../../quiz-editor/components/Pro
 import { QuestionEditorKeyboardShortcuts, comparableQuestion, questionDiff, type QuestionListItem } from "./shared";
 import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 import { confirmContentSafetyReview } from "../../../content-safety/components/confirm-content-safety-review";
+import { AiGeneratedIndicator } from "../../components/AiGeneratedIndicator";
 
 type ActiveQuestionContext = Record<string, any> & {
   questionRecords: QuizQuestionRecord[];
@@ -443,22 +444,25 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                 : `${activeQuestion.category} · questions/`
             }
             titleAction={
-              <Button
-                className="ui-page-header-folder"
-                icon={<FolderOpen />}
-                variant="icon"
-                disabled={Boolean(buttonAction)}
-                aria-label="Show question in folder"
-                title="Show question in folder"
-                onClick={() =>
-                  void runButtonAction("show-question-folder", () =>
-                    managerApi.showQuizQuestionInFolder(
-                      quiz.manifestPath,
-                      activeQuestion.number,
-                    ),
-                  )
-                }
-              />
+              <>
+                {activeQuestion.aiGenerated && <AiGeneratedIndicator locale={locale} />}
+                <Button
+                  className="ui-page-header-folder"
+                  icon={<FolderOpen />}
+                  variant="icon"
+                  disabled={Boolean(buttonAction)}
+                  aria-label="Show question in folder"
+                  title="Show question in folder"
+                  onClick={() =>
+                    void runButtonAction("show-question-folder", () =>
+                      managerApi.showQuizQuestionInFolder(
+                        quiz.manifestPath,
+                        activeQuestion.number,
+                      ),
+                    )
+                  }
+                />
+              </>
             }
             navigation={
               <QuestionNavigator
