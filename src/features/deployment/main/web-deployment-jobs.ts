@@ -8,6 +8,7 @@ import { findRelatedRepository } from "../../../shared/main/repository-locator.j
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
 import { FirestoreIndexWaitCancelledError, waitForFirestoreIndexes } from "./firestore-index-readiness.js";
 import { parseDeployResult } from "./full-release-jobs.js";
+import { createJobTask, finishJobTask, finishPendingJobTasks, startJobTask } from "../../jobs/main/job-task-tracker.js";
 
 type DeploymentJob = BackgroundJob & {
   kind: "deploy";
@@ -90,12 +91,14 @@ function reportStepIds(operation: DeploymentOperation, component: DeploymentComp
 }
 
 function createReportSteps(operation: DeploymentOperation, component: DeploymentComponent, startedAt: string): DeploymentJobReportStep[] {
-  return reportStepIds(operation, component).map((id, index) => ({
-    id,
-    label: phaseLabels[id] ?? id,
-    status: index === 0 ? "running" : "pending",
-    ...(index === 0 ? { startedAt, details: ["Deployment process queued."] } : { details: [] }),
-  }));
+  return reportStepIds(operation, component).map((id, index) => {
+    const task = createJobTask(id, phaseLabels[id] ?? id);
+    if (index === 0) {
+      startJobTask(task, startedAt);
+      task.details.push("Deployment process queued.");
+    }
+    return task;
+  });
 }
 
 export class WebDeploymentJobManager {
@@ -142,18 +145,15 @@ export class WebDeploymentJobManager {
         if (job.report && !job.report.finishedAt && ["completed", "failed", "cancelled"].includes(job.status)) {
           const finishedAt = job.finishedAt ?? new Date().toISOString();
           const lastStep = job.report.steps.find(step => step.status === "running");
-          if (lastStep && lastStep.startedAt && !lastStep.finishedAt) {
-            lastStep.status = job.status === "completed" ? "completed" : job.status === "cancelled" ? "cancelled" : "failed";
-            lastStep.finishedAt = finishedAt;
-            lastStep.durationMs = Math.max(0, Date.parse(finishedAt) - Date.parse(lastStep.startedAt));
-          }
+          const reportStatus = job.status === "completed" ? "completed" : job.status === "cancelled" ? "cancelled" : "failed";
+          if (lastStep && !lastStep.finishedAt) finishJobTask(lastStep, reportStatus, lastStep.details, finishedAt);
           job.report.finishedAt = finishedAt;
           job.report.durationMs = Math.max(0, Date.parse(finishedAt) - Date.parse(job.report.startedAt));
-          for (const step of job.report.steps) if (step.status === "pending") step.status = "skipped";
+          finishPendingJobTasks(job.report.steps, "skipped", finishedAt);
           const complete = job.report.steps.find(step => step.id === "complete");
-          const reportStatus = job.status === "completed" ? "completed" : job.status === "cancelled" ? "cancelled" : "failed";
-          if (complete) Object.assign(complete, { status: reportStatus, startedAt: finishedAt, finishedAt, durationMs: 0, details: job.error ? [job.error] : [] });
-          else job.report.steps.push({ id: "complete", label: phaseLabels.complete, status: reportStatus, startedAt: finishedAt, finishedAt, durationMs: 0, details: job.error ? [job.error] : [] });
+          const finalTask = complete ?? createJobTask("complete", phaseLabels.complete);
+          finishJobTask(finalTask, reportStatus, job.error ? [job.error] : [], finishedAt);
+          if (!complete) job.report.steps.push(finalTask);
         }
         return job;
       });
@@ -360,9 +360,7 @@ export class WebDeploymentJobManager {
   private closeReportStep(job: DeploymentJob, status: DeploymentJobReportStep["status"] = "completed") {
     const step = job.report?.steps.find(item => item.status === "running");
     if (!step?.startedAt || step.finishedAt) return;
-    step.finishedAt = new Date().toISOString();
-    step.durationMs = Math.max(0, Date.parse(step.finishedAt) - Date.parse(step.startedAt));
-    step.status = status;
+    finishJobTask(step, status === "pending" || status === "running" ? "completed" : status, step.details);
   }
 
   private beginReportStep(job: DeploymentJob, runtime: Runtime, id: string, detail?: string) {
@@ -372,13 +370,12 @@ export class WebDeploymentJobManager {
       runtime.reportPhase = id;
       let step = job.report.steps.find(item => item.id === id);
       if (!step) {
-        step = { id, label: phaseLabels[id] ?? id, status: "pending", details: [] };
+        step = createJobTask(id, phaseLabels[id] ?? id);
         const completeIndex = job.report.steps.findIndex(item => item.id === "complete");
         if (completeIndex < 0) job.report.steps.push(step);
         else job.report.steps.splice(completeIndex, 0, step);
       }
-      step.status = "running";
-      step.startedAt = new Date().toISOString();
+      startJobTask(step);
     }
     if (detail) {
       const step = job.report.steps.find(item => item.id === id)!;
@@ -391,10 +388,11 @@ export class WebDeploymentJobManager {
     if (!job.report || !job.component || !job.target) return;
     this.closeReportStep(job, status);
     const now = new Date().toISOString();
-    for (const step of job.report.steps) if (step.status === "pending") step.status = "skipped";
+    finishPendingJobTasks(job.report.steps, "skipped", now);
     const complete = job.report.steps.find(step => step.id === "complete");
-    if (complete) Object.assign(complete, { status, startedAt: now, finishedAt: now, durationMs: 0, details: job.error ? [job.error] : [] });
-    else job.report.steps.push({ id: "complete", label: phaseLabels.complete, status, startedAt: now, finishedAt: now, durationMs: 0, details: job.error ? [job.error] : [] });
+    const finalTask = complete ?? createJobTask("complete", phaseLabels.complete);
+    finishJobTask(finalTask, status === "pending" || status === "running" ? "completed" : status, job.error ? [job.error] : [], now);
+    if (!complete) job.report.steps.push(finalTask);
     job.report.finishedAt = now;
     job.report.durationMs = Math.max(0, Date.parse(now) - Date.parse(job.report.startedAt));
     if (!collectArtifactMetadata) return;

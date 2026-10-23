@@ -6,6 +6,7 @@ import { parseEnv } from "node:util";
 import type { BackgroundJob, DeploymentOperation, DeploymentProduct, IosSigningState, NativeVersionState, WebDeploymentTarget } from "../../../shared/domain/models.js";
 import { findRelatedRepository } from "../../../shared/main/repository-locator.js";
 import { spawnCommand } from "../../../shared/main/spawn-command.js";
+import { createJobTask, finishJobTask, finishPendingJobTasks, startJobTask } from "../../jobs/main/job-task-tracker.js";
 
 type NativePlatform = "ios" | "android";
 type NativeJob = BackgroundJob & { component: "mobile-ios" | "mobile-android" };
@@ -146,7 +147,14 @@ export class NativeDeploymentJobManager {
       operation: job.operation ?? "deploy", component: job.component, target: job.target,
       startedAt: job.startedAt ?? job.createdAt, finishedAt: job.finishedAt, durationMs: job.durationMs,
       version: job.version, items: [],
-      steps: steps.map(step => ({ ...step, status: completedJob ? "completed" : "pending", details: [] })),
+      steps: steps.map(step => {
+        const task = createJobTask(step.id, step.label);
+        if (completedJob) {
+          task.startedAt = job.startedAt ?? job.createdAt;
+          finishJobTask(task, "completed", [], job.finishedAt ?? task.startedAt);
+        }
+        return task;
+      }),
     };
   }
 
@@ -156,12 +164,9 @@ export class NativeDeploymentJobManager {
     if (!step) return;
     const now = new Date().toISOString();
     if (marker.label) step.label = marker.label;
-    if (!step.startedAt) step.startedAt = now;
-    step.status = marker.status;
-    if (marker.status === "completed") {
-      step.finishedAt = now;
-      step.durationMs = Math.max(0, Date.parse(now) - Date.parse(step.startedAt));
-    }
+    if (marker.status === "running") {
+      if (step.status !== "running") startJobTask(step, now);
+    } else finishJobTask(step, "completed", step.details, now);
     job.completed = job.report!.steps.filter(item => item.status === "completed").length;
     job.progressLabel = step.label;
   }
@@ -353,16 +358,14 @@ export class NativeDeploymentJobManager {
       const now = new Date().toISOString();
       if (job.status === "completed") {
         for (const step of job.report!.steps) {
-          step.status = "completed";
           step.startedAt ??= job.startedAt;
-          step.finishedAt ??= now;
-          if (step.startedAt && step.finishedAt) step.durationMs ??= Math.max(0, Date.parse(step.finishedAt) - Date.parse(step.startedAt));
+          if (step.status !== "completed") finishJobTask(step, "completed", step.details, now);
         }
       } else {
         const failed = job.report!.steps.find(step => step.status === "running")
           ?? job.report!.steps.find(step => step.status === "pending");
-        if (failed) { failed.status = "failed"; failed.startedAt ??= job.startedAt; failed.finishedAt = now; failed.details.push(job.error ?? "Native workflow failed."); }
-        for (const step of job.report!.steps.filter(step => step.status === "pending")) step.status = "skipped";
+        if (failed) { failed.startedAt ??= job.startedAt; finishJobTask(failed, "failed", [...failed.details, job.error ?? "Native workflow failed."], now); }
+        finishPendingJobTasks(job.report!.steps, "skipped", now);
       }
       job.completed = job.report!.steps.filter(step => step.status === "completed").length;
       job.retryable = job.status === "failed";
@@ -408,8 +411,8 @@ export class NativeDeploymentJobManager {
     job.progressLabel = "Cancelled"; job.finishedAt = new Date().toISOString();
     this.ensureReport(job);
     const active = job.report!.steps.find(step => step.status === "running");
-    if (active) { active.status = "cancelled"; active.finishedAt = job.finishedAt; }
-    for (const step of job.report!.steps.filter(step => step.status === "pending")) step.status = "skipped";
+    if (active) finishJobTask(active, "cancelled", active.details, job.finishedAt);
+    finishPendingJobTasks(job.report!.steps, "skipped", job.finishedAt);
     job.report!.finishedAt = job.finishedAt;
     if (job.startedAt) {
       job.durationMs = Math.max(0, Date.parse(job.finishedAt) - Date.parse(job.startedAt));

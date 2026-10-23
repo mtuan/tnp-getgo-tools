@@ -110,6 +110,14 @@
       "replaceFailed": "The question image could not be updated."
     }
   },
+  "quizBulkAi": {
+    "action": "Generate with AI",
+    "progress": "Generating {done}/{total}",
+    "queued": "AI generation queued",
+    "queuedDescription": "Generating {count} questions one by one. You can follow progress in Jobs.",
+    "nothingToGenerate": "No questions need generation",
+    "nothingToGenerateDescription": "Every eligible question has already been generated with the current skill."
+  },
   "marketplaceManager": {
     "tab": "Marketplace",
     "loadingTopics": "Loading topics",

@@ -1,4 +1,4 @@
-import { CheckCheck, ExternalLink, FolderOpen, ListOrdered, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
+import { CheckCheck, ExternalLink, FolderOpen, ListOrdered, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import type { ContestQuizQuestionRecord, QuizSummary } from "../../../../shared/domain/models";
 import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { Button } from "../../../../shared/ui/Button";
@@ -16,6 +16,7 @@ import vi from "../../../../shared/localization/vi.json";
 import { effectiveQuizReviewCounts, QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
 import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 import { QuizCompareTab } from "./QuizCompareTab";
+import { isBulkCodexQuestionCandidate } from "../../../ai/domain/bulk-question-generation";
 
 type QuizOverviewContext = Record<string, any> & {
   questionRecords: import("../../../../shared/domain/models").QuizQuestionRecord[];
@@ -66,6 +67,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
   const compareCopy = (locale === "vi" ? vi : en).quizCompare;
+  const bulkAiCopy = (locale === "vi" ? vi : en).quizBulkAi;
   const contentQuiz = snapshot.contentV2.quizzes.find(
     (item: { topicId: string; id: string }) =>
       item.topicId === quiz.contest && item.id === quiz.id,
@@ -76,6 +78,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     quiz.reviewedQuestionCount,
     quiz.questionCount ?? 0,
   );
+  const bulkAiCandidates = questionRecords.filter(isBulkCodexQuestionCandidate);
     return (
       <section className="manager editor-page">
         <PageHeader
@@ -172,6 +175,44 @@ export function renderQuizOverview(context: QuizOverviewContext) {
               />
             ) : (
               <>
+                {quizTab === "questions" && quiz.type === "contest" && (
+                  <Button
+                    icon={<Sparkles size={15} />}
+                    variant="outline"
+                    color="neutral"
+                    loading={buttonAction === "bulk-ai-generate"}
+                    disabled={Boolean(buttonAction)}
+                    title={bulkAiCandidates.length === 0 ? bulkAiCopy.nothingToGenerate : undefined}
+                    onClick={() => {
+                      if (bulkAiCandidates.length === 0) {
+                        toast.show({
+                          title: bulkAiCopy.nothingToGenerate,
+                          description: bulkAiCopy.nothingToGenerateDescription,
+                        });
+                        return;
+                      }
+                      void runButtonAction("bulk-ai-generate", async () => {
+                        const job = await managerApi.startAiMigrationJob({
+                          manifestPath: quiz.manifestPath,
+                          context: {
+                            contestId: quiz.contest,
+                            quizId: quiz.id,
+                            title: quiz.title,
+                            year: quiz.year,
+                            grade: quiz.grade,
+                            round: quiz.round,
+                          },
+                        });
+                        toast.show({
+                          title: bulkAiCopy.queued,
+                          description: bulkAiCopy.queuedDescription.replace("{count}", String(job.total)),
+                        });
+                      });
+                    }}
+                  >
+                    {bulkAiCopy.action}
+                  </Button>
+                )}
                 <Button
                   icon={<Plus size={15} />}
                   variant="solid"
@@ -242,34 +283,6 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                           questions.map((question) => question.number),
                         ),
                     },
-                    ...(quiz.type === "contest"
-                      ? [
-                          {
-                            id: "ai-migrate",
-                            label: "AI migrate",
-                            icon: Zap,
-                            onSelect: () =>
-                              void runButtonAction("ai-migrate", async () => {
-                                const job =
-                                  await managerApi.startAiMigrationJob({
-                                    manifestPath: quiz.manifestPath,
-                                    context: {
-                                      contestId: quiz.contest,
-                                      quizId: quiz.id,
-                                      title: quiz.title,
-                                      year: quiz.year,
-                                      grade: quiz.grade,
-                                      round: quiz.round,
-                                    },
-                                  });
-                                toast.show({
-                                  title: "AI migration queued",
-                                  description: `${job.quizTitle} was added to Jobs.`,
-                                });
-                              }),
-                          },
-                        ]
-                      : []),
                   ]}
                 />
               </>

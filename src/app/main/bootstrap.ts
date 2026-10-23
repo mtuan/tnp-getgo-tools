@@ -392,8 +392,9 @@ app.whenReady().then(async () => {
   const aiMigrationJobs = new AiMigrationJobManager(app.getPath("userData"), {
     apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
     model: process.env.GETGO_AI_OPENAI_MODEL,
+    workspacePath: app.getAppPath(),
     profile: initialSettings.aiProfile,
-  }, async (label, value) => assertRepositoryContentSafe(await repositoryRoot(), label, value));
+  }, async (label, value) => assertRepositoryContentSafe(await repositoryRoot(), label, value), repositoryRoot);
   const publishJobs = new PublishJobManager(app.getPath("userData"));
   const webDeploymentJobs = new WebDeploymentJobManager(
     app.getPath("userData"),

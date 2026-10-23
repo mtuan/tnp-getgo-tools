@@ -110,6 +110,14 @@
       "replaceFailed": "Không thể cập nhật hình ảnh câu hỏi."
     }
   },
+  "quizBulkAi": {
+    "action": "Tạo bằng AI",
+    "progress": "Đang tạo {done}/{total}",
+    "queued": "Đã thêm tác vụ tạo bằng AI",
+    "queuedDescription": "Đang tạo lần lượt {count} câu hỏi. Bạn có thể theo dõi tiến độ trong Công việc.",
+    "nothingToGenerate": "Không có câu hỏi cần tạo",
+    "nothingToGenerateDescription": "Tất cả câu hỏi phù hợp đã được tạo bằng kỹ năng hiện tại."
+  },
   "marketplaceManager": {
     "tab": "Kho nội dung",
     "loadingTopics": "Đang tải chủ đề",

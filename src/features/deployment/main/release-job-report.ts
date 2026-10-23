@@ -1,4 +1,5 @@
 import type { BackgroundJob, DeploymentJobReport, DeploymentJobReportStep, ReleaseScope, WebDeploymentTarget } from "../../../shared/domain/models.js";
+import { createJobTask, finishJobTask, finishPendingJobTasks, startJobTask } from "../../jobs/main/job-task-tracker.js";
 
 type ReleaseTarget = Exclude<WebDeploymentTarget, "development">;
 type StepDefinition = { id: string; label: string };
@@ -42,7 +43,7 @@ const webReleaseDefinitions: StepDefinition[] = [
 ];
 
 function pendingSteps(definitions: StepDefinition[]): DeploymentJobReportStep[] {
-  return definitions.map(step => ({ ...step, status: "pending", details: [] }));
+  return definitions.map(step => createJobTask(step.id, step.label));
 }
 
 export function createReleaseJobReport(
@@ -68,13 +69,12 @@ export function advanceReleaseJobReport(job: BackgroundJob, completed: number, d
   const bounded = Math.max(0, Math.min(job.report.steps.length, completed));
   job.report.steps.forEach((step, index) => {
     if (index < bounded) {
-      step.startedAt ??= index === 0 ? job.report!.startedAt : now;
-      step.finishedAt ??= now;
-      step.durationMs ??= Math.max(0, Date.parse(step.finishedAt) - Date.parse(step.startedAt));
-      step.status = "completed";
+      if (step.status !== "completed") {
+        step.startedAt ??= index === 0 ? job.report!.startedAt : now;
+        finishJobTask(step, "completed", step.details, now);
+      }
     } else if (index === bounded && bounded < job.report!.steps.length) {
-      step.status = "running";
-      step.startedAt ??= now;
+      if (step.status !== "running") startJobTask(step, now);
       if (detail && !step.details.includes(detail)) step.details.push(detail);
     }
   });
@@ -86,21 +86,14 @@ export function finishReleaseJobReport(job: BackgroundJob, status: "completed" |
   const active = job.report.steps.find(step => step.status === "running")
     ?? (status !== "completed" ? job.report.steps.find(step => step.status === "pending") : undefined);
   if (active) {
-    active.status = status;
     active.startedAt ??= job.startedAt ?? job.report.startedAt;
-    active.finishedAt = now;
-    active.durationMs = Math.max(0, Date.parse(now) - Date.parse(active.startedAt));
-    if (job.error && !active.details.includes(job.error)) active.details.push(job.error);
+    const details = job.error && !active.details.includes(job.error) ? [...active.details, job.error] : active.details;
+    finishJobTask(active, status, details, now);
   }
   if (status === "completed") {
-    for (const step of job.report.steps) {
-      step.status = "completed";
-      step.startedAt ??= job.report.startedAt;
-      step.finishedAt ??= now;
-      step.durationMs ??= Math.max(0, Date.parse(step.finishedAt) - Date.parse(step.startedAt));
-    }
+    finishPendingJobTasks(job.report.steps, "completed", now);
   } else {
-    for (const step of job.report.steps) if (step.status === "pending") step.status = "skipped";
+    finishPendingJobTasks(job.report.steps, "skipped", now);
   }
   job.report.finishedAt = now;
   job.report.durationMs = Math.max(0, Date.parse(now) - Date.parse(job.report.startedAt));

@@ -16,6 +16,7 @@ import type {
 import { QuizManager, type QuizManagerApi } from "./QuizManager";
 import { questionService } from "../../quiz-editor/components/question-service";
 import { currentQuizBuilderApiVersion } from "../../../shared/domain/models";
+import { codexQuestionGeneratorMarker } from "../../ai/domain/bulk-question-generation";
 
 const defaultAlphabetQuizSpeechSettings = {
   letterRate: 0.75,
@@ -241,7 +242,15 @@ function fromManagerQuestion(
         : undefined,
     reference: question.authoringMode === "reference" ? question.reference : undefined,
     dynamic: question.authoringMode !== "reference" && dynamic
-      ? { paramsGeneratorTs: dynamic.paramsGeneratorTs, questionGeneratorTs: dynamic.questionGeneratorTs, originParamsTs: dynamic.originParamsTs, explanationGeneratorTs: dynamic.explanationGeneratorTs, ...(compiledJs ? { compiledJs, quizBuilderApiVersion: currentQuizBuilderApiVersion } : {}) }
+      ? {
+          paramsGeneratorTs: question.aiResponse?.model === "codex-cli" && !dynamic.paramsGeneratorTs.includes(codexQuestionGeneratorMarker)
+            ? `${codexQuestionGeneratorMarker}\n${dynamic.paramsGeneratorTs}`
+            : dynamic.paramsGeneratorTs,
+          questionGeneratorTs: dynamic.questionGeneratorTs,
+          originParamsTs: dynamic.originParamsTs,
+          explanationGeneratorTs: dynamic.explanationGeneratorTs,
+          ...(compiledJs ? { compiledJs, quizBuilderApiVersion: currentQuizBuilderApiVersion } : {}),
+        }
       : undefined,
   };
 }
@@ -311,9 +320,9 @@ export function ContentV2QuizManager(props: Props) {
         props.onSnapshotChange(hydrated);
         return adaptContentV2Snapshot(hydrated).quizzes.filter((quiz) => quiz.contest === topicId);
       },
-      getAiMigrationJobs: async () => ({ concurrency: 0, jobs: [] }),
+      getAiMigrationJobs: window.getgo.getAiMigrationJobs,
       migrateLegacyQuizzes: async () => ({ snapshot: managerSnapshot, migratedQuizIds: [], failures: [] }),
-      startAiMigrationJob: async () => { throw new Error("These questions already use content v2."); },
+      startAiMigrationJob: window.getgo.startAiMigrationJob,
       showInFolder: window.getgo.showInFolder,
       showQuizQuestionInFolder: async (manifestPath, number) => {
         const quiz = findQuiz(props.snapshot, manifestPath);

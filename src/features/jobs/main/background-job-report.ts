@@ -1,5 +1,6 @@
 import type { BackgroundJob, DeploymentJobReportStep } from "../../../shared/domain/models.js";
 import { createReleaseJobReport } from "../../deployment/main/release-job-report.js";
+import { normalizeJobTaskReport } from "./job-task-tracker.js";
 
 const activeStatuses = new Set(["running", "paused"]);
 
@@ -67,5 +68,6 @@ export function normalizeBackgroundJobReport(job: BackgroundJob): BackgroundJob 
     job.total = job.report.steps.length;
     job.completed = job.report.steps.filter(step => step.status === "completed").length;
   }
+  job.report = normalizeJobTaskReport(job.report, job);
   return job;
 }

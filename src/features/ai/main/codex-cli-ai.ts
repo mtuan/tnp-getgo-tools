@@ -124,8 +124,9 @@ export class CodexCliAiProvider {
         clearTimeout(timer);
         if (this.activeProcess === child) this.activeProcess = null;
         if (signal === "SIGTERM") return reject(new Error("AI request cancelled."));
-        if (code !== 0) return reject(new Error(stderr.trim() || `Codex CLI exited with code ${code}.`));
         try {
+          const output = await fs.readFile(outputPath, "utf8");
+          JSON.parse(output);
           const threadEvent = stdout
             .split("\n")
             .map((line) => {
@@ -134,10 +135,11 @@ export class CodexCliAiProvider {
             })
             .find((event) => event?.type === "thread.started" && typeof event.thread_id === "string");
           resolve({
-            output: await fs.readFile(outputPath, "utf8"),
+            output,
             sessionId: typeof threadEvent?.thread_id === "string" ? threadEvent.thread_id : sessionId,
           });
         } catch (cause) {
+          if (code !== 0) return reject(new Error(stderr.trim() || `Codex CLI exited with code ${code}.`, { cause }));
           reject(new Error("Codex CLI did not return a dynamic-question proposal.", { cause }));
         }
       });
