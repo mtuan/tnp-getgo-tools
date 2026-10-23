@@ -15,18 +15,23 @@ async function run<T>(operation: "generate" | "fix", action: () => Promise<T>): 
 }
 
 export function registerAiIpc(ipcMain: IpcMain, localAi: LocalAiService, jobs: AiMigrationJobManager, repositoryRoot: () => Promise<string>) {
-  ipcMain.handle("ai:dynamic-question", (_event, input: unknown) => {
+  const dynamicQuestion = (input: unknown, provider: "openai" | "codex-cli") => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI request.");
     const value = input as Record<string, unknown>;
     if (!value.question || typeof value.question !== "object" || Array.isArray(value.question)) throw new Error("A local question record is required.");
     if (value.context !== undefined && (!value.context || typeof value.context !== "object" || Array.isArray(value.context))) throw new Error("AI context must be an object.");
     if (value.instructions !== undefined && typeof value.instructions !== "string") throw new Error("AI instructions must be text.");
     return run("generate", async () => {
-      const result = await localAi.createDynamicQuestionProposal(value as { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string });
+      const result = await localAi.createDynamicQuestionProposal({
+        ...(value as { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }),
+        provider,
+      });
       await assertRepositoryContentSafe(await repositoryRoot(), "AI-generated question", result);
       return result;
     });
-  });
+  };
+  ipcMain.handle("ai:dynamic-question", (_event, input: unknown) => dynamicQuestion(input, "openai"));
+  ipcMain.handle("ai:dynamic-question:codex", (_event, input: unknown) => dynamicQuestion(input, "codex-cli"));
   ipcMain.handle("ai:fix-dynamic-question", (_event, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Invalid AI fix request.");
     const value = input as Record<string, unknown>;

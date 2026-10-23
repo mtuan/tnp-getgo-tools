@@ -6,6 +6,7 @@ import {
 } from "@tnp/getgo-logics/authoring"
 import type { DynamicQuestionFixResult, DynamicQuestionProposalResult, QuizQuestionRecord } from "../../../shared/domain/models.js"
 import { sanitizeQuestionForAi } from "../../../features/ai/domain/ai-question-sanitizer.js"
+import { CodexCliAiProvider } from "./codex-cli-ai.js"
 
 const FAST_GENERATION_PROMPT = `You generate a GetGo QuizBuilder dynamic question from the supplied saved question. Preserve its meaning, correct answer, locales, and original values while introducing only safe, useful variation.
 
@@ -54,6 +55,7 @@ export interface LocalAiConfiguration {
   apiKey?: string
   model?: string
   profile?: "thorough" | "fast"
+  workspacePath?: string
 }
 
 type OpenAiErrorPayload = {
@@ -200,18 +202,23 @@ function toAiQuestion(question: QuizQuestionRecord): Record<string, unknown> {
 
 export class LocalAiService {
   private readonly service: GetGoDynamicQuestionAiService
+  private readonly codexService: GetGoDynamicQuestionAiService
   private readonly provider: LocalOpenAiProvider
+  private readonly codexProvider: CodexCliAiProvider
 
   constructor(configuration: LocalAiConfiguration) {
     this.provider = new LocalOpenAiProvider(configuration)
     this.service = new GetGoDynamicQuestionAiService(this.provider)
+    this.codexProvider = new CodexCliAiProvider(configuration.workspacePath ?? process.cwd())
+    this.codexService = new GetGoDynamicQuestionAiService(this.codexProvider)
   }
 
-  cancelDynamicQuestionAi() { this.provider.cancel() }
+  cancelDynamicQuestionAi() { this.provider.cancel(); this.codexProvider.cancel() }
   setProfile(profile: "thorough" | "fast") { this.provider.setProfile(profile) }
 
-  async createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string }): Promise<DynamicQuestionProposalResult> {
-    return this.service.createProposal({ question: toAiQuestion(input.question), context: input.context, instructions: input.instructions })
+  async createDynamicQuestionProposal(input: { question: QuizQuestionRecord; context?: Record<string, unknown>; instructions?: string; provider?: "openai" | "codex-cli" }): Promise<DynamicQuestionProposalResult> {
+    const service = input.provider === "codex-cli" ? this.codexService : this.service
+    return service.createProposal({ question: toAiQuestion(input.question), context: input.context, instructions: input.instructions })
   }
 
   async fixDynamicQuestion(input: { originalQuestion: QuizQuestionRecord; currentCode: NonNullable<QuizQuestionRecord["advancedDynamic"]>; currentSummary: GetGoDynamicQuestionSummary; context?: Record<string, unknown>; diagnostics?: string[]; instructions: string }): Promise<DynamicQuestionFixResult> {

@@ -308,6 +308,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("auth:change-password", password),
   createDynamicQuestionProposal: (input) =>
     ipcRenderer.invoke("ai:dynamic-question", input),
+  createDynamicQuestionProposalWithCodex: (input) =>
+    ipcRenderer.invoke("ai:dynamic-question:codex", input),
   fixDynamicQuestion: (input) =>
     ipcRenderer.invoke("ai:fix-dynamic-question", input),
   cancelDynamicQuestionAi: () =>

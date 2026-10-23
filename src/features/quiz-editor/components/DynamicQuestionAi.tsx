@@ -219,7 +219,7 @@ export function DynamicQuestionAi({
     setBusy(true);
     try {
       if (mode === "generate") {
-        const result = await window.getgo.createDynamicQuestionProposal({
+        const result = await window.getgo.createDynamicQuestionProposalWithCodex({
           question: record,
           context,
           instructions: instructions.trim() || undefined,

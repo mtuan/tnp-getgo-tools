@@ -386,6 +386,7 @@ app.whenReady().then(async () => {
   const localAi = new LocalAiService({
     apiKey: process.env.GETGO_AI_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
     model: process.env.GETGO_AI_OPENAI_MODEL,
+    workspacePath: app.getAppPath(),
     profile: initialSettings.aiProfile,
   });
   const aiMigrationJobs = new AiMigrationJobManager(app.getPath("userData"), {
