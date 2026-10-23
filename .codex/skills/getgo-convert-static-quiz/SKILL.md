@@ -25,6 +25,7 @@ Use repository code and stored quiz records as the only source of truth. Do not 
    - If both are supported, author equivalent English and Vietnamese content from the same parameters and mathematical objects. Do not make one locale a structural afterthought or wrap both languages into one field.
    - Omit unsupported localized generator fields rather than persisting empty placeholder strings. Existing empty unsupported-language fields are legacy data, not a pattern to copy.
    - When the static record lacks a required supported-language variant, translate it faithfully without changing the learning objective, mathematical constraints, answer, units, names, or difficulty.
+   - Never emit an empty locale value. A supported locale must contain meaningful text; an unsupported locale key must be absent, not `""`.
 4. Prefer existing `QB` helpers and the closest matching code pattern. Do not invent a new representation, parallel runtime, formatter, or evaluator when the topic already demonstrates the construct.
 5. Keep generated and origin parameters limited to independent source facts. Calculate answers, choices, expressions, display strings, transliterations, and other derived values inside `questionGeneratorTs` or `explanationGeneratorTs`. For a Latin identifier derived from a Vietnamese name, use `QB.vi.toLatin(name)` and apply casing at the use site; do not generate or store a separate prefix parameter.
 6. Express bounds and constraints through the values they depend on so the relationship remains correct when the source changes. Do not repeat a coincidental literal bound. For example, after `const digits = QB.rnd.ints(3, 1, 9, { unique: true })`, choose an index with `const pos = QB.rnd.int(0, digits.length - 1)`, not `QB.rnd.int(0, 2)`. Apply the same rule to collection lengths, ranges, counts, and dependent limits throughout parameter generation.
@@ -43,8 +44,9 @@ Use repository code and stored quiz records as the only source of truth. Do not 
     - Keep English and Vietnamese explanations mathematically equivalent. Locale-specific prose may differ naturally, but intermediate values, operations, units, and conclusions must agree.
     - Do not introduce new random values or call random/name generators inside `explanationGeneratorTs`; explanations must describe the already-generated question.
 13. Preserve `question_no`, source wording where compatible with the quiz's supported languages, response contract, choice semantics, units, and intentional constants.
-14. Produce the persisted fields emitted by the current Tools save path, including source, compiled output, origin data, explanation source, and the current QuizBuilder API version.
-15. Never set `verified: true`, publish content, or deploy.
+14. Omit empty optional question data instead of writing placeholders. In particular, do not emit `image_datas: []`, `text_en: ""`, `text_vn: ""`, `explanation.en: ""`, or `explanation.vi: ""`. Apply the same rule to other optional empty strings, arrays, or objects in generated and persisted question content. Preserve required schema fields and meaningful `0`, `false`, and non-empty values. This rule does not remove required fields from the AI proposal response schema.
+15. Produce the persisted fields emitted by the current Tools save path, including source, compiled output, origin data, explanation source, and the current QuizBuilder API version.
+16. Never set `verified: true`, publish content, or deploy.
 
 ### Choose helpers by responsibility
 
@@ -86,9 +88,10 @@ For every converted record:
 1. Parse it with the current content-v2 schema.
 2. Compile its source through the same builder used by GetGo Tools.
 3. Generate from its origin parameters and compare the localized question, choices, correct answer, and explanation with the original static record. Confirm every language in `quiz.json.supportedLanguages` has non-empty question and explanation content, and no unsupported locale is emitted by the generators.
-4. Generate at least 30 randomized samples. Assert that each sample renders, has a valid answer, obeys all arithmetic and range constraints, and has non-empty, mathematically consistent question and worked-explanation content in every supported language.
-5. Run the relevant repository typecheck or targeted test when implementation code changed. Do not run a build unless the user explicitly requested that build.
-6. If the runtime boundary changed, follow the repository restart rules and confirm startup. Data-only question changes do not require an application restart unless the active runtime caches those records.
+4. Reject generated or persisted question content containing empty optional placeholders, including empty `image_datas`, unsupported empty locale keys, and empty optional explanation values.
+5. Generate at least 30 randomized samples. Assert that each sample renders, has a valid answer, obeys all arithmetic and range constraints, and has non-empty, mathematically consistent question and worked-explanation content in every supported language.
+6. Run the relevant repository typecheck or targeted test when implementation code changed. Do not run a build unless the user explicitly requested that build.
+7. If the runtime boundary changed, follow the repository restart rules and confirm startup. Data-only question changes do not require an application restart unless the active runtime caches those records.
 
 ## Preserve review boundaries
 
