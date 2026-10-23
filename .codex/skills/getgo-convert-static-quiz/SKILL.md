@@ -35,6 +35,17 @@ Use repository code and stored quiz records as the only source of truth. Do not 
 10. Match the source interaction with the established answer helper: `input`, `multiple`, `nested`, `choice`, or `choiceCompare`. Put units in answer metadata and rely on input-type inference unless the source contract needs an explicit type.
     - A nested part that accepts several values must keep `correct` as an array. `QB.answer.nested` creates the nested `multiple_answer` contract; never flatten the values with `join(...)` into one text input.
 11. Keep raw values in parameters and render them through the applicable helper in the question: `QB.fmt`, `QB.vi.list`, `QB.latex`, `QB.maths.calc`, `equation`, `sequence`, `measure`, or another demonstrated helper.
+    - Compute locale-independent rendered fragments once before returning the question and reuse the variable in every locale. Do not repeat the same helper call, options object, slot list, expression render, or other identical construction inside `text_en`, `text_vn`, or explanations. Keep locale-specific rendering separate only when wording, grammar, or helper options genuinely differ.
+      ```ts
+      const renderedSequence = seq.render({
+        slots: [1, 2, 3, 4, 5, "(       )", 7, "…"],
+        separator: " , ",
+      })
+      return {
+        text_en: QB.fmt`Find the missing number. ${renderedSequence}`,
+        text_vn: QB.fmt`Tìm số còn thiếu. ${renderedSequence}`,
+      }
+      ```
     - Derive answers and displayed values from the same domain object. Never duplicate a helper's internal formula beside it. For a missing sequence term rendered from `seq`, use `seq.at(index)` (one-based), not `start + (index - 1) * step`; for calculations, equations, and measurements, use their `value`, `solve()`, or conversion APIs rather than recomputing them separately.
     - Enumerate numbers by digit length and constraints with `QB.maths.numbers({ length, digits, duplicate, odd, even, where })`. Express digit predicates with helpers such as `QB.maths.digits`, `sumDigits`, `sum`, or `product`; do not replace this API with nested digit loops.
     - Represent consecutive arithmetic progressions with `QB.maths.sequence(...)`. Use the resulting sequence for calculation and its `render(...)`/`toText(...)` methods for authored sequence output; do not rebuild the progression with manual loops, array ranges, or hard-coded term lists.
