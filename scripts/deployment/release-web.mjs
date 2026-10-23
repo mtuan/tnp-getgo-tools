@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { createRootFirebaseConfig, planReleaseFunctionDeployment } from './release-function-plan.mjs'
 import { deploysDir, logicsRoot, toolsRoot, webRoot } from './deployment-config.mjs'
+import { runWithFirebaseRetry } from './firebase-deploy-retry.mjs'
 
 const root = webRoot
 const releaseRepositoryRoot = resolve(process.env.GETGO_RELEASES_ROOT || join(root, '..', 'tnp-getgo-releases'))
@@ -29,6 +30,34 @@ function run(executable, args, options = {}) {
   console.log(`$ ${executable} ${args.join(' ')}`)
   const result = spawnSync(executable, args, { cwd: root, stdio: 'inherit', ...options })
   if (result.status !== 0) fail(`${executable} exited with ${result.status ?? 'an unknown status'}.`)
+}
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`
+}
+
+function wait(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds)
+}
+
+function runFirebaseDeploy(args, options = {}) {
+  const cwd = options.cwd ?? root
+  const result = runWithFirebaseRetry({
+    execute: attempt => {
+      const outputFile = join(tmpdir(), `getgo-firebase-deploy-${process.pid}-${Date.now()}-${attempt}.log`)
+      console.log(`$ firebase ${args.join(' ')}`)
+      const command = `firebase ${args.map(shellQuote).join(' ')} 2>&1 | tee ${shellQuote(outputFile)}`
+      const child = spawnSync('bash', ['-o', 'pipefail', '-c', command], { cwd, stdio: 'inherit' })
+      const output = existsSync(outputFile) ? readFileSync(outputFile, 'utf8') : ''
+      rmSync(outputFile, { force: true })
+      return { status: child.status, output }
+    },
+    onRetry: ({ attempt, maxAttempts, delayMs }) => {
+      console.warn(`\nTemporary Firebase connection problem. Retrying this deployment step in ${delayMs / 1000} seconds (${attempt + 1}/${maxAttempts})…\n`)
+    },
+    wait,
+  })
+  if (result.status !== 0) fail(`firebase exited with ${result.status ?? 'an unknown status'}.`)
 }
 
 function capture(executable, args, options = {}) {
@@ -301,20 +330,25 @@ function deployRelease(environment, releaseId, operation) {
     run('npm', ['ci', '--ignore-scripts'], { cwd: join(workspace, entry.source) })
   releaseProgress(5, 'Function runtime dependencies installed')
 
-  const deployTargets = [
-    ...functionPlan.functionTargets,
-    'firestore',
-    'storage',
-    'hosting',
+  const deployTargets = [...functionPlan.functionTargets, 'firestore', 'storage', 'hosting']
+  const deploymentPhases = [
+    ...(functionPlan.functionTargets.length > 0
+      ? [{ label: 'Functions', targets: functionPlan.functionTargets }]
+      : []),
+    { label: 'Firestore', targets: ['firestore'] },
+    { label: 'Storage', targets: ['storage'] },
+    { label: 'Web', targets: ['hosting'] },
   ]
 
-  releaseProgress(5, `Deploying Web and Firebase to ${environment}`)
-  run('firebase', [
-    'deploy', '--project', targetConfig.firebaseProject,
-    '--config', firebaseConfigPath,
-    '--only', deployTargets.join(','), '--force',
-    '-m', `${operation} ${releaseId}`,
-  ], { cwd: workspace })
+  for (const phase of deploymentPhases) {
+    releaseProgress(5, `Deploying ${phase.label} to ${environment}`)
+    runFirebaseDeploy([
+      'deploy', '--project', targetConfig.firebaseProject,
+      '--config', firebaseConfigPath,
+      '--only', phase.targets.join(','), '--force',
+      '-m', `${operation} ${releaseId}`,
+    ], { cwd: workspace })
+  }
   releaseProgress(6, 'Web and Firebase resources deployed')
 
   const event = { operation, deployedAt: new Date().toISOString(), gitCommit: manifest.gitCommit }
