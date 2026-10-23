@@ -14,7 +14,7 @@ export function AiGeneratedIndicator({
   const label = kind === "quiz" ? copy.quizTitle : copy.questionTitle;
   return (
     <span className="ai-generated-indicator" title={label} aria-label={label} role="img">
-      <Sparkles aria-hidden="true" />
+      <Sparkles className="ai-generated-indicator-icon" aria-hidden="true" />
     </span>
   );
 }

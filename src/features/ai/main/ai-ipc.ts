@@ -40,7 +40,10 @@ export function registerAiIpc(ipcMain: IpcMain, localAi: LocalAiService, jobs: A
     if (!value.currentSummary || typeof value.currentSummary !== "object" || Array.isArray(value.currentSummary)) throw new Error("Current AI summary is required.");
     if (typeof value.instructions !== "string" || !value.instructions.trim()) throw new Error("Fix instructions are required.");
     return run("fix", async () => {
-      const result = await localAi.fixDynamicQuestion(value as Parameters<typeof localAi.fixDynamicQuestion>[0]);
+      const result = await localAi.fixDynamicQuestion({
+        ...(value as Parameters<typeof localAi.fixDynamicQuestion>[0]),
+        provider: "codex-cli",
+      });
       await assertRepositoryContentSafe(await repositoryRoot(), "AI-generated question fix", result);
       return result;
     });

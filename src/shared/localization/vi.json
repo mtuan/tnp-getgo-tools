@@ -122,6 +122,19 @@
     "questionTitle": "Được tạo bằng kỹ năng AI hiện tại",
     "quizTitle": "Có câu hỏi được tạo bằng kỹ năng AI hiện tại"
   },
+  "aiFixPreview": {
+    "title": "Nội dung câu hỏi đã thay đổi",
+    "description": "Kiểm tra câu hỏi được tạo, sau đó áp dụng hoặc bỏ thay đổi.",
+    "changed": "Đã thay đổi: {fields}",
+    "current": "Hiện tại",
+    "proposed": "AI đề xuất",
+    "apply": "Áp dụng thay đổi",
+    "discard": "Bỏ thay đổi",
+    "applied": "Đã áp dụng thay đổi của AI",
+    "appliedDescription": "Mã câu hỏi đề xuất hiện đã có trong trình chỉnh sửa.",
+    "discarded": "Đã bỏ thay đổi của AI",
+    "discardedDescription": "Câu hỏi hiện tại không bị thay đổi."
+  },
   "marketplaceManager": {
     "tab": "Kho nội dung",
     "loadingTopics": "Đang tải chủ đề",

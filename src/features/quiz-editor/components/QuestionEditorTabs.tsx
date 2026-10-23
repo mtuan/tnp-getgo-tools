@@ -1,4 +1,5 @@
 import type {
+  AppSettings,
   ContestQuizQuestionRecord,
   QuestionFeedback,
 } from "../../../shared/domain/models";
@@ -15,6 +16,7 @@ interface Props {
   path: string;
   manifestPath: string;
   context: Record<string, unknown>;
+  locale: AppSettings["locale"];
   quizSharedCode?: string;
   supportedLanguages: Array<"en" | "vi">;
   questions: ContestQuizQuestionRecord[];

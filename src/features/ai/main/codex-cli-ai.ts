@@ -11,6 +11,31 @@ const outputLimit = 10 * 1024 * 1024;
 
 type CodexRunResult = { output: string; sessionId?: string };
 
+const sharedSessions = new Map<string, string>();
+const sharedSessionQueues = new Map<string, Promise<void>>();
+
+async function inSharedSession<T>(
+  contextKey: string | null,
+  action: () => Promise<T>,
+): Promise<T> {
+  if (!contextKey) return action();
+  const previous = sharedSessionQueues.get(contextKey) ?? Promise.resolve();
+  let release: () => void = () => {};
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => pending);
+  sharedSessionQueues.set(contextKey, queued);
+  await previous.catch(() => undefined);
+  try {
+    return await action();
+  } finally {
+    release();
+    if (sharedSessionQueues.get(contextKey) === queued)
+      sharedSessionQueues.delete(contextKey);
+  }
+}
+
 function quizContextKey(request: GetGoStructuredAiRequest): string | null {
   const payload = request.payload as Record<string, unknown>;
   const context = payload.context;
@@ -32,7 +57,6 @@ function sessionUnavailable(cause: unknown): boolean {
 
 export class CodexCliAiProvider {
   private activeProcess: ChildProcessWithoutNullStreams | null = null;
-  private readonly sessions = new Map<string, string>();
 
   constructor(private readonly workspacePath: string) {}
 
@@ -41,17 +65,29 @@ export class CodexCliAiProvider {
   }
 
   async generate(request: GetGoStructuredAiRequest): Promise<GetGoStructuredAiResponse> {
+    const contextKey = quizContextKey(request);
+    return inSharedSession(contextKey, () => this.generateInSession(request, contextKey));
+  }
+
+  private async generateInSession(
+    request: GetGoStructuredAiRequest,
+    contextKey: string | null,
+  ): Promise<GetGoStructuredAiResponse> {
     const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "getgo-codex-question-"));
     const schemaPath = path.join(temporaryDirectory, "output-schema.json");
     const outputPath = path.join(temporaryDirectory, "proposal.json");
     await fs.writeFile(schemaPath, JSON.stringify(request.outputSchema));
-    const contextKey = quizContextKey(request);
-    const sessionId = contextKey ? this.sessions.get(contextKey) : undefined;
+    const sessionId = contextKey ? sharedSessions.get(contextKey) : undefined;
+    const isFix = request.promptCacheKey.startsWith("getgo-qb-fix");
     const initialPrompt = [
       "$getgo-convert-static-quiz",
       "This is a shared, quiz-scoped dynamic-question authoring session. Keep the inspected repository conventions and quiz context available for later selected questions in this same session.",
-      "Generate a read-only dynamic-question proposal for the first selected question below.",
-      "The administrator explicitly requested conversion of this selected question, including it when it is image-dependent; preserve every image asset reference and do not infer image geometry.",
+      isFix
+        ? "Fix the existing dynamic-question proposal below according to the administrator's instructions and supplied diagnostics."
+        : "Generate a read-only dynamic-question proposal for the first selected question below.",
+      isFix
+        ? "Preserve correct existing behavior and change only what is required to resolve the requested problem."
+        : "The administrator explicitly requested conversion of this selected question, including it when it is image-dependent; preserve every image asset reference and do not infer image geometry.",
       "Follow the named skill and the supplied GetGo generation contract. Inspect repository code and nearby questions when useful.",
       "Do not edit, create, delete, or format any repository file. Return only the JSON proposal required by the output schema.",
       "",
@@ -60,8 +96,12 @@ export class CodexCliAiProvider {
       JSON.stringify(request.payload),
     ].join("\n");
     const continuationPrompt = [
-      "Generate a proposal for the next selected question in this quiz using the established skill, repository findings, and generation contract from this session.",
-      "Treat this question independently. Do not use an earlier generated proposal as a precedent. Preserve image references and return only the required JSON proposal.",
+      isFix
+        ? "Fix this existing dynamic-question proposal using the established skill, repository findings, and generation contract from this quiz session."
+        : "Generate a proposal for the next selected question in this quiz using the established skill, repository findings, and generation contract from this session.",
+      isFix
+        ? "Apply the administrator's instructions and supplied diagnostics, preserve correct behavior, and return only the required JSON fix proposal."
+        : "Treat this question independently. Do not use an earlier generated proposal as a precedent. Preserve image references and return only the required JSON proposal.",
       JSON.stringify(request.payload),
     ].join("\n");
     try {
@@ -70,10 +110,10 @@ export class CodexCliAiProvider {
         result = await this.runCodex(schemaPath, outputPath, sessionId ? continuationPrompt : initialPrompt, sessionId);
       } catch (cause) {
         if (!sessionId || !sessionUnavailable(cause)) throw cause;
-        this.sessions.delete(contextKey!);
+        sharedSessions.delete(contextKey!);
         result = await this.runCodex(schemaPath, outputPath, initialPrompt);
       }
-      if (contextKey && result.sessionId) this.sessions.set(contextKey, result.sessionId);
+      if (contextKey && result.sessionId) sharedSessions.set(contextKey, result.sessionId);
       return {
         output: JSON.parse(result.output) as unknown,
         model: "codex-cli",

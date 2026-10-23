@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, History, RotateCcw, Zap } from "lucide-react";
 import { QuizTsService } from "@tnp/getgo-logics/authoring";
 import type {
+  AppSettings,
   ContestQuizQuestionRecord,
   QuestionFeedback as Feedback,
 } from "../../../shared/domain/models";
@@ -144,7 +145,9 @@ export function AdvancedQuestionEditor({
   path,
   manifestPath,
   context,
+  locale,
   quizSharedCode = "",
+  supportedLanguages,
   onChange,
   onSave,
   onFeedbackSave,
@@ -153,7 +156,9 @@ export function AdvancedQuestionEditor({
   path: string;
   manifestPath: string;
   context: Record<string, unknown>;
+  locale: AppSettings["locale"];
   quizSharedCode?: string;
+  supportedLanguages: Array<"en" | "vi">;
   onChange(record: ContestQuizQuestionRecord): void;
   onSave(): void;
   onFeedbackSave(value: Omit<Feedback, "updatedAt"> | null): Promise<void>;
@@ -515,6 +520,9 @@ export function AdvancedQuestionEditor({
           <DynamicQuestionAi
             record={record}
             context={context}
+            locale={locale}
+            manifestPath={manifestPath}
+            supportedLanguages={supportedLanguages}
             diagnostics={errors.map((error) => error.summary)}
             hasGeneratedExplanation={Boolean(
               text(preview.question.explanation?.en).trim() ||

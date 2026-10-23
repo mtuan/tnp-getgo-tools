@@ -643,6 +643,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                 record={questionDraftRecord as ContestQuizQuestionRecord}
                 path={`${quiz.relativePath}/questions/q${questionDraftRecord.question_no}`}
                 manifestPath={quiz.manifestPath}
+                locale={locale}
                 quizSharedCode={quiz.sharedCode}
                 supportedLanguages={quiz.supportedLanguages ?? ["en", "vi"]}
                 questions={questionRecords as ContestQuizQuestionRecord[]}

@@ -122,6 +122,19 @@
     "questionTitle": "Generated with the current AI skill",
     "quizTitle": "Contains questions generated with the current AI skill"
   },
+  "aiFixPreview": {
+    "title": "Question content changed",
+    "description": "Review the generated question, then apply it or discard it.",
+    "changed": "Changed: {fields}",
+    "current": "Current",
+    "proposed": "Proposed by AI",
+    "apply": "Apply changes",
+    "discard": "Discard",
+    "applied": "AI changes applied",
+    "appliedDescription": "The proposed question code is now in the editor.",
+    "discarded": "AI changes discarded",
+    "discardedDescription": "The current question was left unchanged."
+  },
   "marketplaceManager": {
     "tab": "Marketplace",
     "loadingTopics": "Loading topics",
