@@ -92,12 +92,23 @@
     "tab": "Đối chiếu",
     "generateOriginal": "Tạo câu hỏi gốc",
     "generateQuestion": "Tạo câu hỏi khác",
+    "editQuestion": "Chỉnh sửa câu hỏi",
     "questionLabel": "Câu hỏi {number}",
     "pdfTitle": "PDF nguồn",
     "loading": "Đang chuẩn bị nội dung đối chiếu",
     "empty": "Bộ câu hỏi này chưa có câu hỏi.",
     "pdfUnavailable": "Không thể hiển thị PDF nguồn.",
-    "questionFailed": "Không thể tạo câu hỏi này."
+    "questionFailed": "Không thể tạo câu hỏi này.",
+    "imagePicker": {
+      "title": "Chọn hình ảnh từ PDF nguồn",
+      "loading": "Đang trích xuất văn bản và hình ảnh PDF",
+      "empty": "Không tìm thấy hình ảnh nhúng trong PDF này.",
+      "select": "Dùng hình ảnh",
+      "cancel": "Hủy",
+      "page": "Trang {page}",
+      "imageLabel": "Chọn {id} từ trang {page}",
+      "replaceFailed": "Không thể cập nhật hình ảnh câu hỏi."
+    }
   },
   "marketplaceManager": {
     "tab": "Kho nội dung",

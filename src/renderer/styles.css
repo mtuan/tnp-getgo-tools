@@ -4459,6 +4459,65 @@ tbody tr:hover {
   border: 0;
   background: var(--surface);
 }
+.crud-dialog.presentation-modal.pdf-extracted-image-dialog {
+  width: min(920px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 48px));
+}
+.pdf-extracted-image-dialog .crud-body {
+  min-height: 280px;
+  overflow: auto;
+}
+.pdf-extracted-image-loading {
+  min-height: 260px;
+}
+.pdf-extracted-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.pdf-extracted-image-option {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--soft);
+  cursor: pointer;
+  text-align: left;
+}
+.pdf-extracted-image-option:hover {
+  border-color: color-mix(in srgb, var(--getgo-accent) 55%, var(--line));
+}
+.pdf-extracted-image-option.is-selected {
+  border-color: var(--getgo-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--getgo-accent) 20%, transparent);
+}
+.pdf-extracted-image-preview {
+  display: grid;
+  height: 124px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--getgo-panel);
+}
+.pdf-extracted-image-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.pdf-extracted-image-option > span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pdf-extracted-image-empty {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
 @media (max-width: 980px) {
   .quiz-compare-workspace {
     grid-template-columns: 1fr;
@@ -9349,9 +9408,26 @@ button.danger svg {
   height: auto;
   object-fit: contain;
 }
+.question-preview-selectable-image {
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.question-preview-selectable-image:hover {
+  box-shadow: 0 0 0 2px var(--getgo-accent);
+}
+.question-preview-selectable-image:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--getgo-accent) 32%, transparent);
+  outline-offset: 3px;
+}
 .question-preview-asset {
   position: relative;
   display: inline-grid;
+  width: fit-content;
+  max-width: 100%;
   min-width: 64px;
   min-height: 64px;
   place-items: center;
@@ -9359,6 +9435,8 @@ button.danger svg {
 }
 .question-preview-asset > img {
   grid-area: 1 / 1;
+  max-width: 100%;
+  height: auto;
   visibility: hidden;
 }
 .question-preview-asset > img.is-loaded {

@@ -373,6 +373,15 @@ export function renderQuizOverview(context: QuizOverviewContext) {
             questions={questionRecords as ContestQuizQuestionRecord[]}
             sharedCode={quiz.sharedCode}
             copy={compareCopy}
+            onEditQuestion={(record) => {
+              const index = questions.findIndex(
+                (question) => String(question.number) === String(record.question_no),
+              );
+              if (index < 0) return;
+              setSelectedQuestion(index);
+              setQuestionDraftRecord(structuredClone(record));
+              setPendingQuestionNo(String(record.question_no));
+            }}
           />
         )}
         {quizTab === "questions" && (

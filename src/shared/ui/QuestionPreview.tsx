@@ -41,10 +41,14 @@ export function PreviewAsset({
   manifestPath,
   value,
   alt,
+  onClick,
+  actionLabel,
 }: {
   manifestPath: string;
   value: string;
   alt: string;
+  onClick?: () => void;
+  actionLabel?: string;
 }) {
   const [source, setSource] = useState(
     value.startsWith("data:image/") ? value : "",
@@ -66,6 +70,7 @@ export function PreviewAsset({
         typeof detail.preview === "string"
       ) {
         setFailed(false);
+        setLoaded(false);
         setSource(detail.preview);
       }
     };
@@ -102,20 +107,38 @@ export function PreviewAsset({
   const style = metadata?.width && metadata.height
     ? { width: `min(100%, ${metadata.width}px)`, aspectRatio: `${metadata.width} / ${metadata.height}` } as CSSProperties
     : undefined;
-  return <span className="question-preview-asset" style={style}>
+  const content = <>
     {source && <img src={source} alt={alt} className={loaded ? "is-loaded" : ""} onLoad={() => setLoaded(true)} />}
     {(!source || !loaded) && <span className="mini-spinner" aria-label={`Loading ${alt}`} />}
-  </span>;
+  </>;
+  return onClick ? (
+    <button
+      type="button"
+      className="question-preview-asset question-preview-selectable-image"
+      style={style}
+      aria-label={actionLabel}
+      title={actionLabel}
+      onClick={onClick}
+    >
+      {content}
+    </button>
+  ) : (
+    <span className="question-preview-asset" style={style}>{content}</span>
+  );
 }
 
 function PreviewValue({
   manifestPath,
   value,
   alt,
+  onImageClick,
+  imageActionLabel,
 }: {
   manifestPath: string;
   value: unknown;
   alt: string;
+  onImageClick?: (value: string) => void;
+  imageActionLabel?: string;
 }) {
   if (Array.isArray(value))
     return (
@@ -126,6 +149,8 @@ function PreviewValue({
             manifestPath={manifestPath}
             value={item}
             alt={alt}
+            onImageClick={onImageClick}
+            imageActionLabel={imageActionLabel}
           />
         ))}
       </>
@@ -133,8 +158,15 @@ function PreviewValue({
   if (
     typeof value === "string" &&
     (value.startsWith("asset:") || value.startsWith("data:image/"))
-  )
-    return <PreviewAsset manifestPath={manifestPath} value={value} alt={alt} />;
+  ) {
+    return <PreviewAsset
+      manifestPath={manifestPath}
+      value={value}
+      alt={alt}
+      onClick={onImageClick && value.startsWith("asset:") ? () => onImageClick(value) : undefined}
+      actionLabel={imageActionLabel}
+    />;
+  }
   return <MathText value={questionText(value)} markdown />;
 }
 
@@ -157,6 +189,8 @@ type QuestionPreviewProps = {
   supportedLanguages?: Array<"en" | "vi">;
   choiceLayout?: "vertical" | "horizontal";
   density?: "comfortable" | "compact";
+  onImageClick?: (value: string) => void;
+  imageActionLabel?: string;
 };
 
 class QuestionPreviewErrorBoundary extends Component<{
@@ -200,6 +234,8 @@ function QuestionPreviewContent({
   supportedLanguages = ["en", "vi"],
   choiceLayout = "vertical",
   density = "comfortable",
+  onImageClick,
+  imageActionLabel,
 }: QuestionPreviewProps) {
   const indexedPartText = (value: unknown, index: number) => {
     const text = questionText(value).replace(/^\s*(?:[a-z]|\d+)[.)]\s*/i, "");
@@ -237,6 +273,8 @@ function QuestionPreviewContent({
               manifestPath={manifestPath}
               value={image}
               alt={`Question illustration ${index + 1}`}
+              onImageClick={onImageClick}
+              imageActionLabel={imageActionLabel}
             />
           </div>
         ))}
@@ -279,6 +317,8 @@ function QuestionPreviewContent({
                       ? value
                       : formatAuthoringChoice(question.answer, value)}
                     alt={`Choice ${label}`}
+                    onImageClick={onImageClick}
+                    imageActionLabel={imageActionLabel}
                   />
                   {question.answer.unit &&
                   label !== question.answer.otherChoiceKey

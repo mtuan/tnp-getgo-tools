@@ -120,6 +120,12 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:quiz:source-pdf:open", manifestPath) as Promise<void>,
   readQuizSourcePdf: (manifestPath) =>
     ipcRenderer.invoke("content-v2:quiz:source-pdf:read", manifestPath) as Promise<Uint8Array>,
+  ensureQuizSourceExtraction: (manifestPath) =>
+    ipcRenderer.invoke("content-v2:quiz:source-extract:ensure", manifestPath),
+  readQuizSourceExtractImage: (manifestPath, asset) =>
+    ipcRenderer.invoke("content-v2:quiz:source-extract:image:read", manifestPath, asset) as Promise<string>,
+  replaceQuizAssetFromSourceExtract: (manifestPath, targetReference, asset) =>
+    ipcRenderer.invoke("content-v2:quiz:source-extract:image:replace", manifestPath, targetReference, asset),
   openContentSource: (src, ownerPath) =>
     ipcRenderer.invoke("content-v2:source:open", src, ownerPath) as Promise<void>,
   loadContentV2Question: (topicId, quizId, questionId) =>

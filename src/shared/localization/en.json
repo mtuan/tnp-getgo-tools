@@ -92,12 +92,23 @@
     "tab": "Compare",
     "generateOriginal": "Generate original question",
     "generateQuestion": "Generate another question",
+    "editQuestion": "Edit question",
     "questionLabel": "Question {number}",
     "pdfTitle": "Source PDF",
     "loading": "Preparing comparison",
     "empty": "This quiz has no questions.",
     "pdfUnavailable": "The source PDF could not be displayed.",
-    "questionFailed": "This question could not be generated."
+    "questionFailed": "This question could not be generated.",
+    "imagePicker": {
+      "title": "Choose an image from the source PDF",
+      "loading": "Extracting PDF text and images",
+      "empty": "No embedded images were found in this PDF.",
+      "select": "Use image",
+      "cancel": "Cancel",
+      "page": "Page {page}",
+      "imageLabel": "Choose {id} from page {page}",
+      "replaceFailed": "The question image could not be updated."
+    }
   },
   "marketplaceManager": {
     "tab": "Marketplace",

@@ -6,7 +6,6 @@ import {
   loadContentV2Quiz,
   loadContentV2Topic,
   reconcileContentV2GuestPreview,
-  resolveContentV2QuizSourcePdf,
   saveContentV2Question,
   saveContentV2Quiz,
   saveContentV2Topic,
@@ -16,6 +15,7 @@ import { parseMarketplaceTopicState } from "./marketplace-sync.js";
 import { applyMarketplaceAccessManagement, setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
 import { contentTopicsRoot } from "../repository/content-source.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
+import { ensureQuizSourceExtraction, readQuizSourceExtractImage, replaceQuizAssetFromSourceExtract, resolveQuizSourcePdfPath } from "./pdf-source-extraction.js";
 
 interface Dependencies { repositoryRoot(): Promise<string> }
 const idPattern = /^[a-z][a-z0-9_-]*$/;
@@ -26,26 +26,8 @@ function validId(value: unknown, label: string): string {
 }
 
 export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: Dependencies): void {
-  const sourcePdfPath = async (manifestPathValue: unknown): Promise<string> => {
-    if (typeof manifestPathValue !== "string" || !path.isAbsolute(manifestPathValue) || !["manifest.json", "quiz.json"].includes(path.basename(manifestPathValue)))
-      throw new Error("Invalid quiz path.");
-    const root = await repositoryRoot();
-    const repositoryRelative = path.relative(root, manifestPathValue);
-    if (repositoryRelative.startsWith("..") || path.isAbsolute(repositoryRelative))
-      throw new Error("Quiz is outside the selected repository.");
-    if (path.basename(manifestPathValue) === "manifest.json") {
-      const sourcePdf = path.join(path.dirname(manifestPathValue), "source.pdf");
-      await fs.access(sourcePdf).catch(() => { throw new Error("This quiz does not have a source PDF."); });
-      return sourcePdf;
-    }
-    const relative = path.relative(contentTopicsRoot(root), manifestPathValue);
-    const parts = relative.split(path.sep);
-    if (relative.startsWith("..") || path.isAbsolute(relative) || parts.length !== 4 || parts[1] !== "quizzes" || parts[3] !== "quiz.json")
-      throw new Error("Quiz is outside the selected repository.");
-    const sourcePdf = await resolveContentV2QuizSourcePdf(root, validId(parts[0], "topic ID"), validId(parts[2], "quiz ID"));
-    if (!sourcePdf) throw new Error("This quiz does not have a source PDF.");
-    return sourcePdf;
-  };
+  const sourcePdfPath = (manifestPathValue: unknown) =>
+    repositoryRoot().then((root) => resolveQuizSourcePdfPath(root, manifestPathValue));
 
   ipcMain.handle("content-v2:source:open", async (_event, srcValue: unknown, ownerPathValue: unknown) => {
     if (typeof srcValue !== "string" || !srcValue.trim() || srcValue.length > 8192)
@@ -86,6 +68,15 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
       throw new Error("The quiz source PDF is invalid.");
     return new Uint8Array(data);
   });
+
+  ipcMain.handle("content-v2:quiz:source-extract:ensure", async (_event, manifestPathValue: unknown) =>
+    ensureQuizSourceExtraction(await repositoryRoot(), manifestPathValue));
+
+  ipcMain.handle("content-v2:quiz:source-extract:image:read", async (_event, manifestPathValue: unknown, assetValue: unknown) =>
+    readQuizSourceExtractImage(await repositoryRoot(), manifestPathValue, assetValue));
+
+  ipcMain.handle("content-v2:quiz:source-extract:image:replace", async (_event, manifestPathValue: unknown, targetReference: unknown, assetValue: unknown) =>
+    replaceQuizAssetFromSourceExtract(await repositoryRoot(), manifestPathValue, targetReference, assetValue));
 
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) =>
     saveContentV2Topic(await repositoryRoot(), value));

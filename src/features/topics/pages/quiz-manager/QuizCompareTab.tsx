@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { History, Zap } from "lucide-react";
+import { History, Pencil, Zap } from "lucide-react";
 import type { ContestQuizQuestionRecord } from "../../../../shared/domain/models";
 import * as ui from "../../../../shared/ui";
 import { questionService, type GeneratedQuestion } from "../../../quiz-editor/components/question-service";
+import { PdfExtractedImagePickerDialog, type PdfImagePickerCopy } from "./PdfExtractedImagePickerDialog";
 
 type CompareMode = "original" | "dynamic";
 type CompareCopy = {
   generateOriginal: string;
   generateQuestion: string;
+  editQuestion: string;
   questionLabel: string;
   pdfTitle: string;
   loading: string;
   empty: string;
   pdfUnavailable: string;
   questionFailed: string;
+  imagePicker: PdfImagePickerCopy;
 };
 type PreviewResult = {
   record: ContestQuizQuestionRecord;
@@ -40,16 +43,19 @@ export function QuizCompareTab({
   questions,
   sharedCode = "",
   copy,
+  onEditQuestion,
 }: {
   manifestPath: string;
   questions: ContestQuizQuestionRecord[];
   sharedCode?: string;
   copy: CompareCopy;
+  onEditQuestion: (record: ContestQuizQuestionRecord) => void;
 }) {
   const [previews, setPreviews] = useState<PreviewResult[] | null>(null);
   const [pendingModes, setPendingModes] = useState<Record<string, CompareMode | undefined>>({});
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [imageTarget, setImageTarget] = useState<string | null>(null);
   const generationVersions = useRef(new Map<string, number>());
   const sortedQuestions = useMemo(
     () => [...questions].sort((left, right) => Number(left.question_no) - Number(right.question_no)),
@@ -139,6 +145,14 @@ export function QuizCompareTab({
                     <span className="question-preview-actions">
                       <ui.Button
                         variant="icon"
+                        color="primary"
+                        title={copy.editQuestion}
+                        aria-label={copy.editQuestion}
+                        icon={<Pencil size={16} />}
+                        onClick={() => onEditQuestion(preview.record)}
+                      />
+                      <ui.Button
+                        variant="icon"
                         title={copy.generateOriginal}
                         aria-label={copy.generateOriginal}
                         icon={<History size={16} />}
@@ -166,6 +180,8 @@ export function QuizCompareTab({
                       manifestPath={manifestPath}
                       choiceLayout="horizontal"
                       density="compact"
+                      onImageClick={setImageTarget}
+                      imageActionLabel={copy.imagePicker.title}
                     />
                   )}
                 </article>
@@ -185,6 +201,14 @@ export function QuizCompareTab({
           )}
         </div>
       </section>
+      {imageTarget && (
+        <PdfExtractedImagePickerDialog
+          manifestPath={manifestPath}
+          targetReference={imageTarget}
+          copy={copy.imagePicker}
+          onClose={() => setImageTarget(null)}
+        />
+      )}
     </div>
   );
 }
