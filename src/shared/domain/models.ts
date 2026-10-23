@@ -1060,7 +1060,7 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
     manifestPath: string,
     questionNo: number | string,
   ): Promise<void>;
-  openQuizSourcePdf(manifestPath: string): Promise<void>;
+  openQuizSourcePdf(manifestPath: string): Promise<void>; readQuizSourcePdf(manifestPath: string): Promise<Uint8Array>;
   readQuizAsset(manifestPath: string, assetReference: string): Promise<string>;
   saveQuizAsset(manifestPath: string, suggestedName: string, dataUrl: string): Promise<{ reference: string; preview: string }>;
   readQuizSource(manifestPath: string): Promise<string>;

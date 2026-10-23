@@ -1,5 +1,5 @@
 import { CheckCheck, ExternalLink, FolderOpen, ListOrdered, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
-import type { QuizSummary } from "../../../../shared/domain/models";
+import type { ContestQuizQuestionRecord, QuizSummary } from "../../../../shared/domain/models";
 import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { Button } from "../../../../shared/ui/Button";
 import { PageHeader } from "../../../../shared/ui/PageHeader";
@@ -15,8 +15,10 @@ import en from "../../../../shared/localization/en.json";
 import vi from "../../../../shared/localization/vi.json";
 import { effectiveQuizReviewCounts, QuestionOrderActions, type QuestionListItem, type QuizDetailTab } from "./shared";
 import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
+import { QuizCompareTab } from "./QuizCompareTab";
 
 type QuizOverviewContext = Record<string, any> & {
+  questionRecords: import("../../../../shared/domain/models").QuizQuestionRecord[];
   questions: QuestionListItem[];
   displayedQuestions: QuestionListItem[];
   questionColumns: DataColumn<QuestionListItem>[];
@@ -40,6 +42,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     questionColumns,
     questionOrder,
     questionOrderDirty,
+    questionRecords,
     questions,
     quiz,
     quizContest,
@@ -62,6 +65,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     verifiedCount,
   } = context;
   const marketplaceCopy = (locale === "vi" ? vi : en).marketplaceManager;
+  const compareCopy = (locale === "vi" ? vi : en).quizCompare;
   const contentQuiz = snapshot.contentV2.quizzes.find(
     (item: { topicId: string; id: string }) =>
       item.topicId === quiz.contest && item.id === quiz.id,
@@ -159,7 +163,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                   }}
                 >
                   Delete quiz
-                </Button> : quizTab === "dictionary" ? null : questionOrder ? (
+                </Button> : quizTab === "dictionary" || quizTab === "compare" ? null : questionOrder ? (
               <QuestionOrderActions
                 dirty={questionOrderDirty}
                 busy={Boolean(buttonAction)}
@@ -275,7 +279,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
         />
         <Tabs<QuizDetailTab>
           variant="underline"
-          className="contest-detail-tabs"
+          className={`contest-detail-tabs${quizTab === "compare" ? " is-compare" : ""}`}
           ariaLabel="Quiz detail"
           value={quizTab}
           onChange={setQuizTab}
@@ -291,6 +295,9 @@ export function renderQuizOverview(context: QuizOverviewContext) {
                     label: "Alphabets",
                   }
                 : null,
+            quiz.type === "contest" && quiz.hasSourcePdf
+              ? { id: "compare" as const, label: compareCopy.tab }
+              : null,
             { id: "info" as const, label: "Info" },
             quiz.relativePath.startsWith("content-v2/") &&
             quiz.type === "contest"
@@ -358,6 +365,14 @@ export function renderQuizOverview(context: QuizOverviewContext) {
             onSnapshotChange={onSnapshotChange}
             onQuizChange={(updated) => setPage({ kind: "quiz", quiz: updated })}
             notify={(title, description, error) => toast.show({ title, description, ...(error ? { variant: "error" } : {}) })}
+          />
+        )}
+        {quizTab === "compare" && quiz.type === "contest" && quiz.hasSourcePdf && (
+          <QuizCompareTab
+            manifestPath={quiz.manifestPath}
+            questions={questionRecords as ContestQuizQuestionRecord[]}
+            sharedCode={quiz.sharedCode}
+            copy={compareCopy}
           />
         )}
         {quizTab === "questions" && (

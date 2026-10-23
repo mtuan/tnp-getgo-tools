@@ -88,6 +88,17 @@
     "clearedDescription": "Deleted {count} reviews from Firebase.",
     "clearFailed": "Could not clear reviews"
   },
+  "quizCompare": {
+    "tab": "Compare",
+    "generateOriginal": "Generate original question",
+    "generateQuestion": "Generate another question",
+    "questionLabel": "Question {number}",
+    "pdfTitle": "Source PDF",
+    "loading": "Preparing comparison",
+    "empty": "This quiz has no questions.",
+    "pdfUnavailable": "The source PDF could not be displayed.",
+    "questionFailed": "This question could not be generated."
+  },
   "marketplaceManager": {
     "tab": "Marketplace",
     "loadingTopics": "Loading topics",

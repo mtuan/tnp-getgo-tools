@@ -88,6 +88,17 @@
     "clearedDescription": "Đã xóa {count} đánh giá khỏi Firebase.",
     "clearFailed": "Không thể xóa đánh giá"
   },
+  "quizCompare": {
+    "tab": "Đối chiếu",
+    "generateOriginal": "Tạo câu hỏi gốc",
+    "generateQuestion": "Tạo câu hỏi khác",
+    "questionLabel": "Câu hỏi {number}",
+    "pdfTitle": "PDF nguồn",
+    "loading": "Đang chuẩn bị nội dung đối chiếu",
+    "empty": "Bộ câu hỏi này chưa có câu hỏi.",
+    "pdfUnavailable": "Không thể hiển thị PDF nguồn.",
+    "questionFailed": "Không thể tạo câu hỏi này."
+  },
   "marketplaceManager": {
     "tab": "Kho nội dung",
     "loadingTopics": "Đang tải chủ đề",

@@ -472,6 +472,7 @@ export function renderQuizPage(context: QuizPageContext) {
       questionColumns,
       questionOrder,
       questionOrderDirty,
+      questionRecords,
       questions,
       quiz,
       quizContest,

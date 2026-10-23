@@ -13,7 +13,7 @@ import {
   originParamsValueFromEditor,
   quizSharedEditorContext,
 } from "../src/features/quiz-editor/domain/question-dynamics"
-import type { QuizQuestionRecord } from "../src/shared/domain/models"
+import type { ContestQuizQuestionRecord, QuizQuestionRecord } from "../src/shared/domain/models"
 
 const question = (fixed: boolean): QuizQuestionRecord => ({
   question_no: 1,
@@ -25,6 +25,30 @@ test("question service preserves fixed static choice order", () => {
   const generated = questionService.loadStatic(question(true), true)
   assert.deepEqual(Object.values(generated.question.answer.choices ?? {}), ["correct", "second", "third"])
   assert.equal(generated.question.answer.correct, "A")
+})
+
+test("reference previews can use the dynamic source's original parameters", async () => {
+  const source = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({ value: 9 })",
+      questionGeneratorTs: "({ value }: __GetGoParams) => ({ question_no: 1, text_en: String(value), answer: QB.answer.input(value) })",
+      originParamsTs: "{ value: 4 }",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as ContestQuizQuestionRecord
+  const reference = {
+    question_no: 2,
+    authoringMode: "reference",
+    reference: { questionNo: 1 },
+    text_en: "Reference",
+    answer: { type: "input", correct: "" },
+  } as ContestQuizQuestionRecord
+
+  const generated = await questionService.generateReference(reference, [source, reference], "", true)
+  assert.equal(generated.question.text_en, "4")
+  assert.equal(generated.question.question_no, 2)
 })
 
 test("preview choice formatter restores QB scope", () => {

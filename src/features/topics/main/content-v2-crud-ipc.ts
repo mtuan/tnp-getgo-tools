@@ -26,6 +26,27 @@ function validId(value: unknown, label: string): string {
 }
 
 export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: Dependencies): void {
+  const sourcePdfPath = async (manifestPathValue: unknown): Promise<string> => {
+    if (typeof manifestPathValue !== "string" || !path.isAbsolute(manifestPathValue) || !["manifest.json", "quiz.json"].includes(path.basename(manifestPathValue)))
+      throw new Error("Invalid quiz path.");
+    const root = await repositoryRoot();
+    const repositoryRelative = path.relative(root, manifestPathValue);
+    if (repositoryRelative.startsWith("..") || path.isAbsolute(repositoryRelative))
+      throw new Error("Quiz is outside the selected repository.");
+    if (path.basename(manifestPathValue) === "manifest.json") {
+      const sourcePdf = path.join(path.dirname(manifestPathValue), "source.pdf");
+      await fs.access(sourcePdf).catch(() => { throw new Error("This quiz does not have a source PDF."); });
+      return sourcePdf;
+    }
+    const relative = path.relative(contentTopicsRoot(root), manifestPathValue);
+    const parts = relative.split(path.sep);
+    if (relative.startsWith("..") || path.isAbsolute(relative) || parts.length !== 4 || parts[1] !== "quizzes" || parts[3] !== "quiz.json")
+      throw new Error("Quiz is outside the selected repository.");
+    const sourcePdf = await resolveContentV2QuizSourcePdf(root, validId(parts[0], "topic ID"), validId(parts[2], "quiz ID"));
+    if (!sourcePdf) throw new Error("This quiz does not have a source PDF.");
+    return sourcePdf;
+  };
+
   ipcMain.handle("content-v2:source:open", async (_event, srcValue: unknown, ownerPathValue: unknown) => {
     if (typeof srcValue !== "string" || !srcValue.trim() || srcValue.length > 8192)
       throw new Error("Invalid content source.");
@@ -53,27 +74,17 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
   });
 
   ipcMain.handle("content-v2:quiz:source-pdf:open", async (_event, manifestPathValue: unknown) => {
-    if (typeof manifestPathValue !== "string" || !path.isAbsolute(manifestPathValue) || !["manifest.json", "quiz.json"].includes(path.basename(manifestPathValue)))
-      throw new Error("Invalid quiz path.");
-    const root = await repositoryRoot();
-    const repositoryRelative = path.relative(root, manifestPathValue);
-    if (repositoryRelative.startsWith("..") || path.isAbsolute(repositoryRelative))
-      throw new Error("Quiz is outside the selected repository.");
-    if (path.basename(manifestPathValue) === "manifest.json") {
-      const sourcePdf = path.join(path.dirname(manifestPathValue), "source.pdf");
-      await fs.access(sourcePdf).catch(() => { throw new Error("This quiz does not have a source PDF."); });
-      const error = await shell.openPath(sourcePdf);
-      if (error) throw new Error(error);
-      return;
-    }
-    const relative = path.relative(contentTopicsRoot(root), manifestPathValue);
-    const parts = relative.split(path.sep);
-    if (relative.startsWith("..") || path.isAbsolute(relative) || parts.length !== 4 || parts[1] !== "quizzes" || parts[3] !== "quiz.json")
-      throw new Error("Quiz is outside the selected repository.");
-    const sourcePdf = await resolveContentV2QuizSourcePdf(root, validId(parts[0], "topic ID"), validId(parts[2], "quiz ID"));
-    if (!sourcePdf) throw new Error("This quiz does not have a source PDF.");
+    const sourcePdf = await sourcePdfPath(manifestPathValue);
     const error = await shell.openPath(sourcePdf);
     if (error) throw new Error(error);
+  });
+
+  ipcMain.handle("content-v2:quiz:source-pdf:read", async (_event, manifestPathValue: unknown) => {
+    const sourcePdf = await sourcePdfPath(manifestPathValue);
+    const data = await fs.readFile(sourcePdf);
+    if (data.length < 5 || data.subarray(0, 5).toString("ascii") !== "%PDF-")
+      throw new Error("The quiz source PDF is invalid.");
+    return new Uint8Array(data);
   });
 
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) =>

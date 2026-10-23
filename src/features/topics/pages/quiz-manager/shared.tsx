@@ -137,7 +137,7 @@ export type ManagerPage =
   | { kind: "contest"; contest: string }
   | { kind: "quiz"; quiz: QuizSummary };
 export type QuizDetailTab =
-  "questions" | "alphabets" | "dictionary" | "info" | "code";
+  "questions" | "compare" | "alphabets" | "dictionary" | "info" | "code";
 export type ContestDetailTab =
   "info" | "quizzes" | "reviews" | "dictionaries" | "assets";
 
@@ -344,7 +344,7 @@ export function restoredPage(
         : "info";
   const requestedQuizTab = isQuestionRoute ? null : url.searchParams.get("tab");
   let quizTab: QuizDetailTab =
-    requestedQuizTab === "info" || requestedQuizTab === "code"
+    requestedQuizTab === "info" || requestedQuizTab === "code" || requestedQuizTab === "compare"
       ? requestedQuizTab
       : "questions";
   const contest = snapshot.contests.find(
@@ -377,8 +377,10 @@ export function restoredPage(
       alphabetTab,
       quizTab,
     };
-  if (quizTab !== "info" && quizTab !== "code")
+  if (quizTab !== "info" && quizTab !== "code" && quizTab !== "compare")
     quizTab = quiz.type === "alphabet" ? "alphabets" : "questions";
+  if (quizTab === "compare" && (quiz.type !== "contest" || !quiz.hasSourcePdf))
+    quizTab = "questions";
   const requestedQuestionNo = isQuestionRoute ? parts[questionIndex] : null;
   const v2Question = requestedQuestionNo
     ? snapshot.contentV2.questions.find(

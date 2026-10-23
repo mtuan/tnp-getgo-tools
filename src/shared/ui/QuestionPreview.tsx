@@ -155,6 +155,8 @@ type QuestionPreviewProps = {
   generationPerformance?: GenerationPerformance;
   manifestPath: string;
   supportedLanguages?: Array<"en" | "vi">;
+  choiceLayout?: "vertical" | "horizontal";
+  density?: "comfortable" | "compact";
 };
 
 class QuestionPreviewErrorBoundary extends Component<{
@@ -196,6 +198,8 @@ function QuestionPreviewContent({
   generationPerformance,
   manifestPath,
   supportedLanguages = ["en", "vi"],
+  choiceLayout = "vertical",
+  density = "comfortable",
 }: QuestionPreviewProps) {
   const indexedPartText = (value: unknown, index: number) => {
     const text = questionText(value).replace(/^\s*(?:[a-z]|\d+)[.)]\s*/i, "");
@@ -217,7 +221,7 @@ function QuestionPreviewContent({
     (showEnglish && englishExplanation.trim().length > 0) ||
     (showVietnamese && vietnameseExplanation.trim().length > 0);
   return (
-    <div className="question-preview">
+    <div className={`question-preview is-choice-layout-${choiceLayout} is-density-${density}`}>
       <div className="question-preview-content">
         <LocalizedPreviewText
           textEn={question.text_en}

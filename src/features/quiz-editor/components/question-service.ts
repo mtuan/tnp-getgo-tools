@@ -628,7 +628,7 @@ class QuestionService {
   async generateReference(
     record: ContestQuizQuestionRecord,
     questions: ContestQuizQuestionRecord[],
-    quizSharedCode = "",
+    quizSharedCode = "", original = false,
   ): Promise<GeneratedQuestion> {
     if (record.authoringMode !== "reference" || !record.reference)
       throw new Error("Select a referenced question first.");
@@ -648,8 +648,8 @@ class QuestionService {
     if (!target)
       throw new Error(`Referenced question ${record.reference.questionNo} was not found.`);
     const generated = target.advancedDynamic
-      ? await this.generateDynamic(target, false, quizSharedCode)
-      : this.loadStatic(target, true);
+      ? await this.generateDynamic(target, original, quizSharedCode)
+      : this.loadStatic(target, !original);
     return {
       ...generated,
       question: {
