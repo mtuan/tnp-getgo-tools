@@ -139,6 +139,9 @@ export function QuizManager({
   });
   const [quizTab, setQuizTab] = useState<QuizDetailTab>(restored.quizTab);
   const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null);
+  const [compareQuestionIndex, setCompareQuestionIndex] = useState(0);
+  const compareQuizKey = page.kind === "quiz" ? page.quiz.key : null;
+  useEffect(() => setCompareQuestionIndex(0), [compareQuizKey]);
   const [questionRecords, setQuestionRecords] = useState<QuizQuestionRecord[]>(
     [],
   );
@@ -623,6 +626,7 @@ export function QuizManager({
       alphabetEditorTab,
       backToQuestions,
       buttonAction,
+      compareQuestionIndex,
       contestRoute,
       draftMatchesSelection,
       goBack,
@@ -649,6 +653,7 @@ export function QuizManager({
       selectedQuestion,
       sharedCodeDrawerOpen,
       setAlphabetEditorTab,
+      setCompareQuestionIndex,
       setPage,
       setPendingQuestionNo,
       setPreviewQuestion,

@@ -15,7 +15,7 @@ import { parseMarketplaceTopicState } from "./marketplace-sync.js";
 import { applyMarketplaceAccessManagement, setContentV2MarketplaceState } from "./content-v2-marketplace-batch.js";
 import { contentTopicsRoot } from "../repository/content-source.js";
 import { withQuestionAssetDimensions } from "./question-asset-dimensions.js";
-import { ensureQuizSourceExtraction, readQuizSourceExtractImage, replaceQuizAssetFromSourceExtract, resolveQuizSourcePdfPath } from "./pdf-source-extraction.js";
+import { addQuizAssetFromSourceExtract, ensureQuizSourceExtraction, readQuizSourceExtractImage, replaceQuizAssetFromSourceExtract, resolveQuizSourcePdfPath } from "./pdf-source-extraction.js";
 
 interface Dependencies { repositoryRoot(): Promise<string> }
 const idPattern = /^[a-z][a-z0-9_-]*$/;
@@ -77,6 +77,9 @@ export function registerContentV2CrudIpc(ipcMain: IpcMain, { repositoryRoot }: D
 
   ipcMain.handle("content-v2:quiz:source-extract:image:replace", async (_event, manifestPathValue: unknown, targetReference: unknown, assetValue: unknown) =>
     replaceQuizAssetFromSourceExtract(await repositoryRoot(), manifestPathValue, targetReference, assetValue));
+
+  ipcMain.handle("content-v2:quiz:source-extract:image:add", async (_event, manifestPathValue: unknown, assetValue: unknown) =>
+    addQuizAssetFromSourceExtract(await repositoryRoot(), manifestPathValue, assetValue));
 
   ipcMain.handle("content-v2:topic:save", async (_event, value: unknown) =>
     saveContentV2Topic(await repositoryRoot(), value));

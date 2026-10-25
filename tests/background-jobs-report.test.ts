@@ -51,6 +51,25 @@ test("AI generation reports one real task for every selected question", () => {
   ]);
 });
 
+test("topic AI generation reports one measured task for every quiz", () => {
+  const first = createJobTask("quiz-paper-a", "Paper A 2018");
+  const second = createJobTask("quiz-paper-b", "Paper B 2018");
+  startJobTask(first, "2026-01-01T00:00:01.000Z");
+  finishJobTask(first, "completed", ["12 generated · 1 skipped"], "2026-01-01T00:02:01.000Z");
+  startJobTask(second, "2026-01-01T00:02:01.000Z");
+  const report = createAiQuestionJobReport({
+    id: "ai-topic-1", scope: "topic", contestId: "seamo", quizId: "", quizTitle: "SEAMO",
+    manifestPath: "/topic.json", context: { jobTasks: [first, second] }, status: "running",
+    total: 2, processed: 1, succeeded: 1, failed: 0, skippedImages: 0, skippedVerified: 0,
+    currentQuestion: "Paper B 2018 · Question 3", errors: [], createdAt: "2026-01-01T00:00:00.000Z",
+    startedAt: "2026-01-01T00:00:01.000Z",
+  });
+  assert.deepEqual(report.steps.map(step => [step.label, step.status, step.durationMs]), [
+    ["Paper A 2018", "completed", 120_000],
+    ["Paper B 2018", "running", undefined],
+  ]);
+});
+
 test("AI generation never presents a partial terminal job as fully completed", () => {
   const report = createAiQuestionJobReport({
     id: "ai-2", contestId: "seamo", quizId: "paper-a", quizTitle: "Paper A",

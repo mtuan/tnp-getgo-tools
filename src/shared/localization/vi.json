@@ -93,6 +93,7 @@
     "generateOriginal": "Tạo câu hỏi gốc",
     "generateQuestion": "Tạo câu hỏi khác",
     "editQuestion": "Chỉnh sửa câu hỏi",
+    "addImage": "Thêm hình ảnh từ PDF nguồn",
     "questionLabel": "Câu hỏi {number}",
     "pdfTitle": "PDF nguồn",
     "loading": "Đang chuẩn bị nội dung đối chiếu",
@@ -101,17 +102,23 @@
     "questionFailed": "Không thể tạo câu hỏi này.",
     "imagePicker": {
       "title": "Chọn hình ảnh từ PDF nguồn",
+      "addTitle": "Chọn các hình ảnh từ PDF nguồn",
       "loading": "Đang trích xuất văn bản và hình ảnh PDF",
       "empty": "Không tìm thấy hình ảnh nhúng trong PDF này.",
       "select": "Dùng hình ảnh",
+      "selectMultiple": "Thêm hình ảnh đã chọn",
       "cancel": "Hủy",
       "page": "Trang {page}",
       "imageLabel": "Chọn {id} từ trang {page}",
-      "replaceFailed": "Không thể cập nhật hình ảnh câu hỏi."
+      "replaceFailed": "Không thể cập nhật hình ảnh câu hỏi.",
+      "addFailed": "Không thể thêm hình ảnh vào câu hỏi."
     }
   },
   "quizBulkAi": {
     "action": "Tạo bằng AI",
+    "topicAction": "Tạo tất cả bài thi bằng AI",
+    "topicQueued": "Đã thêm tác vụ tạo AI cho chủ đề",
+    "topicQueuedDescription": "Đang tạo các câu hỏi phù hợp trong {count} bài thi. Bạn có thể theo dõi tiến độ trong Công việc.",
     "progress": "Đang tạo {done}/{total}",
     "queued": "Đã thêm tác vụ tạo bằng AI",
     "queuedDescription": "Đang tạo lần lượt {count} câu hỏi. Bạn có thể theo dõi tiến độ trong Công việc.",

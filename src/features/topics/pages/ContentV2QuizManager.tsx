@@ -323,6 +323,7 @@ export function ContentV2QuizManager(props: Props) {
       getAiMigrationJobs: window.getgo.getAiMigrationJobs,
       migrateLegacyQuizzes: async () => ({ snapshot: managerSnapshot, migratedQuizIds: [], failures: [] }),
       startAiMigrationJob: window.getgo.startAiMigrationJob,
+      startTopicAiMigrationJob: window.getgo.startTopicAiMigrationJob,
       showInFolder: window.getgo.showInFolder,
       showQuizQuestionInFolder: async (manifestPath, number) => {
         const quiz = findQuiz(props.snapshot, manifestPath);

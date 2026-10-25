@@ -1,6 +1,7 @@
 import {
   QuizTsService,
   createDynamicQuestionBuildService,
+  questionHasDynamicParams,
 } from "@tnp/getgo-logics/authoring";
 import {
   QuizBuilder,
@@ -647,7 +648,7 @@ class QuestionService {
     }
     if (!target)
       throw new Error(`Referenced question ${record.reference.questionNo} was not found.`);
-    const generated = target.advancedDynamic
+    const generated = questionHasDynamicParams(target.advancedDynamic)
       ? await this.generateDynamic(target, original, quizSharedCode)
       : this.loadStatic(target, !original);
     return {

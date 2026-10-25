@@ -73,6 +73,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
     updateQuestionDraft,
   } = context;
     if (activeQuestion) {
+      const statusRecord = questionDraftRecord ?? activeQuestion.record;
       const questionHasChanges =
         draftMatchesSelection &&
         JSON.stringify(comparableQuestion(questionDraftRecord)) !==
@@ -574,7 +575,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                       label: "Pending",
                       icon: CircleDashed,
                       trailingIcon:
-                        questionStatus(questionDraftRecord!) === "pending"
+                        questionStatus(statusRecord) === "pending"
                           ? Check
                           : undefined,
                       onSelect: () => void setQuestionReviewStatus("pending"),
@@ -584,7 +585,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                       label: "Reviewed",
                       icon: CircleCheck,
                       trailingIcon:
-                        questionStatus(questionDraftRecord!) === "verified"
+                        questionStatus(statusRecord) === "verified"
                           ? Check
                           : undefined,
                       onSelect: () => void setQuestionReviewStatus("verified"),
@@ -594,7 +595,7 @@ export function renderActiveQuestion(context: ActiveQuestionContext) {
                       label: "Rejected",
                       icon: CircleX,
                       trailingIcon:
-                        questionStatus(questionDraftRecord!) === "rejected"
+                        questionStatus(statusRecord) === "rejected"
                           ? Check
                           : undefined,
                       onSelect: () => void setQuestionReviewStatus("rejected"),

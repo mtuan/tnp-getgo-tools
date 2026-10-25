@@ -594,6 +594,7 @@ export type AiMigrationJobStatus =
   "queued" | "running" | "paused" | "completed" | "cancelled" | "failed";
 export interface AiMigrationJob {
   id: string;
+  scope?: "quiz" | "topic";
   contestId: string;
   quizId: string;
   quizTitle: string;
@@ -1145,6 +1146,10 @@ export interface DesktopApi extends StartupEnvironmentDesktopApi, AvatarSetDeskt
   startAiMigrationJob(input: {
     manifestPath: string;
     context: Record<string, unknown>;
+  }): Promise<AiMigrationJob>;
+  startTopicAiMigrationJob(input: {
+    topicId: string;
+    title: string;
   }): Promise<AiMigrationJob>;
   getAiMigrationJobs(): Promise<AiMigrationJobsSnapshot>;
   getBackgroundJobs(): Promise<BackgroundJobsSnapshot>;

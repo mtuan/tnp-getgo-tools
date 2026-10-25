@@ -111,6 +111,7 @@ export type QuizManagerApi = Pick<
   | "reorderQuizQuestions"
   | "createQuizQuestion"
   | "startAiMigrationJob"
+  | "startTopicAiMigrationJob"
   | "updateQuiz"
   | "deleteQuizQuestion"
   | "deleteContest"

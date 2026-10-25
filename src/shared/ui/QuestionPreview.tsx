@@ -55,6 +55,8 @@ export function PreviewAsset({
   );
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [sourceRevision, setSourceRevision] = useState(0);
+  const [renderedSize, setRenderedSize] = useState<{ width: number; height: number } | null>(null);
   const metadata = parseImageAssetReference(value);
   useEffect(() => {
     let active = true;
@@ -71,12 +73,18 @@ export function PreviewAsset({
       ) {
         setFailed(false);
         setLoaded(false);
+        setRenderedSize(null);
         setSource(detail.preview);
+        // Replacing an asset with the same image produces the same data URL.
+        // Remount the image so its load event fires again after resetting the
+        // loading state instead of leaving the preview spinner visible.
+        setSourceRevision((current) => current + 1);
       }
     };
     window.addEventListener("getgo:quiz-asset-updated", assetUpdated);
     setFailed(false);
     setLoaded(false);
+    setRenderedSize(null);
     if (value.startsWith("data:image/")) {
       setSource(value);
       return () => {
@@ -104,11 +112,24 @@ export function PreviewAsset({
         Could not load {value}
       </span>
     );
-  const style = metadata?.width && metadata.height
-    ? { width: `min(100%, ${metadata.width}px)`, aspectRatio: `${metadata.width} / ${metadata.height}` } as CSSProperties
+  const displaySize = renderedSize ?? metadata;
+  const style = displaySize?.width && displaySize.height
+    ? { width: `min(100%, ${displaySize.width}px)`, aspectRatio: `${displaySize.width} / ${displaySize.height}` } as CSSProperties
     : undefined;
   const content = <>
-    {source && <img src={source} alt={alt} className={loaded ? "is-loaded" : ""} onLoad={() => setLoaded(true)} />}
+    {source && <img
+      key={sourceRevision}
+      src={source}
+      alt={alt}
+      className={loaded ? "is-loaded" : ""}
+      onLoad={(event) => {
+        setRenderedSize({
+          width: event.currentTarget.naturalWidth,
+          height: event.currentTarget.naturalHeight,
+        });
+        setLoaded(true);
+      }}
+    />}
     {(!source || !loaded) && <span className="mini-spinner" aria-label={`Loading ${alt}`} />}
   </>;
   return onClick ? (

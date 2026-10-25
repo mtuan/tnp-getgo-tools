@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Trash2, Zap } from "lucide-react";
 import type { ContestQuizQuestionRecord } from "../../../shared/domain/models";
 import { questionService, type GeneratedQuestion } from "./question-service";
+import { questionHasDynamicParams } from "../domain/question-dynamics";
 import { Button } from "../../../shared/ui/Button";
 import { DialogFrame } from "../../../shared/ui/DialogFrame";
 import { ErrorFrame } from "../../../shared/ui/ErrorFrame";
@@ -36,7 +37,7 @@ export function QuestionListPreviewDrawer({
       setPreview(
         record.authoringMode === "reference"
           ? await questionService.generateReference(record, questions, quizSharedCode)
-          : record.advancedDynamic
+          : questionHasDynamicParams(record.advancedDynamic)
           ? await questionService.generateDynamic(record, false, quizSharedCode)
           : questionService.loadStatic(record, true, preview.question),
       );
@@ -48,7 +49,10 @@ export function QuestionListPreviewDrawer({
   };
 
   useEffect(() => {
-    if (record.advancedDynamic || record.authoringMode === "reference") void generate();
+    if (
+      questionHasDynamicParams(record.advancedDynamic) ||
+      record.authoringMode === "reference"
+    ) void generate();
   }, [record.question_no]);
 
   const remove = async () => {

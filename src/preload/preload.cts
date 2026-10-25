@@ -126,6 +126,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("content-v2:quiz:source-extract:image:read", manifestPath, asset) as Promise<string>,
   replaceQuizAssetFromSourceExtract: (manifestPath, targetReference, asset) =>
     ipcRenderer.invoke("content-v2:quiz:source-extract:image:replace", manifestPath, targetReference, asset),
+  addQuizAssetFromSourceExtract: (manifestPath, asset) =>
+    ipcRenderer.invoke("content-v2:quiz:source-extract:image:add", manifestPath, asset),
   openContentSource: (src, ownerPath) =>
     ipcRenderer.invoke("content-v2:source:open", src, ownerPath) as Promise<void>,
   loadContentV2Question: (topicId, quizId, questionId) =>
@@ -316,6 +318,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("ai:cancel-dynamic-question"),
   startAiMigrationJob: (input) =>
     ipcRenderer.invoke("ai-migration:start", input),
+  startTopicAiMigrationJob: (input) =>
+    ipcRenderer.invoke("ai-migration:topic:start", input),
   getAiMigrationJobs: () => ipcRenderer.invoke("ai-migration:list"),
   getBackgroundJobs: () => ipcRenderer.invoke("jobs:list"),
   startDeployment: (operation, component, target, product) =>

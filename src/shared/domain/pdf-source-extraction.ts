@@ -22,5 +22,9 @@ declare module "./models.js" {
       targetReference: string,
       asset: string,
     ): Promise<{ preview: string }>;
+    addQuizAssetFromSourceExtract(
+      manifestPath: string,
+      asset: string,
+    ): Promise<{ reference: string; preview: string }>;
   }
 }

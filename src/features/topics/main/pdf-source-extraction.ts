@@ -5,7 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { nativeImage } from "electron";
 import type { QuizSourceExtractImage, QuizSourceExtraction } from "../../../shared/domain/pdf-source-extraction.js";
-import { imageAssetPath } from "../../../shared/domain/image-asset-reference.js";
+import { imageAssetPath, imageAssetReference } from "../../../shared/domain/image-asset-reference.js";
 import { contentTopicsRoot } from "../repository/content-source.js";
 import { resolveContentV2QuizSourcePdf } from "../repository/content-v2-repository.js";
 
@@ -63,27 +63,6 @@ function safeChild(root: string, relativePath: string, label: string): string {
 
 async function fileSha256(filePath: string): Promise<string> {
   return createHash("sha256").update(await fs.readFile(filePath)).digest("hex");
-}
-
-function fitImageToCanvas(image: Electron.NativeImage, width: number, height: number, opaque: boolean): Electron.NativeImage {
-  const sourceSize = image.getSize();
-  const scale = Math.min(width / sourceSize.width, height / sourceSize.height);
-  const resized = image.resize({
-    width: Math.max(1, Math.round(sourceSize.width * scale)),
-    height: Math.max(1, Math.round(sourceSize.height * scale)),
-    quality: "best",
-  });
-  const resizedSize = resized.getSize();
-  const canvas = Buffer.alloc(width * height * 4, opaque ? 255 : 0);
-  const bitmap = resized.toBitmap();
-  const left = Math.floor((width - resizedSize.width) / 2);
-  const top = Math.floor((height - resizedSize.height) / 2);
-  for (let row = 0; row < resizedSize.height; row += 1) {
-    const sourceStart = row * resizedSize.width * 4;
-    const targetStart = ((top + row) * width + left) * 4;
-    bitmap.copy(canvas, targetStart, sourceStart, sourceStart + resizedSize.width * 4);
-  }
-  return nativeImage.createFromBitmap(canvas, { width, height });
 }
 
 async function loadExtraction(sourcePdf: string, extractDirectory: string): Promise<QuizSourceExtraction> {
@@ -187,19 +166,8 @@ export async function replaceQuizAssetFromSourceExtract(root: string, manifestPa
   const sourceBytes = await fs.readFile(sourceAsset);
   const sourceExtension = path.extname(sourceAsset).toLowerCase();
   const targetExtension = path.extname(targetAsset).toLowerCase();
-  const existingSize = await fs.readFile(targetAsset)
-    .then((bytes) => nativeImage.createFromBuffer(bytes).getSize())
-    .catch(() => ({ width: 0, height: 0 }));
-  let image = nativeImage.createFromBuffer(sourceBytes);
+  const image = nativeImage.createFromBuffer(sourceBytes);
   if (image.isEmpty()) throw new Error("The selected extracted image is invalid.");
-  if (existingSize.width > 0 && existingSize.height > 0) {
-    image = fitImageToCanvas(
-      image,
-      existingSize.width,
-      existingSize.height,
-      targetExtension === ".jpg" || targetExtension === ".jpeg",
-    );
-  }
   let targetBytes: Buffer;
   if (targetExtension === ".png") targetBytes = image.toPNG();
   else if (targetExtension === ".jpg" || targetExtension === ".jpeg") targetBytes = image.toJPEG(95);
@@ -209,4 +177,32 @@ export async function replaceQuizAssetFromSourceExtract(root: string, manifestPa
   const mimeType = imageMimeTypes[targetExtension];
   if (!mimeType) throw new Error("The current question image format cannot be updated.");
   return { preview: `data:${mimeType};base64,${targetBytes.toString("base64")}` };
+}
+
+export async function addQuizAssetFromSourceExtract(
+  root: string,
+  manifestPath: unknown,
+  sourceAssetValue: unknown,
+): Promise<{ reference: string; preview: string }> {
+  if (typeof manifestPath !== "string" || typeof sourceAssetValue !== "string")
+    throw new Error("Invalid image selection.");
+  const sourcePdf = await resolveQuizSourcePdfPath(root, manifestPath);
+  const extractDirectory = path.join(path.dirname(sourcePdf), "source-extract");
+  const sourceAsset = safeChild(extractDirectory, sourceAssetValue, "extracted image path");
+  const extension = path.extname(sourceAsset).toLowerCase();
+  const mimeType = imageMimeTypes[extension];
+  if (!mimeType) throw new Error("This extracted image format cannot be added.");
+  const bytes = await fs.readFile(sourceAsset);
+  const image = nativeImage.createFromBuffer(bytes);
+  if (image.isEmpty())
+    throw new Error("The selected extracted image is invalid.");
+  const size = image.getSize();
+  const filename = `source-${createHash("sha256").update(bytes).digest("hex").slice(0, 16)}${extension}`;
+  const assetsDirectory = path.join(path.dirname(manifestPath), "assets");
+  await fs.mkdir(assetsDirectory, { recursive: true });
+  await fs.writeFile(path.join(assetsDirectory, filename), bytes);
+  return {
+    reference: imageAssetReference(filename, size.width, size.height),
+    preview: `data:${mimeType};base64,${bytes.toString("base64")}`,
+  };
 }

@@ -69,7 +69,8 @@ export function DeploymentJobReportDrawer({ locale, job, onClose }: { locale: Ap
       const hasMeasuredProgress = typeof step.completed === "number" && typeof step.total === "number" && step.total > 0;
       const percent = hasMeasuredProgress ? Math.min(100, Math.round((step.completed! / step.total!) * 100)) : step.status === "completed" ? 100 : 0;
       const indeterminate = step.status === "running" && !hasMeasuredProgress;
-      return <div className="deployment-report-task-progress"><progress max={100} {...(indeterminate ? {} : { value: percent })} /><small>{indeterminate ? copy.inProgress : step.status === "skipped" ? "—" : `${percent}%`}</small></div>;
+      const progressText = hasMeasuredProgress ? `${step.completed}/${step.total} · ${percent}%` : `${percent}%`;
+      return <div className="deployment-report-task-progress"><progress max={100} {...(indeterminate ? {} : { value: percent })} /><small>{indeterminate ? copy.inProgress : step.status === "skipped" ? "—" : progressText}</small></div>;
     } },
     { key: "duration", title: copy.duration, width: 100, align: "right", render: step => <span className="job-table-time">{duration(stepDuration(step, now))}</span> },
   ];

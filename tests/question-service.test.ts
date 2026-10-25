@@ -51,6 +51,30 @@ test("reference previews can use the dynamic source's original parameters", asyn
   assert.equal(generated.question.question_no, 2)
 })
 
+test("reference previews use static content when the source has no dynamic parameters", async () => {
+  const source = {
+    ...question(true),
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: {
+      paramsGeneratorTs: "() => ({})",
+      questionGeneratorTs: "() => ({ question_no: 1, text_en: 'Incorrect dynamic preview', answer: QB.answer.input('wrong') })",
+      originParamsTs: "{}",
+      explanationGeneratorTs: "() => ({})",
+    },
+  } as ContestQuizQuestionRecord
+  const reference = {
+    question_no: 2,
+    authoringMode: "reference",
+    reference: { questionNo: 1 },
+    text_en: "Reference",
+    answer: { type: "input", correct: "" },
+  } as ContestQuizQuestionRecord
+
+  const generated = await questionService.generateReference(reference, [source, reference])
+  assert.equal(generated.question.text_en, "Pick one")
+  assert.equal(generated.question.question_no, 2)
+})
+
 test("preview choice formatter restores QB scope", () => {
   const answer = {
     format: {

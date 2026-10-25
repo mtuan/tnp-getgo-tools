@@ -93,6 +93,7 @@
     "generateOriginal": "Generate original question",
     "generateQuestion": "Generate another question",
     "editQuestion": "Edit question",
+    "addImage": "Add image from source PDF",
     "questionLabel": "Question {number}",
     "pdfTitle": "Source PDF",
     "loading": "Preparing comparison",
@@ -101,17 +102,23 @@
     "questionFailed": "This question could not be generated.",
     "imagePicker": {
       "title": "Choose an image from the source PDF",
+      "addTitle": "Choose images from the source PDF",
       "loading": "Extracting PDF text and images",
       "empty": "No embedded images were found in this PDF.",
       "select": "Use image",
+      "selectMultiple": "Add selected images",
       "cancel": "Cancel",
       "page": "Page {page}",
       "imageLabel": "Choose {id} from page {page}",
-      "replaceFailed": "The question image could not be updated."
+      "replaceFailed": "The question image could not be updated.",
+      "addFailed": "The image could not be added to the question."
     }
   },
   "quizBulkAi": {
     "action": "Generate with AI",
+    "topicAction": "Generate all quizzes with AI",
+    "topicQueued": "Topic AI generation queued",
+    "topicQueuedDescription": "Generating eligible questions across {count} quizzes. You can follow progress in Jobs.",
     "progress": "Generating {done}/{total}",
     "queued": "AI generation queued",
     "queuedDescription": "Generating {count} questions one by one. You can follow progress in Jobs.",

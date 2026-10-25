@@ -3,6 +3,7 @@ import type { ContestQuizQuestionRecord, QuizSummary } from "../../../../shared/
 import { QuizCrudDialog } from "../../components/CrudDialogs";
 import { Button } from "../../../../shared/ui/Button";
 import { PageHeader } from "../../../../shared/ui/PageHeader";
+import { QuestionNavigator } from "../../../../shared/ui/QuestionNavigator";
 import { Tabs } from "../../../../shared/ui/Tabs";
 import { DataTable, type DataColumn } from "../../../../shared/ui/DataTable";
 import { ActionMenu } from "../../../../shared/ui/ActionMenu";
@@ -18,6 +19,8 @@ import { QuizSharedCodeTab } from "./QuizSharedCodeTab";
 import { QuizCompareTab } from "./QuizCompareTab";
 import { isBulkCodexQuestionCandidate, wasGeneratedByCurrentCodexSkill } from "../../../ai/domain/bulk-question-generation";
 import { AiGeneratedIndicator } from "../../components/AiGeneratedIndicator";
+import { withQuestionStatus } from "../../../quiz-editor/domain/question-status";
+import { imageAssetPath } from "../../../../shared/domain/image-asset-reference";
 
 type QuizOverviewContext = Record<string, any> & {
   questionRecords: import("../../../../shared/domain/models").QuizQuestionRecord[];
@@ -31,6 +34,7 @@ export function renderQuizOverview(context: QuizOverviewContext) {
   const {
     alphabetColumns,
     buttonAction,
+    compareQuestionIndex: requestedCompareQuestionIndex,
     contestRoute,
     createQuestion,
     displayedQuestions,
@@ -55,9 +59,11 @@ export function renderQuizOverview(context: QuizOverviewContext) {
     saveQuestionOrder,
     setPage,
     setContestTab,
+    setCompareQuestionIndex,
     setPendingQuestionNo,
     setQuestionDraftRecord,
     setQuestionOrder,
+    setQuestionRecords,
     setQuizTab,
     setSelectedQuestion,
     sourceError,
@@ -81,9 +87,14 @@ export function renderQuizOverview(context: QuizOverviewContext) {
   );
   const bulkAiCandidates = questionRecords.filter(isBulkCodexQuestionCandidate);
   const aiGeneratedCount = questionRecords.filter(wasGeneratedByCurrentCodexSkill).length;
+  const compareQuestionIndex = Math.min(
+    Math.max(Number(requestedCompareQuestionIndex) || 0, 0),
+    Math.max(questions.length - 1, 0),
+  );
     return (
       <section className="manager editor-page">
         <PageHeader
+          className={quizTab === "compare" ? "quiz-compare-page-header" : ""}
           eyebrow="Quiz detail"
           breadcrumbs={[
             {
@@ -115,6 +126,23 @@ export function renderQuizOverview(context: QuizOverviewContext) {
               />
             </>
           }
+          navigation={quizTab === "compare" && questions.length > 0 ? (
+            <QuestionNavigator
+              value={String(compareQuestionIndex)}
+              items={questions.map((question, index) => ({
+                value: String(index),
+                label: compareCopy.questionLabel.replace(
+                  "{number}",
+                  question.number,
+                ),
+                description: question.category === "—"
+                  ? undefined
+                  : question.category,
+                reviewed: question.reviewed,
+              }))}
+              onValueChange={(value) => setCompareQuestionIndex(Number(value))}
+            />
+          ) : undefined}
           actions={
             <>
               {contentQuiz && (
@@ -389,8 +417,30 @@ export function renderQuizOverview(context: QuizOverviewContext) {
           <QuizCompareTab
             manifestPath={quiz.manifestPath}
             questions={questionRecords as ContestQuizQuestionRecord[]}
+            activeQuestionNumber={questions[compareQuestionIndex]?.number}
             sharedCode={quiz.sharedCode}
             copy={compareCopy}
+            onAddImages={async (record, references) => {
+              const additions = new Map(references.map((reference) => [imageAssetPath(reference), reference]));
+              const imageDatas = ((record.image_datas ?? []) as string[]).map((reference) => {
+                const replacement = additions.get(imageAssetPath(reference));
+                if (!replacement) return reference;
+                additions.delete(imageAssetPath(reference));
+                return replacement;
+              });
+              imageDatas.push(...additions.values());
+              const saved = await managerApi.saveQuizQuestion(
+                quiz.manifestPath,
+                withQuestionStatus({ ...record, image_datas: imageDatas }, "pending"),
+              );
+              setQuestionRecords((current: ContestQuizQuestionRecord[]) =>
+                current.map((question) =>
+                  String(question.question_no) === String(saved.question_no)
+                    ? saved
+                    : question,
+                ),
+              );
+            }}
             onEditQuestion={(record) => {
               const index = questions.findIndex(
                 (question) => String(question.number) === String(record.question_no),

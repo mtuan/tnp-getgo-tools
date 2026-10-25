@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCheck, ExternalLink, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3, ShieldCheck, X } from "lucide-react";
+import { CheckCheck, ExternalLink, Eye, EyeOff, ListOrdered, Plus, RefreshCw, Rows3, ShieldCheck, Sparkles, X } from "lucide-react";
 import type { BackgroundJob, MarketplaceStateUpdateResult, MarketplaceSyncJobItem, RepositoryViewData } from "../../../../shared/domain/models";
 import { marketplaceTopicState, type MarketplaceTopicState } from "../../../../features/topics/domain/marketplace-topic-state";
 import * as ui from "../../../../shared/ui";
@@ -81,6 +81,7 @@ export function ManagerHeaderControls(context: Context) {
   const auth = useAuth();
   const { allLegacyQuizCount, buttonAction, headerStateControl, isContest, legacyQuizCount, locale, managerApi, migrateAllLegacyQuizzes, migrateLegacyQuizzes, onOpenJobs, onSnapshotChange, quizSearchQuery, runButtonAction, selectedContest, setContestDialog, setQuizDialog, setQuizSearchQuery, setTopicGrades, setTopicSearchQuery, setTopicsView, snapshot, toast, topicGradeOptions, topicGrades, topicMode, topicSearchQuery, topicsView } = context;
   const copy = (locale === "vi" ? vi : en).marketplaceManager;
+  const bulkAiCopy = (locale === "vi" ? vi : en).quizBulkAi;
   const selectedTopic = isContest
     ? snapshot.contentV2.topics.find((topic) => topic.id === selectedContest?.id)
     : undefined;
@@ -210,6 +211,22 @@ export function ManagerHeaderControls(context: Context) {
     if (!window.confirm(copy.syncTopicConfirm)) return;
     auth.requireAuth(() => void sync.start([{ kind: "topic", topicId }]));
   };
+  const generateTopicWithAi = () => {
+    const topicId = selectedContest?.id;
+    if (!topicId) return;
+    void runButtonAction("topic-ai-generate", async () => {
+      const job = await managerApi.startTopicAiMigrationJob({
+        topicId,
+        title: selectedContest.title,
+      });
+      toast.show({
+        title: bulkAiCopy.topicQueued,
+        description: bulkAiCopy.topicQueuedDescription.replace("{count}", String(job.total)),
+        variant: "success",
+        action: { label: copy.viewJob, onSelect: onOpenJobs },
+      });
+    });
+  };
   const syncReviews = () => {
     const topicId = selectedContest?.id;
     if (!topicId) return;
@@ -262,6 +279,7 @@ export function ManagerHeaderControls(context: Context) {
   const items: ui.ActionMenuItem[] = [
     ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),
     { id: "create", label: isContest ? "Create quiz" : "Create topic", icon: Plus, onSelect: () => isContest ? setQuizDialog("create") : setContestDialog("create") },
+    ...(isContest ? [{ id: "generate-topic-ai", label: bulkAiCopy.topicAction, icon: Sparkles, onSelect: generateTopicWithAi }] : []),
     ...(!isContest && allLegacyQuizCount > 0 ? [{ id: "migrate-all", label: `Migrate all ${allLegacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateAllLegacyQuizzes() }] : []),
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     { id: "separator-create", type: "separator" },

@@ -2957,6 +2957,7 @@ tbody tr:hover {
   color: #0f172a;
   background: #f8fafc;
   --getgo-accent: #4f46e5;
+  --getgo-accent-contrast: #ffffff;
   --getgo-accent-hover: #6366f1;
   --getgo-sidebar: #0f172a;
   --getgo-border: #e2e8f0;
@@ -4402,6 +4403,11 @@ tbody tr:hover {
 .contest-detail-tabs.is-compare {
   margin-bottom: 0;
 }
+.quiz-compare-page-header .ui-page-header-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
 .quiz-compare-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -4433,6 +4439,10 @@ tbody tr:hover {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
+}
+.quiz-compare-question.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent);
 }
 .quiz-compare-question-header {
   display: flex;
@@ -4509,12 +4519,28 @@ tbody tr:hover {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--getgo-accent) 20%, transparent);
 }
 .pdf-extracted-image-preview {
+  position: relative;
   display: grid;
   height: 124px;
   place-items: center;
   overflow: hidden;
   border-radius: 8px;
   background: var(--getgo-panel);
+}
+.pdf-extracted-image-order {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--getgo-accent-contrast);
+  background: var(--getgo-accent);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--getgo-accent) 30%, transparent);
 }
 .pdf-extracted-image-preview img {
   display: block;

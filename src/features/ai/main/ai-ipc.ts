@@ -55,6 +55,13 @@ export function registerAiIpc(ipcMain: IpcMain, localAi: LocalAiService, jobs: A
     if (typeof value.manifestPath !== "string" || !value.context || typeof value.context !== "object" || Array.isArray(value.context)) throw new Error("A quiz manifest and context are required.");
     return jobs.start(value as { manifestPath: string; context: Record<string, unknown> });
   });
+  ipcMain.handle("ai-migration:topic:start", (_event, input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("Invalid topic AI migration job.");
+    const value = input as Record<string, unknown>;
+    if (typeof value.topicId !== "string" || typeof value.title !== "string")
+      throw new Error("A topic ID and title are required.");
+    return jobs.startTopic({ topicId: value.topicId, title: value.title });
+  });
   ipcMain.handle("ai-migration:list", () => jobs.list());
   ipcMain.handle("ai-migration:concurrency", (_event, concurrency: unknown) => {
     if (typeof concurrency !== "number" || !Number.isInteger(concurrency)) throw new Error("Invalid job concurrency.");
