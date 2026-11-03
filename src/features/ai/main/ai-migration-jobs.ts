@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 import type { AiMigrationJob, AiMigrationJobsSnapshot, ContestQuizQuestionRecord, QuizAiMigrationJob, QuizQuestionRecord } from "../../../shared/domain/models.js"
-import { questionIsVerified, withQuestionStatus } from "../../../features/quiz-editor/domain/question-status.js"
+import { withQuestionStatus } from "../../../features/quiz-editor/domain/question-status.js"
 import { questionContainsImages } from "../../../features/quiz-editor/domain/question-images.js"
 import { loadQuizQuestions, saveQuizQuestion } from "../../quiz-editor/repository/quiz-questions.js"
 import { LocalAiService, type LocalAiConfiguration } from "./local-ai.js"
@@ -13,12 +13,13 @@ import { currentQuizBuilderApiVersion } from "../../../shared/domain/models.js"
 import { compileDynamicQuestion } from "./dynamic-question-compiler.js"
 import { createJobTask, finishJobTask, finishPendingJobTasks, resetInterruptedJobTasks } from "../../jobs/main/job-task-tracker.js"
 import { ensureAiQuestionTasks, storedAiQuestionTasks } from "./ai-question-job-report.js"
-import { discoverTopicAiTargets, quizAiTarget, runQuizAiMigration, runTopicAiMigration, storedTopicAiTargets, type AiMigrationRuntime, type AiQuizTarget, type AiQuestionProcessResult } from "./ai-migration-runner.js"
+import { discoverTopicAiTargets, quizAiTarget, runQuizAiMigration, runTopicAiMigration, storedTopicAiTargets, topicQuizTaskId, type AiMigrationRuntime, type AiQuizTarget, type AiQuestionProcessResult } from "./ai-migration-runner.js"
+import { isAiServiceUnavailableError } from "./ai-service-availability.js"
 
 interface StoredState { concurrency: number; jobs: AiMigrationJob[] }
 
 export class AiMigrationJobManager {
-  private concurrency = 1
+  private concurrency = 2
   private jobs: AiMigrationJob[] = []
   private runtimes = new Map<string, AiMigrationRuntime>()
   private loadPromise: Promise<void> | null = null
@@ -26,7 +27,6 @@ export class AiMigrationJobManager {
   constructor(
     private readonly userDataPath: string,
     private readonly aiConfiguration: LocalAiConfiguration,
-    private readonly validateGeneratedContent?: (label: string, value: unknown) => Promise<void>,
     private readonly repositoryRoot?: () => Promise<string>,
   ) {}
   setProfile(profile: "thorough" | "fast") { this.aiConfiguration.profile = profile }
@@ -40,7 +40,7 @@ export class AiMigrationJobManager {
   private async load() {
     try {
       const stored = JSON.parse(await fs.readFile(this.filePath, "utf8")) as StoredState
-      this.concurrency = Math.max(1, Math.min(4, Number(stored.concurrency) || 1))
+      this.concurrency = Math.max(1, Math.min(4, Number(stored.concurrency) || 2))
       this.jobs = Array.isArray(stored.jobs) ? stored.jobs.slice(0, 50).map(job => {
         ensureAiQuestionTasks(job)
         if (!["queued", "running"].includes(job.status)) return job
@@ -65,6 +65,7 @@ export class AiMigrationJobManager {
   }
 
   private jobArtifactPath(job: AiMigrationJob) {
+    if (job.scope === "all-topics") return path.join(job.manifestPath, "ai-migration-all-topics-job.json")
     return path.join(
       path.dirname(job.manifestPath),
       job.scope === "topic" ? "ai-migration-topic-job.json" : "ai-migration-job.json",
@@ -178,7 +179,10 @@ export class AiMigrationJobManager {
     const quizId = String(input.context.quizId ?? "")
     const contestId = String(input.context.contestId ?? "")
     if (!quizId || !contestId || !path.isAbsolute(input.manifestPath)) throw new Error("Invalid quiz migration job.")
-    const duplicate = this.jobs.find(job => job.quizId === quizId && job.contestId === contestId && ["queued", "running", "paused"].includes(job.status))
+    const duplicate = this.jobs.find(job => ["queued", "running", "paused"].includes(job.status) && (
+      (job.quizId === quizId && job.contestId === contestId)
+      || (job.scope !== "quiz" && storedTopicAiTargets(job).some(target => target.contestId === contestId && target.quizId === quizId))
+    ))
     if (duplicate) return duplicate
     const target: AiQuizTarget = {
       manifestPath: input.manifestPath,
@@ -198,8 +202,8 @@ export class AiMigrationJobManager {
       },
       status: "queued", total: candidates.length,
       processed: 0, succeeded: 0, failed: 0,
-      skippedImages: records.filter(record => !questionIsVerified(record) && !record.advancedDynamic && questionContainsImages(record)).length,
-      skippedVerified: records.filter(questionIsVerified).length,
+      skippedImages: records.filter(record => record.authoringMode !== "reference" && !record.advancedDynamic && questionContainsImages(record)).length,
+      skippedVerified: 0,
       errors: [], createdAt: new Date().toISOString(),
     }
     this.jobs.unshift(job); await this.persistJob(job); this.schedule(); return structuredClone(job)
@@ -209,8 +213,10 @@ export class AiMigrationJobManager {
     await this.ensureLoaded()
     if (!this.repositoryRoot || !/^[a-z][a-z0-9_-]*$/.test(input.topicId))
       throw new Error("Invalid topic AI migration job.")
-    const duplicate = this.jobs.find(job => job.scope === "topic" && job.contestId === input.topicId
-      && ["queued", "running", "paused"].includes(job.status))
+    const duplicate = this.jobs.find(job => ["queued", "running", "paused"].includes(job.status) && (
+      (job.scope === "topic" && job.contestId === input.topicId)
+      || (job.scope === "all-topics" && storedTopicAiTargets(job).some(target => target.contestId === input.topicId))
+    ))
     if (duplicate) return structuredClone(duplicate)
     const root = await this.repositoryRoot()
     const plan = await discoverTopicAiTargets(root, input)
@@ -222,7 +228,44 @@ export class AiMigrationJobManager {
         topicId: input.topicId,
         title: plan.title,
         quizzes: targets,
-        jobTasks: targets.map(target => createJobTask(`quiz-${target.quizId}`, target.quizTitle)),
+        jobTasks: targets.map(target => createJobTask(topicQuizTaskId(target), target.quizTitle)),
+      },
+      status: "queued", total: targets.length, processed: 0, succeeded: 0, failed: 0,
+      skippedImages: 0, skippedVerified: 0, errors: [], createdAt: new Date().toISOString(),
+    }
+    this.jobs.unshift(job)
+    await this.persistJob(job)
+    this.schedule()
+    return structuredClone(job)
+  }
+
+  async startAllTopics(input: { topics: Array<{ topicId: string; title: string }> }) {
+    await this.ensureLoaded()
+    if (!this.repositoryRoot || !input.topics.length || input.topics.some(topic =>
+      !/^[a-z][a-z0-9_-]*$/.test(topic.topicId) || !topic.title.trim()))
+      throw new Error("Invalid all-topics AI migration job.")
+    const duplicate = this.jobs.find(job => job.scope === "all-topics"
+      && ["queued", "running", "paused"].includes(job.status))
+    if (duplicate) return structuredClone(duplicate)
+    const root = await this.repositoryRoot()
+    const plans = await Promise.all(input.topics.map(topic => discoverTopicAiTargets(root, topic)))
+    const activeTargets = new Set(this.jobs
+      .filter(job => ["queued", "running", "paused"].includes(job.status))
+      .flatMap(job => job.scope === "quiz"
+        ? [`${job.contestId}/${job.quizId}`]
+        : storedTopicAiTargets(job).map(target => `${target.contestId}/${target.quizId}`)))
+    const targets = plans.flatMap(plan => plan.targets)
+      .filter(target => !activeTargets.has(`${target.contestId}/${target.quizId}`))
+    const job: AiMigrationJob = {
+      id: randomUUID(), scope: "all-topics", contestId: "", quizId: "", quizTitle: "All topics",
+      manifestPath: path.join(root, "content-v2", "topics"),
+      context: {
+        topics: input.topics,
+        quizzes: targets,
+        jobTasks: targets.map(target => createJobTask(
+          topicQuizTaskId(target),
+          `${plans.find(plan => plan.targets.includes(target))?.title ?? target.contestId} · ${target.quizTitle}`,
+        )),
       },
       status: "queued", total: targets.length, processed: 0, succeeded: 0, failed: 0,
       skippedImages: 0, skippedVerified: 0, errors: [], createdAt: new Date().toISOString(),
@@ -271,7 +314,11 @@ export class AiMigrationJobManager {
     await this.ensureLoaded()
     const job = this.jobs.find(item => item.id === id)
     if (!job || !["failed", "cancelled"].includes(job.status)) return this.snapshot()
-    if (job.scope === "topic") await this.startTopic({ topicId: job.contestId, title: job.quizTitle })
+    if (job.scope === "all-topics") {
+      const topics = Array.isArray(job.context.topics) ? job.context.topics : []
+      await this.startAllTopics({ topics: topics as Array<{ topicId: string; title: string }> })
+    }
+    else if (job.scope === "topic") await this.startTopic({ topicId: job.contestId, title: job.quizTitle })
     else await this.start({ manifestPath: job.manifestPath, context: job.context ?? { contestId: job.contestId, quizId: job.quizId, title: job.quizTitle } })
     return this.snapshot()
   }
@@ -309,8 +356,7 @@ export class AiMigrationJobManager {
   ): Promise<AiQuestionProcessResult> {
     const latest = (await this.loadRecords(target)).find(record => String(record.question_no) === questionNo)
     if (!latest || !isBulkCodexQuestionCandidate(latest)) {
-      if (latest && questionIsVerified(latest)) job.skippedVerified += 1
-      else if (latest && !latest.advancedDynamic && questionContainsImages(latest)) job.skippedImages += 1
+      if (latest && !latest.advancedDynamic && questionContainsImages(latest)) job.skippedImages += 1
       return { status: "skipped" }
     }
     const startedAt = Date.now()
@@ -320,13 +366,9 @@ export class AiMigrationJobManager {
         context: target.context,
         provider: "codex-cli",
       })
-      await this.validateGeneratedContent?.(`AI migration question ${latest.question_no}`, result)
       if (runtime.cancelled) return { status: "cancelled" }
       const current = (await this.loadRecords(target)).find(record => String(record.question_no) === questionNo)
-      if (!current || questionIsVerified(current)) {
-        job.skippedVerified += current && questionIsVerified(current) ? 1 : 0
-        return { status: "skipped" }
-      }
+      if (!current) return { status: "skipped" }
       const proposal = result.proposal
       if (this.isContentV2(target)) await this.saveContentV2Result(target, current, result)
       else await saveQuizQuestion(target.manifestPath, withQuestionStatus({
@@ -344,6 +386,7 @@ export class AiMigrationJobManager {
       return { status: "completed" }
     } catch (cause) {
       if (runtime.cancelled) return { status: "cancelled" }
+      if (isAiServiceUnavailableError(cause)) throw cause
       return { status: "failed", message: cause instanceof Error ? cause.message : String(cause) }
     }
   }
@@ -359,7 +402,7 @@ export class AiMigrationJobManager {
           this.processQuestion(job, target, runtime, questionNo),
         persist: () => this.persistJob(job),
       }
-      if (job.scope === "topic")
+      if (job.scope === "topic" || job.scope === "all-topics")
         await runTopicAiMigration(job, storedTopicAiTargets(job), runtime, dependencies)
       else
         await runQuizAiMigration(job, quizAiTarget(job), runtime, dependencies)

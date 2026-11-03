@@ -39,7 +39,7 @@ test("effectively static image questions remain static", () => {
   assert.equal(isBulkCodexQuestionCandidate({ ...dynamic("() => ({})"), image_datas: ["asset:q1.png"] }), false);
 });
 
-test("bulk Codex generation never replaces reviewed or reference questions", () => {
-  assert.equal(isBulkCodexQuestionCandidate({ question_no: 1, status: "verified" }), false);
+test("bulk Codex generation includes reviewed questions but preserves reference questions", () => {
+  assert.equal(isBulkCodexQuestionCandidate({ question_no: 1, status: "verified" }), true);
   assert.equal(isBulkCodexQuestionCandidate({ question_no: 2, authoringMode: "reference", reference: { questionNo: 1 } }), false);
 });

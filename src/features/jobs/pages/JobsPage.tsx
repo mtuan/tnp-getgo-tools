@@ -98,7 +98,7 @@ export function JobsPage({
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.pageDescription} actions={<Button variant="solid" color="danger" icon={<Trash2 />} disabled={!finishedCount || clearingFinished} onClick={() => void clearFinished()}>{copy.clearFinished}</Button>} />
     {error && <div className="jobs-load-error"><ErrorFrame message={error} /><Button onClick={() => void load()}>{copy.retry}</Button></div>}
     {!error && snapshot && <>
-      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentJobs} rows={pagination.pageItems} busyAction={busyAction} emptyText={copy.empty} onAction={jobAction} onOpenRoute={onOpenQuiz} />
+      <BackgroundJobsTable locale={locale} ariaLabel={copy.recentJobs} rows={pagination.pageItems} busyAction={busyAction} emptyText={copy.empty} onAction={jobAction} onOpenRoute={onOpenQuiz} openReportOnRowClick />
       <Pagination locale={locale} page={pagination.page} pageCount={pagination.pageCount} onPageChange={pagination.setPage} />
     </>}
     <ProcessingOverlay open={clearingFinished} title={copy.clearingFinished} />

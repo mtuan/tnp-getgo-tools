@@ -117,6 +117,10 @@
   "quizBulkAi": {
     "action": "Generate with AI",
     "topicAction": "Generate all quizzes with AI",
+    "allTopicsAction": "Generate AI for all topics",
+    "allTopicsConfirm": "Generate eligible questions across all {count} topics?",
+    "allTopicsQueued": "All-topic AI generation queued",
+    "allTopicsQueuedDescription": "Generating eligible questions across {count} quizzes. You can follow progress in Jobs.",
     "topicQueued": "Topic AI generation queued",
     "topicQueuedDescription": "Generating eligible questions across {count} quizzes. You can follow progress in Jobs.",
     "progress": "Generating {done}/{total}",
@@ -593,6 +597,7 @@
     "report": {
       "title": "{name} report",
       "summary": "Summary",
+      "progress": "Progress",
       "operation": "Operation",
       "component": "Component",
       "environment": "Environment",
@@ -622,7 +627,14 @@
       "localHash": "Local hash",
       "deployedHash": "Deployed hash",
       "noSteps": "No task details were recorded.",
-      "noArtifacts": "No artifact hashes were available."
+      "noArtifacts": "No artifact hashes were available.",
+      "connectionError": "Codex could not connect to the AI service. Retry the job when the connection is available.",
+      "longError": "The job failed. Review the failed task below, or copy the report for complete diagnostics.",
+      "copyReport": "Copy complete job report",
+      "copied": "Copied",
+      "reportCopied": "Job report copied",
+      "reportCopiedDescription": "The complete report, task details, and raw logs were copied to the clipboard.",
+      "copyFailed": "Could not copy the job report"
     }
   },
   "deployment": {

@@ -227,6 +227,19 @@ export function ManagerHeaderControls(context: Context) {
       });
     });
   };
+  const generateAllTopicsWithAi = () => {
+    const topics = snapshot.contentV2.topics.map((topic) => ({ topicId: topic.id, title: String(topic.title) }));
+    if (!topics.length || !window.confirm(bulkAiCopy.allTopicsConfirm.replace("{count}", String(topics.length)))) return;
+    void runButtonAction("all-topics-ai-generate", async () => {
+      const job = await managerApi.startAllTopicsAiMigrationJob({ topics });
+      toast.show({
+        title: bulkAiCopy.allTopicsQueued,
+        description: bulkAiCopy.allTopicsQueuedDescription.replace("{count}", String(job.total)),
+        variant: "success",
+        action: { label: copy.viewJob, onSelect: onOpenJobs },
+      });
+    });
+  };
   const syncReviews = () => {
     const topicId = selectedContest?.id;
     if (!topicId) return;
@@ -280,6 +293,7 @@ export function ManagerHeaderControls(context: Context) {
     ...(selectedTopic?.src ? [{ id: "view-source", label: "View source", icon: ExternalLink, onSelect: () => void runButtonAction("view-source", () => window.getgo.openContentSource(selectedTopic.src!, selectedTopic.filePath)) }] : []),
     { id: "create", label: isContest ? "Create quiz" : "Create topic", icon: Plus, onSelect: () => isContest ? setQuizDialog("create") : setContestDialog("create") },
     ...(isContest ? [{ id: "generate-topic-ai", label: bulkAiCopy.topicAction, icon: Sparkles, onSelect: generateTopicWithAi }] : []),
+    ...(!isContest ? [{ id: "generate-all-topics-ai", label: bulkAiCopy.allTopicsAction, icon: Sparkles, onSelect: generateAllTopicsWithAi }] : []),
     ...(!isContest && allLegacyQuizCount > 0 ? [{ id: "migrate-all", label: `Migrate all ${allLegacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateAllLegacyQuizzes() }] : []),
     ...(isContest && legacyQuizCount > 0 ? [{ id: "migrate", label: `Migrate ${legacyQuizCount}`, icon: RefreshCw, onSelect: () => void migrateLegacyQuizzes() }] : []),
     { id: "separator-create", type: "separator" },

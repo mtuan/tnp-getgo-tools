@@ -50,6 +50,10 @@ export type AiQuestionProcessResult = {
   message?: string
 }
 
+export function topicQuizTaskId(target: Pick<AiQuizTarget, "contestId" | "quizId">) {
+  return `quiz-${target.contestId}-${target.quizId}`
+}
+
 export async function discoverTopicAiTargets(
   root: string,
   input: { topicId: string; title: string },
@@ -131,7 +135,8 @@ export async function runTopicAiMigration(
   for (const target of targets) {
     await waitWhilePaused(runtime)
     if (runtime.cancelled) break
-    const task = tasks.find(item => item.id === `quiz-${target.quizId}`)
+    const task = tasks.find(item => item.id === topicQuizTaskId(target))
+      ?? tasks.find(item => item.id === `quiz-${target.quizId}`)
     if (!task || task.status !== "pending") continue
     startJobTask(task)
     await dependencies.persist()

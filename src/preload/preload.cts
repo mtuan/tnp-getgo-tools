@@ -320,6 +320,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke("ai-migration:start", input),
   startTopicAiMigrationJob: (input) =>
     ipcRenderer.invoke("ai-migration:topic:start", input),
+  startAllTopicsAiMigrationJob: (input) =>
+    ipcRenderer.invoke("ai-migration:topics:start", input),
   getAiMigrationJobs: () => ipcRenderer.invoke("ai-migration:list"),
   getBackgroundJobs: () => ipcRenderer.invoke("jobs:list"),
   startDeployment: (operation, component, target, product) =>

@@ -688,18 +688,17 @@ export async function loadContentV2Question(
   quizId: string,
   questionId: string,
 ): Promise<ContentV2Question> {
-  return contentV2QuestionSchema.parse(
-    await readJson(
-      path.join(
-        contentRoot(repositoryPath),
-        validateId(topicId, "Topic ID"),
-        "quizzes",
-        validateId(quizId, "Quiz ID"),
-        "questions",
-        `${validateId(questionId, "Question ID")}.json`,
-      ),
-    ),
+  const quizDirectory = path.join(
+    contentRoot(repositoryPath),
+    validateId(topicId, "Topic ID"),
+    "quizzes",
+    validateId(quizId, "Quiz ID"),
   );
+  const normalized = await extractContentV2InlineImageAssets(
+    await readJson(path.join(quizDirectory, "questions", `${validateId(questionId, "Question ID")}.json`)),
+    path.join(quizDirectory, "assets"),
+  );
+  return contentV2QuestionSchema.parse(normalized.value);
 }
 
 export async function loadContentV2QuizResources(
@@ -1052,15 +1051,8 @@ export async function saveContentV2Question(
   quiz: ContentV2Quiz,
   value: unknown,
 ): Promise<ContentV2Question> {
-  const rawQuestion = contentV2QuestionSchema.parse(value);
   if (quiz.topicId !== topic.id)
     throw new Error("Quiz does not belong to the selected topic.");
-  assertContentV2Relationship(quiz.type, rawQuestion.type, "question");
-  await warnForRepositoryContent(
-    repositoryPath,
-    `Question ${quiz.id}/${rawQuestion.id}`,
-    rawQuestion,
-  );
   const quizDirectory = path.join(
     contentRoot(repositoryPath),
     topic.id,
@@ -1068,11 +1060,17 @@ export async function saveContentV2Question(
     quiz.id,
   );
   const normalized = await extractContentV2InlineImageAssets(
-    rawQuestion,
+    value,
     path.join(quizDirectory, "assets"),
   );
   const parsedQuestion = contentV2QuestionSchema.parse(normalized.value);
   const question = contentV2QuestionSchema.parse(sanitizeVietnamesePronunciationQuestion(parsedQuestion));
+  assertContentV2Relationship(quiz.type, question.type, "question");
+  await warnForRepositoryContent(
+    repositoryPath,
+    `Question ${quiz.id}/${question.id}`,
+    question,
+  );
   const filePath = path.join(
     quizDirectory,
     "questions",
@@ -1111,9 +1109,8 @@ export async function normalizeContentV2QuizQuestionAssets(
   );
   let repaired = 0;
   for (const filePath of await questionFiles(questionsDirectory)) {
-    const question = contentV2QuestionSchema.parse(await readJson(filePath));
     const normalized = await extractContentV2InlineImageAssets(
-      question,
+      await readJson(filePath),
       path.join(path.dirname(questionsDirectory), "assets"),
     );
     if (!normalized.extractedCount) continue;

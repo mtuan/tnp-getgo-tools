@@ -4,6 +4,7 @@ import type { AiMigrationJob, QuizQuestionRecord } from "../src/shared/domain/mo
 import { createJobTask } from "../src/features/jobs/main/job-task-tracker.js"
 import {
   runTopicAiMigration,
+  topicQuizTaskId,
   type AiMigrationRuntime,
   type AiQuizTarget,
 } from "../src/features/ai/main/ai-migration-runner.js"
@@ -67,4 +68,59 @@ test("topic AI migration persists question progress while a quiz is running", as
   assert.ok(snapshots.some(snapshot => snapshot.completed === 1 && snapshot.total === 3))
   assert.ok(snapshots.some(snapshot => snapshot.completed === 2 && snapshot.total === 3))
   assert.deepEqual({ completed: task.completed, total: task.total }, { completed: 3, total: 3 })
+})
+
+test("all-topics AI migration keeps repeated quiz IDs in separate topic tasks", async () => {
+  const targets: AiQuizTarget[] = [
+    { manifestPath: "/alpha/paper/quiz.json", contestId: "alpha", quizId: "paper", quizTitle: "Paper", context: {} },
+    { manifestPath: "/beta/paper/quiz.json", contestId: "beta", quizId: "paper", quizTitle: "Paper", context: {} },
+  ]
+  const tasks = targets.map(target => createJobTask(topicQuizTaskId(target), `${target.contestId} · ${target.quizTitle}`))
+  const job: AiMigrationJob = {
+    id: "all-topics-job", scope: "all-topics", contestId: "", quizId: "", quizTitle: "All topics",
+    manifestPath: "/topics", context: { jobTasks: tasks }, status: "running",
+    total: 2, processed: 0, succeeded: 0, failed: 0, skippedImages: 0, skippedVerified: 0,
+    errors: [], createdAt: "2026-01-01T00:00:00.000Z",
+  }
+  const question = { question_no: 1, text_en: "1 + 1", answer: { type: "input", correct: 2 } } as QuizQuestionRecord
+  const calls: string[] = []
+  await runTopicAiMigration(job, targets, {
+    service: {} as AiMigrationRuntime["service"], cancelled: false, paused: false,
+  }, {
+    loadRecords: async () => [question],
+    processQuestion: async target => { calls.push(target.contestId); return { status: "completed" } },
+    persist: async () => undefined,
+  })
+  assert.deepEqual(calls, ["alpha", "beta"])
+  assert.deepEqual(tasks.map(task => task.status), ["completed", "completed"])
+})
+
+test("topic AI migration stops immediately when the AI service is unavailable", async () => {
+  const targets: AiQuizTarget[] = [
+    { manifestPath: "/a/quiz.json", contestId: "seamo", quizId: "a", quizTitle: "Paper A", context: {} },
+    { manifestPath: "/b/quiz.json", contestId: "seamo", quizId: "b", quizTitle: "Paper B", context: {} },
+  ]
+  const tasks = targets.map(target => createJobTask(topicQuizTaskId(target), target.quizTitle))
+  const job: AiMigrationJob = {
+    id: "unavailable-job", scope: "topic", contestId: "seamo", quizId: "", quizTitle: "SEAMO",
+    manifestPath: "/topic.json", context: { jobTasks: tasks }, status: "running",
+    total: 2, processed: 0, succeeded: 0, failed: 0, skippedImages: 0, skippedVerified: 0,
+    errors: [], createdAt: "2026-01-01T00:00:00.000Z",
+  }
+  const questions = [1, 2].map(question_no => ({
+    question_no, text_en: `${question_no} + 1`, answer: { type: "input", correct: question_no + 1 },
+  } as QuizQuestionRecord))
+  let calls = 0
+  await assert.rejects(() => runTopicAiMigration(job, targets, {
+    service: {} as AiMigrationRuntime["service"], cancelled: false, paused: false,
+  }, {
+    loadRecords: async () => questions,
+    processQuestion: async () => {
+      calls += 1
+      throw new Error("You've hit your weekly limit")
+    },
+    persist: async () => undefined,
+  }), /weekly limit/)
+  assert.equal(calls, 1)
+  assert.deepEqual(tasks.map(task => task.status), ["running", "pending"])
 })

@@ -117,6 +117,10 @@
   "quizBulkAi": {
     "action": "Tạo bằng AI",
     "topicAction": "Tạo tất cả bài thi bằng AI",
+    "allTopicsAction": "Tạo bằng AI cho tất cả chủ đề",
+    "allTopicsConfirm": "Tạo các câu hỏi phù hợp trong tất cả {count} chủ đề?",
+    "allTopicsQueued": "Đã thêm tác vụ tạo AI cho tất cả chủ đề",
+    "allTopicsQueuedDescription": "Đang tạo các câu hỏi phù hợp trong {count} bài thi. Bạn có thể theo dõi tiến độ trong Công việc.",
     "topicQueued": "Đã thêm tác vụ tạo AI cho chủ đề",
     "topicQueuedDescription": "Đang tạo các câu hỏi phù hợp trong {count} bài thi. Bạn có thể theo dõi tiến độ trong Công việc.",
     "progress": "Đang tạo {done}/{total}",
@@ -593,6 +597,7 @@
     "report": {
       "title": "Báo cáo {name}",
       "summary": "Tổng quan",
+      "progress": "Tiến độ",
       "operation": "Thao tác",
       "component": "Thành phần",
       "environment": "Môi trường",
@@ -622,7 +627,14 @@
       "localHash": "Mã băm cục bộ",
       "deployedHash": "Mã băm đã triển khai",
       "noSteps": "Chưa ghi nhận chi tiết tác vụ.",
-      "noArtifacts": "Không có mã băm tệp triển khai."
+      "noArtifacts": "Không có mã băm tệp triển khai.",
+      "connectionError": "Codex không thể kết nối với dịch vụ AI. Hãy thử lại công việc khi kết nối khả dụng.",
+      "longError": "Công việc thất bại. Hãy xem tác vụ thất bại bên dưới hoặc sao chép báo cáo để lấy đầy đủ thông tin chẩn đoán.",
+      "copyReport": "Sao chép báo cáo công việc đầy đủ",
+      "copied": "Đã sao chép",
+      "reportCopied": "Đã sao chép báo cáo công việc",
+      "reportCopiedDescription": "Báo cáo đầy đủ, chi tiết tác vụ và log thô đã được sao chép vào bảng nhớ tạm.",
+      "copyFailed": "Không thể sao chép báo cáo công việc"
     }
   },
   "deployment": {

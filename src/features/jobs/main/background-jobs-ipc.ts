@@ -36,30 +36,34 @@ export function registerBackgroundJobsIpc(
     ]);
     const migrated = migration.jobs.map((job) => ({
       id: job.id, kind: "ai-migrate" as const,
-      name: job.scope === "topic"
+      name: job.scope === "all-topics"
+        ? "Generate AI · All topics"
+        : job.scope === "topic"
         ? `Generate quizzes with AI · ${job.quizTitle}`
         : `Generate questions with AI · ${job.quizTitle}`,
-      description: job.errors.at(-1)
-        ? `${job.errors.at(-1)?.questionNo}: ${job.errors.at(-1)?.message}`
-        : job.scope === "topic"
+      description: job.scope === "all-topics"
+          ? `${job.processed}/${job.total} quizzes processed · ${job.succeeded} completed · ${job.failed} failed`
+          : job.scope === "topic"
           ? `${job.processed}/${job.total} quizzes processed · ${job.succeeded} completed · ${job.failed} failed`
           : `${job.succeeded} generated · ${job.failed} failed · ${job.skippedImages + job.skippedVerified} skipped`,
       status: job.status, completed: job.processed, total: job.total,
       progressLabel: job.currentQuestion
-        ? job.scope === "topic" ? job.currentQuestion : `Question ${job.currentQuestion}`
+        ? job.scope === "topic" || job.scope === "all-topics" ? job.currentQuestion : `Question ${job.currentQuestion}`
         : `${job.processed}/${job.total}`,
       createdAt: job.createdAt, startedAt: job.startedAt, finishedAt: job.finishedAt,
-      route: job.scope === "topic"
+      route: job.scope === "all-topics"
+        ? "/topics"
+        : job.scope === "topic"
         ? `/topics/${encodeURIComponent(job.contestId)}`
         : `/topics/${encodeURIComponent(job.contestId)}/quizzes/${encodeURIComponent(job.quizId)}?tab=questions`,
       cancellable: ["queued", "running", "paused"].includes(job.status),
       retryable: ["failed", "cancelled"].includes(job.status), error: job.errors.at(-1)?.message,
       report: createAiQuestionJobReport(job),
       logs: [
-        { timestamp: job.createdAt, stream: "system" as const, message: `${job.scope === "topic" ? "Topic AI generation" : "AI question generation"} queued.` },
-        ...(job.startedAt ? [{ timestamp: job.startedAt, stream: "system" as const, message: `${job.scope === "topic" ? "Topic AI generation" : "AI question generation"} started.` }] : []),
+        { timestamp: job.createdAt, stream: "system" as const, message: `${job.scope === "all-topics" ? "All-topic AI generation" : job.scope === "topic" ? "Topic AI generation" : "AI question generation"} queued.` },
+        ...(job.startedAt ? [{ timestamp: job.startedAt, stream: "system" as const, message: `${job.scope === "all-topics" ? "All-topic AI generation" : job.scope === "topic" ? "Topic AI generation" : "AI question generation"} started.` }] : []),
         ...job.errors.map(error => ({ timestamp: job.finishedAt ?? job.startedAt ?? job.createdAt, stream: "stderr" as const, message: `${error.questionNo}: ${error.message}` })),
-        ...(job.finishedAt ? [{ timestamp: job.finishedAt, stream: "system" as const, message: `${job.scope === "topic" ? "Topic AI generation" : "AI question generation"} ${job.status}.` }] : []),
+        ...(job.finishedAt ? [{ timestamp: job.finishedAt, stream: "system" as const, message: `${job.scope === "all-topics" ? "All-topic AI generation" : job.scope === "topic" ? "Topic AI generation" : "AI question generation"} ${job.status}.` }] : []),
       ],
     }));
     const withFallbackLogs = (job: BackgroundJob): BackgroundJob => {

@@ -8229,6 +8229,7 @@ button.danger svg {
 .job-table-description > span {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .job-table-name > small,
 .job-table-progress > small {
@@ -8241,6 +8242,8 @@ button.danger svg {
   font-weight: 500;
 }
 .job-table-description > small {
+  display: block;
+  min-width: 0;
   overflow: hidden;
   font-size: 11px;
   text-overflow: ellipsis;
@@ -8450,6 +8453,14 @@ button.danger svg {
   display: grid;
   min-width: 0;
   gap: 3px;
+}
+.deployment-report-step > small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .deployment-report-tasks .ui-data-table td {
   height: 42px;

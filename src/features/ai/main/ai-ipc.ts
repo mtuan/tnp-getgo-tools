@@ -62,6 +62,15 @@ export function registerAiIpc(ipcMain: IpcMain, localAi: LocalAiService, jobs: A
       throw new Error("A topic ID and title are required.");
     return jobs.startTopic({ topicId: value.topicId, title: value.title });
   });
+  ipcMain.handle("ai-migration:topics:start", (_event, input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("Invalid all-topics AI migration job.");
+    const topics = (input as Record<string, unknown>).topics;
+    if (!Array.isArray(topics) || !topics.every((topic) => topic && typeof topic === "object"
+      && typeof (topic as Record<string, unknown>).topicId === "string"
+      && typeof (topic as Record<string, unknown>).title === "string"))
+      throw new Error("Topic IDs and titles are required.");
+    return jobs.startAllTopics({ topics: topics as Array<{ topicId: string; title: string }> });
+  });
   ipcMain.handle("ai-migration:list", () => jobs.list());
   ipcMain.handle("ai-migration:concurrency", (_event, concurrency: unknown) => {
     if (typeof concurrency !== "number" || !Number.isInteger(concurrency)) throw new Error("Invalid job concurrency.");

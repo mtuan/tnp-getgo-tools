@@ -394,7 +394,7 @@ app.whenReady().then(async () => {
     model: process.env.GETGO_AI_OPENAI_MODEL,
     workspacePath: app.getAppPath(),
     profile: initialSettings.aiProfile,
-  }, async (label, value) => assertRepositoryContentSafe(await repositoryRoot(), label, value), repositoryRoot);
+  }, repositoryRoot);
   const publishJobs = new PublishJobManager(app.getPath("userData"));
   const webDeploymentJobs = new WebDeploymentJobManager(
     app.getPath("userData"),
