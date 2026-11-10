@@ -8233,12 +8233,12 @@ button.danger svg {
 }
 .job-table-name > small,
 .job-table-progress > small {
-  color: #475569;
+  color: var(--theme-text-muted);
   font-size: 11px;
   font-weight: 500;
 }
 .job-table-description > span {
-  color: #1e293b;
+  color: var(--theme-text);
   font-weight: 500;
 }
 .job-table-description > small {
@@ -8250,7 +8250,7 @@ button.danger svg {
   white-space: nowrap;
 }
 .job-table-description > .job-table-current-step {
-  color: #475569;
+  color: var(--theme-text-muted);
   font-weight: 600;
 }
 .job-table-description > .job-table-error {
@@ -8270,7 +8270,7 @@ button.danger svg {
 }
 .job-table-progress strong {
   width: 42px;
-  color: #1e293b;
+  color: var(--theme-text);
   font-size: 12px;
   text-align: right;
 }
@@ -8310,7 +8310,7 @@ button.danger svg {
 }
 .job-table-time {
   margin: 0 !important;
-  color: #334155 !important;
+  color: var(--theme-text) !important;
   font-size: 11px !important;
   font-variant-numeric: tabular-nums;
 }
@@ -11303,6 +11303,8 @@ button.danger svg {
   --theme-text-strong: #0f172a;
   --theme-text: #334155;
   --theme-text-muted: #64748b;
+  /* Meaningful values use --theme-text. Reserve --theme-text-muted for
+     supporting metadata; never hard-code light-palette text on shared UI. */
   /* Keep legacy feature styles on the same semantic palette. */
   --surface: var(--theme-surface);
   --surface-raised: var(--theme-surface-raised);

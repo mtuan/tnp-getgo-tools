@@ -3,11 +3,34 @@ import test from "node:test"
 import type { AiMigrationJob, QuizQuestionRecord } from "../src/shared/domain/models.js"
 import { createJobTask } from "../src/features/jobs/main/job-task-tracker.js"
 import {
+  eligibleTopicAiTargets,
   runTopicAiMigration,
   topicQuizTaskId,
   type AiMigrationRuntime,
   type AiQuizTarget,
 } from "../src/features/ai/main/ai-migration-runner.js"
+
+test("topic AI job planning omits quizzes without eligible questions", async () => {
+  const targets: AiQuizTarget[] = [
+    { manifestPath: "/a/quiz.json", contestId: "ahsme", quizId: "1999", quizTitle: "1999 AHSME", context: {} },
+    { manifestPath: "/b/quiz.json", contestId: "ahsme", quizId: "2000", quizTitle: "2000 AHSME", context: {} },
+  ]
+  const generated = {
+    question_no: 1,
+    authoringMode: "advanced-dynamic",
+    advancedDynamic: { paramsGeneratorTs: "// @generated-by getgo-convert-static-quiz@1" },
+  } as QuizQuestionRecord
+  const pending = {
+    question_no: 1,
+    text_en: "1 + 1",
+    answer: { type: "input", correct: 2 },
+  } as QuizQuestionRecord
+
+  const eligible = await eligibleTopicAiTargets(targets, async target =>
+    target.quizId === "1999" ? [generated] : [pending])
+
+  assert.deepEqual(eligible.map(target => target.quizId), ["2000"])
+})
 
 test("topic AI migration runs quizzes in order with one task per quiz", async () => {
   const targets: AiQuizTarget[] = [

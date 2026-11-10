@@ -87,6 +87,15 @@ export async function discoverTopicAiTargets(
   }
 }
 
+export async function eligibleTopicAiTargets(
+  targets: AiQuizTarget[],
+  loadRecords: (target: AiQuizTarget) => Promise<QuizQuestionRecord[]>,
+): Promise<AiQuizTarget[]> {
+  const eligibility = await Promise.all(targets.map(async target =>
+    (await loadRecords(target)).some(isBulkCodexQuestionCandidate)))
+  return targets.filter((_, index) => eligibility[index])
+}
+
 interface RunnerDependencies {
   loadRecords(target: AiQuizTarget): Promise<QuizQuestionRecord[]>
   processQuestion(target: AiQuizTarget, questionNo: string): Promise<AiQuestionProcessResult>

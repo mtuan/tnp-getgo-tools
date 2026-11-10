@@ -13,7 +13,7 @@ import { currentQuizBuilderApiVersion } from "../../../shared/domain/models.js"
 import { compileDynamicQuestion } from "./dynamic-question-compiler.js"
 import { createJobTask, finishJobTask, finishPendingJobTasks, resetInterruptedJobTasks } from "../../jobs/main/job-task-tracker.js"
 import { ensureAiQuestionTasks, storedAiQuestionTasks } from "./ai-question-job-report.js"
-import { discoverTopicAiTargets, quizAiTarget, runQuizAiMigration, runTopicAiMigration, storedTopicAiTargets, topicQuizTaskId, type AiMigrationRuntime, type AiQuizTarget, type AiQuestionProcessResult } from "./ai-migration-runner.js"
+import { discoverTopicAiTargets, eligibleTopicAiTargets, quizAiTarget, runQuizAiMigration, runTopicAiMigration, storedTopicAiTargets, topicQuizTaskId, type AiMigrationRuntime, type AiQuizTarget, type AiQuestionProcessResult } from "./ai-migration-runner.js"
 import { isAiServiceUnavailableError } from "./ai-service-availability.js"
 
 interface StoredState { concurrency: number; jobs: AiMigrationJob[] }
@@ -220,7 +220,7 @@ export class AiMigrationJobManager {
     if (duplicate) return structuredClone(duplicate)
     const root = await this.repositoryRoot()
     const plan = await discoverTopicAiTargets(root, input)
-    const targets = plan.targets
+    const targets = await eligibleTopicAiTargets(plan.targets, target => this.loadRecords(target))
     const job: AiMigrationJob = {
       id: randomUUID(), scope: "topic", contestId: input.topicId, quizId: "", quizTitle: plan.title,
       manifestPath: plan.manifestPath,
@@ -254,8 +254,9 @@ export class AiMigrationJobManager {
       .flatMap(job => job.scope === "quiz"
         ? [`${job.contestId}/${job.quizId}`]
         : storedTopicAiTargets(job).map(target => `${target.contestId}/${target.quizId}`)))
-    const targets = plans.flatMap(plan => plan.targets)
+    const availableTargets = plans.flatMap(plan => plan.targets)
       .filter(target => !activeTargets.has(`${target.contestId}/${target.quizId}`))
+    const targets = await eligibleTopicAiTargets(availableTargets, target => this.loadRecords(target))
     const job: AiMigrationJob = {
       id: randomUUID(), scope: "all-topics", contestId: "", quizId: "", quizTitle: "All topics",
       manifestPath: path.join(root, "content-v2", "topics"),
