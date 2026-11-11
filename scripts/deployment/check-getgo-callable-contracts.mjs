@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { assembleFirebaseConfig } from './assemble-firebase-config.mjs'
 import { deploysDir as deploysRoot, logicsRoot, resolveDeploymentPath, webRoot } from './deployment-config.mjs'
 
 const root = webRoot
@@ -77,6 +78,13 @@ const exportGroups = exportsConfig?.exports ?? []
 const discovered = discoverExportedFunctions()
 const registeredNames = new Map()
 
+for (const name of ['syncGetGoGooglePlaySubscription', 'getGoGooglePlayNotifications']) {
+  const source = discovered.get(name)
+  if (source && !source.source.includes('serviceAccount: GOOGLE_PLAY_RUNTIME_SERVICE_ACCOUNT')) {
+    errors.push(`${name} must use the target-specific Google Play runtime service account.`)
+  }
+}
+
 for (const [key, contract] of Object.entries(registry)) {
   if (!contract || typeof contract.name !== 'string' || typeof contract.codebase !== 'string') {
     errors.push(`Invalid callable contract "${key}": name and codebase are required.`)
@@ -150,6 +158,11 @@ for (const targetName of targets) {
   const target = readJson(targetPath, `target ${targetName}`)
   if (!target) continue
   if (!(target.apps ?? []).includes('getgo')) continue
+  // firebase.json and its Functions source folders are generated deployment
+  // artifacts and are intentionally ignored by Git. A clean checkout must be
+  // able to run the callable contract check (and therefore Local Web) before
+  // the first deployment has assembled those artifacts.
+  assembleFirebaseConfig(targetName)
   const firebaseConfigPath = resolveDeploymentPath(target.firebaseConfig)
   const firebaseConfig = readJson(firebaseConfigPath, `Firebase config for ${targetName}`)
   const firebaseCodebases = new Map(
@@ -175,6 +188,13 @@ for (const targetName of targets) {
   }
   if (!target.functionsRegion) {
     errors.push(`[${targetName}] functionsRegion must be explicit.`)
+  }
+  const expectedGooglePlayAccount = `getgo-google-iap@${target.firebaseProject}.iam.gserviceaccount.com`
+  if (targetName === 'getgo' && target.googlePlayRuntimeServiceAccount !== expectedGooglePlayAccount) {
+    errors.push(`[${targetName}] googlePlayRuntimeServiceAccount must be ${expectedGooglePlayAccount}.`)
+  }
+  if (target.googlePlayRuntimeServiceAccount && target.googlePlayRuntimeServiceAccount !== expectedGooglePlayAccount) {
+    errors.push(`[${targetName}] googlePlayRuntimeServiceAccount does not belong to ${target.firebaseProject}.`)
   }
 }
 

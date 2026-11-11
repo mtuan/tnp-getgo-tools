@@ -110,6 +110,7 @@ export const marketplaceTopicMetadataSchema = z.object({
     type: z.enum(["free", "subscription", "paid"]).default("free"),
     amount: z.number().nonnegative().optional(),
     currency: z.string().default("VND"),
+    serviceCode: z.string().regex(/^[A-Z0-9_]+$/).optional(),
   }).default({ type: "free", currency: "VND" }),
 }).passthrough();
 export type MarketplaceTopicMetadata = z.infer<typeof marketplaceTopicMetadataSchema>;

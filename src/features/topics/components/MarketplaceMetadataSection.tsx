@@ -152,6 +152,7 @@ export function MarketplaceMetadataSection({
           : current.pricing.type,
         amount: current.pricing.amount,
         currency: current.pricing.currency,
+        serviceCode: current.pricing.serviceCode,
       }
     : {};
   const fields = useMemo<FormSchema[]>(
@@ -221,6 +222,15 @@ export function MarketplaceMetadataSection({
           when: (form) => isTopic && form.pricingType === "paid",
         },
         {
+          type: "text",
+          name: "serviceCode",
+          label: copy.fields.serviceCode,
+          helper: copy.fields.serviceCodeHelp,
+          required: true,
+          rules: { pattern: { value: /^[A-Z0-9_]+$/, message: copy.serviceCodeInvalid } },
+          when: (form) => isTopic && form.pricingType === "paid",
+        },
+        {
           type: "select",
           name: "currency",
           label: copy.fields.currency,
@@ -259,10 +269,10 @@ export function MarketplaceMetadataSection({
           ? {
               ...(next.pricing ?? { type: "free", currency: "VND" }),
               type: value as MarketplaceTopicMetadata["pricing"]["type"],
-              ...((value === "paid") ? {} : { amount: undefined, currency: "VND" }),
+              ...((value === "paid") ? { serviceCode: next.pricing?.serviceCode ?? "GG_CONTEST_PKG" } : { amount: undefined, currency: "VND", serviceCode: undefined }),
             }
           : { type: value as MarketplaceTopicMetadata["pricing"]["type"], currency: "VND" };
-      else if (name === "amount" || name === "currency")
+      else if (name === "amount" || name === "currency" || name === "serviceCode")
         next.pricing = {
           ...(next.pricing ?? { type: "free", currency: "VND" }),
           [name]: value,

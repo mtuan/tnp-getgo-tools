@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { IpcMain } from "electron";
-import { paymentPackagesSchema } from "../domain/payment-package.js";
-import { paymentEventsSchema } from "../domain/payment-event.js";
+import { paymentPackagesSchema, publishablePaymentPackagesSchema } from "../domain/payment-package.js";
+import { paymentEventsSchema, publishablePaymentEventsSchema } from "../domain/payment-event.js";
 import type { FirestorePublishingService } from "../../topics/main/firestore-publishing.js";
 import { assertRepositoryContentSafe, warnForRepositoryContent } from "../../content-safety/repository/content-safety-repository.js";
 import type { GetGoAccessPolicyService } from "./access-policy-service.js";
@@ -21,7 +21,7 @@ function expandNativeSaleTargets(events: PaymentEvent[], packages: PaymentPackag
     if (event.type !== "sale") return event;
     const selectedTypes = new Set(packages.filter(item => event.targets.packageIds.includes(item.id)).map(item => item.type));
     const nativeIds = packages.filter(item => item.platform !== "web" && selectedTypes.has(item.type)).map(item => item.id);
-    return { ...event, targets: { packageIds: [...new Set([...event.targets.packageIds, ...nativeIds])] } };
+    return { ...event, targets: { ...event.targets, packageIds: [...new Set([...event.targets.packageIds, ...nativeIds])] } };
   });
 }
 async function load(root: string) {
@@ -42,7 +42,7 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
     const packages = await load(await dependencies.repositoryRoot());
     await assertRepositoryContentSafe(await dependencies.repositoryRoot(), "Payment packages", packages);
     const environment = await dependencies.targetEnvironment();
-    const targeted = paymentPackagesForEnvironment(packages, environment);
+    const targeted = paymentPackagesForEnvironment(publishablePaymentPackagesSchema.parse(packages), environment);
     await dependencies.publishing.publishPaymentPackages(targeted);
     return { count: targeted.length, syncedAt: new Date().toISOString() };
   });
@@ -120,7 +120,7 @@ export function registerPaymentPackagesIpc(ipcMain: IpcMain, dependencies: { rep
     const allPackages = await load(root);
     const targetedPackages = allPackages.filter(item => item.targetEnvironments.includes(environment));
     const expanded = expandNativeSaleTargets(events.filter(item => item.targetEnvironments.includes(environment)), targetedPackages);
-    const targeted = paymentEventsForEnvironment(expanded, environment);
+    const targeted = paymentEventsForEnvironment(publishablePaymentEventsSchema.parse(expanded), environment);
     await dependencies.publishing.publishPaymentEvents(targeted as Array<Record<string, unknown>>);
     const nativeOffers = environment === "production"
       ? await syncNativeStoreOffers(expanded, targetedPackages)

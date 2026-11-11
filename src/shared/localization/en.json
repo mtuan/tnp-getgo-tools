@@ -338,6 +338,7 @@
     "paidQuizRequiresPaidTopic": "An Exclusive quiz must belong to an Exclusive topic.",
     "priceRequired": "Enter the topic purchase price.",
     "priceInvalid": "Enter a positive whole-number price.",
+    "serviceCodeInvalid": "Use uppercase letters, numbers, and underscores only.",
     "columns": {
       "topic": "Topic",
       "type": "Type",
@@ -374,6 +375,8 @@
       "pricingType": "Pricing",
       "amount": "Amount",
       "currency": "Currency",
+      "serviceCode": "VietQR product code",
+      "serviceCodeHelp": "Product code used by VietQR for automatic invoicing.",
       "listHelp": "Enter one item per line or separate items with commas."
     },
     "reviewBeforeListing": {
@@ -1268,6 +1271,13 @@
     "allEventTypes": "All event types",
     "sale": "Sale",
     "premiumPreview": "Premium preview",
+    "serviceCode": "VietQR product code",
+    "serviceCodeHelp": "Product code configured in VietQR, for example GG_PREMIUM_1M.",
+    "serviceCodeInvalid": "Use uppercase letters, numbers, and underscores only.",
+    "serviceCodeSuffix": "VietQR event suffix",
+    "serviceCodeSuffixHelp": "Suffix appended to the product code, for example TET.",
+    "topicTargets": "Target topic IDs",
+    "topicTargetsHelp": "Enter topic IDs, or * to target every paid topic.",
     "noMatchingPackages": "No packages match these filters.",
     "noMatchingEvents": "No events match these filters.",
     "syncTo": "Sync to {environment}",

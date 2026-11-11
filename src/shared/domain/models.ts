@@ -743,7 +743,7 @@ export interface MarketplaceSyncJobItem {
   quizId?: string;
 }
 export interface PaymentPackage {
-  id: string; platform: "web" | "ios" | "android"; storeProductId?: string; storeBasePlanId?: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
+  id: string; platform: "web" | "ios" | "android"; storeProductId?: string; storeBasePlanId?: string; serviceCode?: string; name: { en: string; vi: string }; type: "free" | "monthly" | "annual" | "one-time";
   targetEnvironments: Array<AppSettings["environment"]>;
   info: { en: string; vi: string }; benefits: { en: string[]; vi: string[] }; price: { amount: number; currency: string };
 }
@@ -771,7 +771,7 @@ interface PaymentEventBase {
   targetEnvironments: Array<AppSettings["environment"]>;
 }
 export type PaymentEvent = PaymentEventBase & (
-  | { type: "sale"; discountPercent: number; targets: { packageIds: string[] } }
+  | { type: "sale"; discountPercent: number; serviceCodeSuffix: string; targets: { packageIds: string[]; topicIds: string[] } }
   | { type: "premium-preview"; premiumDays: number; targets: { userTypes: Array<"new-registration" | "legacy-migration">; platforms: Array<"web" | "ios" | "android"> } }
 );
 export type BillingOrderStatus = "creating" | "pending" | "paid" | "failed" | "cancelled" | "expired" | "needs-review" | "unknown";

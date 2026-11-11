@@ -7,7 +7,7 @@ import { paymentEventIsActive } from "../src/features/payment-packages/domain/pa
 const sale: Extract<PaymentEvent, { type: "sale" }> = {
   id: "new-year", type: "sale", name: { en: "New Year", vi: "Năm mới" }, info: { en: "", vi: "" },
   recurrence: "yearly", startsOn: "2026-12-28", endsOn: "2027-01-05", enabled: true,
-  targetEnvironments: ["production"], discountPercent: 20, targets: { packageIds: ["web-monthly"] },
+  targetEnvironments: ["production"], discountPercent: 20, serviceCodeSuffix: "NY", targets: { packageIds: ["web-monthly"], topicIds: [] },
 };
 const pkg = (id: string, platform: PaymentPackage["platform"], type: PaymentPackage["type"]): PaymentPackage => ({
   id, platform, type, targetEnvironments: ["production"], name: { en: id, vi: id }, info: { en: "", vi: "" },

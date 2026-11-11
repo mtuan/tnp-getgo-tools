@@ -5,6 +5,7 @@ import { cleanDeploymentLogLine, shouldWaitForFirestoreIndexes } from "../src/fe
 
 const source = readFileSync(new URL("../src/features/deployment/main/web-deployment-jobs.ts", import.meta.url), "utf8");
 const deployScript = readFileSync(new URL("../scripts/deployment/deploy-web.mjs", import.meta.url), "utf8");
+const productionTarget = JSON.parse(readFileSync(new URL("../configs/deploys/getgo/target.json", import.meta.url), "utf8")) as { googlePlayRuntimeServiceAccount?: string };
 
 test("waits for Firestore indexes only when that resource was deployed", () => {
   assert.equal(shouldWaitForFirestoreIndexes("deploy", "firebase", new Set(["firestore:indexes"])), true);
@@ -28,8 +29,9 @@ test("cancelling a deployment responds without recomputing artifact metadata and
 });
 
 test("deployment reports expose the complete task list before work starts", () => {
-  assert.match(source, /status: index === 0 \? "running" : "pending"/);
-  assert.match(source, /for \(const step of job\.report\.steps\) if \(step\.status === "pending"\) step\.status = "skipped"/);
+  assert.match(source, /const task = createJobTask\(id, phaseLabels\[id\] \?\? id\)/);
+  assert.match(source, /if \(index === 0\) \{[\s\S]*?startJobTask\(task, startedAt\)/);
+  assert.match(source, /finishPendingJobTasks\(job\.report\.steps, "skipped", finishedAt\)/);
   assert.match(source, /total: progressTotal\(operation, component\)/);
   assert.match(source, /return reportStepIds\(operation, component\)\.length/);
   assert.match(source, /compatibility: "Test legacy Firebase compatibility"/);
@@ -89,4 +91,16 @@ test("Cloud Functions codebases reuse one lock-aware dependency installation", (
   assert.match(deployScript, /symlinkSync\(sharedFunctionsNodeModules, nodeModulesLink, 'dir'\)/);
   assert.equal(deployScript.match(/npm ci --ignore-scripts --no-audit --no-fund/g)?.length, 1);
   assert.doesNotMatch(deployScript, /Installing locked dependencies: \$\{codebaseName\}/);
+});
+
+test("production Google Play Functions receive the dedicated runtime identity", () => {
+  assert.equal(
+    productionTarget.googlePlayRuntimeServiceAccount,
+    "getgo-google-iap@tnp-getgo.iam.gserviceaccount.com",
+  );
+  assert.match(deployScript, /googlePlayRuntimeServiceAccount = null/);
+  assert.match(
+    deployScript,
+    /export const GOOGLE_PLAY_RUNTIME_SERVICE_ACCOUNT: string \| undefined = \$\{googlePlayRuntimeServiceAccount/,
+  );
 });

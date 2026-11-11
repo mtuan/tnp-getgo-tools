@@ -2,18 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { accessPolicyBenefits, orderedPreviewPackages, packageBenefits } from "../src/features/payment-packages/components/PaymentPackagesPreview";
 import { defaultGetGoAccessPolicy } from "../src/features/payment-packages/domain/access-policy";
-import { paymentPackageSchema } from "../src/features/payment-packages/domain/payment-package";
+import { paymentPackageSchema, publishablePaymentPackagesSchema } from "../src/features/payment-packages/domain/payment-package";
 import type { PaymentPackage } from "../src/shared/domain/models";
 
 const paymentPackage = (id: string, type: PaymentPackage["type"]): PaymentPackage => ({
   id,
   platform: "web",
+  ...(type === "free" ? {} : { serviceCode: `GG_${type.toUpperCase().replace("-", "_")}` }),
   targetEnvironments: ["development", "staging", "production"],
   type,
   name: { en: id, vi: id },
   info: { en: "", vi: "" },
   benefits: { en: [], vi: [] },
   price: { amount: type === "free" ? 0 : 100_000, currency: "VND" },
+});
+
+test("loads legacy Web packages but requires a VietQR code before publishing", () => {
+  const legacy = paymentPackageSchema.parse({
+    ...paymentPackage("monthly", "monthly"),
+    serviceCode: undefined,
+  });
+  assert.throws(() => publishablePaymentPackagesSchema.parse([legacy]));
 });
 
 test("payment packages default legacy records to Web and accept native platforms", () => {

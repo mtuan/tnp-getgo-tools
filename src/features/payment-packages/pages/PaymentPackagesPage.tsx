@@ -13,7 +13,7 @@ import { paymentTargetEnvironments } from "../domain/payment-environment";
 import en from "../../../shared/localization/en.json";
 import vi from "../../../shared/localization/vi.json";
 
-const emptyPackage = (): PaymentPackage => ({ id: "", platform: "web", targetEnvironments: [...paymentTargetEnvironments], name: { en: "", vi: "" }, type: "monthly", info: { en: "", vi: "" }, benefits: { en: [], vi: [] }, price: { amount: 0, currency: "VND" } });
+const emptyPackage = (): PaymentPackage => ({ id: "", platform: "web", serviceCode: "", targetEnvironments: [...paymentTargetEnvironments], name: { en: "", vi: "" }, type: "monthly", info: { en: "", vi: "" }, benefits: { en: [], vi: [] }, price: { amount: 0, currency: "VND" } });
 const benefitLines = (items: string[]) => items.join("\n");
 const benefitsFromLines = (value: unknown) => String(value ?? "").split("\n").map(item => item.trim()).filter(Boolean);
 
@@ -73,13 +73,14 @@ export function PaymentPackagesPage({ locale, environment, initialRoute, onRoute
     [{ type: "text", name: "id", label: "ID", required: true, readOnly: originalId !== null }, { type: "text", name: "nameVi", label: `${text.name} (VI)`, required: true }, { type: "text", name: "nameEn", label: `${text.name} (EN)`, required: true }],
     { type: "select", name: "platform", label: text.platform, options: [{ value: "web", label: "Web" }, { value: "ios", label: "iOS (iPhone/iPad)" }, { value: "android", label: "Android" }] },
     ...(draft?.platform === "web" ? [] : [{ type: "text", name: "storeProductId", label: text.storeProductId, helper: text.storeProductIdHelp, required: true } as ui.FormSchema]),
+    ...(draft?.platform === "web" && draft.type !== "free" ? [{ type: "text", name: "serviceCode", label: paymentCopy.serviceCode, helper: paymentCopy.serviceCodeHelp, required: true, rules: { pattern: { value: /^[A-Z0-9_]+$/, message: paymentCopy.serviceCodeInvalid } } } as ui.FormSchema] : []),
     ...(draft?.platform === "android" ? [{ type: "text", name: "storeBasePlanId", label: isVi ? "Mã gói cơ sở Google Play" : "Google Play base plan ID", required: true } as ui.FormSchema] : []),
     { type: "select", name: "type", label: text.type, options: [{ value: "free", label: isVi ? "Miễn phí" : "Free" }, { value: "monthly", label: isVi ? "Hàng tháng" : "Monthly" }, { value: "annual", label: isVi ? "Hàng năm" : "Annual" }, { value: "one-time", label: isVi ? "Một lần" : "One-time" }] },
     { type: "multi-select", name: "targetEnvironments", label: paymentCopy.targetEnvironments, required: true, requiredMessage: paymentCopy.targetEnvironmentsRequired, options: paymentTargetEnvironments.map((value) => ({ value, label: paymentCopy.environments[value] })) },
     [{ type: "textarea", name: "infoVi", label: `${text.info} (VI)` }, { type: "textarea", name: "infoEn", label: `${text.info} (EN)` }],
     [{ type: "textarea", name: "benefitsVi", label: `${text.benefits} (VI)`, helper: text.benefitsHelp, rows: 5 }, { type: "textarea", name: "benefitsEn", label: `${text.benefits} (EN)`, helper: text.benefitsHelp, rows: 5 }],
     [{ type: "number", name: "amount", label: text.price, min: 0 }, { type: "text", name: "currency", label: isVi ? "Tiền tệ" : "Currency" }],
-  ], [draft?.platform, isVi, originalId, paymentCopy, text]);
+  ], [draft?.platform, draft?.type, isVi, originalId, paymentCopy, text]);
   const save = async (event: FormEvent) => { event.preventDefault(); if (!draft || !items) return; if (!draft.targetEnvironments.length) { toast.show({ title: paymentCopy.targetEnvironmentsRequired, variant: "error" }); return; } setBusy(true); try { const next = [...items.filter((item) => item.id !== originalId), draft].sort((a, b) => a.name[locale].localeCompare(b.name[locale])); const saved = await window.getgo.savePaymentPackages(next); const canonical = saved.find((item) => item.id === draft.id) ?? draft; setItems((current) => current ? (originalId ? current.map((item) => item.id === originalId ? canonical : item) : [...current, canonical].sort((a, b) => a.name[locale].localeCompare(b.name[locale]))) : current); setDraft(null); toast.show({ title: isVi ? "Đã lưu gói" : "Package saved", variant: "success" }); } catch (error) { toast.show({ title: isVi ? "Không thể lưu" : "Save failed", description: String(error), variant: "error" }); } finally { setBusy(false); } };
   const sync = () => auth.requireAuth(async () => { setBusy(true); try { const result = await window.getgo.syncPaymentPackages(); toast.show({ title: isVi ? "Đã đồng bộ" : "Packages synchronized", description: `${result.count} ${isVi ? "gói" : "packages"} · ${paymentCopy.environments[environment]}`, variant: "success" }); } catch (error) { toast.show({ title: isVi ? "Đồng bộ thất bại" : "Sync failed", description: String(error), variant: "error" }); } finally { setBusy(false); } });
   const syncEvents = () => auth.requireAuth(async () => { setBusy(true); try { const result = await window.getgo.syncPaymentEvents(); const stores = result.nativeOffers.apple + result.nativeOffers.google; const details = [`${result.count} ${isVi ? "sự kiện" : "events"}`, `${stores} ${isVi ? "ưu đãi cửa hàng" : "store offers"}`, paymentCopy.environments[environment], ...result.nativeOffers.skipped].join(" · "); toast.show({ title: isVi ? "Đã đồng bộ sự kiện" : "Events synchronized", description: details, variant: result.nativeOffers.skipped.length ? "info" : "success" }); } catch (error) { toast.show({ title: isVi ? "Đồng bộ thất bại" : "Sync failed", description: String(error), variant: "error" }); } finally { setBusy(false); } });
@@ -87,6 +88,7 @@ export function PaymentPackagesPage({ locale, environment, initialRoute, onRoute
   const columns = useMemo<ui.DataColumn<PaymentPackage>[]>(() => [
     { key: "name", title: text.name, render: (item) => <strong>{item.name[locale]}</strong> }, { key: "type", title: text.type, render: (item) => item.type },
     { key: "platform", title: text.platform, render: (item) => item.platform === "ios" ? "iOS" : item.platform === "android" ? "Android" : "Web" },
+    { key: "serviceCode", title: paymentCopy.serviceCode, render: (item) => item.serviceCode || "—" },
     { key: "environments", title: paymentCopy.targetEnvironments, render: (item) => item.targetEnvironments.map((value) => paymentCopy.environments[value]).join(", ") },
     { key: "info", title: text.info, render: (item) => item.info[locale] || "—" },
     { key: "benefits", title: text.benefits, render: (item) => item.benefits[locale].length || "—" },

@@ -420,6 +420,7 @@ const {
   functionsArtifactsRetentionDays = 1,
   functionCodebases = [],
   functionsRegion = 'us-central1',
+  googlePlayRuntimeServiceAccount = null,
   resourceDir = `configs/deploys/${target}`,
 } = config
 const deployDir = resolveDeploymentPath(resourceDir)
@@ -748,7 +749,9 @@ function assembleFunctionsSrc() {
       .replace(/{FUNCTIONS_REGION}/g, functionsRegion)
     writeFileSync(
       join(srcDir, 'deploymentConfig.ts'),
-      `${GENERATED_BANNER(`configs/deploys/${target}/target.json`)}export const DEPLOYMENT_REGION = ${JSON.stringify(functionsRegion)};\n`,
+      `${GENERATED_BANNER(`configs/deploys/${target}/target.json`)}` +
+      `export const DEPLOYMENT_REGION = ${JSON.stringify(functionsRegion)};\n` +
+      `export const GOOGLE_PLAY_RUNTIME_SERVICE_ACCOUNT: string | undefined = ${googlePlayRuntimeServiceAccount ? JSON.stringify(googlePlayRuntimeServiceAccount) : 'undefined'};\n`,
       'utf-8',
     )
     const exportSections = selectedBlocks.map(block => {

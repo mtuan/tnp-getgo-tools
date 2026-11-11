@@ -338,6 +338,7 @@
     "paidQuizRequiresPaidTopic": "Bài học Độc quyền phải thuộc một chủ đề Độc quyền.",
     "priceRequired": "Nhập giá mua chủ đề.",
     "priceInvalid": "Nhập giá là số nguyên dương.",
+    "serviceCodeInvalid": "Chỉ dùng chữ hoa, số và dấu gạch dưới.",
     "columns": {
       "topic": "Chủ đề",
       "type": "Loại",
@@ -374,6 +375,8 @@
       "pricingType": "Hình thức",
       "amount": "Số tiền",
       "currency": "Tiền tệ",
+      "serviceCode": "Mã sản phẩm VietQR",
+      "serviceCodeHelp": "Mã sản phẩm VietQR dùng để tự động xuất hóa đơn.",
       "listHelp": "Nhập mỗi mục trên một dòng hoặc phân cách bằng dấu phẩy."
     },
     "reviewBeforeListing": {
@@ -1268,6 +1271,13 @@
     "allEventTypes": "Tất cả loại sự kiện",
     "sale": "Khuyến mãi",
     "premiumPreview": "Dùng thử Premium",
+    "serviceCode": "Mã sản phẩm VietQR",
+    "serviceCodeHelp": "Mã sản phẩm đã cấu hình trên VietQR, ví dụ GG_PREMIUM_1M.",
+    "serviceCodeInvalid": "Chỉ dùng chữ hoa, số và dấu gạch dưới.",
+    "serviceCodeSuffix": "Hậu tố sự kiện VietQR",
+    "serviceCodeSuffixHelp": "Hậu tố ghép vào mã sản phẩm, ví dụ TET.",
+    "topicTargets": "ID chủ đề áp dụng",
+    "topicTargetsHelp": "Nhập ID chủ đề, hoặc * để áp dụng cho mọi chủ đề trả phí.",
     "noMatchingPackages": "Không có gói nào phù hợp với bộ lọc.",
     "noMatchingEvents": "Không có sự kiện nào phù hợp với bộ lọc.",
     "syncTo": "Đồng bộ lên {environment}",

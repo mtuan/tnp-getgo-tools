@@ -6,6 +6,7 @@ export const paymentPackageSchema = z.object({
   platform: z.enum(["web", "ios", "android"]).default("web"),
   storeProductId: z.string().trim().min(1).optional(),
   storeBasePlanId: z.string().trim().min(1).optional(),
+  serviceCode: z.string().trim().regex(/^[A-Z0-9_]+$/).optional(),
   targetEnvironments: paymentTargetEnvironmentsSchema,
   name: z.object({ en: z.string().min(1), vi: z.string().min(1) }),
   type: z.enum(["free", "monthly", "annual", "one-time"]),
@@ -15,3 +16,10 @@ export const paymentPackageSchema = z.object({
 });
 export type PaymentPackage = z.infer<typeof paymentPackageSchema>;
 export const paymentPackagesSchema = z.array(paymentPackageSchema);
+export const publishablePaymentPackagesSchema = paymentPackagesSchema.superRefine((items, context) => {
+  items.forEach((value, index) => {
+    if (value.platform === "web" && value.type !== "free" && !value.serviceCode) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "A VietQR service code is required for paid Web packages.", path: [index, "serviceCode"] });
+    }
+  });
+});

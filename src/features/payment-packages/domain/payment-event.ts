@@ -18,7 +18,8 @@ const baseEventSchema = z.object({
 const saleEventSchema = z.object({
   type: z.literal("sale"),
   discountPercent: z.number().min(1).max(100),
-  targets: z.object({ packageIds: z.array(z.string()).min(1) }),
+  serviceCodeSuffix: z.string().trim().default(""),
+  targets: z.object({ packageIds: z.array(z.string()).default([]), topicIds: z.array(z.string()).default([]) }),
 });
 
 const premiumPreviewEventSchema = z.object({
@@ -33,7 +34,11 @@ const premiumPreviewEventSchema = z.object({
 export const paymentEventSchema = z.intersection(
   baseEventSchema,
   z.discriminatedUnion("type", [saleEventSchema, premiumPreviewEventSchema]),
-);
+).superRefine((value, context) => {
+  if (value.type === "sale" && value.targets.packageIds.length === 0 && value.targets.topicIds.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Select at least one package or topic target.", path: ["targets"] });
+  }
+});
 export type PaymentEvent = z.infer<typeof paymentEventSchema>;
 type EventSchedule = Pick<PaymentEvent, "enabled" | "recurrence" | "startsOn" | "endsOn">;
 
@@ -49,6 +54,14 @@ export const paymentEventsSchema = z.array(paymentEventSchema).superRefine((even
   events.forEach((event, index) => {
     if (seen.has(event.id)) context.addIssue({ code: z.ZodIssueCode.custom, message: `Event ID “${event.id}” must be unique.`, path: [index, "id"] });
     seen.add(event.id);
+  });
+});
+
+export const publishablePaymentEventsSchema = paymentEventsSchema.superRefine((events, context) => {
+  events.forEach((event, index) => {
+    if (event.type === "sale" && !/^[A-Z0-9_]+$/.test(event.serviceCodeSuffix)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "A valid VietQR event service code suffix is required.", path: [index, "serviceCodeSuffix"] });
+    }
   });
 });
 

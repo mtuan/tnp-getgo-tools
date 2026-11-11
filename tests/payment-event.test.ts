@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { paymentEventSchema, paymentEventsSchema, suggestPaymentEventId } from "../src/features/payment-packages/domain/payment-event.js";
+import { paymentEventSchema, paymentEventsSchema, publishablePaymentEventsSchema, suggestPaymentEventId } from "../src/features/payment-packages/domain/payment-event.js";
 
 const base = {
   id: "welcome-event",
@@ -17,10 +17,35 @@ test("accepts sale package targets", () => {
     ...base,
     type: "sale",
     discountPercent: 25,
+    serviceCodeSuffix: "TET",
     targets: { packageIds: ["getgo-family-annual"] },
   });
   assert.equal(event.type, "sale");
   if (event.type === "sale") assert.deepEqual(event.targetEnvironments, ["development", "staging", "production"]);
+});
+
+test("accepts a sale targeting every paid topic", () => {
+  const event = paymentEventSchema.parse({
+    ...base,
+    type: "sale",
+    discountPercent: 25,
+    serviceCodeSuffix: "TET",
+    targets: { topicIds: ["*"] },
+  });
+  if (event.type === "sale") {
+    assert.deepEqual(event.targets.packageIds, []);
+    assert.deepEqual(event.targets.topicIds, ["*"]);
+  }
+});
+
+test("loads legacy sales but rejects publishing without a VietQR suffix", () => {
+  const event = paymentEventSchema.parse({
+    ...base,
+    type: "sale",
+    discountPercent: 25,
+    targets: { packageIds: ["getgo-family-annual"] },
+  });
+  assert.throws(() => publishablePaymentEventsSchema.parse([event]));
 });
 
 test("accepts premium preview user and registration-platform targets", () => {
@@ -70,6 +95,6 @@ test("suggests a slug and increments it until it is unique", () => {
 });
 
 test("rejects duplicate event IDs in a saved collection", () => {
-  const event = { ...base, type: "sale", discountPercent: 25, targets: { packageIds: ["annual"] } };
+  const event = { ...base, type: "sale", discountPercent: 25, serviceCodeSuffix: "TET", targets: { packageIds: ["annual"], topicIds: [] } };
   assert.throws(() => paymentEventsSchema.parse([event, event]));
 });
